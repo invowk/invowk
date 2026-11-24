@@ -158,10 +158,13 @@ add avoidable unbounded heap growth.
   both hooks.
 - The no-follow hook puts back a trailing separator when the request named a
   directory by its form (`dir/`). A command that removes or replaces the
-  entry must check for that before acting: `ln` refuses a link name that ends
-  in a separator and names a directory ("cannot overwrite directory") before
-  its `-f` removal, which would otherwise remove an empty directory and then
-  fail to create the link (PR #198 review).
+  entry must not rely on that separator alone: `dir/.` and `.` resolve to a
+  directory with no trailing separator. `ln` therefore refuses whenever
+  `os.Lstat` of the resolved link name is a directory (`dir`, `dir/`,
+  `dir/.`, `.`, `..`: "cannot overwrite directory") before its `-f` removal,
+  which would otherwise remove an empty directory. Lstat, not Stat: a link to
+  a directory named without a separator is still replaced as a link (PR #198
+  review).
 - The operand rules are chosen by the dispatched command's `Name()`, not by
   `args[0]`, which is handed on as written.
 - The security boundary is normalized allowed-root validation, not symlink

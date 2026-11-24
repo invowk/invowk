@@ -254,6 +254,9 @@ func TestVirtualPathNoFollowTrailingSeparator(t *testing.T) {
 				"ln -sf target.txt emptylink/.",
 				"ln -sf target.txt dir",
 				"cd dir && ln -sf ../target.txt .",
+				"mkdir dir/sub && cd dir/sub && ln -sf ../../target.txt ..",
+				"ln target.txt dir",
+				"ln -f target.txt dir",
 			} {
 				t.Run(script+" keeps the directory", func(t *testing.T) {
 					t.Parallel()
@@ -269,6 +272,22 @@ func TestVirtualPathNoFollowTrailingSeparator(t *testing.T) {
 					assertIsLink(t, filepath.Join(work, "emptylink"))
 				})
 			}
+			t.Run("ln -sf replaces a link to a directory", func(t *testing.T) {
+				t.Parallel()
+				work := linkTestTree(t)
+				fstree.MustSymlink(t, "dir", filepath.Join(work, "emptylink"))
+				// Lstat, not Stat: the link is replaced and its directory kept.
+				if run := runVirtualShTest(t, work, "ln -sf target.txt emptylink", access); run.exit != 0 {
+					t.Fatalf("ln -sf target.txt emptylink = %+v", run)
+				}
+				dest, err := os.Readlink(filepath.Join(work, "emptylink"))
+				if err != nil || dest != "target.txt" {
+					t.Fatalf("emptylink -> %q, %v; want target.txt", dest, err)
+				}
+				if info, err := os.Lstat(filepath.Join(work, "dir")); err != nil || !info.IsDir() {
+					t.Errorf("dir after ln -sf target.txt emptylink: %v, %v; want the directory kept", info, err)
+				}
+			})
 			t.Run("[ -L live/ ] tests the cleaned operand", func(t *testing.T) {
 				t.Parallel()
 				work := linkTestTree(t)

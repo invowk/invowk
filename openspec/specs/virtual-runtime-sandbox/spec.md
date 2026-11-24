@@ -318,10 +318,6 @@ An `rm` operand, an `mv` source or `ln`'s link name that ends in a separator, `.
 - **WHEN** a virtual script runs `rm -r dirlink/`, where `dirlink` is a symbolic link to a directory inside the allowed roots
 - **THEN** the target directory and its contents SHALL be removed, and `dirlink` SHALL remain
 
-#### Scenario: ln with a trailing separator on a directory
-- **WHEN** a virtual script runs `ln -sf t dir`, `ln -sf t dir/`, `ln -sf t dir/.`, `ln -sf t emptylink/`, `ln -sf t emptylink/.`, or `ln -sf ../t .` inside `dir`, where `dir` is an empty directory and `emptylink` a symbolic link to it, under either access mode
-- **THEN** `ln` SHALL fail with a "cannot overwrite directory" error before it removes anything, and `dir` and `emptylink` SHALL remain
-
 #### Scenario: The mv destination and a hard-link target
 - **WHEN** a virtual script names the `mv` destination or a hard link's target with a trailing separator
 - **THEN** it SHALL keep full resolution with no not-a-directory check
@@ -329,6 +325,17 @@ An `rm` operand, an `mv` source or `ln`'s link name that ends in a separator, `.
 #### Scenario: Link test on a cleaned operand
 - **WHEN** a `virtual-sh` script evaluates `[ -L live/ ]`, where `live` is a symbolic link
 - **THEN** the stat handler SHALL use the no-follow path of the operand as the shell passes it, after the shell has made it absolute and cleaned it to `live`, so the test SHALL be true (a host shell, which follows `live/`, says false)
+
+### Requirement: ln never replaces a directory
+`ln` SHALL refuse with a "cannot overwrite directory" error, before it removes anything, whenever its resolved link name is an existing directory, whatever form names it (`dir`, `dir/`, `dir/.`, `.`, `..`, or a link to a directory with a trailing separator). A link to a directory named without a trailing separator is a link, not a directory, and SHALL be replaced like any other link with `-f`.
+
+#### Scenario: ln on a directory in any form
+- **WHEN** a virtual script runs `ln -sf t dir`, `ln -sf t dir/`, `ln -sf t dir/.`, `ln -sf t emptylink/`, `ln -sf t emptylink/.`, or `ln -sf ../t .` inside `dir`, where `dir` is an empty directory and `emptylink` a symbolic link to it, under either access mode
+- **THEN** `ln` SHALL fail with a "cannot overwrite directory" error before it removes anything, and `dir` and `emptylink` SHALL remain
+
+#### Scenario: ln replaces a link to a directory
+- **WHEN** a virtual script runs `ln -sf target.txt emptylink`, where `emptylink` is a symbolic link to the empty directory `dir`, under either access mode
+- **THEN** `emptylink` SHALL become a symbolic link to `target.txt`, and `dir` SHALL remain
 
 ### Requirement: Built-in operands are found as the built-in parses them
 Under a validating context, the operands of every validated built-in (`base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`) SHALL be found as its parser finds them, subject to "A double dash ends a built-in's options", and each SHALL be validated, whatever it starts with, except `cat`'s lone `-` and the operands of `tar` with only `-t`, which stay as written. Option values SHALL pass as written, except `tar`'s archive path, which SHALL be validated.

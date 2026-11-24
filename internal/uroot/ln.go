@@ -71,12 +71,13 @@ func (c *lnCommand) Run(ctx context.Context, args []string) error {
 	linkName = resolvedLinkName
 
 	// ln never replaces a directory: -f would remove an empty one. The check
-	// looks at the resolved entry itself (Lstat), so it covers every form that
-	// names a directory, including `dir/.` and `.`, whose resolved form has no
-	// trailing separator, while a link to a directory named without a
-	// separator is still replaced as a link. It runs before anything is
-	// removed.
-	if info, statErr := os.Lstat(linkName); statErr == nil && info.IsDir() {
+	// looks at the resolved entry itself (Lstat, not Stat), so it covers every
+	// form that names a directory, including `dir/.` and `.`, whose resolved
+	// form has no trailing separator, while a link to a directory named
+	// without a separator is still replaced as a link. It runs before
+	// anything is removed, and the -f removal below reuses its result.
+	existing, lstatErr := os.Lstat(linkName)
+	if lstatErr == nil && existing.IsDir() {
 		return wrapError(c.name, fmt.Errorf("%s: %w", linkName, errLnLinkNameIsDirectory))
 	}
 
@@ -94,12 +95,12 @@ func (c *lnCommand) Run(ctx context.Context, args []string) error {
 
 	// Remove existing link destination if -f is specified
 	if *force {
-		if _, err := os.Lstat(linkName); err == nil {
+		if lstatErr == nil {
 			if removeErr := os.Remove(linkName); removeErr != nil {
 				return wrapError(c.name, fmt.Errorf("cannot remove %q: %w", linkName, removeErr))
 			}
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return wrapError(c.name, fmt.Errorf("cannot stat %q: %w", linkName, err))
+		} else if !errors.Is(lstatErr, os.ErrNotExist) {
+			return wrapError(c.name, fmt.Errorf("cannot stat %q: %w", linkName, lstatErr))
 		}
 	}
 
