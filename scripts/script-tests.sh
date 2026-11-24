@@ -52,6 +52,7 @@ SCRIPT_TESTS=(
 	"Change-flow foreign-commit lister|bash scripts/test_change_flow_foreign_commits.sh"
 	"Skill package checker|python3 scripts/test_check_skill_packages.py"
 	"CI/release test-leg parity|python3 scripts/test_check_ci_release_parity.py"
+	"Dependabot merge gate|python3 scripts/test_dependabot_gate.py"
 	"Release poetic-opening checker|python3 .agents/skills/publish-release/scripts/test_check_poetic_opening.py"
 	"Review-docs contract checker|python3 .agents/skills/review-docs/scripts/test_review_docs.py"
 	"Script-test worktree-safety gate|bash scripts/test_check_script_tests_worktree_safety.sh"

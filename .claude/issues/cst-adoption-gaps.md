@@ -59,8 +59,10 @@ Decisions taken with the maintainer (2026-11-14):
 | N22 | EVOLVE — bug | `module sync/update/add/remove` print "Lock file updated" when `LockFile.Save` skipped the write (#186 follow-up; scheduled before the next tag) | S |
 | N23 | DECIDE — product | lock-format questions: UTC `generated:`, and unknown CUE fields a no-op save no longer normalises (#186 follow-up; deferred) | S |
 | N24 | EVOLVE — security | native and container runtimes re-open `SelectedScriptFilePath()` after the contained read (TOCTOU residual; outside B1; not yet proposed) | S |
-| N25 | EVOLVE — CI | Dependabot version updates have not run since 2026-06-23; security updates disabled (maintainer repository setting) | S |
+| N25 | EVOLVE — CI | Dependabot reactivated 2026-11-19 (security updates enabled, version updates running again); merge gate added in `decide-only` mode (`ci/dependabot-gate`) | S |
 | N26 | EVOLVE — supply chain | website npm residuals: `tinypool` (critical), `serialize-javascript` (high) and `uuid` (moderate) pinned by Docusaurus 3.10.2, no fix inside Docusaurus 3 | S |
+| N27 | EVOLVE — deps | `github.com/coder/acp-go-sdk` 0.20 migration (Dependabot PR #190 broke `internal/acpclient`; not yet proposed) | S–M |
+| N28 | EVOLVE — CI | Dependabot gate flip to `merge` mode, after it has judged real pull requests correctly (pending) | S |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
@@ -419,6 +421,24 @@ guide ("set `TMPDIR` if needed").
   `GET /repos/invowk/invowk/automated-security-fixes` returns
   `{"enabled":false,"paused":true}` (2026-11-19). Unpausing (and enabling security updates) is a repository setting for the
   maintainer; agents do not change GitHub settings.
+
+  **Reactivated 2026-11-19.** The maintainer enabled security updates, and version updates
+  run again: on 2026-11-23 Dependabot opened #189 (npm), #190 (Go, a group of 10) and #191
+  (GitHub Actions). The old configuration put every update of an ecosystem in one group, so
+  one major (`typescript` 6 -> 7 in #189) or one broken dependency (`acp-go-sdk` in #190,
+  N27) held the whole pull request. PR `ci/dependabot-gate` changes that:
+  - `.github/dependabot.yml`: gomod and npm group only patch and minor updates. Majors, the
+    sync-pair dependencies and the two fast-moving SDKs (`github.com/coder/acp-go-sdk`,
+    `github.com/openai/openai-go/v3`) arrive as their own pull requests.
+  - `.github/workflows/dependabot-gate.yml` with `scripts/dependabot-gate.py`: a merge gate
+    that runs main's copy on `workflow_run` and decides `merge` or `hold` (rules:
+    `.agents/rules/ci-workflows.md`, "Dependabot merge gate"). It ships in `decide-only`
+    mode, which writes the verdict to the job summary and merges nothing. Its verdicts on
+    the three open pull requests: all `hold` (#189 the `typescript` major, #190 failing
+    checks and the `acp-go-sdk` 0.x minor, #191 a GitHub Actions update).
+  - Merges will use the dedicated `invowk-dependabot-merge` GitHub App (no ruleset bypass;
+    `DEPENDABOT_MERGE_APP_ID` variable and `DEPENDABOT_MERGE_APP_PRIVATE_KEY` secret,
+    created by the maintainer). The flip to `merge` mode is N28.
 - **N26 — website npm residuals with no fix inside Docusaurus 3 (2026-11-19 audit).**
   After `npm audit fix` (PR `chore/deps-security-refresh`, run twice: the second run
   bumped `express` 4.22.2 to 4.22.3, whose `qs ~6.16.0` cleared the top-level `qs` 6.15.4
@@ -440,6 +460,20 @@ guide ("set `TMPDIR` if needed").
   packages (the 14 critical Docusaurus packages, `@docusaurus/bundler`, the two webpack
   plugins, `sockjs`, `webpack-dev-server`) are flagged only through these three. Fix: the
   Docusaurus release that moves off them (4.x), or a later 3.x.
+- **N27 — `github.com/coder/acp-go-sdk` 0.20 migration.** Dependabot PR #190 (2026-11-23)
+  moved the SDK from 0.13.5 to 0.20.0 inside the Go group; Dependabot labels the step
+  semver-minor, but the 0.x API changed and `internal/acpclient` no longer builds (the four
+  CI test legs, `govulncheck`, golangci-lint and the goplint consumer gates fail on #190).
+  The gate treats a minor bump to a 0.x version as breaking, and `.github/dependabot.yml`
+  now keeps the SDK out of the Go group. Pending: migrate `internal/acpclient` to the 0.20
+  API in its own change; the other nine bumps of #190 do not depend on it.
+- **N28 — Dependabot gate flip to `merge` mode.** The gate (N25) runs in `decide-only`
+  mode. Flip it once it has judged real Dependabot pull requests correctly: compare the
+  verdicts in the `Dependabot Gate` job summaries with what a maintainer would have
+  decided, across at least one patch or minor pull request that should merge and the holds
+  already seen. The flip is one reviewed PR that changes `GATE_MODE` in
+  `.github/workflows/dependabot-gate.yml` to `merge` (and the pinned value in
+  `scripts/test_dependabot_gate.py`); it is never a repository variable.
 
 ## Why CST keeps its production paths out of invowk anyway
 

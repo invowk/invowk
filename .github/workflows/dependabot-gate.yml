@@ -1,0 +1,113 @@
+# Decides whether a Dependabot pull request may merge without a human, and
+# (only in `merge` mode) merges it. Rules and policy tables:
+# scripts/dependabot-gate.py. Summary for agents: .agents/rules/ci-workflows.md.
+#
+# Security model:
+# - `workflow_run` always runs this file and the script as they are on main,
+#   so a pull request cannot edit its own gate. Never add `pull_request_target`.
+# - No step checks out, builds or runs pull request code. The only checkout is
+#   main's copy of the decision script.
+# - GITHUB_TOKEN is read-only. The one credential that can write is the
+#   `invowk-dependabot-merge` App token (Contents and Pull requests read-write,
+#   no ruleset bypass, so the `main` ruleset still applies to its merge). It is
+#   minted only in `merge` mode and only after a `merge` verdict.
+# - Every value that comes from the event reaches `run:` through `env:`.
+#
+# GATE_MODE is a constant in this file, not a repository variable: moving from
+# `decide-only` to `merge` is a reviewed pull request.
+
+name: Dependabot Gate
+
+on:
+  workflow_run:
+    # The workflows whose checks the script requires (REQUIRED_* in
+    # scripts/dependabot-gate.py; the script tests compare the two lists).
+    workflows:
+      - CI
+      - Lint
+      - Formal Verification
+      - CodeQL
+      - Test Website Build
+    types:
+      - completed
+
+permissions: {}
+
+# One evaluation at a time per head commit. A newer completion waits for the
+# running one instead of cancelling it, so a merge is never interrupted.
+concurrency:
+  group: dependabot-gate-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+env:
+  GATE_MODE: decide-only
+
+jobs:
+  gate:
+    # Keep the name: the script ignores its own check by this name.
+    name: Dependabot merge gate
+    # A noise filter, not the security boundary: the script re-checks the
+    # author, the commits and the head from the API. A run that a person
+    # re-ran has that person as triggering_actor and is not evaluated; the
+    # next completion started by Dependabot is.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
+      github.event.workflow_run.triggering_actor.login == 'dependabot[bot]' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      statuses: read
+    steps:
+      # No `ref:`: for workflow_run the default is the last commit on main.
+      - name: Checkout the decision script from main
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/dependabot-gate.py
+          sparse-checkout-cone-mode: false
+
+      # Exit 0 with decision=merge or decision=hold; any failure of this step
+      # leaves no `merge` output, so the steps below cannot run.
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE_REPOSITORY: ${{ github.repository }}
+          GATE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python3 -I scripts/dependabot-gate.py gate \
+            --repo "$GATE_REPOSITORY" \
+            --head-sha "$GATE_HEAD_SHA" \
+            --mode "$GATE_MODE" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Mint the merge App token
+        id: app-token
+        if: env.GATE_MODE == 'merge' && steps.decide.outputs.decision == 'merge'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.DEPENDABOT_MERGE_APP_ID }}
+          private-key: ${{ secrets.DEPENDABOT_MERGE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      # --match-head-commit: GitHub refuses the merge if the head moved after
+      # the decision.
+      - name: Squash-merge the pull request
+        if: env.GATE_MODE == 'merge' && steps.decide.outputs.decision == 'merge'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GATE_REPOSITORY: ${{ github.repository }}
+          GATE_PR_NUMBER: ${{ steps.decide.outputs.pr_number }}
+          GATE_HEAD_SHA: ${{ steps.decide.outputs.head_sha }}
+        run: |
+          gh pr merge "$GATE_PR_NUMBER" \
+            --repo "$GATE_REPOSITORY" \
+            --squash \
+            --match-head-commit "$GATE_HEAD_SHA"
