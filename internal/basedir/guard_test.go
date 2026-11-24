@@ -26,6 +26,7 @@ var (
 		"internal/testutil/home.go":                             "SetHomeDir writes HOME/USERPROFILE so tests can point the process home at a temp dir",
 		"cmd/invowk/config_paths_help.go":                       "user-facing help text that names the per-OS user config paths ($XDG_CONFIG_HOME, %APPDATA%)",
 		"specs/003-test-suite-audit/contracts/testutil_home.go": "historical spec contract for internal/testutil.SetHomeDir; never called by production code",
+		"internal/runtime/virtual_sh_cd.go":                     "reads the shell's own HOME variable from the interpreter environment, the directory mvdan's bare cd changes into; not a base-directory lookup",
 	}
 
 	// guardSkipDirs are directory names the scan never enters.

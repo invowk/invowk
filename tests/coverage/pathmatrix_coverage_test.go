@@ -146,25 +146,9 @@ var (
 			testFile: "internal/uroot/realpath_test.go",
 			reason:   "u-root resolution uses the virtual filesystem namespace and virtual working directory",
 		},
-		"internal/uroot.validateFindPathArgs": {
-			testFile: "internal/uroot/find_test.go",
-			reason:   "find arguments are validated against the virtual filesystem policy",
-		},
-		"internal/uroot.validateNonOptionPathArgs": {
-			testFile: "internal/uroot/registry_preprocessing_test.go",
-			reason:   "utility arguments are validated against the virtual filesystem policy",
-		},
-		"internal/uroot.validatePathArg": {
-			testFile: "internal/uroot/registry_preprocessing_test.go",
-			reason:   "single utility arguments are validated against the virtual filesystem policy",
-		},
-		"internal/uroot.validateShasumPathArgs": {
-			testFile: "internal/uroot/shasum_test.go",
-			reason:   "shasum arguments are validated against the virtual filesystem policy",
-		},
-		"internal/uroot.validateTarPathArgs": {
-			testFile: "internal/uroot/tar_test.go",
-			reason:   "tar operands use archive and virtual-filesystem semantics",
+		"internal/uroot.HandlerContext.ResolveNoFollowPath": {
+			testFile: "internal/uroot/handler_nofollow_test.go",
+			reason:   "no-follow u-root resolution uses the virtual filesystem namespace and virtual working directory",
 		},
 		"internal/uroot.validateUrootCommandPathArgs": {
 			testFile: "internal/uroot/registry_preprocessing_test.go",
