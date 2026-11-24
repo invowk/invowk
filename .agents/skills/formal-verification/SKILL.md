@@ -257,8 +257,10 @@ mutation-partial-refresh):
    entries whose anchor fails (class and reason kept), drops the symbols' ids
    from `[triage] stale_survivors`, and leaves every other byte unchanged.
 3. Triage each placeholder as above: `triage --check` rejects the class
-   `untriaged` and a reason starting `UNTRIAGED:` until you write both. An id
-   moved between two chosen symbols comes back untriaged too.
+   `untriaged`, a reason starting `UNTRIAGED:` and a reason that still
+   contains the placeholder's "write the class and the reason", so replace the
+   whole reason, not only the mark. An id moved between two chosen symbols
+   comes back untriaged too.
 4. Run the `make mutation-formal-rerun MUTATION_MUTANT_ID=...` line the refresh
    printed twice (commit first when it changed `formal/manifest.toml`: the
    wrapper refuses a dirty manifest, and any other tracked edit outside its

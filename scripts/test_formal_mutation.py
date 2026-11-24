@@ -687,6 +687,17 @@ class TriageTests(Fixture):
         self.assertIn(message, self.check([self.survivor(**{"class": fm.UNTRIAGED_CLASS})]))
         self.assertEqual(self.check([self.survivor(**{"class": "equivalent", "reason": "cannot change behaviour"})]), [])
 
+    def test_leftover_placeholder_sentence_fails(self) -> None:
+        # PR #188: 13 triaged entries kept the refresh's reason with only the
+        # mark deleted, and the check passed.
+        message = ("survivor s1 (Evaluate): untriaged placeholder from `refresh`: write the class (one of abstraction, "
+                   "binding-gap, defect, equivalent, model-gap) and the reason")
+        for reason in ("expression/remove (Changes: `return x` → `return 0`) survives TestDecide; write the class and the "
+                       "reason",
+                       "m survives T; write the class and the reason; other rows of Evaluate: M: other; pick the right one"):
+            with self.subTest(reason=reason):
+                self.assertIn(message, self.check([self.survivor(**{"class": "equivalent", "reason": reason})]))
+
     def test_reruns_are_required(self) -> None:
         one = [{"id": "s1", "status": "escaped", "timestamp": "t", "digest": "base"}]
         self.assertIn("baseline id s1: 1 recorded escaped rerun(s)", self.check([self.survivor()], reruns=one)[0])
@@ -1787,6 +1798,18 @@ class RefreshTests(Fixture):
             self.assertIn(f"baseline id {mid}: 0 recorded escaped rerun(s) at its own input digest, need 2 "
                           f"(make mutation-formal-rerun MUTATION_MUTANT_ID={mid})", failures)
         self.assertEqual(len(failures), 4, failures)
+        # ...still as untriaged with the class written and only the mark deleted
+        # from the reason refresh wrote (the writer and the check share the sentence)...
+        refreshed = self.paths.ledger.read_text()
+        self.assertEqual(refreshed.count(f"; {fm.UNTRIAGED_PROMPT}"), len(added))
+        self.paths.ledger.write_text(refreshed.replace('class = "untriaged"', 'class = "binding-gap"')
+                                     .replace('reason = "UNTRIAGED: ', 'reason = "')
+                                     .replace('follow_up = ""', 'follow_up = "task 2"'))
+        failures = self.triage()
+        for mid in added:
+            self.assertIn(f"survivor {mid} (Evaluate): untriaged placeholder from `refresh`: write the class (one of "
+                          "abstraction, binding-gap, defect, equivalent, model-gap) and the reason", failures)
+        self.paths.ledger.write_text(refreshed)
         # ...and passes once triaged and evidenced.
         text = self.paths.ledger.read_text().replace('class = "untriaged"', 'class = "binding-gap"')
         text = re.sub(r'reason = "UNTRIAGED: [^\n]*', 'reason = "the binding never returns x"', text)
