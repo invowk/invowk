@@ -268,7 +268,8 @@ REQUIRED_COMMON = REQUIRED_EXTERNAL + (
     Required("CodeQL", "CodeQL", CODE_SCANNING_APP),
 )
 # ci.yml: its `pull_request` path filter lists go.mod and go.sum, and none of
-# its jobs has an `if`. All fourteen ran on #190; website-only #189 started
+# its required jobs has an `if` (test-report and pgo-commit have one and are
+# not required). All fourteen ran on #190; website-only #189 started
 # none of them, which is why they are required for gomod only.
 REQUIRED_GOMOD = REQUIRED_COMMON + tuple(
     Required(name, "CI")
@@ -1262,7 +1263,8 @@ def _readable_run(run: object) -> bool:
     """Whether a workflow run of the snapshot has every field the rules read, with its type.
 
     `head_repository.id` is None for a run whose fork was deleted: such a run
-    is not on a branch of this repository (_own_run).
+    is not on a branch of this repository (_own_run), and counts as a fork's
+    run (fork_suites).
     """
     numbers = (
         _dig(run, "id"),
@@ -1294,13 +1296,11 @@ def fork_suites(snapshot: dict) -> set[int]:
     Anyone can open a pull request from a fork with the head commit of a
     Dependabot pull request, and a maintainer may approve its runs: they run
     on the same commit, so their checks are listed with Dependabot's. They
-    neither satisfy nor hold anything here.
+    neither satisfy nor hold anything here. A run whose head repository is
+    gone (`head_repository: null`, a deleted fork) is one of them: a branch of
+    this repository always has this repository as its head repository.
     """
-    return {
-        run["check_suite_id"]
-        for run in _list(snapshot.get("workflow_runs"))
-        if _readable_run(run) and not _own_run(run) and run["head_repository"]["id"] is not None
-    }
+    return {run["check_suite_id"] for run in _list(snapshot.get("workflow_runs")) if _readable_run(run) and not _own_run(run)}
 
 
 def rule_checks(ctx: Context) -> None:

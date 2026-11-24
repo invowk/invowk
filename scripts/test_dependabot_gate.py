@@ -2324,17 +2324,38 @@ class CheckProvenanceTests(GateTestCase):
         verdict = self.assert_holds(snapshot, "dependabot[bot] started no pull_request run of .github/workflows/lint.yml", only=False)
         self.assertEqual(len(verdict["reasons"]), len([check for check in GATE.REQUIRED_GOMOD if check.workflow == "Lint"]))
 
-    def test_run_of_a_deleted_fork_is_not_a_fork_run(self) -> None:
+    def test_run_of_a_deleted_fork_is_a_fork_run(self) -> None:
         # A run whose head repository is gone (`head_repository: null`) is
-        # not on this repository's branch, and nothing proves it is a fork's:
-        # its failed checks still hold, its actor does not.
+        # not on this repository's branch: a branch of this repository always
+        # has it as the head repository. It is the run of a fork that was
+        # deleted, and like any fork's run its checks neither hold ...
         snapshot = green_gomod()
         orphan = fork_run(snapshot, "CI", fork=None)
         snapshot["workflow_runs"].append(orphan)
-        self.assertEqual(GATE.fork_suites(snapshot), set())
+        self.assertTrue(GATE._readable_run(orphan))
+        self.assertFalse(GATE._own_run(orphan))
+        self.assertEqual(GATE.fork_suites(snapshot), {orphan["check_suite_id"]})
         self.assert_merges(snapshot)
         replace_with_fork_checks(snapshot, orphan, conclusion="failure")
-        self.assert_holds(snapshot, 'check "Test (macos)" ("github-actions") concluded "failure"', only=False)
+        self.assert_merges(snapshot)
+        # ... nor stand in for a failed Dependabot job ...
+        snapshot = green_gomod()
+        suite_check(snapshot, "Test (macos)")["conclusion"] = "failure"
+        orphan = fork_run(snapshot, "CI", fork=None)
+        snapshot["workflow_runs"].append(orphan)
+        replace_with_fork_checks(snapshot, orphan, conclusion="success")
+        self.assert_holds(
+            snapshot,
+            'required check "Test (macos)" (CI) in Dependabot\'s run 45145297237 of .github/workflows/ci.yml (attempt 1): '
+            'its check run concluded "failure" (status "completed")',
+        )
+        # ... nor count as Dependabot's run when Dependabot started it.
+        snapshot = green_gomod()
+        orphan = fork_run(snapshot, "Lint", actor=GATE.DEPENDABOT[1], fork=None)
+        snapshot["workflow_runs"].remove(workflow_run(snapshot, "Lint"))
+        snapshot["workflow_runs"].append(orphan)
+        replace_with_fork_checks(snapshot, orphan, conclusion="success")
+        self.assert_holds(snapshot, "dependabot[bot] started no pull_request run of .github/workflows/lint.yml", only=False)
 
     def test_fork_and_own_runs_are_told_by_repository_ids(self) -> None:
         snapshot = green_gomod()
@@ -2891,37 +2912,71 @@ class PolicyTableTests(unittest.TestCase):
                     self.assertEqual(len(jobs), 1, f"no single job of {check.workflow} is named {check.name!r}")
                     self.assertNotIn("if", jobs[0], "a conditional job can be skipped: it cannot be required")
 
-    # Finding B1 of the PR #197 review. A job token with `checks: write` can
-    # create a check with any name and PATCH the conclusion of any
-    # github-actions check run of the commit. Keeping it out of .git/config
-    # (`persist-credentials: false`) is hygiene, not the control: code a job
-    # runs can still reach the token (the runner user may rewrite the
-    # actions under `_actions/`, a post step gets the token as an input, and
-    # hosted runners have passwordless sudo). The control is that no job
-    # that runs pull request code may write checks.
+    # Finding B1 of the PR #197 review, generalised. A job token with
+    # `checks: write` can create a check with any name and PATCH the
+    # conclusion of any github-actions check run of the commit; `contents:
+    # write` can push, `pull-requests: write` can edit and approve,
+    # `id-token: write` can mint an OIDC token for this repository, and so on.
+    # Keeping the token out of .git/config (`persist-credentials: false`) is
+    # hygiene, not the control: code a job runs can still reach it (the
+    # runner user may rewrite the actions under `_actions/`, a post step gets
+    # the token as an input, and hosted runners have passwordless sudo). The
+    # control is that no job that runs pull request code holds a write grant
+    # of any scope.
     #
     # The events whose runs a pull request's author can cause with code the
     # pull request chose. push, schedule, release and workflow_dispatch run
     # only main's or a tag's code here (every push trigger is limited to main
     # or to tags: test_push_triggers_run_only_main_or_tags).
-    PR_EVENTS = frozenset({"pull_request", "pull_request_target", "workflow_run", "pull_request_review", "pull_request_review_comment", "issue_comment"})
-    # The two jobs that may write checks and check out pull request code,
-    # and why the token does not reach that code. Each reason is asserted in
-    # test_check_writers_that_check_out_pull_request_code_keep_their_evidence.
-    CHECK_WRITER_EXEMPTIONS = {
+    PR_EVENTS = frozenset({"pull_request", "pull_request_target", "workflow_run", "pull_request_review", "pull_request_review_comment", "issue_comment", "merge_group"})
+    # The jobs that hold a write grant and may run pull request code by the
+    # rule below (a checkout or a `run` step), with the grants they hold and
+    # why the token does not reach pull request code. Each reason is asserted
+    # in test_writers_that_check_out_pull_request_code_keep_their_evidence or
+    # test_pgo_profile_commit_runs_no_pull_request_code.
+    WRITER_EXEMPTIONS = {
         ("benchmarks.yml", "bencher"): (
+            frozenset({"checks", "pull-requests"}),
             "Track Benchmarks runs only for a pull request from a branch of this repository (people with write access, "
             "or Dependabot, which changes no script) that carries the `benchmarks: run` label, which only a maintainer adds. "
             "The dependency code is read only inside `docker build`, whose context leaves out .git (where the persisted token is); "
-            "the benchmarks run on Bencher's machine, not on the runner, and the token goes to the pinned bencher CLI only."
+            "the benchmarks run on Bencher's machine, not on the runner, and the token goes to the pinned bencher CLI only.",
         ),
         ("benchmarks-upload.yml", "upload-fork-pr"): (
+            frozenset({"checks", "pull-requests"}),
             "Benchmark Upload checks the fork's head out into source/ and reads it only as the context of `docker build`, "
             "with the trusted Dockerfile and the trusted .dockerignore copied over the fork's; every script it sources is "
-            "from the trusted checkout of main."
+            "from the trusted checkout of main.",
+        ),
+        ("ci.yml", "pgo-commit"): (
+            frozenset({"contents"}),
+            "PGO Profile Commit has no checkout: it downloads the profile PGO Sanity regenerated, checks that the artifact is "
+            "one regular gzip file named default.pgo, and commits that one path to the pull request's own branch through the "
+            "GraphQL API. Its `run` steps are inline shell that calls no make, go, script or git; PGO Sanity, which runs the "
+            "pull request's code, holds `contents: read` only.",
         ),
     }
-
+    # Write grants in jobs that run pull request code, found when the rule
+    # was generalised and left to the maintainer: the workflows are unchanged
+    # and each grant is needed by an action of the job, but nothing here
+    # shows the token stays out of reach of the code the job runs.
+    WRITERS_AWAITING_MAINTAINER = {
+        ("ci.yml", "release-dry-run"): (
+            frozenset({"id-token"}),
+            "Release Dry Run builds the pull request's code with GoReleaser and holds `id-token: write`, for keyless Cosign "
+            "signing on push and release runs; on pull_request runs it passes --skip=sign, so the grant is unused there.",
+        ),
+        ("claude.yml", "claude"): (
+            frozenset({"id-token"}),
+            "Claude Code checks out the event's ref (a pull request's merge ref on review events) and runs "
+            "anthropics/claude-code-action, which exchanges the OIDC token for its App token.",
+        ),
+        ("codeql.yml", "analyze"): (
+            frozenset({"security-events"}),
+            "Analyze (go) builds the pull request's code (autobuild) and holds `security-events: write`, which the analyze "
+            "step needs to upload its results.",
+        ),
+    }
     @staticmethod
     def triggers(doc: dict) -> set[str]:
         on = doc.get("on")
@@ -2929,12 +2984,56 @@ class PolicyTableTests(unittest.TestCase):
             return {on}
         return set(on) if isinstance(on, (dict, list)) else set()
 
-    @staticmethod
-    def may_write_checks(doc: dict, job: dict) -> bool:
-        """A job's `permissions` replace the workflow's. With neither, the repository default applies: `read`
-        (`default_workflow_permissions`, read with GET repos/invowk/invowk/actions/permissions/workflow on 2026-11-24)."""
-        permissions = job.get("permissions", doc.get("permissions"))
-        return permissions == "write-all" or (isinstance(permissions, dict) and permissions.get("checks") == "write")
+    PERMISSION_LEVELS = frozenset({"read", "write", "none"})
+
+    @classmethod
+    def permissions_value(cls, value: object, where: str = "permissions") -> dict[str, str] | str | None:
+        """A `permissions` value as a mapping of scope to level, `read-all`, `write-all` or None (absent).
+
+        Flow mappings (`{checks: write}`, `{}`) come back from load_yaml as their text and are parsed here; a
+        value this cannot read fails, so a grant is never skipped.
+        """
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            levels = {str(scope): str(level) for scope, level in value.items()}
+        elif isinstance(value, str) and value.strip().startswith("{"):
+            text = value.strip()
+            if not text.endswith("}") or any(ch in text[1:-1] for ch in "{}[]"):
+                raise ValueError(f"{where}: unreadable flow mapping {value!r}")
+            levels = {}
+            for item in filter(None, (part.strip() for part in text[1:-1].split(","))):
+                scope, colon, level = item.partition(":")
+                if not colon:
+                    raise ValueError(f"{where}: unreadable flow entry {item!r}")
+                levels[scope.strip().strip("'\"")] = level.strip().strip("'\"")
+        elif value in ("read-all", "write-all"):
+            return value
+        else:
+            raise ValueError(f"{where}: unreadable permissions {value!r}")
+        for scope, level in levels.items():
+            if not scope or level not in cls.PERMISSION_LEVELS:
+                raise ValueError(f"{where}: unreadable grant {scope!r}: {level!r}")
+        return levels
+
+    @classmethod
+    def write_grants(cls, doc: dict, job: dict) -> frozenset[str]:
+        """The scopes a job's token may write, `write-all` for all of them.
+
+        A job's `permissions` replace the workflow's. With neither, the repository default applies: `read`
+        (`default_workflow_permissions`, read with GET repos/invowk/invowk/actions/permissions/workflow on 2026-11-24).
+        """
+        raw = job["permissions"] if "permissions" in job else doc.get("permissions")
+        permissions = cls.permissions_value(raw)
+        if permissions is None or permissions == "read-all":
+            return frozenset()
+        if permissions == "write-all":
+            return frozenset({"write-all"})
+        return frozenset(scope for scope, level in permissions.items() if level == "write")
+
+    @classmethod
+    def may_write_checks(cls, doc: dict, job: dict) -> bool:
+        return bool(cls.write_grants(doc, job) & {"checks", "write-all"})
 
     @staticmethod
     def runs_pull_request_code(job: dict) -> bool:
@@ -2948,40 +3047,87 @@ class PolicyTableTests(unittest.TestCase):
     def workflow_files(self) -> dict[str, dict]:
         return {path.name: load_yaml(path.read_text(encoding="utf-8")) for path in sorted(WORKFLOWS.glob("*.y*ml"))}
 
-    def test_no_job_that_runs_pull_request_code_may_write_checks(self) -> None:
-        exempted, writers = [], []
+    def test_every_pull_request_job_declares_permissions(self) -> None:
+        # write_grants falls back to the repository default (read) only for a job with no permissions at
+        # either level; requiring a declaration keeps the guard independent of that repository setting.
         for filename, doc in self.workflow_files().items():
+            if not self.triggers(doc) & self.PR_EVENTS or "permissions" in doc:
+                continue
+            for job_id, job in doc["jobs"].items():
+                with self.subTest(workflow=filename, job=job_id):
+                    self.assertIn("permissions", job, "a job a pull request can start declares its permissions")
+
+    def test_no_job_that_runs_pull_request_code_may_write(self) -> None:
+        known = {**self.WRITER_EXEMPTIONS, **self.WRITERS_AWAITING_MAINTAINER}
+        self.assertFalse(set(self.WRITER_EXEMPTIONS) & set(self.WRITERS_AWAITING_MAINTAINER))
+        exempted, writers = [], {}
+        for filename, doc in self.workflow_files().items():
+            self.permissions_value(doc.get("permissions"), f"{filename}: permissions")
             if not self.triggers(doc) & self.PR_EVENTS:
                 continue
             for job_id, job in doc["jobs"].items():
-                if not self.may_write_checks(doc, job):
+                grants = self.write_grants(doc, job)
+                if not grants:
                     continue
-                writers.append((filename, job_id))
+                writers[(filename, job_id)] = grants
                 if not self.runs_pull_request_code(job):
                     continue
                 with self.subTest(workflow=filename, job=job_id):
-                    self.assertIn((filename, job_id), self.CHECK_WRITER_EXEMPTIONS, "a job that runs pull request code may write checks")
+                    self.assertIn((filename, job_id), known, f"a job that runs pull request code may write {sorted(grants)}")
+                    # An exemption covers the grants it names, not a new one.
+                    self.assertEqual(grants, known[(filename, job_id)][0])
                     exempted.append((filename, job_id))
-        # Every exemption is still needed: a job that stops writing checks loses it.
-        self.assertEqual(sorted(exempted), sorted(self.CHECK_WRITER_EXEMPTIONS))
-        self.assertEqual(sorted(writers), sorted([*self.CHECK_WRITER_EXEMPTIONS, ("ci.yml", "test-report")]))
+        # Every exemption is still needed: a job that stops writing loses it.
+        self.assertEqual(sorted(exempted), sorted(known))
+        self.assertEqual(writers, {**{key: grants for key, (grants, _) in known.items()}, ("ci.yml", "test-report"): frozenset({"checks"})})
+        for key, (_, reason) in known.items():
+            with self.subTest(exemption=key):
+                self.assertGreater(len(reason), 80)
 
-    def test_the_check_writer_rule_sees_each_grant(self) -> None:
+    def test_the_writer_rule_sees_each_grant(self) -> None:
         job = {"steps": [{"uses": "actions/checkout@v7"}, {"run": "go test ./..."}]}
-        for doc, job_permissions, writes in (
-            ({}, {"checks": "write"}, True),
-            ({}, "write-all", True),
-            ({"permissions": {"checks": "write"}}, None, True),
-            ({"permissions": "write-all"}, None, True),
-            ({"permissions": {"checks": "write"}}, {"contents": "read"}, False),  # the job's replace the workflow's
-            ({"permissions": "write-all"}, {}, False),
-            ({}, None, False),  # the repository default, read
-            ({}, {"checks": "read"}, False),
-            ({}, "read-all", False),
+        for doc, job_permissions, grants in (
+            ({}, {"checks": "write"}, {"checks"}),
+            ({}, {"contents": "write", "id-token": "write", "actions": "read"}, {"contents", "id-token"}),
+            ({}, "write-all", {"write-all"}),
+            ({"permissions": {"checks": "write"}}, None, {"checks"}),
+            ({"permissions": "write-all"}, None, {"write-all"}),
+            ({"permissions": {"checks": "write"}}, {"contents": "read"}, set()),  # the job's replace the workflow's
+            ({"permissions": "write-all"}, {}, set()),
+            ({}, None, set()),  # the repository default, read
+            ({}, {"checks": "read", "statuses": "none"}, set()),
+            ({}, "read-all", set()),
         ):
             with self.subTest(workflow=doc, job=job_permissions):
                 full = dict(job) if job_permissions is None else dict(job, permissions=job_permissions)
-                self.assertEqual(self.may_write_checks(doc, full), writes)
+                self.assertEqual(self.write_grants(doc, full), grants)
+                self.assertEqual(self.may_write_checks(doc, full), bool(grants & {"checks", "write-all"}))
+        # The forms load_yaml keeps as text are read, not skipped.
+        for text, grants in (
+            ("permissions: {checks: write}\n", {"checks"}),
+            ("permissions: { contents: read, 'id-token': \"write\" }\n", {"id-token"}),
+            ("permissions: {security-events: write, pull-requests: write}\n", {"security-events", "pull-requests"}),
+            ("permissions: {}\n", set()),
+            ("permissions: write-all\n", {"write-all"}),
+            ("permissions: 'write-all'\n", {"write-all"}),
+            ("permissions: read-all\n", set()),
+            ("permissions:\n  packages: write\n  deployments: write\n", {"packages", "deployments"}),
+        ):
+            with self.subTest(text=text):
+                doc = load_yaml(text)
+                self.assertEqual(self.write_grants(doc, dict(job)), grants)
+                self.assertEqual(self.write_grants({}, dict(job, permissions=doc["permissions"])), grants)
+        for text in (
+            "permissions:\n",
+            "permissions: write\n",
+            "permissions: {checks}\n",
+            "permissions: {checks: admin}\n",
+            "permissions: {checks: {nested: write}}\n",
+            "permissions: [checks]\n",
+            "permissions: {checks: write\n",
+        ):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.write_grants(load_yaml(text), dict(job))
         for steps, runs in (
             ([{"uses": "actions/download-artifact@v8"}, {"uses": "mikepenz/action-junit-report@v6"}], False),
             ([{"uses": "actions/checkout@v7", "with": {"ref": "main"}}], True),
@@ -3003,7 +3149,7 @@ class PolicyTableTests(unittest.TestCase):
                 push = on["push"] or {}
                 self.assertTrue(push.get("branches") == ["main"] or ("tags" in push and "branches" not in push), push)
 
-    def test_check_writers_that_check_out_pull_request_code_keep_their_evidence(self) -> None:
+    def test_writers_that_check_out_pull_request_code_keep_their_evidence(self) -> None:
         files = self.workflow_files()
         shell = re.compile(r"^\s*(?:go|npm|npx|node|make|yarn|pnpm|python3?|bash|sh)\b", re.MULTILINE)
         dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
@@ -3067,6 +3213,67 @@ class PolicyTableTests(unittest.TestCase):
         self.assertEqual(junit["with"]["check_name"], "JUnit Report (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})")
         self.assertEqual(report["name"], test["name"].replace("Test (", "Test Report (", 1))
         self.assertFalse(any("mikepenz/action-junit-report" in str(step.get("uses")) for step in test["steps"]))
+
+    def test_pgo_profile_commit_runs_no_pull_request_code(self) -> None:
+        doc = self.workflow_files()["ci.yml"]
+        sanity, commit = doc["jobs"]["pgo-sanity"], doc["jobs"]["pgo-commit"]
+        # PGO Sanity runs the pull request's code with a read-only token that it does not persist.
+        self.assertEqual(sanity["permissions"], {"contents": "read"})
+        checkouts = [step for step in sanity["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")]
+        self.assertEqual(len(checkouts), 1)
+        self.assertEqual(checkouts[0]["with"].get("persist-credentials"), "false")
+        # The default ref: no pull request head checkout, and no head output a job running that code could forge.
+        self.assertNotIn("ref", checkouts[0]["with"])
+        self.assertEqual(sanity["outputs"], {"needs_refresh": "${{ steps.pgo-check.outputs.needs_refresh }}"})
+        (upload,) = [step for step in sanity["steps"] if str(step.get("uses", "")).startswith("actions/upload-artifact@")]
+        self.assertEqual(upload["uses"], "actions/upload-artifact@v7")
+        self.assertEqual(upload["if"], "steps.pgo-check.outputs.needs_refresh == 'true'")
+        self.assertEqual(upload["with"]["name"], "pgo-profile")
+        self.assertEqual(upload["with"]["path"], "default.pgo")
+        self.assertFalse(any("createCommitOnBranch" in step.get("run", "") or "GH_TOKEN" in step.get("env", {}) for step in sanity["steps"]))
+        # PGO Profile Commit: same-repository pull requests only, after a regeneration, and no checkout.
+        self.assertEqual(commit["permissions"], {"contents": "write"})
+        self.assertEqual(commit["needs"], "pgo-sanity")
+        self.assertEqual(commit["if"].split("\n"), [
+            "needs.pgo-sanity.outputs.needs_refresh == 'true'",
+            "&& github.event_name == 'pull_request'",
+            "&& github.event.pull_request.head.repo.full_name == github.repository",
+            "&& github.event.pull_request.user.login != 'dependabot[bot]'",
+        ])
+        # Dependabot's pull_request runs get the declared write permissions, so its PRs never reach the job.
+        for key in ("env", "continue-on-error"):
+            self.assertNotIn(key, commit)
+        for key in ("uses", "services", "container", "defaults"):
+            self.assertNotIn(key, commit)
+        uses = [step["uses"] for step in commit["steps"] if "uses" in step]
+        self.assertEqual(uses, ["actions/download-artifact@v8"])
+        download = commit["steps"][0]
+        self.assertEqual(download["with"], {"name": upload["with"]["name"], "path": "${{ runner.temp }}/pgo-profile"})
+        shell = re.compile(r"(?:^|[\s;|&(])(?:go|npm|npx|node|make|yarn|pnpm|python3?|bash|sh|git|source|\.)\s", re.MULTILINE)
+        runs = [step for step in commit["steps"] if "run" in step]
+        self.assertEqual(len(runs), 2)
+        for step in runs:
+            with self.subTest(step=step["name"]):
+                self.assertEqual(sorted(step), ["env", "name", "run", "shell"])
+                self.assertEqual(step["shell"], "bash")
+                self.assertIsNone(shell.search(step["run"]), step["run"])
+                self.assertNotIn("./", step["run"])
+                self.assertNotIn("GITHUB_WORKSPACE", step["run"])
+        verify, write = runs
+        self.assertIn('if [ "$entries" != "default.pgo" ]', verify["run"])
+        self.assertIn('if [ -L "$profile" ] || [ ! -f "$profile" ]', verify["run"])
+        self.assertNotIn("GH_TOKEN", verify["env"])
+        # The commit goes to the pull request's own head branch, on top of the head PGO Sanity checked out.
+        self.assertEqual(write["env"]["HEAD_BRANCH"], "${{ github.head_ref }}")
+        self.assertEqual(write["env"]["EXPECTED_HEAD"], "${{ github.event.pull_request.head.sha }}")
+        self.assertEqual(write["env"]["GH_TOKEN"], "${{ github.token }}")
+        self.assertIn('if [ "$CURRENT_HEAD" != "$EXPECTED_HEAD" ]; then', write["run"])
+        self.assertIn('additions: [{path: "default.pgo", contents: $contents}]', write["run"])
+        self.assertIn("expectedHeadOid: $oid", write["run"])
+        self.assertIn('--arg oid "$EXPECTED_HEAD"', write["run"])
+        self.assertIn('--arg branch "$HEAD_BRANCH"', write["run"])
+        self.assertNotIn("deletions", write["run"])
+        self.assertNotIn("force", write["run"])
 
     def test_ignored_checks_are_job_names(self) -> None:
         docs = workflow_docs()

@@ -1,7 +1,7 @@
 # Git and Commits
 
 - **CRITICAL: sign every commit** (`git commit -S`, with the SSH or GPG signing already configured). The `main` ruleset rejects unsigned commits and requires linear history. To sign by default: `git config --global commit.gpgsign true`.
-- **Merge into `main` only by squash merge.** This is project policy, not a GitHub setting: the repository still enables merge-commit and rebase merging, and the ruleset only requires signatures, linear history and the `goplint consumer gates` check, so choose squash explicitly. Local recipe and branch cleanup: `.agents/runbooks/git-merge.md`.
+- **Merge into `main` only by squash merge.** This is project policy, not a GitHub setting: the repository still enables merge-commit and rebase merging, and the Safety ruleset only requires signatures, linear history and three checks (`goplint consumer gates`; `Models, golden vectors, and correspondence`; `script tests (worktree-safety gate)`), so choose squash explicitly. Local recipe and branch cleanup: `.agents/runbooks/git-merge.md`.
 - Do not change branch rulesets, required status checks or the CodeQL setup without the maintainer.
 - Subject: `type(scope): summary`, at most 72 characters. Body: 3-6 bullets on what changed (and why, when it helps). Call out user-facing behavior, schema changes and migrations. No vague messages such as "misc" or "wip".
 - In scripted bodies use real newlines (`git commit -F -`, a message file, or repeated `-m`); never write escaped `\n`.
