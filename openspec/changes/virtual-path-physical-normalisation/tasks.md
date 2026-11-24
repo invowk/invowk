@@ -59,17 +59,17 @@ Commit boundaries follow design D7: group 2 is the F18 commit, group 3 the F14 a
 
 ## 4. Commit 3: SonarCloud go:S8209
 
-- [ ] 4.1 Write `workDir, scriptBasePath string` in the signatures of `newVirtualPathResolverForFilesystem` and `newVirtualPathResolverForInteractiveConfig`; no body change. Commit, signed: `style(runtime): group same-type parameters in the virtual path resolver`. Verify: `go build ./internal/runtime/` passes and `git show --stat` lists only `virtual_policy.go`.
+- [x] 4.1 Write `workDir, scriptBasePath string` in the signatures of `newVirtualPathResolverForFilesystem` and `newVirtualPathResolverForInteractiveConfig`; no body change. Commit, signed: `style(runtime): group same-type parameters in the virtual path resolver`. Verify: `go build ./internal/runtime/` passes and `git show --stat` lists only `virtual_policy.go`.
 
 ## 5. Formal lane
 
 - [ ] 5.1 Run `python3 scripts/formal.py affected --event pull_request --base origin/main --head HEAD`; when it prints `run=true`, run `python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check` and `make formal-reach`. Verify: all three pass, and no killer is reported as skipped.
 - [ ] 5.2 Run `make formal` (Java is installed) and `make test-scripts`. Verify: both logs end with `rc=0`; `VirtualPathHarness` shows `harnessContainedFixed` passing and three `mutantPreFix…` counterexamples.
-- [ ] 5.3 Note for the fix stage, in the pull request body: the rewritten bound symbols are `normalizeExistingOrParent` and the new walk helper (`pathWithin` and `virtualPathValidator.validate` only if their bodies changed), so `formal_mutation.py symbols` is expected to say `refresh`. Verify: the pull request body lists them.
+- [x] 5.3 Note for the fix stage, in the pull request body: the rewritten bound symbols are `normalizeExistingOrParent` and the new walk helper (`pathWithin` and `virtualPathValidator.validate` only if their bodies changed), so `formal_mutation.py symbols` is expected to say `refresh`. Verify: the pull request body lists them.
 
 ## 6. Push and platform evidence
 
-- [ ] 6.1 Push `fix/virtual-path-physical-normalisation` and open the draft pull request. Verify: `gh pr view` shows a draft.
+- [x] 6.1 Push `fix/virtual-path-physical-normalisation` and open the draft pull request. Verify: `gh pr view` shows a draft.
 - [ ] 6.2 From the pull request's `Test (windows)` and `Test (macos)` jobs, quote the run id, the job id and the test names that ran and passed: on Windows `TestVirtualPathHarness_JunctionEscapeDenied`, `TestVirtualPathHarness_GoldenVectors` (with its junction-request count), `TestVirtualPathHarness_Property`, `TestVirtualPathHarness_DanglingLinkEscapeDenied`, `TestVirtualPathHarness_DeepMissingPathThroughSymlinkDenied` and the Windows consumer tests of 3.7 (the missing drive, the device names and `rm -rf` on a junction). Say next to it that commit 1 was not run on Windows by itself (design D7); on macOS the `/tmp/<unique>/new1/new2` test and the two symlink replays. Verify: none of the quoted tests is reported as skipped; a green job alone is not evidence.
 
 ## 7. Completion gates (`.agents/rules/checklist.md`)
@@ -82,6 +82,16 @@ Commit boundaries follow design D7: group 2 is the F18 commit, group 3 the F14 a
 - [ ] 7.6 `make sonar-local`. Verify: no new issue that code can fix; the two go:S8209 issues are gone.
 - [ ] 7.7 Conditional checks: `make test-scripts` (formal changed), `python3 scripts/formal.py correspondence` and `make formal`, `cd website && npm run build`, `make check-agent-docs`. Verify: each passes.
 - [ ] 7.8 Runtime mirrors: `TestShRuntimeMirrorCoverage` and `TestVirtualNativeCommandPathAlignment` pass with the new exemption. Verify: `go test -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/`.
+
+## Implementation status (implement stage, 2026-11-24)
+
+Open boxes above, and why:
+
+- 1.2, 5.1 and 5.2: every locked command so far ended with `rc=0` (three commits, `make formal`), and `python3 scripts/formal.py correspondence` and `make formal-reach` pass. `python3 scripts/formal_mutation.py triage --check` fails, and so `make test-scripts` and the CI check `Models, golden vectors, and correspondence` fail with it, for one reason: the 12 ledger entries of `normalizeExistingOrParent` anchor on the rewritten body. The fix stage's partial refresh closes that (Workflow follow-up).
+- 6.2: the evidence is in the pull request description, by test name, run id and job id. It is not ticked here because a tick is a new head, and the evidence must be read from the final one.
+- 7.x: the completion gates run in the fix stage, on the rebased tree. The pre-commit hooks of each commit passed (`make lint`, the routed goplint gate, the Windows cross-build, `make sonar-local`).
+
+One fake-filesystem case is platform-specific: below a plain file Linux and macOS report `ENOTDIR` (an error), and Windows reports "path not found" (a missing component), as design D2 says. The first Windows run showed it; no product code changed for it.
 
 ## Workflow follow-up
 

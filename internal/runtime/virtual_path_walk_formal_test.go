@@ -102,7 +102,9 @@ func (f *fakePathFS) vfs() virtualPathFS {
 }
 
 // checkAncestors fails the test when the walk looks below a link or below a
-// missing entry. It returns ENOTDIR below a plain file, as Linux and macOS do.
+// missing entry. It returns ENOTDIR below a plain file, as Linux and macOS do;
+// on Windows syscall.ENOTDIR is ERROR_PATH_NOT_FOUND, which is what Windows
+// reports there.
 func (f *fakePathFS) checkAncestors(op, name string) error {
 	f.t.Helper()
 	ancestors := []string{}
@@ -283,14 +285,26 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 	}
 	dirs = append(dirs, fakePath("root", fmt.Sprintf("chain%03d", virtualPathMaxLinks+1)))
 
-	tests := []struct {
+	type walkCase struct {
 		name       string
 		request    string
 		wantPrefix string
 		wantSuffix []string
 		wantLink   string
 		wantErr    error
-	}{
+	}
+	// A path below a plain file. Linux and macOS report ENOTDIR there, which
+	// is an error and not "missing". On Windows the system reports
+	// ERROR_PATH_NOT_FOUND, which is "does not exist" (syscall.ENOTDIR is that
+	// same code there, so the fake reports it too): the walk ends at the file,
+	// and the request is judged by where the file is (design D2).
+	fileUsedAsDirectory := walkCase{name: "file used as a directory", request: fakePath("root", "x", "below"), wantErr: syscall.ENOTDIR}
+	if runtime.GOOS == goosWindows {
+		fileUsedAsDirectory.wantErr = nil
+		fileUsedAsDirectory.wantPrefix = fakePath("root", "x")
+		fileUsedAsDirectory.wantSuffix = []string{"below"}
+	}
+	tests := []walkCase{
 		{name: "existing path with no link", request: fakePath("root", "in", "f"), wantPrefix: fakePath("root", "in", "f")},
 		{name: "volume root", request: fakeRoot(), wantPrefix: fakeRoot()},
 		{name: "one missing component", request: fakePath("root", "in", "new"), wantPrefix: fakePath("root", "in"), wantSuffix: []string{"new"}},
@@ -340,7 +354,7 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 		{name: "256 links", request: fakePath("root", "chain000"), wantErr: errVirtualPathTooManyLinks, wantLink: fakePath("root", "chain000")},
 		{name: "lstat error other than not-exist", request: fakePath("root", "locked", "x"), wantErr: fs.ErrPermission},
 		{name: "lstat error inside a link target", request: fakePath("root", "tolocked"), wantErr: fs.ErrPermission, wantLink: fakePath("root", "tolocked")},
-		{name: "file used as a directory", request: fakePath("root", "x", "below"), wantErr: syscall.ENOTDIR},
+		fileUsedAsDirectory,
 		{name: "unreadable link inside a link target", request: fakePath("root", "tobroken"), wantErr: syscall.ENOENT, wantLink: fakePath("root", "tobroken")},
 		{
 			name: "standard stream on a pipe", request: fakePath("dev", "stdout"),
