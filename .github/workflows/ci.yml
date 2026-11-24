@@ -55,9 +55,12 @@ jobs:
     name: Test (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    # No `checks: write` here: this job runs the pull request's code, on a
+    # Dependabot pull request the updated dependency's, and a token that may
+    # write checks would let that code create or rewrite a check named like a
+    # required one. The `test-report` job below publishes the JUnit reports.
     permissions:
       contents: read
-      checks: write
     strategy:
       fail-fast: false
       matrix:
@@ -94,11 +97,8 @@ jobs:
             test-mode: short
 
     steps:
-      # This job's token may write checks (the Test Report step), and the job
-      # runs the pull request's code, on a Dependabot pull request the updated
-      # dependency's. Keep the token out of .git/config, where that code could
-      # read it and create a check named like a required one: no later step
-      # runs git against the remote. scripts/test_dependabot_gate.py checks it.
+      # Hygiene: no later step runs git against the remote, so the token
+      # stays out of .git/config, where the code under test could read it.
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -329,18 +329,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-      # Render JUnit results as PR annotations (inline failed test annotations)
-      - name: Test Report
-        if: always()
-        uses: mikepenz/action-junit-report@v6
-        with:
-          report_paths: '*.xml'
-          check_name: JUnit Report (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
-          fail_on_failure: true
-          check_retries: true
-          flaky_summary: true
-          include_passed: false
-
       # Surface rerun reports as GitHub Actions warnings for flake visibility
       - name: Flag flaky tests
         if: always()
@@ -363,6 +351,50 @@ jobs:
           name: coverage-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
           path: coverage.out
           retention-days: 7
+
+  # Render each test leg's JUnit results as a check with PR annotations
+  # (`JUnit Report (...)`). The only job of this workflow that may write
+  # checks, so it runs no pull request code: no checkout, no `run` step, only
+  # the pinned report action on the XML files the test leg uploaded. Its
+  # matrix lists the test job's legs (os, engine);
+  # scripts/test_dependabot_gate.py fails when the two differ.
+  test-report:
+    name: Test Report (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+    needs: test
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      checks: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            engine: docker
+          - os: ubuntu-latest
+            engine: podman
+          - os: windows
+            engine: ""
+          - os: macos
+            engine: ""
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@v8
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
+          path: test-results
+
+      - name: Test Report
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: 'test-results/*.xml'
+          check_name: JUnit Report (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+          fail_on_failure: true
+          check_retries: true
+          flaky_summary: true
+          include_passed: false
 
   # Build verification (ensures the binary compiles on all platforms)
   build:

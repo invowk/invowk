@@ -48,14 +48,17 @@ only when no rule left a reason. `merge` requires all of:
             every side where it exists and that the metadata does not name
             may be removed, may be added at a released or pseudo-version
             (unless another requirement has the same path apart from its
-            `/vN` or `.vN` suffix), and may change to any version that is
-            strictly newer by semver precedence;
+            `/vN` or `.vN` suffix), and may change to a released or
+            pseudo-version that is strictly newer by semver precedence (a
+            step from v0 to v1 is named as a crossing in the rule);
           - `allow-0x-minor`: a module under an ALLOW_0X_MINOR prefix
             (`golang.org/x/`) that is not on the deny list may take a minor
             bump of a 0.x version, direct or indirect.
         The deny list, `+incompatible`, a downgrade, a move between direct
-        and indirect, and a pseudo-version or 0.0.z version of a direct
-        requirement still hold;
+        and indirect, a pre-release, and a pseudo-version or 0.0.z version
+        of a direct requirement still hold. A require line that is not a
+        comment and not `<module path> <version>[ // indirect]`, with a
+        module path module.CheckPath accepts, holds;
       - website/package.json: only the dependency sections change, only for
         dependencies the metadata names, from one plain semver range to
         another with the same operator, classified the same way;
@@ -63,9 +66,11 @@ only when no rule left a reason. `merge` requires all of:
         entry that changes is an installed package whose `resolved` is
         exactly the registry.npmjs.org tarball of the name in its key and
         of its version, with a sha512 integrity. None is an alias (a `name`
-        field), none gains an install script, none goes to a version lower
-        than the base's or to another major, and every dependency the
-        metadata names is locked at exactly the named version;
+        field), except an alias `main` already has whose only change is its
+        `peer`/`dev`/`optional`/`devOptional` flags; none gains an install
+        script, none goes to a version lower than the base's or to another
+        major, and every dependency the metadata names is locked at exactly
+        the named version;
       - no carriage return in any of those files;
   - the update types: semver-patch or semver-minor for every dependency in
     the metadata as well; a minor bump whose new version is 0.x (unless
@@ -75,19 +80,28 @@ only when no rule left a reason. `merge` requires all of:
     named in the metadata nor changed in go.mod or package.json as a side
     effect;
   - the checks: every check run and commit status of the head commit is
-    completed and successful (or skipped or neutral), except IGNORED_CHECKS,
-    and every REQUIRED check of the ecosystem is there and successful, so a
-    check that never started cannot pass by its absence;
-  - the provenance of those checks: the workflow run behind every required
-    GitHub Actions check was started by dependabot[bot] (by user id), on
-    `pull_request`, from the expected workflow file, for this head, and the
-    check is a job of that run that ran on a runner (a check a job creates
-    through the API, like `JUnit Report (...)`, is listed among the jobs of
-    a run too, without a runner or steps, and never counts). No
-    `pull_request` run of a required workflow file for this head was started
-    by anyone else, superseded or not. A commit identity alone does not
-    prove Dependabot pushed the head: GitHub signs the squash-merge commit
-    of any Dependabot pull request the same way.
+    completed and successful (or skipped or neutral), except IGNORED_CHECKS
+    and the checks of a fork's runs, and every REQUIRED check of the
+    ecosystem is there and successful, so a check that never started cannot
+    pass by its absence;
+  - the provenance of those checks: each required GitHub Actions check is
+    looked up by name in the check suite of Dependabot's newest
+    `pull_request` run of the expected workflow file, on this repository's
+    branch, for this head (dependabot[bot] by user id). It counts only as a
+    job of that run's latest attempt that ran on a runner (a check a job
+    creates through the API, like `JUnit Report (...)`, is listed among the
+    jobs of a run too, without a runner or steps, and never counts), and
+    only when the run, the check run, the job and every step of the job
+    (success or skipped) succeeded. No `pull_request` run of a required
+    workflow file on this repository's branch for this head was started by
+    anyone else, superseded or not; a fork's run, which anyone can start
+    with the same head commit, neither satisfies nor holds anything. A
+    commit identity alone does not prove Dependabot pushed the head: GitHub
+    signs the squash-merge commit of any Dependabot pull request the same
+    way. The control that keeps a job from forging that evidence is in the
+    workflows: no job that runs pull request code may write checks
+    (`scripts/test_dependabot_gate.py` enforces it). Not persisting the
+    checkout token is hygiene, not that control.
 
 Usage:
   dependabot-gate.py gate --repo OWNER/NAME (--head-sha SHA | --pr NUMBER)
@@ -172,6 +186,8 @@ PSEUDO_VERSION_RE = re.compile(rf"v{_NUMBER}\.{_PSEUDO_BASE}[0-9]{{14}}-[0-9a-f]
 ACTIONS_APP = "github-actions"
 CODE_SCANNING_APP = "github-advanced-security"
 OK_CONCLUSIONS = frozenset({"success", "skipped", "neutral"})
+# What each step of a job behind a required check may conclude.
+STEP_CONCLUSIONS = frozenset({"success", "skipped"})
 
 # (check name, app slug) -> why its result is not read.
 IGNORED_CHECKS: dict[tuple[str, str], str] = {
@@ -548,6 +564,37 @@ def semver_key(version: object) -> tuple | None:
 
 
 _GOMOD_REQUIRE = re.compile(r"(\S+) (v\S+)( // indirect)?")
+# A module path as golang.org/x/mod/module.CheckPath accepts it, as far as a
+# pattern says it. Each element: ASCII letters, digits and `-._~`, no leading
+# or trailing dot (so never `.` or `..`), not a Windows reserved name and not
+# a Windows short name (a tilde and digits) before its first dot. The first
+# element is a lower-case domain with a dot. A quoted path is not one: Go
+# reads `"golang.org/x/tools"` as golang.org/x/tools, this reader would not.
+_GO_WINDOWS_NAMES = r"(?!(?i:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:[./]|\Z))(?![^/.]*~[0-9]+(?:[./]|\Z))"
+_GO_FIRST_ELEMENT = rf"(?=[^/]*\.){_GO_WINDOWS_NAMES}[0-9a-z](?:[0-9a-z.-]*[0-9a-z-])?"
+_GO_ELEMENT = rf"{_GO_WINDOWS_NAMES}[0-9A-Za-z_~-](?:[0-9A-Za-z._~-]*[0-9A-Za-z_~-])?"
+_GO_MODULE_PATH = re.compile(rf"{_GO_FIRST_ELEMENT}(?:/{_GO_ELEMENT})*")
+# module.SplitPathVersion: a final `/vN` element is a major version from v2
+# on, without a leading zero or a dot; a gopkg.in path ends in `.vN`.
+_GO_BAD_MAJOR = re.compile(r".*/v(?:[0-9.]*\.[0-9.]*|0[0-9.]*|1)")
+_GOPKG_IN = re.compile(r"gopkg\.in/.+\.v(?:0|[1-9][0-9]*)(?:-unstable)?")
+
+
+def go_module_path_ok(path: str) -> bool:
+    """Whether `path` is a module path golang.org/x/mod/module.CheckPath would accept."""
+    if not _GO_MODULE_PATH.fullmatch(path) or _GO_BAD_MAJOR.fullmatch(path):
+        return False
+    return not path.startswith("gopkg.in/") or _GOPKG_IN.fullmatch(path) is not None
+
+
+def _requirement(line: str) -> tuple[str, str, bool] | None:
+    """(module, version, indirect) of a requirement line, None for a comment; ValueError otherwise."""
+    if line.strip().startswith("//"):
+        return None
+    match = _GOMOD_REQUIRE.fullmatch(line)
+    if match is None or not go_module_path_ok(match.group(1)):
+        raise ValueError(f"a require line this gate does not read: {line.strip()!a}")
+    return match.group(1), match.group(2), match.group(3) is not None
 
 
 def parse_go_mod(text: str) -> tuple[dict[str, tuple[str, bool]], list[str]]:
@@ -557,32 +604,33 @@ def parse_go_mod(text: str) -> tuple[dict[str, tuple[str, bool]], list[str]]:
     `require` directives only. A line of the same shape in another block
     (`exclude`) stays in the second value, with the `go`, `toolchain`, `tool`
     and `replace` lines and the comments, so the caller can demand that
-    nothing there changes. Raises ValueError for a module required twice.
+    nothing there changes. Raises ValueError for a module required twice and
+    for a line of a require directive that is neither a comment nor
+    `<module path> <version>[ // indirect]` with a valid module path.
     """
     requirements: dict[str, tuple[str, bool]] = {}
     others: list[str] = []
     in_block = False
     for line in text.split("\n"):
-        match = None
-        if in_block:
-            if line == ")":
-                in_block = False
-                continue
-            if line.startswith("\t"):
-                match = _GOMOD_REQUIRE.fullmatch(line[1:])
+        requirement = None
+        if in_block and line == ")":
+            in_block = False
+            continue
+        if in_block and line.strip():
+            requirement = _requirement(line.removeprefix("\t"))
         elif line == "require (":
             in_block = True
             continue
         elif line.startswith("require "):
-            match = _GOMOD_REQUIRE.fullmatch(line[len("require ") :])
-        if match is None:
+            requirement = _requirement(line[len("require ") :])
+        if requirement is None:
             if line.strip():
                 others.append(line)
             continue
-        module, version, indirect = match.groups()
+        module, version, indirect = requirement
         if module in requirements:
             raise ValueError(f"{module} is required twice")
-        requirements[module] = (version, indirect is not None)
+        requirements[module] = (version, indirect)
     if in_block:
         raise ValueError("a require block is not closed")
     return requirements, others
@@ -619,8 +667,10 @@ _NPM_RANGE = re.compile(rf"([~^]?)({_NUMBER}\.{_NUMBER}\.{_NUMBER})")
 _NPM_INTEGRITY = re.compile(r"sha512-[A-Za-z0-9+/]{86}==")
 NPM_REGISTRY = "https://registry.npmjs.org/"
 # A lockfile key: `node_modules/<name>`, nested any number of times. The one
-# group is the name of the package the entry installs.
-_NPM_NAME = r"(?:@[A-Za-z0-9._~-]+/)?[A-Za-z0-9._~-]+"
+# group is the name of the package the entry installs. No part of a name is
+# `.` or `..`: `node_modules/..` names a directory, not a package.
+_NPM_NAME_PART = r"(?!\.\.?(?:/|\Z))[A-Za-z0-9._~-]+"
+_NPM_NAME = rf"(?:@{_NPM_NAME_PART}/)?{_NPM_NAME_PART}"
 _NPM_LOCK_KEY = re.compile(rf"(?:node_modules/{_NPM_NAME}/)*node_modules/({_NPM_NAME})")
 
 
@@ -856,12 +906,14 @@ _GOMOD_MAJOR_SUFFIX = re.compile(r"[/.]v[0-9]+$")
 def _major_sibling(module: str, requirements: set[str]) -> str | None:
     """Another requirement with the same path apart from its `/vN` or `.vN` suffix, or None."""
     stem = _GOMOD_MAJOR_SUFFIX.sub("", module)
-    return next((other for other in sorted(requirements) if other != module and _GOMOD_MAJOR_SUFFIX.sub("", other) == stem), None)
+    siblings = (other for other in sorted(requirements) if other != module and _GOMOD_MAJOR_SUFFIX.sub("", other) == stem)
+    return next(siblings, None)
 
 
-def _check_indirect_side_effect(
-    ctx: Context, eco: Ecosystem, filename: str, module: str, old: dict[str, tuple[str, bool]], new: dict[str, tuple[str, bool]]
-) -> None:
+Requirements = dict[str, tuple[str, bool]]
+
+
+def _check_indirect_side_effect(ctx: Context, eco: Ecosystem, filename: str, module: str, old: Requirements, new: Requirements) -> None:
     """The `indirect-side-effect` relaxation: an indirect requirement the metadata does not name.
 
     The Go command rewrites these lines when a named module moves: it drops
@@ -899,17 +951,30 @@ def _check_indirect_addition(ctx: Context, filename: str, module: str, version: 
 
 
 def _check_indirect_change(ctx: Context, eco: Ecosystem, filename: str, module: str, old: str, new: str) -> None:
+    """A changed unnamed indirect requirement: strictly forward, to a released or pseudo-version.
+
+    A pre-release holds, as it does for an added requirement: the Go command
+    raises an indirect requirement to what another module asks for, and a
+    module that asks for a release candidate is not a routine update. A step
+    from v0 to v1 is forward by semver precedence and is admitted, with the
+    crossing named in the rule so the job summary shows it.
+    """
     line = f"{filename}: {_q(module)} {_q(old)} -> {_q(new)}"
     old_key, new_key = semver_key(old), semver_key(new)
     if old_key is None or new_key is None or new_key <= old_key:
         ctx.hold(f"{line} is not a step forward by semver precedence (a downgrade, or a version with build metadata)")
+    elif not VERSION_RE.fullmatch(new) and not PSEUDO_VERSION_RE.fullmatch(new):
+        ctx.hold(f"{line} is a step to a pre-release, which is neither a released x.y.z version nor a pseudo-version")
     elif _step_problem(ctx, eco, line, module, old, new) is not None:
         # Forward, but not a patch or minor update of a released version.
-        ctx.admit(RULE_INDIRECT, f"{line} (an indirect requirement the metadata does not name, strictly newer)")
+        rule = RULE_INDIRECT
+        if new_key[0][0] != old_key[0][0]:
+            rule = f"{RULE_INDIRECT} (crosses v{old_key[0][0]} to v{new_key[0][0]})"
+        ctx.admit(rule, f"{line} (an indirect requirement the metadata does not name, strictly newer)")
 
 
 def _check_requirement(
-    ctx: Context, eco: Ecosystem, filename: str, module: str, old: dict[str, tuple[str, bool]], new: dict[str, tuple[str, bool]], named: bool
+    ctx: Context, eco: Ecosystem, filename: str, module: str, old: Requirements, new: Requirements, named: bool
 ) -> None:
     """One changed go.mod requirement under the strict rules (a direct or a named one)."""
     if module not in old:
@@ -1010,14 +1075,42 @@ def _check_lock_root(ctx: Context, filename: str, entry: dict, before: object) -
         ctx.hold(f"{filename}: the root entry changes something other than its dependency ranges")
 
 
+# The flags npm sets on a lockfile entry from where the package sits in the
+# dependency graph (a dev-only, optional or peer dependency). Moving another
+# package can flip them on an entry whose package does not change.
+NPM_LOCK_FLAGS = ("peer", "dev", "optional", "devOptional")
+
+
+def _alias_flags_only(entry: dict, before: object) -> bool:
+    """An alias `main` already has, of which nothing but the graph flags changed.
+
+    Its entry minus NPM_LOCK_FLAGS equals the base entry minus the same keys,
+    and each flag is absent or `true` (the only values npm writes). The
+    package, its version, tarball and integrity are what `main` installs
+    already. Anything else about an alias holds.
+    """
+    if "name" not in entry or not isinstance(before, dict):
+        return False
+    if any(entry.get(flag, True) is not True for flag in NPM_LOCK_FLAGS):
+        return False
+
+    def unflagged(value: dict) -> dict:
+        return {name: field for name, field in value.items() if name not in NPM_LOCK_FLAGS}
+
+    return unflagged(entry) == unflagged(before)
+
+
 def _check_lock_entry(ctx: Context, filename: str, key: str, entry: dict, before: object) -> None:
     """One changed lockfile entry other than the root: a registry package, as npm writes it."""
     match = _NPM_LOCK_KEY.fullmatch(key)
     if match is None:
         ctx.hold(f"{filename}: the entry {_q(key)} is not an installed package under node_modules/")
         return
+    if _alias_flags_only(entry, before):
+        return
     if "name" in entry:
-        ctx.hold(f"{filename}: {_q(key)} is an alias of {_q(entry['name'])} (a `name` field): it installs another package under this name")
+        alias = _q(entry["name"])
+        ctx.hold(f"{filename}: {_q(key)} is an alias of {alias} (a `name` field): it installs another package under this name")
     version, resolved, integrity = entry.get("version"), entry.get("resolved"), entry.get("integrity")
     expected = registry_tarball(match.group(1), version)
     if expected is None:
@@ -1165,6 +1258,51 @@ def rule_deny_list(ctx: Context) -> None:
             ctx.hold(f"{name} is on the sync-pair deny list: {ctx.ecosystem.deny[name]}")
 
 
+def _readable_run(run: object) -> bool:
+    """Whether a workflow run of the snapshot has every field the rules read, with its type.
+
+    `head_repository.id` is None for a run whose fork was deleted: such a run
+    is not on a branch of this repository (_own_run).
+    """
+    numbers = (
+        _dig(run, "id"),
+        _dig(run, "check_suite_id"),
+        _dig(run, "actor", "id"),
+        _dig(run, "repository", "id"),
+        _dig(run, "run_attempt"),
+    )
+    head_repository = _dig(run, "head_repository")
+    return (
+        all(type(number) is int for number in numbers)
+        and isinstance(_dig(run, "path"), str)
+        and isinstance(_dig(run, "event"), str)
+        and "conclusion" in run
+        and isinstance(head_repository, dict)
+        and "id" in head_repository
+        and (head_repository["id"] is None or type(head_repository["id"]) is int)
+    )
+
+
+def _own_run(run: dict) -> bool:
+    """A run of a branch of this repository; a fork's run is not one. Needs _readable_run."""
+    return run["head_repository"]["id"] == run["repository"]["id"]
+
+
+def fork_suites(snapshot: dict) -> set[int]:
+    """The check suites of the head's workflow runs that a fork's pull request started.
+
+    Anyone can open a pull request from a fork with the head commit of a
+    Dependabot pull request, and a maintainer may approve its runs: they run
+    on the same commit, so their checks are listed with Dependabot's. They
+    neither satisfy nor hold anything here.
+    """
+    return {
+        run["check_suite_id"]
+        for run in _list(snapshot.get("workflow_runs"))
+        if _readable_run(run) and not _own_run(run) and run["head_repository"]["id"] is not None
+    }
+
+
 def rule_checks(ctx: Context) -> None:
     head = _dig(ctx.snapshot, "pull_request", "head", "sha")
     runs = ctx.snapshot.get("check_runs")
@@ -1173,6 +1311,7 @@ def rule_checks(ctx: Context) -> None:
         ctx.hold("the check runs could not be read")
     if not isinstance(statuses, list):
         ctx.hold("the commit statuses could not be read")
+    forks = fork_suites(ctx.snapshot)
     outcomes: dict[tuple[object, object], list[object]] = {}
     for run in _list(runs):
         name, app = _dig(run, "name"), _dig(run, "app", "slug")
@@ -1183,7 +1322,8 @@ def rule_checks(ctx: Context) -> None:
         if head is None or _dig(run, "head_sha") != head:
             ctx.hold(f"{label} is not for the pull request head")
             continue
-        if (name, app) in IGNORED_CHECKS:
+        suite = _dig(run, "check_suite", "id")
+        if (name, app) in IGNORED_CHECKS or (type(suite) is int and suite in forks):
             continue
         status, conclusion = _dig(run, "status"), _dig(run, "conclusion")
         if status != "completed":
@@ -1199,7 +1339,10 @@ def rule_checks(ctx: Context) -> None:
         return
     for required in ctx.ecosystem.required:
         results = outcomes.get((required.name, required.app), [])
-        if not results:
+        # A required GitHub Actions check is looked up in Dependabot's own
+        # run instead (rule_check_provenance): a fork's later check of the
+        # same name may stand in its place in this listing.
+        if not results and required.app != ACTIONS_APP:
             ctx.hold(f"required check {_q(required.name)} ({required.workflow}) has not run on the head commit")
         # Every run of that name: a second one that was skipped proves nothing.
         for outcome in results:
@@ -1215,72 +1358,121 @@ def _hold_unless_dependabot_started(ctx: Context, run: dict) -> None:
         )
 
 
-def _head_runs_by_suite(ctx: Context, head: object) -> dict[int, list[dict]]:
-    """The workflow runs of the head commit, by check suite id; a run that cannot be read holds.
+def _head_runs(ctx: Context, head: object) -> list[dict]:
+    """The workflow runs of the head commit; a run that cannot be read holds.
 
-    A `pull_request` run of a required workflow file that someone else
-    started holds here, whether or not a required check still points at it:
-    it exists only because that person pushed the head or reopened the pull
-    request, and Dependabot's later runs do not undo that.
+    A `pull_request` run of a required workflow file, on a branch of this
+    repository, that someone else started holds here, whether or not a
+    required check still points at it: it exists only because that person
+    pushed the head or reopened the pull request, and Dependabot's later runs
+    do not undo that. A fork's run is not held on (fork_suites).
     """
     runs = ctx.snapshot.get("workflow_runs")
     if not isinstance(runs, list):
         ctx.hold("the workflow runs could not be read")
-    by_suite: dict[int, list[dict]] = {}
+    readable: list[dict] = []
     for run in _list(runs):
-        numbers = (_dig(run, "id"), _dig(run, "check_suite_id"), _dig(run, "actor", "id"))
-        path, event = _dig(run, "path"), _dig(run, "event")
-        if any(type(number) is not int for number in numbers) or not isinstance(path, str) or not isinstance(event, str):
+        path = _dig(run, "path")
+        if not _readable_run(run):
             ctx.hold(f"a workflow run of the head commit could not be read ({_q(path)})")
         elif head is None or _dig(run, "head_sha") != head:
             ctx.hold(f"the workflow run of {_q(path)} is not for the pull request head")
         else:
-            by_suite.setdefault(numbers[1], []).append(run)
-            if path in REQUIRED_WORKFLOW_PATHS and event == "pull_request":
+            readable.append(run)
+            if _own_run(run) and path in REQUIRED_WORKFLOW_PATHS and run["event"] == "pull_request":
                 _hold_unless_dependabot_started(ctx, run)
-    return by_suite
+    return readable
 
 
-def _job_problem(run: dict, check: object) -> str | None:
-    """Why `check` is not a job of `run` that ran on a runner, or None when it is one.
+def _bound_run(runs: list[dict], path: str) -> dict | None:
+    """Dependabot's newest `pull_request` run of `path` on this repository's branch, or None."""
+    candidates = [
+        run
+        for run in runs
+        if run["path"] == path and run["event"] == "pull_request" and _own_run(run) and run["actor"]["id"] == DEPENDABOT[1]
+    ]
+    return max(candidates, key=lambda run: run["id"]) if candidates else None
 
-    `actions/runs/<id>/jobs` lists the check runs of the run's check suite,
-    and GitHub files a check run that a job creates through the API in the
-    suite of one of the head's runs (on #190 the four `JUnit Report (...)`
-    checks of ci.yml's test job were listed as jobs of the lint.yml run). The
-    API cannot give such a check a runner or steps: a real job that ran has
-    both. A job that never started has runner id 0 and no steps.
+
+def _ran_on_a_runner(job: dict) -> bool:
+    """A job that a runner ran has a runner id and steps; a check created through the API has neither."""
+    runner, steps = job.get("runner_id"), job.get("steps")
+    return type(runner) is int and runner > 0 and isinstance(steps, list) and len(steps) > 0
+
+
+def _latest_attempt_checks(run: dict, name: str) -> tuple[list[tuple[dict, dict]], str | None]:
+    """The (check run, job) pairs of `name` in the run's latest attempt, or why they cannot be told.
+
+    The check runs are those of the run's own check suite, every attempt
+    (`filter=all`). Each must be a job of the run (same id). A job of an
+    earlier attempt is superseded by the re-run and skipped. A check of that
+    name in the latest attempt that no runner ran is one a job created
+    through the API (GitHub lists those among the jobs too, with no runner
+    and no steps): it is never a required check, and it holds.
     """
-    jobs = run.get("jobs")
-    if not isinstance(jobs, list):
-        return "the jobs of that run could not be read"
-    check_id = _dig(check, "id")
-    matches = [job for job in jobs if type(check_id) is int and type(_dig(job, "id")) is int and job["id"] == check_id]
-    if len(matches) != 1:
-        return f"{len(matches)} of its jobs have the id of the check"
-    runner, steps = _dig(matches[0], "runner_id"), _dig(matches[0], "steps")
-    if type(runner) is not int or runner <= 0 or type(steps) is not int or steps <= 0:
-        return "the job with its id has no runner or no steps, as a check created through the API"
+    jobs, checks = run.get("jobs"), run.get("check_runs")
+    if not isinstance(jobs, list) or not isinstance(checks, list):
+        return [], "the jobs or the check runs of that run could not be read"
+    pairs: list[tuple[dict, dict]] = []
+    for check in checks:
+        if _dig(check, "check_suite", "id") != run["check_suite_id"]:
+            return [], "a check run listed for the run's check suite is of another suite"
+        if _dig(check, "name") != name or _dig(check, "app", "slug") != ACTIONS_APP:
+            continue
+        check_id = _dig(check, "id")
+        matches = [job for job in jobs if type(check_id) is int and type(_dig(job, "id")) is int and job["id"] == check_id]
+        if len(matches) != 1:
+            return [], f"{len(matches)} of its jobs have the id of a check of that name"
+        attempt = _dig(matches[0], "run_attempt")
+        if type(attempt) is int and attempt < run["run_attempt"]:
+            continue
+        if type(attempt) is not int or attempt != run["run_attempt"]:
+            return [], f"a job of that name has the attempt {_q(attempt)}, not one of the run's"
+        if not _ran_on_a_runner(matches[0]):
+            return [], "a check of that name has no runner or no steps, as a check created through the API"
+        pairs.append((check, matches[0]))
+    return pairs, None
+
+
+def _job_problem(check: dict, job: dict, head: object) -> str | None:
+    """Why a bound check run and its job do not prove the check passed, or None.
+
+    The check run and the job are one record (same id) and a job with
+    `checks: write` can PATCH the conclusion of a check run, so neither
+    conclusion alone is the evidence. The steps are reported by the runner
+    and no checks API call writes them.
+    """
+    if head is None or _dig(check, "head_sha") != head:
+        return "its check run is not for the pull request head"
+    if _dig(check, "status") != "completed" or _dig(check, "conclusion") != "success":
+        return f"its check run concluded {_q(_dig(check, 'conclusion'))} (status {_q(_dig(check, 'status'))})"
+    if job.get("conclusion") != "success":
+        return f"its job concluded {_q(job.get('conclusion'))}"
+    if not all(step in STEP_CONCLUSIONS for step in job["steps"]):
+        return f"a step of its job concluded {_q(next(step for step in job['steps'] if step not in STEP_CONCLUSIONS))}"
     return None
 
 
-def _check_origin(ctx: Context, required: Required, check: object, by_suite: dict[int, list[dict]]) -> None:
-    """One check run named like a required GitHub Actions check: the run and the job behind it."""
-    expected = WORKFLOW_FILES[required.workflow]
-    suite = _dig(check, "check_suite", "id")
-    behind = by_suite.get(suite, []) if type(suite) is int else []
-    if len(behind) != 1:
-        ctx.hold(f"required check {_q(required.name)}: {len(behind)} workflow runs of the head commit stand behind it, not one")
-        return
-    run = behind[0]
-    _hold_unless_dependabot_started(ctx, run)
-    if run["event"] != "pull_request":
-        ctx.hold(f"the workflow run of {_q(run['path'])} behind required checks ran on {_q(run['event'])}, not on pull_request")
-    if run["path"] != expected:
-        ctx.hold(f"required check {_q(required.name)} was reported by a run of {_q(run['path'])}, not of {expected}")
-    problem = _job_problem(run, check)
-    if problem:
-        ctx.hold(f"required check {_q(required.name)} is not a job of the workflow run of {_q(run['path'])} that ran on a runner: {problem}")
+def _check_origin(ctx: Context, required: Required, runs: list[dict], head: object) -> tuple[int, int] | None:
+    """Bind one required GitHub Actions check to a job of Dependabot's run; (check run id, check suite id), or None."""
+    path = WORKFLOW_FILES[required.workflow]
+    label = f"required check {_q(required.name)} ({required.workflow})"
+    run = _bound_run(runs, path)
+    if run is None:
+        ctx.hold(f"{label}: dependabot[bot] started no pull_request run of {path} on this repository's branch for the head commit")
+        return None
+    where = f"in Dependabot's run {run['id']} of {path} (attempt {run['run_attempt']})"
+    if run["conclusion"] != "success":
+        ctx.hold(f"Dependabot's run {run['id']} of {path}, behind required checks, concluded {_q(run['conclusion'])}")
+    pairs, problem = _latest_attempt_checks(run, required.name)
+    if problem is None and len(pairs) != 1:
+        problem = "it has not run" if not pairs else f"{len(pairs)} jobs of the latest attempt report it"
+    if problem is None:
+        problem = _job_problem(*pairs[0], head)
+    if problem is not None:
+        ctx.hold(f"{label} {where}: {problem}")
+        return None
+    return pairs[0][0]["id"], run["check_suite_id"]
 
 
 def rule_check_provenance(ctx: Context) -> None:
@@ -1295,13 +1487,18 @@ def rule_check_provenance(ctx: Context) -> None:
     becomes `triggering_actor`, which is not read: the run still tested
     Dependabot's push.
 
-    A check suite also holds check runs that no job of its run is: a job
-    with `checks: write` can create one with any name, and ci.yml's test job
-    has that permission while it runs the updated dependency's code. So each
-    required check must be one of the run's jobs, with a runner (_job_problem).
+    Each required check is looked up by name among the check runs of
+    Dependabot's own run of its workflow file (_check_origin), never in a
+    fork's run. It counts only as a job of that run's latest attempt that a
+    runner ran, with the run, the check run, the job and every step
+    successful. The control that keeps a job from forging that evidence is
+    that no job running pull request code may write checks (ci.yml publishes
+    its JUnit reports from a job that runs none); this is defence in depth.
+    A check elsewhere on the head, outside a fork's run, named like a
+    required one and not the bound job holds too.
     """
     head = _dig(ctx.snapshot, "pull_request", "head", "sha")
-    by_suite = _head_runs_by_suite(ctx, head)
+    runs = _head_runs(ctx, head)
     checks = _list(ctx.snapshot.get("check_runs"))
     for check in checks:
         if type(_dig(check, "id")) is not int:
@@ -1312,11 +1509,40 @@ def rule_check_provenance(ctx: Context) -> None:
         ctx.hold("the origin of the required checks could not be evaluated without a known ecosystem")
         return
     # Another app's required check is reported by the app itself; its slug is part of the check key.
-    required = {check.name: check for check in ctx.ecosystem.required if check.app == ACTIONS_APP}
+    bound = {required: _check_origin(ctx, required, runs, head) for required in ctx.ecosystem.required if required.app == ACTIONS_APP}
+    _check_listing(ctx, checks, bound)
+
+
+def _check_listing(ctx: Context, checks: list, bound: dict[Required, tuple[int, int] | None]) -> None:
+    """The head's check runs (`filter=latest`) must show each bound job under its name, and nothing else.
+
+    Outside a fork's runs, the checks named like a required GitHub Actions
+    check must all be the bound check run, in the bound run's check suite:
+    another one is a second check of that name (a re-run Dependabot's run
+    does not explain, or one created through the API). None may be listed
+    only when a fork's later check of the same name stands in its place.
+    """
+    forks = fork_suites(ctx.snapshot)
+    names = {required.name for required in bound}
+    listed: dict[str, set[object]] = {}
+    hidden: set[str] = set()
     for check in checks:
-        name = _dig(check, "name")
-        if isinstance(name, str) and name in required and _dig(check, "app", "slug") == ACTIONS_APP:
-            _check_origin(ctx, required[name], check, by_suite)
+        name, suite = _dig(check, "name"), _dig(check, "check_suite", "id")
+        if not isinstance(name, str) or name not in names or _dig(check, "app", "slug") != ACTIONS_APP:
+            continue
+        if type(suite) is int and suite in forks:
+            hidden.add(name)
+        else:
+            listed.setdefault(name, set()).add((_dig(check, "id"), suite))
+    for required, origin in bound.items():
+        ids = listed.get(required.name, set())
+        if origin is None or ids == {origin} or (not ids and required.name in hidden):
+            continue
+        shown = ", ".join(sorted(f"{_q(other)} (suite {_q(suite)})" for other, suite in ids)) or "none"
+        ctx.hold(
+            f"required check {_q(required.name)} ({required.workflow}): the check runs of the head commit list {shown} "
+            f"under its name, not only the job {origin[0]} of Dependabot's run (suite {origin[1]})"
+        )
 
 
 RULES: tuple[Callable[[Context], None], ...] = (
@@ -1483,19 +1709,36 @@ def _check_run_fields(run: object) -> dict:
     }
 
 
-def _workflow_run_fields(api: Api, repo: str, run: object) -> dict:
-    """One workflow run of the head commit, with its jobs when a required check can come from it.
+def _job_fields(job: object) -> dict:
+    """One job of a workflow run: its id, runner, attempt, conclusion and the conclusion of each step."""
+    return {
+        **_pick(job, "id", "runner_id", "run_attempt", "conclusion"),
+        "steps": [_dig(step, "conclusion") for step in _list(_dig(job, "steps"))],
+    }
 
-    `filter=all` lists the jobs of every attempt of the run. The default
-    lists the latest attempt only (seen on two full re-runs), and whether it
-    still lists a job that a partial re-run did not repeat was not observed:
-    reading every attempt cannot miss one. A page that cannot be read, or a
+
+def _workflow_run_fields(api: Api, repo: str, run: object) -> dict:
+    """One workflow run of the head commit, with its jobs and check runs when a required check can come from it.
+
+    `filter=all` lists the jobs, and the check runs of the run's check suite,
+    of every attempt of the run: a re-run keeps the check suite, and every
+    job of the new attempt gets a new id. The rules bind a required check to
+    the latest attempt. `head_repository` is null for a run whose fork was
+    deleted, and kept as an id of None. A page that cannot be read, or a
     listing shorter than its `total_count`, raises GateError.
     """
-    fields = {**_pick(run, "id", "path", "event", "head_sha", "check_suite_id"), "actor": _pick(_dig(run, "actor"), "id")}
-    if fields.get("path") in REQUIRED_WORKFLOW_PATHS and type(fields.get("id")) is int:
-        jobs = fetch_all(api, f"repos/{repo}/actions/runs/{fields['id']}/jobs?filter=all", "jobs", check_total=True)
-        fields["jobs"] = [{**_pick(job, "id", "runner_id"), "steps": len(_list(_dig(job, "steps")))} for job in jobs]
+    fields = {
+        **_pick(run, "id", "path", "event", "head_sha", "check_suite_id", "run_attempt", "conclusion"),
+        "actor": _pick(_dig(run, "actor"), "id"),
+        "repository": _pick(_dig(run, "repository"), "id"),
+        "head_repository": {"id": _dig(run, "head_repository", "id")},
+    }
+    run_id, suite = fields.get("id"), fields.get("check_suite_id")
+    if fields.get("path") in REQUIRED_WORKFLOW_PATHS and type(run_id) is int and type(suite) is int:
+        jobs = fetch_all(api, f"repos/{repo}/actions/runs/{run_id}/jobs?filter=all", "jobs", check_total=True)
+        fields["jobs"] = [_job_fields(job) for job in jobs]
+        checks = fetch_all(api, f"repos/{repo}/check-suites/{suite}/check-runs?filter=all", "check_runs", check_total=True)
+        fields["check_runs"] = [_check_run_fields(check) for check in checks]
     return fields
 
 

@@ -581,8 +581,16 @@
    "event": "pull_request",
    "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
    "check_suite_id": 122165591315,
+   "run_attempt": 1,
+   "conclusion": "skipped",
    "actor": {
     "id": 49699333
+   },
+   "repository": {
+    "id": 1130617195
+   },
+   "head_repository": {
+    "id": 1130617195
    }
   },
   {
@@ -591,14 +599,62 @@
    "event": "pull_request",
    "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
    "check_suite_id": 122165591281,
+   "run_attempt": 1,
+   "conclusion": "success",
    "actor": {
     "id": 49699333
+   },
+   "repository": {
+    "id": 1130617195
+   },
+   "head_repository": {
+    "id": 1130617195
    },
    "jobs": [
     {
      "id": 137593232902,
      "runner_id": 1000022157,
-     "steps": 22
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "skipped",
+      "skipped",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
+    }
+   ],
+   "check_runs": [
+    {
+     "id": 137593232902,
+     "name": "Models, golden vectors, and correspondence",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591281
+     }
     }
    ]
   },
@@ -608,34 +664,166 @@
    "event": "pull_request",
    "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
    "check_suite_id": 122165591268,
+   "run_attempt": 1,
+   "conclusion": "success",
    "actor": {
     "id": 49699333
+   },
+   "repository": {
+    "id": 1130617195
+   },
+   "head_repository": {
+    "id": 1130617195
    },
    "jobs": [
     {
      "id": 137593233417,
      "runner_id": 1000022156,
-     "steps": 14
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593233658,
      "runner_id": 1000022170,
-     "steps": 5
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593233672,
      "runner_id": 1000022161,
-     "steps": 9
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593233731,
      "runner_id": 1000022172,
-     "steps": 9
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593233978,
      "runner_id": 1000022176,
-     "steps": 5
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
+    }
+   ],
+   "check_runs": [
+    {
+     "id": 137593233978,
+     "name": "agent docs integrity",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591268
+     }
+    },
+    {
+     "id": 137593233731,
+     "name": "script tests (worktree-safety gate)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591268
+     }
+    },
+    {
+     "id": 137593233672,
+     "name": "normalized golangci-lint gates",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591268
+     }
+    },
+    {
+     "id": 137593233658,
+     "name": "file length gate (1000 lines)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591268
+     }
+    },
+    {
+     "id": 137593233417,
+     "name": "goplint consumer gates",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591268
+     }
     }
    ]
   },
@@ -645,79 +833,518 @@
    "event": "pull_request",
    "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
    "check_suite_id": 122165591293,
+   "run_attempt": 1,
+   "conclusion": "success",
    "actor": {
     "id": 49699333
+   },
+   "repository": {
+    "id": 1130617195
+   },
+   "head_repository": {
+    "id": 1130617195
    },
    "jobs": [
     {
      "id": 137593233611,
      "runner_id": 1000022155,
-     "steps": 9
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593233923,
      "runner_id": 1000022169,
-     "steps": 11
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "skipped",
+      "skipped",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593233943,
      "runner_id": 1000022182,
-     "steps": 11
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593233988,
      "runner_id": 1000022180,
-     "steps": 8
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593234032,
      "runner_id": 1000022158,
-     "steps": 9
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593234062,
      "runner_id": 1000022183,
-     "steps": 5
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593234074,
      "runner_id": 1000022166,
-     "steps": 29
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593234143,
      "runner_id": 1000022181,
-     "steps": 9
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593234180,
      "runner_id": 1000022184,
-     "steps": 29
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "skipped",
+      "success",
+      "skipped",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "skipped",
+      "skipped",
+      "success",
+      "skipped",
+      "skipped",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593234198,
      "runner_id": 1000022167,
-     "steps": 9
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593234286,
      "runner_id": 1000022185,
-     "steps": 9
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593234338,
      "runner_id": 1000022154,
-     "steps": 9
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593234474,
      "runner_id": 1000022168,
-     "steps": 29
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "success",
+      "success",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593234538,
      "runner_id": 1000022186,
-     "steps": 29
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "skipped",
+      "success",
+      "success",
+      "success",
+      "success",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
+    }
+   ],
+   "check_runs": [
+    {
+     "id": 137593234538,
+     "name": "Test (ubuntu-latest / podman)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593234474,
+     "name": "Test (macos)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593234338,
+     "name": "Build (darwin/amd64)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593234286,
+     "name": "Build (linux/arm64)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593234198,
+     "name": "Build (windows/amd64)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593234180,
+     "name": "Test (ubuntu-latest / docker)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593234143,
+     "name": "Build (linux/amd64)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593234074,
+     "name": "Test (windows)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593234062,
+     "name": "License Headers",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593234032,
+     "name": "Build (darwin/arm64)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593233988,
+     "name": "GoReleaser Check",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593233943,
+     "name": "Release Dry Run",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593233923,
+     "name": "PGO Sanity",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
+    },
+    {
+     "id": 137593233611,
+     "name": "govulncheck",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591293
+     }
     }
    ]
   },
@@ -727,14 +1354,51 @@
    "event": "pull_request",
    "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
    "check_suite_id": 122165591295,
+   "run_attempt": 1,
+   "conclusion": "success",
    "actor": {
     "id": 49699333
+   },
+   "repository": {
+    "id": 1130617195
+   },
+   "head_repository": {
+    "id": 1130617195
    },
    "jobs": [
     {
      "id": 137593233274,
      "runner_id": 1000022164,
-     "steps": 11
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
+    }
+   ],
+   "check_runs": [
+    {
+     "id": 137593233274,
+     "name": "test-build",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591295
+     }
     }
    ]
   },
@@ -744,49 +1408,224 @@
    "event": "pull_request",
    "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
    "check_suite_id": 122165591246,
+   "run_attempt": 1,
+   "conclusion": "success",
    "actor": {
     "id": 49699333
+   },
+   "repository": {
+    "id": 1130617195
+   },
+   "head_repository": {
+    "id": 1130617195
    },
    "jobs": [
     {
      "id": 137593233020,
      "runner_id": 1000022160,
-     "steps": 10
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "skipped",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593233401,
      "runner_id": 1000022171,
-     "steps": 11
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593233436,
      "runner_id": 1000022174,
-     "steps": 10
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "skipped",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137593233655,
      "runner_id": 1000022177,
-     "steps": 10
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": [
+      "success",
+      "success",
+      "skipped",
+      "success",
+      "skipped",
+      "success",
+      "success",
+      "success",
+      "success",
+      "success"
+     ]
     },
     {
      "id": 137597006121,
      "runner_id": null,
-     "steps": 0
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": []
     },
     {
      "id": 137599637779,
      "runner_id": null,
-     "steps": 0
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": []
     },
     {
      "id": 137600213143,
      "runner_id": null,
-     "steps": 0
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": []
     },
     {
      "id": 137600242463,
      "runner_id": null,
-     "steps": 0
+     "run_attempt": 1,
+     "conclusion": "success",
+     "steps": []
+    }
+   ],
+   "check_runs": [
+    {
+     "id": 137600242463,
+     "name": "JUnit Report (ubuntu-latest / podman)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591246
+     }
+    },
+    {
+     "id": 137600213143,
+     "name": "JUnit Report (ubuntu-latest / docker)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591246
+     }
+    },
+    {
+     "id": 137599637779,
+     "name": "JUnit Report (windows)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591246
+     }
+    },
+    {
+     "id": 137597006121,
+     "name": "JUnit Report (macos)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591246
+     }
+    },
+    {
+     "id": 137593233655,
+     "name": "Analyze (javascript-typescript)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591246
+     }
+    },
+    {
+     "id": 137593233436,
+     "name": "Analyze (python)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591246
+     }
+    },
+    {
+     "id": 137593233401,
+     "name": "Analyze (go)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591246
+     }
+    },
+    {
+     "id": 137593233020,
+     "name": "Analyze (actions)",
+     "status": "completed",
+     "conclusion": "success",
+     "head_sha": "fca50c91a83b9620dc51bc83ead0b6dfe741b192",
+     "app": {
+      "slug": "github-actions"
+     },
+     "check_suite": {
+      "id": 122165591246
+     }
     }
    ]
   }
