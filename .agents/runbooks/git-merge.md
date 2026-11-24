@@ -16,6 +16,6 @@ gh pr merge <number> --squash \
 
 After the merge, delete the local branch (`git branch -D feature-branch`: a squash merge leaves it unmerged in git's view) and the remote one (`gh pr merge --delete-branch`, or `git push origin --delete feature-branch`). Delete only branches the current session created.
 
-Release tags (`refs/tags/v*`) have their own ruleset, "Release tags": creation, update and deletion are blocked for everyone but the repository admin role. `make release` from the maintainer's machine creates them; a workflow token cannot.
+Release tags (`refs/tags/v*`) have their own ruleset, "Release tags": creation, update and deletion are blocked for everyone but the repository admin role. `make release` from the maintainer's machine creates them. Workflow tokens and App tokens cannot; an admin's account token (a PAT) carries the admin bypass.
 
 Why squash: each feature lands as one signed, atomic commit with a cohesive message, which keeps `main` linear and makes reverts easy.

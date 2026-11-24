@@ -30,7 +30,7 @@ The quickest way to install on **Linux** or **macOS**:
 
 <Snippet id="installation/shell-script" />
 
-This downloads the latest release from GitHub, verifies its SHA256 checksum, and installs to `~/.local/bin`. When [Cosign](https://github.com/sigstore/cosign) is on your `PATH`, the script first verifies the signature of `checksums.txt` (see [Verifying Release Signatures](#verifying-release-signatures)) and stops if it does not verify. Without Cosign it prints a warning and continues.
+This downloads the latest release from GitHub, verifies its SHA256 checksum, and installs to `~/.local/bin`. When [Cosign](https://github.com/sigstore/cosign) is on your `PATH`, the script first verifies the signature of `checksums.txt` (see [Verifying Release Signatures](#verifying-release-signatures)) and stops if it does not verify. It needs Cosign v2.4.2 or later, and stops with an upgrade hint when an older Cosign is found. Without Cosign it prints a warning and continues.
 
 **Customize the installation:**
 
@@ -40,7 +40,7 @@ This downloads the latest release from GitHub, verifies its SHA256 checksum, and
 |----------|---------|-------------|
 | `INSTALL_DIR` | `~/.local/bin` | Where to install the binary |
 | `INVOWK_VERSION` | latest stable | Install a specific version (e.g., `v1.0.0`) |
-| `INVOWK_REQUIRE_SIGNATURE` | unset | Set to `1` to fail when Cosign is not installed instead of warning |
+| `INVOWK_REQUIRE_SIGNATURE` | unset | Set to `1`, `true` or `yes` to fail when Cosign is not installed instead of warning; `0`, `false` and `no` keep the warning, and any other value is an error |
 | `GITHUB_TOKEN` | unset | Optional; avoids API rate limiting |
 
   </TabItem>
@@ -150,7 +150,7 @@ cosign verify-blob \
   checksums.txt
 ```
 
-Other workflows of the repository can also obtain a GitHub OIDC token, so pin the exact identity above rather than a pattern that matches any workflow of `invowk/invowk`. The shell install script runs this check itself when Cosign is installed.
+Other workflows of the repository can also obtain a GitHub OIDC token, so pin the exact identity above rather than a pattern that matches any workflow of `invowk/invowk`. The `.sigstore.json` bundles need Cosign v2.4.2 or later; older versions reject them with "bundle does not contain cert for verification". The shell install script runs this check itself when Cosign is installed.
 
 Then verify individual archives against `checksums.txt`:
 

@@ -10,16 +10,18 @@
 #   INVOWK_VERSION  - Specific version to install (e.g., v1.0.0). Default: latest stable.
 #   INSTALL_DIR     - Installation directory. Default: ~/.local/bin.
 #   GITHUB_TOKEN    - GitHub API token for higher rate limits (optional).
-#   INVOWK_REQUIRE_SIGNATURE - Set to 1 to fail when cosign is not installed,
-#                     instead of warning and installing without verifying the
-#                     signature of checksums.txt.
+#   INVOWK_REQUIRE_SIGNATURE - Set to 1, true or yes to fail when cosign is not
+#                     installed, instead of warning and installing without
+#                     verifying the signature of checksums.txt. 0, false, no
+#                     or unset keep the warning; any other value is an error.
 #
 # Requirements:
 #   - curl or wget
 #   - sha256sum (Linux) or shasum (macOS)
 #   - tar, gzip
 #   - cosign (optional, recommended): verifies the Sigstore signature of
-#     checksums.txt before the script trusts it
+#     checksums.txt before the script trusts it. Releases with a Sigstore
+#     bundle (v0.5.0 on) need cosign v2.4.2 or later.
 #
 # Supported platforms:
 #   - Linux (amd64, arm64)
@@ -44,6 +46,16 @@ BINARY_NAME="invowk"
 SIGNER_IDENTITY_PREFIX="https://github.com/${GITHUB_REPO}/.github/workflows/release.yml@refs/tags/"
 SIGNER_OIDC_ISSUER="https://token.actions.githubusercontent.com"
 SIGNER_WORKFLOW_TRIGGER="push"
+
+# The oldest cosign that verifies every published checksums.txt.sigstore.json.
+# From v0.7.0 on the bundles use the Sigstore bundle v0.3 format, which
+# cosign v2.4.1 and earlier read as an old cosign bundle and reject with
+# "bundle does not contain cert for verification". Checked against the bundles
+# of v0.5.0 to v0.17.0 with cosign v2.2.4, v2.4.0, v2.4.1 (fail from v0.7.0)
+# and v2.4.2, v2.4.3, v2.5.0, v3.0.1, v3.1.3 (all verify). The check applies to
+# every bundle, including the old-format ones of v0.5.0 and v0.6.0; detached
+# signatures (before v0.5.0) verify with older cosign and skip it.
+COSIGN_MIN_BUNDLE_VERSION="2.4.2"
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -250,22 +262,101 @@ signer_identity() {
     printf '%s%s' "${SIGNER_IDENTITY_PREFIX}" "$1"
 }
 
+# Report whether INVOWK_REQUIRE_SIGNATURE asks for a verified signature.
+# 1, true and yes (any case) mean on; 0, false, no, empty and unset mean off.
+# Any other value is fatal, so a typo never turns the requirement off.
+# Uses only shell built-ins: it runs before cosign or other tools are looked up.
+signature_required() {
+    case "${INVOWK_REQUIRE_SIGNATURE:-}" in
+        1|[Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]) return 0 ;;
+        ""|0|[Ff][Aa][Ll][Ss][Ee]|[Nn][Oo]) return 1 ;;
+        *) die "Invalid INVOWK_REQUIRE_SIGNATURE value: ${INVOWK_REQUIRE_SIGNATURE}
+Use 1, true or yes to require a verified signature, or 0, false or no (or leave it unset) to allow installing without cosign." ;;
+    esac
+}
+
+# Report whether version X.Y.Z ($1) is at least version X.Y.Z ($2).
+# Both arguments are plain dotted numbers; parse_cosign_version produces them.
+version_at_least() {
+    _va_have="$1"
+    _va_min="$2"
+    for _va_i in 1 2 3; do
+        _va_h=${_va_have%%.*}
+        _va_m=${_va_min%%.*}
+        if [ "${_va_h}" -gt "${_va_m}" ]; then
+            return 0
+        fi
+        if [ "${_va_h}" -lt "${_va_m}" ]; then
+            return 1
+        fi
+        _va_have=${_va_have#*.}
+        _va_min=${_va_min#*.}
+    done
+    return 0
+}
+
+# Print the X.Y.Z version from the output of `cosign version` ($1), or nothing
+# when it has no GitVersion line with a release version (a development build).
+parse_cosign_version() {
+    printf '%s\n' "$1" |
+        sed -n 's/^GitVersion:[[:space:]]*v\{0,1\}\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*$/\1/p' |
+        head -n 1
+}
+
+# Fail unless the cosign on PATH can verify a Sigstore bundle. An older cosign
+# rejects a valid bundle, which would read as a bad signature; this tells the
+# user to upgrade instead. A version that cannot be read only warns: the
+# verification that follows still has to pass.
+check_cosign_bundle_support() {
+    if ! _cv_output=$(cosign version 2>&1); then
+        die "cosign is on PATH, but 'cosign version' failed, so the signature of checksums.txt cannot be verified.
+This is a problem with the cosign installation, not with the release.
+cosign output:
+${_cv_output}
+
+Repair or upgrade cosign (v${COSIGN_MIN_BUNDLE_VERSION} or later), or remove it from PATH."
+    fi
+    _cv_version=$(parse_cosign_version "${_cv_output}")
+    if [ -z "${_cv_version}" ]; then
+        warn "Could not read the cosign version; this release needs cosign v${COSIGN_MIN_BUNDLE_VERSION} or later. Verifying anyway."
+        return 0
+    fi
+    if ! version_at_least "${_cv_version}" "${COSIGN_MIN_BUNDLE_VERSION}"; then
+        die "cosign ${_cv_version} is older than the minimum ${COSIGN_MIN_BUNDLE_VERSION} needed to verify this release; upgrade cosign or remove it from PATH.
+Without cosign on PATH, the installer checks only the SHA256 checksum of the archive (and fails if INVOWK_REQUIRE_SIGNATURE is on)."
+    fi
+}
+
+# Report whether cosign output ($1) shows that cosign could not reach the
+# Sigstore services (TUF metadata, Rekor) rather than a signature that does
+# not verify. Both outcomes are fatal; only the message differs.
+cosign_output_is_network_error() {
+    printf '%s\n' "$1" |
+        grep -Eiq '(^|[^a-z])tuf([^a-z]|$)|dial tcp|proxyconnect|no such host|connection refused|connection reset|i/o timeout|tls handshake timeout|deadline exceeded|network is unreachable'
+}
+
 # Verify the Cosign signature of checksums.txt before it is trusted.
 # Arguments: version, path of the downloaded checksums.txt.
-# Without cosign on PATH, warn and return, unless INVOWK_REQUIRE_SIGNATURE=1.
-# With cosign, any failure is fatal: a missing signature, a download error or a
-# signature that does not verify against the pinned identity and issuer.
+# Without cosign on PATH, warn and return, unless INVOWK_REQUIRE_SIGNATURE is on.
+# With cosign, any failure is fatal: a missing signature, a download error, a
+# cosign too old for the bundle, cosign unable to reach Sigstore, or a signature
+# that does not verify against the pinned identity, issuer and trigger.
 verify_checksums_signature() {
     _sig_version="$1"
     _sig_checksums="$2"
 
+    _sig_required=0
+    if signature_required; then
+        _sig_required=1
+    fi
+
     if ! command -v cosign >/dev/null 2>&1; then
-        if [ "${INVOWK_REQUIRE_SIGNATURE:-}" = "1" ]; then
-            die "cosign not found, and INVOWK_REQUIRE_SIGNATURE=1 requires the signature of checksums.txt to be verified.
-Install cosign (https://docs.sigstore.dev/cosign/system_config/installation/) and try again."
+        if [ "${_sig_required}" = "1" ]; then
+            die "cosign not found, and INVOWK_REQUIRE_SIGNATURE=${INVOWK_REQUIRE_SIGNATURE} requires the signature of checksums.txt to be verified.
+Install cosign v${COSIGN_MIN_BUNDLE_VERSION} or later (https://docs.sigstore.dev/cosign/system_config/installation/) and try again."
         fi
         warn "cosign not found: the signature of checksums.txt was NOT verified; only the SHA256 checksum of the archive will be checked.
-Install cosign (https://docs.sigstore.dev/cosign/system_config/installation/) to verify it,
+Install cosign v${COSIGN_MIN_BUNDLE_VERSION} or later (https://docs.sigstore.dev/cosign/system_config/installation/) to verify it,
 or set INVOWK_REQUIRE_SIGNATURE=1 to make a missing cosign an error."
         return 0
     fi
@@ -276,7 +367,10 @@ or set INVOWK_REQUIRE_SIGNATURE=1 to make a missing cosign an error."
     log "Verifying the signature of checksums.txt..."
     # Releases from v0.5.0 on publish a Sigstore bundle; earlier ones published
     # a detached signature and certificate.
+    # A release with a bundle is verified with the bundle only: a bundle that
+    # fails never falls back to a detached signature.
     if download_to_file "${_sig_url}.sigstore.json" "${_sig_checksums}.sigstore.json" 2>/dev/null; then
+        check_cosign_bundle_support
         set -- --bundle "${_sig_checksums}.sigstore.json"
     elif download_to_file "${_sig_url}.sig" "${_sig_checksums}.sig" 2>/dev/null &&
         download_to_file "${_sig_url}.pem" "${_sig_checksums}.pem" 2>/dev/null; then
@@ -294,6 +388,15 @@ If this persists, report at https://github.com/${GITHUB_REPO}/issues"
         --certificate-oidc-issuer "${SIGNER_OIDC_ISSUER}" \
         --certificate-github-workflow-trigger "${SIGNER_WORKFLOW_TRIGGER}" \
         "${_sig_checksums}" 2>&1); then
+        if cosign_output_is_network_error "${_sig_output}"; then
+            die "cosign could not verify the signature of checksums.txt for ${_sig_version}: it could not reach the Sigstore services (TUF metadata or Rekor).
+This points to a network, proxy or cosign problem, not to a bad signature,
+but the installer does not continue without verifying the signature.
+cosign output:
+${_sig_output}
+
+Check your network connection and proxy settings, and try again."
+        fi
         die "Signature verification of checksums.txt failed for ${_sig_version}.
 
 Expected signer: ${_sig_identity}
@@ -319,6 +422,13 @@ resolve_version() {
             v*) ;; # Already has v prefix
             *)  INVOWK_VERSION="v${INVOWK_VERSION}" ;; # Add v prefix
         esac
+        # The version goes into download URLs and the pinned signer identity,
+        # so check its shape before it is used anywhere.
+        if ! validate_version_format "${INVOWK_VERSION}"; then
+            die "Invalid INVOWK_VERSION: ${INVOWK_VERSION}
+Use a release tag such as v1.0.0 or v0.1.0-alpha.1 (the v prefix is optional).
+Check available versions at: https://github.com/${GITHUB_REPO}/releases"
+        fi
         log "Using specified version: ${BOLD}${INVOWK_VERSION}${RESET}"
 
         # Verify the release exists by checking the tag endpoint.
@@ -527,6 +637,9 @@ main() {
 
     log "Installing ${BOLD}${BINARY_NAME}${RESET}..."
     log ""
+
+    # Reject an invalid INVOWK_REQUIRE_SIGNATURE before anything is downloaded.
+    signature_required || :
 
     # Detect platform and tools.
     _os=$(detect_os)

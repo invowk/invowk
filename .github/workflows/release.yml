@@ -454,9 +454,11 @@ jobs:
             previous_sha="$(git rev-list -n 1 "$previous_tag")"
           fi
 
-          echo "release-sha=$release_sha" >> "$GITHUB_OUTPUT"
-          echo "previous-tag=$previous_tag" >> "$GITHUB_OUTPUT"
-          echo "previous-sha=$previous_sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "release-sha=$release_sha"
+            echo "previous-tag=$previous_tag"
+            echo "previous-sha=$previous_sha"
+          } >> "$GITHUB_OUTPUT"
           echo "Release benchmark branch: $TAG_NAME ($release_sha)"
           if [[ -n "$previous_tag" ]]; then
             echo "Release benchmark start point: $previous_tag ($previous_sha)"
@@ -482,7 +484,10 @@ jobs:
 
       # Use a GitHub App token so the release event triggers version-docs.yml.
       # Releases created with GITHUB_TOKEN do NOT trigger other workflows.
+      # Only the publishing run (tag push) mints it: the dry run publishes
+      # nothing and needs no token.
       - name: Generate App token
+        if: github.event_name == 'push'
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
@@ -626,6 +631,9 @@ jobs:
       # HOMEBREW_TAP_TOKEN and WINGET_TOKEN are set to dummy values because GoReleaser
       # template-expands .Env references even in snapshot mode. The real tokens are only
       # needed for the publish step above; --snapshot skips the actual push.
+      # No GITHUB_TOKEN: --snapshot implies --skip=publish, which skips GoReleaser's
+      # token check, and the changelog comes from --release-notes (the changelog
+      # pipe is skipped for snapshots anyway).
       - name: Run GoReleaser (dry run)
         if: github.event_name == 'workflow_dispatch'
         uses: goreleaser/goreleaser-action@v7
@@ -633,7 +641,6 @@ jobs:
           version: "~> v2.16"
           args: release --clean --snapshot --release-notes=${{ steps.release-notes.outputs.path }}
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}
           HOMEBREW_TAP_TOKEN: "dry-run"
           WINGET_TOKEN: "dry-run"
