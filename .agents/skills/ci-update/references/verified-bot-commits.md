@@ -38,9 +38,10 @@ the response contains `.errors` or lacks `.data.createCommitOnBranch.commit.oid`
 Live examples, to use only after verifying them against the six checks above:
 the `Commit PGO profile (verified)` step of the `PGO Profile Commit` job
 (`pgo-commit`) in `.github/workflows/ci.yml` (`github.token`, no downstream
-trigger; no checkout, so `expectedHeadOid` is the head the `PGO Sanity` job
-checked out, passed as a job output, and the step skips when the branch moved
-since) and the `Commit and push` step in `.github/workflows/version-docs.yml`
+trigger; no checkout, so `expectedHeadOid` is the event's
+`pull_request.head.sha`, never a job output, and the step skips when the
+branch moved since; the read-only `PGO Sanity` job outputs only
+`needs_refresh`) and the `Commit and push` step in `.github/workflows/version-docs.yml`
 (App token). The ci.yml step checks `.errors` and the oid. The version-docs.yml
 step does not meet check 5 today: it only prints
 `.data.createCommitOnBranch.commit` with `jq` and relies on `gh`'s exit status

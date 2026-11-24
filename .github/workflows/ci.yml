@@ -643,7 +643,9 @@ jobs:
             exit 1
           fi
 
-          # Commit only on top of the head the profile was generated from.
+          # Commit only on top of the head this run's event names: PGO Sanity
+          # regenerated the profile on the merge commit of that head, from
+          # the default checkout, with a read-only token it did not persist.
           # A branch that moved since is skipped, never overwritten; one that
           # moves during the commit fails the mutation (expectedHeadOid), and
           # the next run regenerates the profile for the new head.
@@ -657,7 +659,7 @@ jobs:
             -f ref="refs/heads/$HEAD_BRANCH" \
             --jq '.data.repository.ref.target.oid // ""')
           if [ "$CURRENT_HEAD" != "$EXPECTED_HEAD" ]; then
-            echo "::notice::$HEAD_BRANCH is at ${CURRENT_HEAD:-nothing}, not $EXPECTED_HEAD where PGO Sanity ran; skipping the commit."
+            echo "::notice::$HEAD_BRANCH is at ${CURRENT_HEAD:-nothing}, not $EXPECTED_HEAD, the head this run's event names; skipping the commit."
             exit 0
           fi
 

@@ -3311,7 +3311,8 @@ class PolicyTableTests(unittest.TestCase):
         self.assertIn('if [ "$entries" != "default.pgo" ]', verify["run"])
         self.assertIn('if [ -L "$profile" ] || [ ! -f "$profile" ]', verify["run"])
         self.assertNotIn("GH_TOKEN", verify["env"])
-        # The commit goes to the pull request's own head branch, on top of the head PGO Sanity checked out.
+        # The commit goes to the pull request's own head branch, on top of the head the event names (PGO Sanity
+        # ran on that head's merge commit and outputs only needs_refresh).
         self.assertEqual(write["env"]["HEAD_BRANCH"], "${{ github.head_ref }}")
         self.assertEqual(write["env"]["EXPECTED_HEAD"], "${{ github.event.pull_request.head.sha }}")
         self.assertEqual(write["env"]["GH_TOKEN"], "${{ github.token }}")
