@@ -94,8 +94,15 @@ jobs:
             test-mode: short
 
     steps:
+      # This job's token may write checks (the Test Report step), and the job
+      # runs the pull request's code, on a Dependabot pull request the updated
+      # dependency's. Keep the token out of .git/config, where that code could
+      # read it and create a check named like a required one: no later step
+      # runs git against the remote. scripts/test_dependabot_gate.py checks it.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@v6

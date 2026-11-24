@@ -17,6 +17,10 @@
 #   Dependabot pushed it (the squash-merge commit of any Dependabot pull
 #   request has that shape), so the job condition and the script both require
 #   dependabot[bot], by user id, as the `actor` of the workflow runs.
+# - Which job reported a check is part of it too. A job with `checks: write`
+#   (ci.yml's test job) runs the updated dependency's code and can create a
+#   check with any name, so the script accepts a required check only when it
+#   is a job, with a runner, of the workflow run behind it.
 #
 # GATE_MODE is a constant in this file, not a repository variable: moving from
 # `decide-only` to `merge` is a reviewed pull request.
@@ -65,7 +69,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # actions: read lists the workflow runs of the head commit (who started
-    # each one); contents: read also serves the base and head file contents.
+    # each one) and the jobs of those runs (which job reported each required
+    # check); contents: read also serves the base and head file contents.
     permissions:
       actions: read
       contents: read

@@ -7,23 +7,40 @@ no git history: pr-189.json, pr-190.json and pr-191.json are the snapshots the
 script itself took of the three Dependabot pull requests open on 2026-11-24
 (`dependabot-gate.py gate --repo invowk/invowk --pr N --snapshot-out FILE`). A
 snapshot holds only the fields the rules read. They are unedited except for
-one reduction, made by `python3 scripts/test_dependabot_gate.py reduce-fixture
-FILE` (reduce_lockfiles below): website/package-lock.json is about 750 kB on
-each side, and the lockfile rule reads only the entries that differ between
-base and head, so the fixture keeps those entries and every field outside
-`packages`, re-serialised with two-space indentation. go.mod and
-website/package.json are whole.
+two things:
+  - a reduction, made by `python3 scripts/test_dependabot_gate.py
+    reduce-fixture FILE` (reduce_lockfiles below): website/package-lock.json
+    is about 750 kB on each side, and the lockfile rule reads only the
+    entries that differ between base and head, so the fixture keeps those
+    entries and every field outside `packages`, re-serialised with two-space
+    indentation. go.mod and website/package.json are whole;
+  - the `id` of every check run and workflow run, and the `jobs` of the runs
+    of a required workflow file. The script did not read them when the
+    snapshots were taken. They were added later on 2026-11-24, for the same
+    three head commits, from the same read-only endpoints through the
+    script's own readers (`fetch_all` with `_check_run_fields` and
+    `_workflow_run_fields`): the API still returned exactly the check runs
+    and workflow runs of each fixture, and each entry got the new fields of
+    the one API entry equal to it in every other field. By then Dependabot
+    had closed #189 and #190 (and opened #193 and #194 in their place) and
+    rebased #191, so the snapshots could not simply be taken again.
 
 All three were taken after #188 merged, so each head is one commit behind
 main, which is a hold of its own. Expected verdicts:
   - #189 (npm): hold, typescript 6 -> 7 is a major update;
-  - #190 (gomod): hold, failing checks, coder/acp-go-sdk 0.13.5 -> 0.20.0 (a
-    0.x minor that broke the build) and nine side effects in go.mod that are
-    not patch or minor updates of released versions (HELD_SIDE_EFFECTS);
+  - #190 (gomod): hold, failing checks and coder/acp-go-sdk 0.13.5 -> 0.20.0
+    (a 0.x minor that broke the build). Its nine side effects in go.mod, all
+    on indirect requirements its metadata does not name (SIDE_EFFECTS), held
+    under the strict rules and are admitted by `indirect-side-effect`;
   - #191 (github-actions): hold, not an ecosystem the gate merges.
 
-The rule tests start from two derived snapshots that merge and change one
-thing each:
+The jobs of #190 and #191 show why a check suite is not enough to bind a
+check to a job: the four `JUnit Report (...)` checks that ci.yml's test job
+creates through the API are listed as jobs of the lint.yml run on #190 and
+of the codeql.yml run on #191, with no runner and no steps.
+
+The rule tests start from two derived snapshots that merge, with nothing
+admitted by a relaxation, and change one thing each:
   - `green_gomod`: #190 up to date with main, its failed checks passing, with
     only the nine named patch and minor updates and the six indirect patch
     and minor side effects (GREEN_GOMOD) left in go.mod;
@@ -45,6 +62,7 @@ import importlib.util
 import io
 import json
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -83,19 +101,23 @@ GREEN_GOMOD = {
     "github.com/skeema/knownhosts",
     "github.com/tidwall/gjson",
 }
-# What else #190 changes in go.mod, none of it named in its metadata, and why
-# each holds: finding H1 of the PR #192 review.
-HELD_SIDE_EFFECTS = {
-    "github.com/charmbracelet/ultraviolet": "is not an update to a released x.y.z version",
-    "github.com/coder/websocket": "go.mod adds the requirement",
-    "github.com/cyphar/filepath-securejoin": "is a minor bump of a 0.x version",
-    "github.com/klauspost/cpuid/v2": "go.mod removes the requirement",
-    "github.com/mattn/go-runewidth": "is a change to a 0.0.z version",
-    "github.com/pires/go-proxyproto": "is a minor bump of a 0.x version",
-    "github.com/pjbgf/sha1cd": "is a minor bump of a 0.x version",
-    "github.com/xo/terminfo": "is an update from a version that is not a released x.y.z version",
-    "golang.org/x/exp": "is not an update to a released x.y.z version",
+# What else #190 changes in go.mod: nine indirect requirements, none named in
+# its metadata. The strict rules held every one (finding H1 of the PR #192
+# review: a pseudo-version, an added and a removed requirement, 0.x minors, a
+# 0.0.z version). `indirect-side-effect` admits them, each with this line.
+SIDE_EFFECTS = {
+    "github.com/charmbracelet/ultraviolet": '"v0.0.0-20260811164956-006e29f97886" -> "v0.0.0-20261008173134-6b8d4baf91b4"',
+    "github.com/coder/websocket": 'go.mod adds the indirect requirement "github.com/coder/websocket v1.8.15"',
+    "github.com/cyphar/filepath-securejoin": '"v0.6.1" -> "v0.7.0"',
+    "github.com/klauspost/cpuid/v2": 'go.mod removes the indirect requirement "github.com/klauspost/cpuid/v2 v2.3.0"',
+    "github.com/mattn/go-runewidth": '"v0.0.28" -> "v0.0.30"',
+    "github.com/pires/go-proxyproto": '"v0.12.0" -> "v0.15.0"',
+    "github.com/pjbgf/sha1cd": '"v0.6.0" -> "v0.7.0"',
+    "github.com/xo/terminfo": '"v0.0.0-20220910002029-abceb7e1c41e" -> "v1.2.0"',
+    "golang.org/x/exp": '"v0.0.0-20260508232706-74f9aab9d74a" -> "v0.0.0-20260908205506-85c1c2202aba"',
 }
+BY_INDIRECT = ": admitted by indirect-side-effect"
+BY_0X_MINOR = ": admitted by allow-0x-minor"
 ACP = "github.com/coder/acp-go-sdk"
 GO_REQUIRE_LINE = re.compile(r"\t(\S+) v\S+( // indirect)?")
 
@@ -110,6 +132,7 @@ def load(name: str, path: Path):
 
 
 GATE = load("dependabot_gate", HERE / "dependabot-gate.py")
+subprocess_run = subprocess.run  # the real one, for a test that patches the script's
 # The block-style YAML reader the parity check already tests; flow values
 # such as `{}` come back as their text.
 load_yaml = load("check_ci_release_parity", HERE / "check-ci-release-parity.py").load_yaml
@@ -178,6 +201,13 @@ def set_metadata_version(snapshot: dict, name: str, version: str) -> None:
     pattern = re.compile(rf"(- dependency-name: {re.escape(name)}\n  dependency-version: )\S+")
     assert len(pattern.findall(message_of(snapshot))) == 1, name
     set_message(snapshot, pattern.sub(lambda match: match.group(1) + version, message_of(snapshot)))
+
+
+def add_metadata(snapshot: dict, name: str, version: str, update_type: str = "version-update:semver-minor", kind: str = "direct:production") -> None:
+    """Name one more dependency in the head commit's metadata block."""
+    item = f"- dependency-name: {name}\n  dependency-version: {version}\n  dependency-type: {kind}\n  update-type: {update_type}\n"
+    assert message_of(snapshot).count("\n...\n") == 1
+    set_message(snapshot, message_of(snapshot).replace("\n...\n", f"\n{item}...\n"))
 
 
 def rebump(snapshot: dict, module: str, old: str, new: str) -> None:
@@ -266,10 +296,17 @@ def reduce_lockfiles(snapshot: dict) -> None:
 
 
 class GateTestCase(unittest.TestCase):
-    def assert_merges(self, snapshot: dict) -> dict:
+    def assert_merges(self, snapshot: dict, *admitted: str) -> dict:
+        """Merge, with one `admitted` line per fragment and no other."""
         verdict = GATE.decide(snapshot)
         self.assertEqual((verdict["decision"], verdict["reasons"]), ("merge", []))
+        self.assert_admitted(verdict, *admitted)
         return verdict
+
+    def assert_admitted(self, verdict: dict, *fragments: str) -> None:
+        for fragment in fragments:
+            self.assertTrue(any(fragment in line for line in verdict["admitted"]), (fragment, verdict["admitted"]))
+        self.assertEqual(len(verdict["admitted"]), len(fragments), verdict["admitted"])
 
     def assert_holds(self, snapshot: object, *fragments: str, only: bool = True) -> dict:
         """Hold, with one reason per fragment (and no other reason when `only`)."""
@@ -290,6 +327,7 @@ class RealPullRequestTests(GateTestCase):
             real(189),
             self.BEHIND,
             'website/package.json: "typescript" "~6.0.3" -> "~7.0.2" is a major update',
+            'website/package-lock.json: "node_modules/typescript" "6.0.3" -> "7.0.2" is a major update',
             '"typescript": update type "version-update:semver-major" is not semver-patch or semver-minor',
         )
         self.assertEqual((verdict["pull_request"], verdict["ecosystem"]), (189, "npm"))
@@ -306,24 +344,43 @@ class RealPullRequestTests(GateTestCase):
             'check "goplint consumer gates" ("github-actions") concluded "failure"',
             only=False,
         )
-        self.assertEqual(len(verdict["reasons"]), 23, verdict["reasons"])
+        self.assertEqual(len(verdict["reasons"]), 14, verdict["reasons"])
         self.assertEqual(len([reason for reason in verdict["reasons"] if reason.startswith("check ")]), 11)
         self.assertEqual((verdict["pull_request"], verdict["ecosystem"]), (190, "gomod"))
         self.assertEqual(len(verdict["dependencies"]), 10)
+        # A hold still says which lines a relaxation let through.
+        self.assert_admitted(verdict, *SIDE_EFFECTS.values())
 
-    def test_190_holds_on_its_side_effects_alone(self) -> None:
-        # Finding H1 on the real pull request: with acp-go-sdk gone, main
-        # caught up and every check green, what Dependabot's metadata does
-        # not describe still holds it.
+    def side_effects_of_190(self) -> dict:
+        """#190's own go.mod without the acp-go-sdk bump, main caught up, every check green."""
         snapshot = green_gomod()
         file_entry(snapshot, GO_MOD)["head"] = file_entry(real(190), GO_MOD)["head"]
-        self.assertEqual(go_changes(snapshot), GREEN_GOMOD | set(HELD_SIDE_EFFECTS) | {ACP})
+        self.assertEqual(go_changes(snapshot), GREEN_GOMOD | set(SIDE_EFFECTS) | {ACP})
         set_go_version(snapshot, ACP, "v0.13.5")
-        verdict = self.assert_holds(snapshot, *(f"{module}" for module in HELD_SIDE_EFFECTS))
-        for module, why in HELD_SIDE_EFFECTS.items():
+        return snapshot
+
+    def test_190_side_effects_are_admitted_by_the_indirect_rule(self) -> None:
+        # Relaxation (a) on the real pull request: the nine indirect side
+        # effects that held it under the strict rules (finding H1).
+        verdict = self.assert_merges(self.side_effects_of_190(), *SIDE_EFFECTS.values())
+        for module, line in SIDE_EFFECTS.items():
             with self.subTest(module=module):
-                (reason,) = [reason for reason in verdict["reasons"] if module in reason]
-                self.assertIn(why, reason)
+                (admitted,) = [text for text in verdict["admitted"] if module in text]
+                self.assertIn(line, admitted)
+                self.assertTrue(admitted.endswith(BY_INDIRECT), admitted)
+        self.assertEqual(GATE.RULE_INDIRECT, "indirect-side-effect")
+
+    def test_190_side_effect_named_in_the_metadata_is_classified_strictly(self) -> None:
+        # The relaxation is for what the metadata does not name: once it
+        # does, the step is an update someone chose.
+        snapshot = self.side_effects_of_190()
+        add_metadata(snapshot, "github.com/cyphar/filepath-securejoin", "0.7.0", kind="indirect")
+        verdict = self.assert_holds(
+            snapshot,
+            'go.mod: "github.com/cyphar/filepath-securejoin" "v0.6.1" -> "v0.7.0" is a minor bump of a 0.x version',
+            '"github.com/cyphar/filepath-securejoin": a minor bump to 0.7.0 is a 0.x release',
+        )
+        self.assertEqual(len(verdict["admitted"]), len(SIDE_EFFECTS) - 1)
 
     def test_191_holds_because_github_actions_updates_never_merge(self) -> None:
         verdict = self.assert_holds(
@@ -663,6 +720,7 @@ class MetadataRuleTests(GateTestCase):
                     snapshot,
                     f"{name} is on the sync-pair deny list: {reason}",
                     'website/package.json changes "react-dom", which the dependency metadata does not name',
+                    f'the dependency metadata names "{name}", but website/package-lock.json does not change the version of "node_modules/{name}"',
                 )
 
     def test_deny_lists_do_not_cross_ecosystems(self) -> None:
@@ -774,6 +832,7 @@ class EcosystemRuleTests(GateTestCase):
             snapshot,
             'changed file "go.mod" is not one a npm update may touch',
             'changed file "go.sum" is not one a npm update may touch',
+            "website/package-lock.json is not among the changed files",
             "test-build",
         )
 
@@ -818,7 +877,7 @@ class EcosystemRuleTests(GateTestCase):
         snapshot = green_gomod()
         snapshot["files"] = [entry for entry in snapshot["files"] if entry["filename"] == "go.sum"]
         snapshot["pull_request"]["changed_files"] = 1
-        self.assert_holds(snapshot, "go.mod is not among the changed files (a lockfile-only gomod change never merges)")
+        self.assert_holds(snapshot, "go.mod is not among the changed files (nothing else binds the dependencies a gomod update names to a version)")
 
     def test_npm_lockfile_only_update_merges(self) -> None:
         # An update inside the declared range changes no manifest line.
@@ -826,6 +885,32 @@ class EcosystemRuleTests(GateTestCase):
         snapshot["files"] = [entry for entry in snapshot["files"] if entry["filename"] == PACKAGE_LOCK]
         snapshot["pull_request"]["changed_files"] = 1
         self.assert_merges(snapshot)
+
+    def test_npm_update_without_the_lockfile_holds(self) -> None:
+        # Finding Medium 2: the lockfile is where a named npm dependency is
+        # bound to a version, so a package.json-only change binds nothing.
+        snapshot = green_npm()
+        snapshot["files"] = [entry for entry in snapshot["files"] if entry["filename"] == PACKAGE_JSON]
+        snapshot["pull_request"]["changed_files"] = 1
+        self.assert_holds(snapshot, "website/package-lock.json is not among the changed files (nothing else binds the dependencies a npm update names to a version)")
+
+    def test_carriage_return_holds(self) -> None:
+        # Finding Low 1: Go reads a bare carriage return as a space, this
+        # reader does not split lines on it. A line hidden behind one would
+        # be a requirement for Go and part of another line here.
+        for green, filename in ((green_gomod, GO_MOD), (green_npm, PACKAGE_JSON), (green_npm, PACKAGE_LOCK)):
+            for side in ("base", "head"):
+                with self.subTest(filename=filename, side=side):
+                    snapshot = green()
+                    entry = file_entry(snapshot, filename)
+                    entry[side] = entry[side].replace("\n", "\r\n", 1)
+                    self.assert_holds(snapshot, f"{filename} contains a carriage return")
+        # Attack N12: two requirement lines joined by a bare carriage return.
+        snapshot = green_gomod()
+        entry = file_entry(snapshot, GO_MOD)
+        at = entry["head"].index("\n\tgolang.org/x/crypto ")
+        entry["head"] = entry["head"][:at] + "\r" + entry["head"][at + 1 :]
+        self.assert_holds(snapshot, "go.mod contains a carriage return")
 
     def test_contents_that_could_not_be_read_hold(self) -> None:
         for green, filename in ((green_gomod, GO_MOD), (green_npm, PACKAGE_JSON), (green_npm, PACKAGE_LOCK)):
@@ -846,7 +931,7 @@ class EcosystemRuleTests(GateTestCase):
         allowed = set().union(*(eco.files for eco in GATE.ECOSYSTEMS))
         self.assertEqual(allowed - set(GATE.CONTENT_RULES), {"go.sum"})
         self.assertLessEqual(set(GATE.CONTENT_RULES), allowed)
-        self.assertEqual({eco.name: (eco.manifest, eco.manifest_required) for eco in GATE.ECOSYSTEMS}, {"gomod": (GO_MOD, True), "npm": (PACKAGE_JSON, False)})
+        self.assertEqual({eco.name: (eco.manifest, eco.required_file) for eco in GATE.ECOSYSTEMS}, {"gomod": (GO_MOD, GO_MOD), "npm": (PACKAGE_JSON, PACKAGE_LOCK)})
 
 
 class UpdateClassifierTests(unittest.TestCase):
@@ -874,10 +959,63 @@ class UpdateClassifierTests(unittest.TestCase):
             ("v1.2.3", "latest"): "not an update to a released x.y.z version",
             ("v0.0.0-20220910002029-abceb7e1c41e", "v1.2.0"): "an update from a version that is not a released x.y.z version",
             ("v1.2.3+incompatible", "v1.2.4"): "an update from a version that is not a released x.y.z version",
+            # Finding Low 4: `\d` read these as 1.10.0 and 1.3.0.
+            ("v1.2.3", "v1.1\u0660.0"): "not an update to a released x.y.z version",
+            ("v1.2.3", "v1.\uff13.0"): "not an update to a released x.y.z version",
+            ("v\u0661.2.3", "v1.2.4"): "an update from a version that is not a released x.y.z version",
         }
         for (old, new), problem in cases.items():
             with self.subTest(old=old, new=new):
                 self.assertIn(problem, GATE.update_problem(old, new) or "")
+
+    def test_digits_are_ascii_everywhere(self) -> None:
+        # Finding Low 4, for every pattern at once: no `\d` quantified or in a class.
+        self.assertNotRegex((HERE / "dependabot-gate.py").read_text(encoding="utf-8"), r"\\d[*+{)\]\[|]")
+        self.assertIsNone(GATE._NPM_RANGE.fullmatch("^1.1\u0660.0"))
+        self.assertIsNone(GATE.semver_key("1.1\u0660.0"))
+        self.assertIsNone(GATE.PSEUDO_VERSION_RE.fullmatch("v0.0.0-2026112300000\u0660-abcdefabcdef"))
+
+    def test_semver_precedence(self) -> None:
+        # semver.org, item 11, plus Go's pseudo-versions (pre-releases of the next patch).
+        ordered = [
+            "v0.0.0-20220910002029-abceb7e1c41e",
+            "v0.0.0-20260508232706-74f9aab9d74a",
+            "v0.0.28",
+            "v0.6.1",
+            "1.0.0-alpha",
+            "1.0.0-alpha.1",
+            "1.0.0-alpha.beta",
+            "1.0.0-beta",
+            "1.0.0-beta.2",
+            "1.0.0-beta.11",
+            "1.0.0-rc.1",
+            "v1.0.0",
+            "v1.2.3",
+            "v1.2.4-0.20260101000000-abcdefabcdef",
+            "v1.2.4-rc.1",
+            "v1.2.4-rc.1.0.20260101000000-abcdefabcdef",
+            "v1.2.4",
+            "v1.10.0",
+            "v2.0.0",
+        ]
+        keys = [GATE.semver_key(version) for version in ordered]
+        self.assertNotIn(None, keys)
+        for lower, higher in zip(keys, keys[1:]):
+            self.assertLess(lower, higher)
+        self.assertEqual(GATE.semver_key("v1.2.3"), GATE.semver_key("1.2.3"))
+        for version in ("v1.2.3+incompatible", "1.2.3+build", "v1.2", "v1.2.3-", "v1.2.3-a..b", "v1.2.3-01", "v01.2.3", "v1.2.3 ", "latest", "", None, 1):
+            with self.subTest(version=version):
+                self.assertIsNone(GATE.semver_key(version))
+        self.assertIsNotNone(GATE.npm_version_key("1.0.0-rc.12"))
+        self.assertIsNone(GATE.npm_version_key("v1.0.0"))
+
+    def test_pseudo_versions(self) -> None:
+        for version in ("v0.0.0-20260508232706-74f9aab9d74a", "v1.2.4-0.20260101000000-abcdefabcdef", "v2.0.0-rc.1.0.20260101000000-abcdefabcdef"):
+            with self.subTest(version=version):
+                self.assertIsNotNone(GATE.PSEUDO_VERSION_RE.fullmatch(version))
+        for version in ("v1.2.3", "v1.2.4-rc.1", "v1.2.4-20260101000000-abcdefabcdef", "v0.0.0-2026050823270-74f9aab9d74a", "v0.0.0-20260508232706-74F9AAB9D74A", "v0.0.0-20260508232706-74f9aab9d74a+incompatible"):
+            with self.subTest(version=version):
+                self.assertIsNone(GATE.PSEUDO_VERSION_RE.fullmatch(version))
 
 
 class GoModRuleTests(GateTestCase):
@@ -955,31 +1093,85 @@ class GoModRuleTests(GateTestCase):
         set_message(snapshot, message_of(snapshot).replace("dependency-name: github.com/spf13/pflag", "dependency-name: github.com/spf13/no-such-module"))
         self.assert_holds(snapshot, "but go.mod does not change its version", "which the dependency metadata does not name")
 
-    def test_added_requirement_holds(self) -> None:
-        # Attack A4, and the same for a released version and a direct one.
-        for line in (
-            "\tgithub.com/evil/new v0.0.0-20261123000000-abcdefabcdef // indirect",
-            "\tgithub.com/evil/new v1.2.3 // indirect",
-            "\tgithub.com/evil/new v1.2.3",
-        ):
-            with self.subTest(line=line):
-                snapshot = green_gomod()
-                add_go_line(snapshot, line)
-                self.assert_holds(snapshot, 'go.mod adds the requirement "github.com/evil/new v')
+    def test_added_direct_requirement_holds(self) -> None:
+        snapshot = green_gomod()
+        add_go_line(snapshot, "\tgithub.com/evil/new v1.2.3")
+        self.assert_holds(snapshot, 'go.mod adds the requirement "github.com/evil/new v1.2.3"')
         snapshot = green_gomod()
         entry = file_entry(snapshot, GO_MOD)
         entry["head"] = entry["head"].replace("\nrequire (\n", "\nrequire github.com/evil/new v1.2.3\n\nrequire (\n", 1)
         self.assert_holds(snapshot, 'go.mod adds the requirement "github.com/evil/new v1.2.3"')
+        # Named in the metadata, an added indirect requirement is not a side effect.
+        snapshot = green_gomod()
+        add_go_line(snapshot, "\tgithub.com/evil/new v1.2.3 // indirect")
+        add_metadata(snapshot, "github.com/evil/new", "1.2.3", kind="indirect")
+        self.assert_holds(snapshot, 'go.mod adds the requirement "github.com/evil/new v1.2.3"')
 
-    def test_removed_requirement_holds(self) -> None:
-        for module in ("github.com/klauspost/cpuid/v2", "github.com/creack/pty"):
-            with self.subTest(module=module):
+    def test_added_indirect_requirement_is_admitted_at_a_release_or_pseudo_version(self) -> None:
+        # Relaxation (a). Attack A4 (a new indirect module at a pseudo-version)
+        # is now admitted by decision: what a new indirect requirement
+        # brings in is built and tested by the required checks.
+        for version in ("v1.2.3", "v0.4.0", "v0.0.7", "v0.0.0-20261123000000-abcdefabcdef", "v1.2.4-0.20261123000000-abcdefabcdef"):
+            with self.subTest(version=version):
                 snapshot = green_gomod()
-                entry = file_entry(snapshot, GO_MOD)
-                lines = [line for line in entry["head"].split("\n") if not line.startswith(f"\t{module} ")]
-                self.assertEqual(len(lines), len(entry["head"].split("\n")) - 1)
-                entry["head"] = "\n".join(lines)
-                self.assert_holds(snapshot, f'go.mod removes the requirement "{module} v')
+                add_go_line(snapshot, f"\tgithub.com/evil/new {version} // indirect")
+                self.assert_merges(snapshot, f'go.mod adds the indirect requirement "github.com/evil/new {version}"{BY_INDIRECT}')
+        for version, why in (
+            ("v1.2.3-rc.1", "which is neither a released x.y.z version nor a pseudo-version"),
+            ("v1.2.3-20261123000000-abcdefabcdef", "which is neither a released x.y.z version nor a pseudo-version"),
+            ("v2.0.0+incompatible", "which is not a semantic version without build metadata (`+incompatible` never merges here)"),
+            ("v1.2", "which is not a semantic version without build metadata"),
+        ):
+            with self.subTest(version=version):
+                snapshot = green_gomod()
+                add_go_line(snapshot, f"\tgithub.com/evil/new {version} // indirect")
+                verdict = self.assert_holds(snapshot, why)
+                self.assertEqual(verdict["admitted"], [])
+
+    def test_added_indirect_requirement_of_another_major_holds(self) -> None:
+        # Relaxation (a): a second major of a module the build already
+        # requires is a migration, not a side effect.
+        cases = {
+            "github.com/bmatcuk/doublestar/v5 v5.0.0": "github.com/bmatcuk/doublestar/v4",  # a direct requirement
+            "github.com/bmatcuk/doublestar v1.3.4": "github.com/bmatcuk/doublestar/v4",
+            "github.com/klauspost/cpuid v1.3.1": "github.com/klauspost/cpuid/v2",  # an indirect one
+            "gopkg.in/yaml.v4 v4.0.0": "gopkg.in/yaml.v2",
+            "gopkg.in/ini.v2 v2.0.0": "gopkg.in/ini.v1",
+        }
+        for line, sibling in cases.items():
+            with self.subTest(line=line):
+                snapshot = green_gomod()
+                add_go_line(snapshot, f"\t{line} // indirect")
+                verdict = self.assert_holds(snapshot, f'go.mod adds the indirect requirement "{line}", another major version of the requirement "{sibling}"')
+                self.assertEqual(verdict["admitted"], [])
+        # The sibling may be one the same pull request adds.
+        snapshot = green_gomod()
+        add_go_line(snapshot, "\tgithub.com/evil/new/v2 v2.0.0 // indirect")
+        add_go_line(snapshot, "\tgithub.com/evil/new/v3 v3.0.0 // indirect")
+        self.assert_holds(snapshot, '"github.com/evil/new/v2 v2.0.0", another major version', '"github.com/evil/new/v3 v3.0.0", another major version')
+        # A path that only starts the same way is another module.
+        snapshot = green_gomod()
+        add_go_line(snapshot, "\tgithub.com/bmatcuk/doublestar-extras v1.0.0 // indirect")
+        self.assert_merges(snapshot, "github.com/bmatcuk/doublestar-extras v1.0.0")
+
+    def test_removed_requirement(self) -> None:
+        def without(module: str) -> dict:
+            snapshot = green_gomod()
+            entry = file_entry(snapshot, GO_MOD)
+            lines = [line for line in entry["head"].split("\n") if not line.startswith(f"\t{module} ")]
+            self.assertEqual(len(lines), len(entry["head"].split("\n")) - 1)
+            entry["head"] = "\n".join(lines)
+            return snapshot
+
+        self.assert_holds(without("github.com/creack/pty"), 'go.mod removes the requirement "github.com/creack/pty v')
+        # Relaxation (a): the Go command drops an indirect requirement nothing needs any more.
+        self.assert_merges(without("github.com/klauspost/cpuid/v2"), f'go.mod removes the indirect requirement "github.com/klauspost/cpuid/v2 v2.3.0"{BY_INDIRECT}')
+        # ... but not one on the deny list, and not one the metadata names.
+        verdict = self.assert_holds(without("golang.org/x/tools"), "go.mod changes golang.org/x/tools, which is on the sync-pair deny list")
+        self.assertEqual(verdict["admitted"], [])
+        snapshot = without("github.com/klauspost/cpuid/v2")
+        add_metadata(snapshot, "github.com/klauspost/cpuid/v2", "2.3.0", kind="indirect")
+        self.assert_holds(snapshot, 'go.mod removes the requirement "github.com/klauspost/cpuid/v2 v2.3.0"', "but go.mod does not change its version")
 
     def test_move_between_direct_and_indirect_holds(self) -> None:
         snapshot = green_gomod()
@@ -993,24 +1185,84 @@ class GoModRuleTests(GateTestCase):
         entry["head"] = entry["head"].replace("\tgithub.com/creack/pty v1.1.24\n", "\tgithub.com/creack/pty v1.1.24 // indirect\n")
         self.assert_holds(snapshot, 'go.mod moves "github.com/creack/pty" between direct and indirect')
 
-    def test_unnamed_indirect_change_must_be_patch_or_minor(self) -> None:
-        circl = "github.com/cloudflare/circl"  # v1.6.3 on the base
+    def test_unnamed_indirect_change_must_go_forward(self) -> None:
+        circl = "github.com/cloudflare/circl"  # v1.6.3 on the base, indirect, not named
+        # A patch or minor update of a released version needs no relaxation.
         for version in ("v1.6.4", "v1.7.0"):
             with self.subTest(version=version):
                 snapshot = green_gomod()
                 set_go_version(snapshot, circl, version)
                 self.assert_merges(snapshot)
-        for version, problem in (
-            ("v2.0.0", "is a major update"),
-            ("v1.6.2", "is a downgrade"),
-            ("v1.6.4-0.20261123000000-abcdefabcdef", "is not an update to a released x.y.z version"),
-            ("v1.7.0+incompatible", "is not an update to a released x.y.z version"),
-            ("v1.7.0-rc.1", "is not an update to a released x.y.z version"),
-        ):
+        # Relaxation (a): any other step that is strictly newer by semver precedence.
+        for version in ("v2.0.0", "v1.6.4-0.20261123000000-abcdefabcdef", "v1.7.0-rc.1", "v1.6.4-rc.1"):
             with self.subTest(version=version):
                 snapshot = green_gomod()
                 set_go_version(snapshot, circl, version)
-                self.assert_holds(snapshot, f'go.mod: "{circl}" "v1.6.3" -> "{version}" {problem}')
+                self.assert_merges(snapshot, f'go.mod: "{circl}" "v1.6.3" -> "{version}" (an indirect requirement the metadata does not name, strictly newer){BY_INDIRECT}')
+        for version in ("v1.6.2", "v1.5.9", "v0.9.0", "v1.6.3-rc.1", "v1.6.3-0.20261123000000-abcdefabcdef"):
+            with self.subTest(version=version):
+                snapshot = green_gomod()
+                set_go_version(snapshot, circl, version)
+                verdict = self.assert_holds(snapshot, f'go.mod: "{circl}" "v1.6.3" -> "{version}" is not a step forward by semver precedence')
+                self.assertEqual(verdict["admitted"], [])
+        for version in ("v1.7.0+incompatible", "v2.0.0+incompatible", "v1.7", "v1.7.0-01"):
+            with self.subTest(version=version):
+                snapshot = green_gomod()
+                set_go_version(snapshot, circl, version)
+                verdict = self.assert_holds(snapshot, f'go.mod: the indirect requirement "{circl}" is at "{version}", which is not a semantic version without build metadata')
+                self.assertEqual(verdict["admitted"], [])
+        # The base side: a version Go does not order.
+        snapshot = green_gomod()
+        set_go_version(snapshot, circl, "v1.6.3+incompatible", side="base")
+        self.assert_holds(snapshot, f'go.mod: "{circl}" "v1.6.3+incompatible" -> "v1.6.5" is not a step forward by semver precedence')
+        # A pseudo-version moves forward by its timestamp, and to a release.
+        exp = "golang.org/x/exp"  # v0.0.0-20260508232706-74f9aab9d74a on the base
+        for version, decision in (("v0.0.0-20260908205506-85c1c2202aba", "merge"), ("v0.1.0", "merge"), ("v0.0.0-20250101000000-85c1c2202aba", "hold")):
+            with self.subTest(version=version):
+                snapshot = green_gomod()
+                set_go_version(snapshot, exp, version)
+                self.assertEqual(GATE.decide(snapshot)["decision"], decision)
+
+    def test_indirect_rule_needs_an_unnamed_requirement_that_is_indirect_on_every_side(self) -> None:
+        # Relaxation (a) is no broader than that: a direct requirement keeps the strict rules.
+        snapshot = green_gomod()
+        set_go_version(snapshot, "github.com/creack/pty", "v1.1.25-0.20261123000000-abcdefabcdef")
+        verdict = self.assert_holds(
+            snapshot,
+            'go.mod: "github.com/creack/pty" "v1.1.24" -> "v1.1.25-0.20261123000000-abcdefabcdef" is not an update to a released x.y.z version',
+            'go.mod changes the direct requirement "github.com/creack/pty", which the dependency metadata does not name',
+        )
+        self.assertEqual(verdict["admitted"], [])
+        # Indirect on one side only: the move holds, and so does the step.
+        for side in ("base", "head"):
+            with self.subTest(direct_on=side):
+                snapshot = green_gomod()
+                set_go_version(snapshot, "github.com/cloudflare/circl", "v2.0.0")
+                entry = file_entry(snapshot, GO_MOD)
+                line = "\tgithub.com/cloudflare/circl v1.6.3 // indirect\n" if side == "base" else "\tgithub.com/cloudflare/circl v2.0.0 // indirect\n"
+                self.assertEqual(entry[side].count(line), 1)
+                entry[side] = entry[side].replace(line, line.replace(" // indirect", ""))
+                verdict = self.assert_holds(snapshot, "between direct and indirect", "is a major update", only=False)
+                self.assertEqual(verdict["admitted"], [])
+
+    def test_reordered_or_repeated_other_lines_hold(self) -> None:
+        # The lines that are not requirements are compared as a sequence: Go
+        # reads `tool`, `replace` and `exclude` lines by block and by order.
+        snapshot = green_gomod()
+        entry = file_entry(snapshot, GO_MOD)
+        lines = entry["head"].split("\n")
+        self.assertEqual(lines[:3], ["module github.com/invowk/invowk", "", "go " + lines[2][3:]])
+        lines[0], lines[2] = lines[2], lines[0]
+        entry["head"] = "\n".join(lines)
+        self.assertEqual(sorted(GATE.parse_go_mod(entry["head"])[1]), sorted(GATE.parse_go_mod(entry["base"])[1]))
+        self.assert_holds(snapshot, "go.mod changes something other than a requirement's version")
+        snapshot = green_gomod()
+        entry = file_entry(snapshot, GO_MOD)
+        self.assertEqual(entry["head"].count("\ngo "), 1)
+        at = entry["head"].index("\ngo ")
+        entry["head"] = entry["head"][:at] + entry["head"][at : entry["head"].index("\n", at + 1)] + entry["head"][at:]
+        self.assertEqual(set(GATE.parse_go_mod(entry["head"])[1]), set(GATE.parse_go_mod(entry["base"])[1]))
+        self.assert_holds(snapshot, "go.mod changes something other than a requirement's version")
 
     def test_deny_listed_module_changed_as_a_side_effect_holds(self) -> None:
         # golang.org/x/tools is an indirect requirement: Dependabot never
@@ -1019,6 +1271,76 @@ class GoModRuleTests(GateTestCase):
         set_go_version(snapshot, "golang.org/x/tools", "v0.52.1")
         self.assertEqual(go_changes(snapshot), GREEN_GOMOD | {"golang.org/x/tools"})
         self.assert_holds(snapshot, "go.mod changes golang.org/x/tools, which is on the sync-pair deny list")
+        # Neither relaxation reaches a deny-listed module: not its 0.x minor
+        # (it is under golang.org/x/), not a forward step as a side effect.
+        for version in ("v0.53.0", "v0.52.1-0.20261123000000-abcdefabcdef"):
+            with self.subTest(version=version):
+                snapshot = green_gomod()
+                set_go_version(snapshot, "golang.org/x/tools", version)
+                verdict = self.assert_holds(snapshot, "go.mod changes golang.org/x/tools, which is on the sync-pair deny list")
+                self.assertEqual(verdict["admitted"], [])
+
+    def test_0x_minor_of_a_golang_org_x_module_is_admitted(self) -> None:
+        # Relaxation (b), on a direct requirement the metadata names.
+        crypto = "golang.org/x/crypto"  # v0.59.0 on both sides of the fixture, direct
+        snapshot = green_gomod()
+        set_go_version(snapshot, crypto, "v0.60.0")
+        add_metadata(snapshot, crypto, "0.60.0")
+        verdict = self.assert_merges(snapshot, f'go.mod: "{crypto}" "v0.59.0" -> "v0.60.0" (a minor bump of a 0.x version under golang.org/x/){BY_0X_MINOR}')
+        self.assertEqual(len(verdict["dependencies"]), 10)
+        self.assertEqual(GATE.RULE_0X_MINOR, "allow-0x-minor")
+        # A patch needs no relaxation.
+        snapshot = green_gomod()
+        set_go_version(snapshot, crypto, "v0.59.1")
+        add_metadata(snapshot, crypto, "0.59.1", "version-update:semver-patch")
+        self.assert_merges(snapshot)
+        # Not named: the 0.x reason is lifted, the direct requirement still has to be named.
+        snapshot = green_gomod()
+        set_go_version(snapshot, crypto, "v0.60.0")
+        verdict = self.assert_holds(snapshot, f'go.mod changes the direct requirement "{crypto}", which the dependency metadata does not name')
+        self.assert_admitted(verdict, BY_0X_MINOR)
+
+    def test_0x_minor_rule_lifts_nothing_else(self) -> None:
+        # Relaxation (b) is no broader than the one reason.
+        crypto = "golang.org/x/crypto"
+        cases = {
+            ("v0.0.3", "v0.0.4"): ("is a change to a 0.0.z version", "0.0.4 is a 0.0.z version"),
+            ("v0.59.0", "v1.0.0"): ("is a major update",),
+            ("v0.59.0", "v0.60.0-0.20261123000000-abcdefabcdef"): ("is not an update to a released x.y.z version", "is not a released x.y.z version"),
+            ("v0.59.0", "v0.60.0-rc.1"): ("is not an update to a released x.y.z version", "is not a released x.y.z version"),
+            ("v0.59.0", "v0.60.0+incompatible"): ("is not an update to a released x.y.z version", "is not a released x.y.z version"),
+            ("v0.59.0", "v0.58.0"): ("is a downgrade",),
+        }
+        for (old, new), reasons in cases.items():
+            with self.subTest(old=old, new=new):
+                snapshot = green_gomod()
+                set_go_version(snapshot, crypto, old, side="base")
+                set_go_version(snapshot, crypto, new)
+                add_metadata(snapshot, crypto, new.removeprefix("v"))
+                verdict = self.assert_holds(snapshot, *reasons)
+                self.assertEqual(verdict["admitted"], [])
+        # Another module's 0.x minor holds as before (test_minor_bump_of_a_0x_version_holds),
+        # and the table is the gomod ecosystem's only.
+        self.assertEqual({eco.name: eco.allow_0x_minor for eco in GATE.ECOSYSTEMS}, {"gomod": GATE.ALLOW_0X_MINOR, "npm": {}})
+        gomod, npm = GATE.ECOSYSTEMS
+        self.assertEqual(GATE._allows_0x_minor(gomod, crypto), "golang.org/x/")
+        for eco, module in ((gomod, "golang.org/x/tools"), (gomod, "golang.org/xcrypto"), (gomod, "golang.org/x"), (gomod, "evil.example/golang.org/x/crypto"), (npm, crypto), (None, crypto)):
+            with self.subTest(module=module):
+                self.assertIsNone(GATE._allows_0x_minor(eco, module))
+
+    def test_0x_minor_of_an_indirect_golang_org_x_module(self) -> None:
+        # Relaxation (b) reaches indirect requirements too, named or not;
+        # the narrower rule is the one named.
+        net = "golang.org/x/net"  # v0.62.0 on both sides of the fixture, indirect
+        snapshot = green_gomod()
+        set_go_version(snapshot, net, "v0.63.0")
+        self.assert_merges(snapshot, f'go.mod: "{net}" "v0.62.0" -> "v0.63.0" (a minor bump of a 0.x version under golang.org/x/){BY_0X_MINOR}')
+        add_metadata(snapshot, net, "0.63.0", kind="indirect")
+        self.assert_merges(snapshot, f'go.mod: "{net}" "v0.62.0" -> "v0.63.0" (a minor bump of a 0.x version under golang.org/x/){BY_0X_MINOR}')
+        # Named, an indirect requirement is outside relaxation (a): a pseudo-version holds.
+        set_go_version(snapshot, net, "v0.63.0-0.20261123000000-abcdefabcdef")
+        set_metadata_version(snapshot, net, "0.63.0-0.20261123000000-abcdefabcdef")
+        self.assert_holds(snapshot, "is not an update to a released x.y.z version", "is not a released x.y.z version")
 
     def test_anything_but_a_requirement_version_holds(self) -> None:
         changes = {
@@ -1073,6 +1395,7 @@ class PackageJsonRuleTests(GateTestCase):
             "website/package.json changes something other than a dependency's version range",
             'website/package.json: "react-dom" "^19.2.8" -> "https://evil.example/react-dom.tgz" is not a change between plain semver ranges',
             'website/package.json changes "react", which the dependency metadata does not name',
+            'the dependency metadata names "serve", but website/package-lock.json does not change the version of "node_modules/serve"',
         )
 
     def test_any_other_field_holds(self) -> None:
@@ -1177,6 +1500,9 @@ class PackageLockRuleTests(GateTestCase):
 
     def edit(self, change, side: str = "head") -> dict:
         snapshot = green_npm()
+        if side == "head":
+            # A package the metadata does not name, for the tests that need one.
+            edit_json(snapshot, PACKAGE_LOCK, lambda lock: lock["packages"].setdefault("node_modules/left-pad", lock_entry("1.3.0")))
         edit_json(snapshot, PACKAGE_LOCK, change, side=side)
         return snapshot
 
@@ -1200,6 +1526,144 @@ class PackageLockRuleTests(GateTestCase):
                 self.assert_holds(snapshot, 'website/package-lock.json: "node_modules/react" resolves from')
         snapshot = self.edit(lambda lock: lock["packages"][self.REACT].pop("resolved"))
         self.assert_holds(snapshot, 'website/package-lock.json: "node_modules/react" resolves from null, not from https://registry.npmjs.org/')
+
+    def test_resolved_must_be_the_tarball_of_the_key_and_version(self) -> None:
+        # Finding Medium 2, attack N2: the registry host and a sha512 were
+        # enough, so `node_modules/react` could install any registry package.
+        for resolved in (
+            "https://registry.npmjs.org/evil-pkg/-/evil-pkg-1.0.0.tgz",
+            "https://registry.npmjs.org/evil-pkg/-/react-19.3.1.tgz",
+            "https://registry.npmjs.org/react/-/evil-pkg-19.3.1.tgz",
+            "https://registry.npmjs.org/react/-/react-19.3.0.tgz",
+            "https://registry.npmjs.org/react/-/react-19.3.1-rc.1.tgz",
+            "https://registry.npmjs.org/@evil/react/-/react-19.3.1.tgz",
+            "https://registry.npmjs.org/react-dom/-/react-dom-19.3.1.tgz",
+            "https://registry.npmjs.org/react/-/react-19.3.1.tgz/../../../evil-pkg/-/evil-pkg-1.0.0.tgz",
+            "https://registry.npmjs.org/React/-/react-19.3.1.tgz",
+        ):
+            with self.subTest(resolved=resolved):
+                snapshot = self.edit(lambda lock: lock["packages"][self.REACT].update(resolved=resolved))
+                self.assert_holds(
+                    snapshot,
+                    f'website/package-lock.json: "node_modules/react" resolves from "{resolved}", not from https://registry.npmjs.org/react/-/react-19.3.1.tgz',
+                )
+        # The name is the one in the key, the last one of a nested key, with its scope.
+        for key, name, good in (
+            ("node_modules/left-pad", "left-pad", "https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz"),
+            ("node_modules/@scope/left-pad", "@scope/left-pad", "https://registry.npmjs.org/@scope/left-pad/-/left-pad-1.3.0.tgz"),
+            ("node_modules/react/node_modules/left-pad", "left-pad", "https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz"),
+            ("node_modules/@a/b/node_modules/@scope/left-pad", "@scope/left-pad", "https://registry.npmjs.org/@scope/left-pad/-/left-pad-1.3.0.tgz"),
+        ):
+            with self.subTest(key=key):
+                self.assertEqual(lock_entry("1.3.0", name)["resolved"], good)
+                self.assert_merges(self.edit(lambda lock: lock["packages"].update({key: lock_entry("1.3.0", name)})))
+                snapshot = self.edit(lambda lock: lock["packages"].update({key: lock_entry("1.3.0", "react")}))
+                self.assert_holds(snapshot, f'"{key}" resolves from "https://registry.npmjs.org/react/-/react-1.3.0.tgz", not from {good}')
+        self.assertEqual(GATE.registry_tarball("cheerio", "1.0.0-rc.12"), "https://registry.npmjs.org/cheerio/-/cheerio-1.0.0-rc.12.tgz")
+
+    def test_version_must_be_plain_semver(self) -> None:
+        for version in ("v19.3.1", "19.3", "19.3.1+build", "latest", "^19.3.1", "", None, 19):
+            with self.subTest(version=version):
+                snapshot = self.edit(lambda lock: lock["packages"]["node_modules/left-pad"].update(version=version))
+                edit_json(snapshot, PACKAGE_LOCK, lambda lock: lock["packages"].update({"node_modules/left-pad": lock_entry("1.3.0")}), side="base")
+                self.assert_holds(snapshot, '"node_modules/left-pad" has the version', '"node_modules/left-pad" resolves from')
+
+    def test_alias_holds(self) -> None:
+        # Finding Medium 2, attack N5: a `name` field makes the entry install
+        # another package under this key. main has two (react-loadable and
+        # react-helmet-async); a pull request that changes one waits for a person.
+        def alias(lock: dict) -> None:
+            lock["packages"]["node_modules/left-pad"] = {**lock_entry("1.0.0", "evil-pkg"), "name": "evil-pkg"}
+
+        snapshot = self.edit(alias)
+        self.assert_holds(
+            snapshot,
+            'website/package-lock.json: "node_modules/left-pad" is an alias of "evil-pkg" (a `name` field)',
+            '"node_modules/left-pad" resolves from "https://registry.npmjs.org/evil-pkg/-/evil-pkg-1.0.0.tgz", not from https://registry.npmjs.org/left-pad/-/left-pad-1.0.0.tgz',
+        )
+        # Even an alias of itself: the field is the hold.
+        snapshot = self.edit(lambda lock: lock["packages"]["node_modules/left-pad"].update(name="left-pad"))
+        self.assert_holds(snapshot, '"node_modules/left-pad" is an alias of "left-pad"')
+        real_lock = json.loads((ROOT / "website" / "package-lock.json").read_text(encoding="utf-8"))["packages"]
+        self.assertEqual(sorted(key for key, entry in real_lock.items() if key and "name" in entry), ["node_modules/react-helmet-async", "node_modules/react-loadable"])
+
+    def test_downgrade_holds(self) -> None:
+        # Finding Medium 2, attack N3: an entry main has never goes back.
+        def base(lock: dict) -> None:
+            lock["packages"]["node_modules/left-pad"] = lock_entry("1.3.0")
+
+        for version, problem in (
+            ("1.0.0", "a downgrade"),
+            ("1.2.9", "a downgrade"),
+            ("0.9.0", "a downgrade"),
+            ("1.3.0-rc.1", "a downgrade"),
+            # Attack N4: another major of a package no one named.
+            ("9.0.0", "a major update"),
+            ("2.0.0-rc.1", "a major update"),
+            ("1.3.1", None),
+            ("1.4.0-beta.1", None),
+            ("1.99.0", None),
+        ):
+            with self.subTest(version=version):
+                snapshot = self.edit(lambda lock: lock["packages"].update({"node_modules/left-pad": lock_entry(version)}))
+                edit_json(snapshot, PACKAGE_LOCK, base, side="base")
+                if problem is None:
+                    # Within its major, a transitive package is judged by where it comes from.
+                    self.assert_merges(snapshot)
+                else:
+                    self.assert_holds(snapshot, f'website/package-lock.json: "node_modules/left-pad" "1.3.0" -> "{version}" is {problem}')
+        # 0.x -> 1.0 is a major too; a 0.x minor of a transitive package is not held (scheduler, in green_npm).
+        snapshot = self.edit(lambda lock: lock["packages"].update({"node_modules/left-pad": lock_entry("1.0.0")}))
+        edit_json(snapshot, PACKAGE_LOCK, lambda lock: lock["packages"].update({"node_modules/left-pad": lock_entry("0.9.0")}), side="base")
+        self.assert_holds(snapshot, '"node_modules/left-pad" "0.9.0" -> "1.0.0" is a major update')
+        # A new entry has no step: a package enters the tree at whatever major its parent asks for.
+        self.assert_merges(self.edit(lambda lock: lock["packages"].update({"node_modules/left-pad": lock_entry("9.0.0")})))
+        # The same version with another field changed is not a step at all.
+        snapshot = self.edit(lambda lock: lock["packages"].update({"node_modules/left-pad": lock_entry("1.3.0", dev=True)}))
+        edit_json(snapshot, PACKAGE_LOCK, base, side="base")
+        self.assert_merges(snapshot)
+        # A base entry with no version to compare with holds.
+        for before in ({"resolved": "packages/local", "link": True}, {**lock_entry("1.3.0"), "version": "1.3"}, "1.3.0"):
+            with self.subTest(before=before):
+                snapshot = self.edit(lambda lock: lock["packages"].update({"node_modules/left-pad": lock_entry("1.3.1")}))
+                edit_json(snapshot, PACKAGE_LOCK, lambda lock: lock["packages"].update({"node_modules/left-pad": before}), side="base")
+                self.assert_holds(snapshot, '"node_modules/left-pad" was at')
+
+    def test_named_dependency_is_bound_to_its_lock_version(self) -> None:
+        # Finding Medium 2, attack N7: nothing tied the metadata's version to the lockfile.
+        self.assertEqual(
+            [(dep["dependency-name"], dep["dependency-version"]) for dep in GATE.decide(green_npm())["dependencies"]],
+            [("react", "19.3.1"), ("react-dom", "19.3.1")],
+        )
+        snapshot = green_npm()
+        set_metadata_version(snapshot, "react", "19.9.9")
+        self.assert_holds(snapshot, 'the dependency metadata gives "react" "19.9.9", but website/package-lock.json locks "19.3.1"')
+        # The version the files move to, with the metadata still saying 19.3.1.
+        snapshot = green_npm()
+        edit_json(snapshot, PACKAGE_LOCK, lambda lock: lock["packages"].update({self.REACT: lock_entry("19.4.0", "react")}))
+        self.assert_holds(snapshot, 'the dependency metadata gives "react" "19.3.1", but website/package-lock.json locks "19.4.0"')
+        # Exactly the named version, not one that starts with it.
+        snapshot = green_npm()
+        edit_json(snapshot, PACKAGE_LOCK, lambda lock: lock["packages"].update({self.REACT: lock_entry("19.3.10", "react")}))
+        self.assert_holds(snapshot, 'the dependency metadata gives "react" "19.3.1", but website/package-lock.json locks "19.3.10"')
+        # A name the lockfile does not move: unchanged, absent, or only nested.
+        snapshot = green_npm()
+        add_metadata(snapshot, "clsx", "2.1.2", "version-update:semver-patch")
+        self.assert_holds(snapshot, 'the dependency metadata names "clsx", but website/package-lock.json does not change the version of "node_modules/clsx"')
+        snapshot = green_npm()
+        base = json.loads(file_entry(snapshot, PACKAGE_LOCK)["base"])["packages"]
+        edit_json(snapshot, PACKAGE_LOCK, lambda lock: lock["packages"].update({self.REACT: {**base[self.REACT], "dev": True}}))
+        self.assert_holds(snapshot, 'the dependency metadata names "react", but website/package-lock.json does not change the version of "node_modules/react"')
+        snapshot = green_npm()
+        add_metadata(snapshot, "left-pad", "1.3.0", "version-update:semver-patch", kind="indirect")
+        edit_json(snapshot, PACKAGE_LOCK, lambda lock: lock["packages"].update({"node_modules/react/node_modules/left-pad": lock_entry("1.3.0")}))
+        self.assert_holds(snapshot, 'the dependency metadata names "left-pad", but website/package-lock.json does not change the version of "node_modules/left-pad"')
+        # A lockfile-only update is bound the same way.
+        snapshot = green_npm()
+        snapshot["files"] = [entry for entry in snapshot["files"] if entry["filename"] == PACKAGE_LOCK]
+        snapshot["pull_request"]["changed_files"] = 1
+        set_metadata_version(snapshot, "react-dom", "19.3.2")
+        self.assert_holds(snapshot, 'the dependency metadata gives "react-dom" "19.3.2", but website/package-lock.json locks "19.3.1"')
 
     def test_integrity_must_be_sha512(self) -> None:
         for integrity in (None, "", "sha1-" + "A" * 27 + "=", "sha512-" + "A" * 85 + "==", "sha512-" + "A" * 86 + "== sha1-x", 7):
@@ -1234,6 +1698,13 @@ class PackageLockRuleTests(GateTestCase):
             "node_modules/linked": ({"resolved": "packages/local", "link": True}, '"node_modules/linked" resolves from "packages/local"'),
             "node_modules/bundled": ({"version": "1.0.0", "inBundle": True}, '"node_modules/bundled" resolves from null'),
             "node_modules/text": ("1.0.0", 'the entry "node_modules/text" is not an object'),
+            # Keys that name no package: the tarball could not be bound to a name.
+            "node_modules/": (lock_entry("1.3.0"), 'the entry "node_modules/" is not an installed package under node_modules/'),
+            "node_modules/@scope": (lock_entry("1.3.0", "@scope"), 'the entry "node_modules/@scope" is not an installed package under node_modules/'),
+            "node_modules/left-pad/lib": (lock_entry("1.3.0"), 'the entry "node_modules/left-pad/lib" is not an installed package under node_modules/'),
+            "node_modules/../left-pad": (lock_entry("1.3.0"), "is not an installed package under node_modules/"),
+            "node_modules/left pad": (lock_entry("1.3.0", "left pad"), "is not an installed package under node_modules/"),
+            "x/node_modules/left-pad": (lock_entry("1.3.0"), "is not an installed package under node_modules/"),
         }
         for key, (entry, reason) in cases.items():
             with self.subTest(key=key):
@@ -1380,7 +1851,7 @@ class CheckRuleTests(GateTestCase):
     def test_malformed_check_run_holds(self) -> None:
         snapshot = green_gomod()
         snapshot["check_runs"].append({"name": "x", "status": "completed", "conclusion": "success"})
-        self.assert_holds(snapshot, "a check run has no name or app", 'check "x" has no check suite id')
+        self.assert_holds(snapshot, "a check run has no name or app", 'check "x" has no id', 'check "x" has no check suite id')
 
     def test_ignored_checks_are_not_read(self) -> None:
         for (name, app), reason in GATE.IGNORED_CHECKS.items():
@@ -1388,7 +1859,7 @@ class CheckRuleTests(GateTestCase):
                 self.assertGreater(len(reason), 40)
                 snapshot = green_gomod()
                 snapshot["check_runs"] = [run for run in snapshot["check_runs"] if run["name"] != name]
-                run = {"name": name, "status": "completed", "conclusion": "failure", "app": {"slug": app}, "check_suite": {"id": 1}}
+                run = {"id": 7, "name": name, "status": "completed", "conclusion": "failure", "app": {"slug": app}, "check_suite": {"id": 1}}
                 snapshot["check_runs"].append({**run, "head_sha": snapshot["head_sha"]})
                 self.assert_merges(snapshot)
                 snapshot["check_runs"][-1]["status"] = "in_progress"
@@ -1433,10 +1904,49 @@ class CheckProvenanceTests(GateTestCase):
                 snapshot = green_gomod()
                 workflow_run(snapshot, workflow)["actor"]["id"] = 1
                 path = GATE.WORKFLOW_FILES[workflow]
-                self.assert_holds(snapshot, f'the workflow run of "{path}" behind required checks was started by user id 1, not by dependabot[bot] (49699333)')
+                self.assert_holds(snapshot, f'a "pull_request" run of "{path}" for the head commit was started by user id 1, not by dependabot[bot] (49699333)')
         snapshot = green_npm()
         workflow_run(snapshot, "Test Website Build")["actor"]["id"] = 19864447
         self.assert_holds(snapshot, "was started by user id 19864447, not by dependabot[bot]")
+
+    def test_superseded_run_started_by_someone_else_holds(self) -> None:
+        # Finding Low 2, attack N13: a person pushed this head (or reopened
+        # the pull request) and Dependabot's runs came later. Every required
+        # check points at a Dependabot run; the person's runs are still there.
+        for workflow in ("CI", "Lint", "Formal Verification", "CodeQL", "Test Website Build"):
+            with self.subTest(workflow=workflow):
+                snapshot = green_npm() if workflow == "Test Website Build" else green_gomod()
+                earlier = copy.deepcopy(workflow_run(snapshot, workflow))
+                earlier.update(id=earlier["id"] - 1000, check_suite_id=earlier["check_suite_id"] - 1000, actor={"id": 12345})
+                snapshot["workflow_runs"].append(earlier)
+                path = GATE.WORKFLOW_FILES[workflow]
+                self.assert_holds(snapshot, f'a "pull_request" run of "{path}" for the head commit was started by user id 12345, not by dependabot[bot] (49699333)')
+        # Dependabot's own earlier run of the same workflow is no reason.
+        snapshot = green_gomod()
+        earlier = copy.deepcopy(workflow_run(snapshot, "CI"))
+        earlier.update(id=earlier["id"] - 1000, check_suite_id=earlier["check_suite_id"] - 1000)
+        snapshot["workflow_runs"].append(earlier)
+        self.assert_merges(snapshot)
+
+    def test_other_runs_by_a_person_are_no_reason(self) -> None:
+        # Attack N14 and its neighbours: runs that no push or reopen by that
+        # person explains. A maintainer may dispatch a required workflow on
+        # the branch, and `benchmarks: run` is a label a maintainer adds
+        # (benchmarks.yml runs on `labeled`, with the labeller as actor).
+        snapshot = green_gomod()
+        sha = snapshot["head_sha"]
+        for number, (path, event) in enumerate(
+            (
+                (".github/workflows/evil.yml", "push"),
+                (".github/workflows/ci.yml", "workflow_dispatch"),
+                (".github/workflows/lint.yml", "schedule"),
+                (".github/workflows/benchmarks.yml", "pull_request"),
+            )
+        ):
+            snapshot["workflow_runs"].append({"id": 7 + number, "path": path, "event": event, "head_sha": sha, "check_suite_id": 70 + number, "actor": {"id": 1}})
+        self.assert_merges(snapshot)
+        self.assertNotIn(".github/workflows/benchmarks.yml", GATE.REQUIRED_WORKFLOW_PATHS)
+        self.assertEqual(GATE.REQUIRED_WORKFLOW_PATHS, set(GATE.WORKFLOW_FILES.values()))
 
     def test_run_of_another_event_holds(self) -> None:
         for event in ("push", "pull_request_target", "workflow_dispatch", "schedule"):
@@ -1444,6 +1954,14 @@ class CheckProvenanceTests(GateTestCase):
                 snapshot = green_gomod()
                 workflow_run(snapshot, "CI")["event"] = event
                 self.assert_holds(snapshot, f'the workflow run of ".github/workflows/ci.yml" behind required checks ran on "{event}", not on pull_request')
+        # Whoever started it is read for a run of any event, once a required check points at it.
+        snapshot = green_gomod()
+        workflow_run(snapshot, "CI").update(event="workflow_dispatch", actor={"id": 1})
+        self.assert_holds(
+            snapshot,
+            'the workflow run of ".github/workflows/ci.yml" behind required checks ran on "workflow_dispatch", not on pull_request',
+            'a "workflow_dispatch" run of ".github/workflows/ci.yml" for the head commit was started by user id 1, not by dependabot[bot] (49699333)',
+        )
 
     def test_check_must_come_from_its_workflow_file(self) -> None:
         # A check named like a required one, reported by a run of another workflow.
@@ -1452,6 +1970,7 @@ class CheckProvenanceTests(GateTestCase):
         self.assert_holds(
             snapshot,
             'required check "goplint consumer gates" was reported by a run of ".github/workflows/ci.yml", not of .github/workflows/lint.yml',
+            'required check "goplint consumer gates" is not a job of the workflow run of ".github/workflows/ci.yml" that ran on a runner: 0 of its jobs have the id of the check',
         )
         snapshot = green_gomod()
         workflow_run(snapshot, "Lint")["path"] = ".github/workflows/lint.yml@refs/heads/evil"
@@ -1483,11 +2002,132 @@ class CheckProvenanceTests(GateTestCase):
         snapshot = green_gomod()
         snapshot["workflow_runs"] = None
         self.assert_holds(snapshot, "the workflow runs could not be read", "0 workflow runs", only=False)
-        for field, value in (("check_suite_id", "1"), ("check_suite_id", True), ("path", None), ("event", None), ("actor", None), ("actor", {"id": "49699333"}), ("actor", {"id": True})):
+        for field, value in (
+            ("check_suite_id", "1"),
+            ("check_suite_id", True),
+            ("id", None),
+            ("id", "45145297215"),
+            ("id", True),
+            ("path", None),
+            ("event", None),
+            ("actor", None),
+            ("actor", {"id": "49699333"}),
+            ("actor", {"id": True}),
+        ):
             with self.subTest(field=field, value=value):
                 snapshot = green_gomod()
                 workflow_run(snapshot, "Lint")[field] = value
                 self.assert_holds(snapshot, "a workflow run of the head commit could not be read", only=False)
+
+    # ---- finding Medium 1: which job of that run reported the check
+
+    def test_real_required_checks_are_jobs_that_ran_on_a_runner(self) -> None:
+        for number, required in ((190, GATE.REQUIRED_GOMOD), (189, GATE.REQUIRED_NPM)):
+            snapshot = real(number)
+            runs = {run["check_suite_id"]: run for run in snapshot["workflow_runs"]}
+            for check in required:
+                if check.app != GATE.ACTIONS_APP:
+                    continue
+                with self.subTest(pr=number, check=check.name):
+                    run = run_named(snapshot, check.name)
+                    self.assertIsNone(GATE._job_problem(runs[run["check_suite"]["id"]], run))
+
+    def test_real_api_created_checks_are_listed_as_jobs_without_a_runner(self) -> None:
+        # What GitHub returned for #190 and #191: the checks ci.yml's test
+        # job creates through the API (mikepenz/action-junit-report) are
+        # among the "jobs" of another workflow's run. The jobs listing alone
+        # therefore proves nothing; the runner and the steps do.
+        for number, workflow in ((190, "Lint"), (191, "CodeQL")):
+            with self.subTest(pr=number):
+                snapshot = real(number)
+                run = workflow_run(snapshot, workflow)
+                junit = [check for check in snapshot["check_runs"] if check["name"].startswith("JUnit Report (")]
+                self.assertEqual(len(junit), 4)
+                ghosts = [job for job in run["jobs"] if job["id"] in {check["id"] for check in junit}]
+                self.assertEqual([(job["runner_id"], job["steps"]) for job in ghosts], [(None, 0)] * 4)
+                self.assertEqual({check["check_suite"]["id"] for check in junit}, {run["check_suite_id"]})
+                for check in junit:
+                    self.assertIn("has no runner or no steps", GATE._job_problem(run, check))
+                real_jobs = [job for job in run["jobs"] if job not in ghosts]
+                self.assertTrue(all(type(job["runner_id"]) is int and job["runner_id"] > 0 and job["steps"] > 0 for job in real_jobs), real_jobs)
+        # Only the runs a required check can come from carry jobs.
+        for number in (189, 190, 191):
+            for run in real(number)["workflow_runs"]:
+                self.assertEqual("jobs" in run, run["path"] in GATE.REQUIRED_WORKFLOW_PATHS, run["path"])
+
+    def test_check_created_through_the_api_is_not_a_required_check(self) -> None:
+        # The attack of finding Medium 1 with #190's own data: the dependency
+        # under test runs in ci.yml's test job, which may write checks. It
+        # creates one named like a required Lint check, which GitHub files in
+        # the lint.yml suite (as it did with `JUnit Report (macos)`), and
+        # `filter=latest` then hides the real job's failed check behind it.
+        snapshot = green_gomod()
+        forged = run_named(snapshot, "JUnit Report (macos)")
+        self.assertEqual(forged["check_suite"]["id"], workflow_run(snapshot, "Lint")["check_suite_id"])
+        snapshot["check_runs"].remove(run_named(snapshot, "goplint consumer gates"))
+        forged["name"] = "goplint consumer gates"
+        self.assert_holds(
+            snapshot,
+            'required check "goplint consumer gates" is not a job of the workflow run of ".github/workflows/lint.yml" that ran on a runner: '
+            "the job with its id has no runner or no steps, as a check created through the API",
+        )
+        # Next to the real check, it holds as well.
+        snapshot = green_gomod()
+        run_named(snapshot, "JUnit Report (macos)")["name"] = "Test (macos)"
+        self.assert_holds(snapshot, 'required check "Test (macos)" was reported by a run of ".github/workflows/lint.yml"', 'required check "Test (macos)" is not a job', only=False)
+
+    def test_required_check_must_be_a_job_of_its_run(self) -> None:
+        name = "License Headers"
+        reason = f'required check "{name}" is not a job of the workflow run of ".github/workflows/ci.yml" that ran on a runner: '
+        # A check id that no job of the run has (a check the API created in a suite whose jobs do not list it).
+        snapshot = green_gomod()
+        run_named(snapshot, name)["id"] += 1
+        self.assert_holds(snapshot, reason + "0 of its jobs have the id of the check")
+        for check_id in (None, "137592989112", True):
+            with self.subTest(check_id=check_id):
+                snapshot = green_gomod()
+                run_named(snapshot, name)["id"] = check_id
+                self.assert_holds(snapshot, f'check "{name}" has no id', reason + "0 of its jobs have the id of the check")
+        # A job of another run of the head is not a job of this one.
+        snapshot = green_gomod()
+        lint_job = run_named(snapshot, "agent docs integrity")["id"]
+        run_named(snapshot, name)["id"] = lint_job
+        self.assert_holds(snapshot, reason + "0 of its jobs have the id of the check")
+
+        def job_of(snapshot: dict) -> dict:
+            (job,) = [job for job in workflow_run(snapshot, "CI")["jobs"] if job["id"] == run_named(snapshot, name)["id"]]
+            return job
+
+        for field, value in (("runner_id", None), ("runner_id", 0), ("runner_id", -1), ("runner_id", "1000022139"), ("runner_id", True), ("steps", 0), ("steps", None), ("steps", True), ("steps", [{}])):
+            with self.subTest(field=field, value=value):
+                snapshot = green_gomod()
+                job_of(snapshot)[field] = value
+                self.assert_holds(snapshot, reason + "the job with its id has no runner or no steps")
+        snapshot = green_gomod()
+        job_of(snapshot)["id"] = str(job_of(snapshot)["id"])
+        self.assert_holds(snapshot, reason + "0 of its jobs have the id of the check")
+        snapshot = green_gomod()
+        workflow_run(snapshot, "CI")["jobs"].append(copy.deepcopy(job_of(snapshot)))
+        self.assert_holds(snapshot, reason + "2 of its jobs have the id of the check")
+
+    def test_unreadable_jobs_hold(self) -> None:
+        for jobs in (None, {}, "x"):
+            with self.subTest(jobs=jobs):
+                snapshot = green_gomod()
+                workflow_run(snapshot, "Formal Verification")["jobs"] = jobs
+                self.assert_holds(
+                    snapshot,
+                    'required check "Models, golden vectors, and correspondence" is not a job of the workflow run of '
+                    '".github/workflows/formal-verification.yml" that ran on a runner: the jobs of that run could not be read',
+                )
+        snapshot = green_gomod()
+        del workflow_run(snapshot, "CI")["jobs"]
+        verdict = self.assert_holds(snapshot, "the jobs of that run could not be read", only=False)
+        self.assertEqual(len(verdict["reasons"]), len([check for check in GATE.REQUIRED_GOMOD if check.workflow == "CI"]))
+        snapshot = green_gomod()
+        workflow_run(snapshot, "CI")["jobs"] = []
+        verdict = self.assert_holds(snapshot, "0 of its jobs have the id of the check", only=False)
+        self.assertEqual(len(verdict["reasons"]), len([check for check in GATE.REQUIRED_GOMOD if check.workflow == "CI"]))
 
     def test_checks_of_other_apps_and_other_checks_are_not_bound_to_a_run(self) -> None:
         # The code-scanning results and the Socket and SonarCloud checks have
@@ -1496,6 +2136,7 @@ class CheckProvenanceTests(GateTestCase):
         snapshot = green_gomod()
         for name in ("CodeQL", "SonarCloud", "SonarCloud Code Analysis", "Socket Security: Pull Request Alerts", "JUnit Report (macos)"):
             run_named(snapshot, name)["check_suite"]["id"] = 1
+            run_named(snapshot, name)["id"] += 1
         self.assert_merges(snapshot)
         # A run nobody requires may be anyone's.
         workflow_run_of_benchmarks = [run for run in snapshot["workflow_runs"] if run["path"] == ".github/workflows/benchmarks.yml"]
@@ -1598,6 +2239,25 @@ class PolicyTableTests(unittest.TestCase):
         go_mod = (ROOT / "go.mod").read_text(encoding="utf-8")
         self.assertNotRegex(go_mod, r"(?m)^\tgithub\.com/invowk/no-such-module v\S+")
 
+    def test_relaxation_tables_are_pinned(self) -> None:
+        # Widening a relaxation is a policy change: it must show up here.
+        self.assertEqual(sorted(GATE.ALLOW_0X_MINOR), ["golang.org/x/"])
+        self.assertEqual((GATE.RULE_INDIRECT, GATE.RULE_0X_MINOR), ("indirect-side-effect", "allow-0x-minor"))
+        requirements = GATE.parse_go_mod((ROOT / "go.mod").read_text(encoding="utf-8"))[0]
+        for prefix, reason in GATE.ALLOW_0X_MINOR.items():
+            with self.subTest(prefix=prefix):
+                self.assertTrue(prefix.endswith("/"), "a prefix without a trailing slash also matches other paths")
+                self.assertGreater(len(reason), 40)
+                under = sorted(module for module in requirements if module.startswith(prefix))
+                self.assertTrue(under, "stale ALLOW_0X_MINOR entry: go.mod requires nothing under it")
+                # Today every released one is a 0.x version, which is the reason for the entry.
+                released = [module for module in under if GATE.VERSION_RE.fullmatch(requirements[module][0])]
+                self.assertTrue(released and all(requirements[module][0].startswith("v0.") for module in released), released)
+        gomod = GATE.ECOSYSTEMS[0]
+        admitted = {module for module in requirements if GATE._allows_0x_minor(gomod, module)}
+        self.assertEqual({module for module in requirements if module.startswith("golang.org/x/")} - admitted, {"golang.org/x/tools"})
+        self.assertIn("golang.org/x/tools", GATE.DENY_GOMOD)
+
     def test_ecosystem_files_exist(self) -> None:
         for eco in GATE.ECOSYSTEMS:
             self.assertIn(eco.manifest, eco.files)
@@ -1696,6 +2356,28 @@ class PolicyTableTests(unittest.TestCase):
                     ]
                     self.assertEqual(len(jobs), 1, f"no single job of {check.workflow} is named {check.name!r}")
                     self.assertNotIn("if", jobs[0], "a conditional job can be skipped: it cannot be required")
+
+    def test_jobs_that_may_write_checks_do_not_persist_the_token(self) -> None:
+        # Finding Medium 1: a job of a required workflow with `checks: write`
+        # runs the pull request's code (ci.yml's test job runs the updated
+        # dependency) and can create a check with any name. Its checkout
+        # must not leave the token in .git/config for that code to read.
+        docs = workflow_docs()
+        writers = []
+        for name in GATE.WORKFLOW_FILES:
+            for job_id, job in docs[name]["jobs"].items():
+                # A job's `permissions` replace the workflow's.
+                permissions = job.get("permissions", docs[name].get("permissions"))
+                if permissions != "write-all" and not (isinstance(permissions, dict) and permissions.get("checks") == "write"):
+                    continue
+                writers.append((name, job_id))
+                checkouts = [step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@")]
+                self.assertTrue(checkouts, (name, job_id))
+                for step in checkouts:
+                    self.assertEqual(step.get("with", {}).get("persist-credentials"), "false", (name, job_id))
+                for step in job["steps"]:
+                    self.assertNotRegex(step.get("run", ""), r"\bgit (push|fetch|pull|clone|ls-remote)\b|\bgh \b", (name, job_id, step.get("name")))
+        self.assertEqual(writers, [("CI", "test")])
 
     def test_ignored_checks_are_job_names(self) -> None:
         docs = workflow_docs()
@@ -2018,13 +2700,19 @@ class FakeGitHub:
             return [{"patch": "@@ -1 +1 @@", **entry, "sha": "x"} for entry in listed][window]
         if route == f"repos/{REPO}/commits/{sha}/check-runs?filter=latest":
             runs = self.snapshot["check_runs"]
-            return {"total_count": len(runs), "check_runs": [{**run, "id": 1} for run in runs][window]}
+            return {"total_count": len(runs), "check_runs": [{**run, "external_id": "x"} for run in runs][window]}
         if route == f"repos/{REPO}/commits/{sha}/status":
             statuses = self.snapshot["statuses"]
             return {"state": "pending", "total_count": len(statuses), "statuses": statuses[window]}
         if route == f"repos/{REPO}/actions/runs?head_sha={sha}":
-            runs = self.snapshot["workflow_runs"]
-            return {"total_count": len(runs), "workflow_runs": [{**run, "id": 1, "triggering_actor": {"id": 1}} for run in runs][window]}
+            runs = [{key: value for key, value in run.items() if key != "jobs"} for run in self.snapshot["workflow_runs"]]
+            return {"total_count": len(runs), "workflow_runs": [{**run, "triggering_actor": {"id": 1}} for run in runs][window]}
+        jobs = re.fullmatch(rf"repos/{REPO}/actions/runs/(\d+)/jobs\?filter=all", route)
+        if jobs:
+            # Only the runs whose snapshot entry has jobs may be asked for them.
+            (run,) = [run for run in self.snapshot["workflow_runs"] if run["id"] == int(jobs.group(1)) and "jobs" in run]
+            listed = [{**job, "name": "x", "run_id": run["id"], "steps": [{"name": "Set up job", "number": 1}] * job["steps"]} for job in run["jobs"]]
+            return {"total_count": len(listed), "jobs": listed[window]}
         raise AssertionError(f"unexpected API path: {path}")
 
 
@@ -2062,6 +2750,14 @@ class CommandLineTests(unittest.TestCase):
             [f"repos/{REPO}/contents/go.mod?ref=f895970f71f3fedaa1dfdde78e6f19cde5ab9e1c", f"repos/{REPO}/contents/go.mod?ref={self.SHA}"],
         )
         self.assertIn(f"repos/{REPO}/compare/main...{self.SHA}?per_page=1", api.calls)
+        # The jobs are read for the four runs a required check can come from, not for benchmarks.yml.
+        required_runs = sorted(run["id"] for run in green_gomod()["workflow_runs"] if run["path"] in GATE.REQUIRED_WORKFLOW_PATHS)
+        self.assertEqual(len(required_runs), 4)
+        self.assertEqual(
+            sorted(call for call in api.calls if "/jobs?" in call),
+            [f"repos/{REPO}/actions/runs/{run}/jobs?filter=all&per_page=100&page=1" for run in required_runs],
+        )
+        self.assertEqual(verdict["admitted"], [])
 
     def test_npm_merge_verdict_through_the_api(self) -> None:
         snapshot = green_npm()
@@ -2090,6 +2786,23 @@ class CommandLineTests(unittest.TestCase):
         api = FakeGitHub(snapshot)
         rc, verdict, _, _, _ = self.gate(api, "--head-sha", self.SHA)
         self.assertEqual((rc, verdict["decision"], api.raw_calls), (0, "hold", []))
+
+    def test_missing_labels_hold_through_the_api(self) -> None:
+        # Finding Low 3: a pull request body without `labels` became `[]`,
+        # so the "labels could not be read" hold never fired on this path.
+        for labels in ("missing", None, "hold", {"name": "hold"}):
+            with self.subTest(labels=labels):
+                snapshot = green_gomod()
+                if labels == "missing":
+                    del snapshot["pull_request"]["labels"]
+                else:
+                    snapshot["pull_request"]["labels"] = labels
+                rc, verdict, _, outputs, _ = self.gate(FakeGitHub(snapshot), "--head-sha", self.SHA)
+                self.assertEqual((rc, outputs["decision"], verdict["reasons"]), (0, "hold", ["the pull request labels could not be read"]))
+        snapshot = green_gomod()
+        snapshot["pull_request"]["labels"] = []
+        rc, verdict, _, _, _ = self.gate(FakeGitHub(snapshot), "--head-sha", self.SHA)
+        self.assertEqual((rc, verdict["decision"]), (0, "merge"))
 
     def test_head_behind_main_holds_through_the_api(self) -> None:
         snapshot = green_gomod()
@@ -2174,6 +2887,7 @@ class CommandLineTests(unittest.TestCase):
         snapshot = green_gomod()
         extra = [
             {
+                "id": i + 1,
                 "name": f"extra {i}",
                 "status": "completed",
                 "conclusion": "success",
@@ -2195,7 +2909,7 @@ class CommandLineTests(unittest.TestCase):
     def test_incomplete_check_run_listing_fails(self) -> None:
         api = FakeGitHub(green_gomod())
 
-        for listing in ("/check-runs?", "/status?", "/actions/runs?"):
+        for listing in ("/check-runs?", "/status?", "/actions/runs?", "/jobs?"):
             with self.subTest(listing=listing):
 
                 def short(path: str, raw: bool = False) -> object:
@@ -2223,12 +2937,46 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(len([call for call in api.calls if "/status?" in call]), 2)
         # The run behind a required check may be on a later page too.
         snapshot = green_gomod()
-        other = {"path": ".github/workflows/other.yml", "event": "push", "head_sha": self.SHA, "check_suite_id": 5, "actor": {"id": 1}}
-        snapshot["workflow_runs"] = [dict(other, check_suite_id=1000 + i) for i in range(120)] + snapshot["workflow_runs"]
+        other = {"id": 5, "path": ".github/workflows/other.yml", "event": "push", "head_sha": self.SHA, "check_suite_id": 5, "actor": {"id": 1}}
+        snapshot["workflow_runs"] = [dict(other, id=2000 + i, check_suite_id=1000 + i) for i in range(120)] + snapshot["workflow_runs"]
         api = FakeGitHub(snapshot)
         rc, verdict, _, _, _ = self.gate(api, "--head-sha", self.SHA)
         self.assertEqual((rc, verdict["decision"], verdict["reasons"]), (0, "merge", []))
         self.assertEqual(len([call for call in api.calls if "/actions/runs?" in call]), 2)
+
+    def test_reads_every_page_of_jobs(self) -> None:
+        # The job behind a required check may be on a later page: every
+        # attempt of a run is listed (`filter=all`).
+        snapshot = green_gomod()
+        run = workflow_run(snapshot, "CI")
+        earlier = [{"id": 9000 + i, "runner_id": 1000000000 + i, "steps": 3} for i in range(130)]
+        run["jobs"] = earlier + run["jobs"]
+        api = FakeGitHub(snapshot)
+        rc, verdict, _, _, _ = self.gate(api, "--head-sha", self.SHA)
+        self.assertEqual((rc, verdict["decision"], verdict["reasons"]), (0, "merge", []))
+        pages = [call.rpartition("/")[2] for call in api.calls if f"/runs/{run['id']}/jobs?" in call]
+        self.assertEqual(pages, ["jobs?filter=all&per_page=100&page=1", "jobs?filter=all&per_page=100&page=2"])
+
+    def test_unreadable_jobs_are_a_hold_and_a_failure(self) -> None:
+        # Finding Medium 1: a read error or a truncated listing decides nothing.
+        api = FakeGitHub(green_gomod())
+
+        def broken(path: str, raw: bool = False) -> object:
+            if "/jobs?" in path:
+                raise GATE.GateError(f"gh api {path} failed: HTTP 502")
+            return api(path, raw)
+
+        rc, verdict, _, outputs, _ = self.gate(broken, "--head-sha", self.SHA)
+        self.assertEqual((rc, verdict["decision"], outputs["decision"]), (1, "hold", "hold"))
+        self.assertIn("GitHub could not be read, so nothing was decided", verdict["reasons"][0])
+        for body in ({"total_count": 1, "jobs": None}, {"total_count": 2, "jobs": [{"id": 1}]}, []):
+            with self.subTest(body=body), self.assertRaises(GATE.GateError):
+                GATE._workflow_run_fields(lambda path: body, REPO, {"id": 7, "path": ".github/workflows/ci.yml"})
+        # A run with no usable id is not asked for: the rule holds on it instead.
+        for run_id in (None, "7", True, "7/../../pulls"):
+            with self.subTest(run_id=run_id):
+                fields = GATE._workflow_run_fields(lambda path: self.fail(path), REPO, {"id": run_id, "path": ".github/workflows/ci.yml"})
+                self.assertNotIn("jobs", fields)
 
     def test_waits_for_github_to_compute_mergeability(self) -> None:
         rc, verdict, _, _, _ = self.gate(FakeGitHub(green_gomod(), mergeable_after=2), "--head-sha", self.SHA)
@@ -2239,7 +2987,7 @@ class CommandLineTests(unittest.TestCase):
 
     def test_gh_api_is_a_read(self) -> None:
         with mock.patch.object(GATE.subprocess, "run") as run:
-            run.return_value = mock.Mock(returncode=0, stdout='{"ok": true}', stderr="")
+            run.return_value = mock.Mock(returncode=0, stdout=b'{"ok": true}', stderr=b"")
             self.assertEqual(GATE.gh_api("repos/x/y/pulls/1"), {"ok": True})
             argv = run.call_args.args[0]
             self.assertEqual(argv[:4], ["gh", "api", "--method", "GET"])
@@ -2247,34 +2995,59 @@ class CommandLineTests(unittest.TestCase):
             self.assertNotIn("shell", run.call_args.kwargs)
             # On an HTTP error gh prints the error body, which is JSON too.
             for result in (
-                mock.Mock(returncode=1, stdout='{"message": "Not Found"}', stderr="gh: Not Found (HTTP 404)"),
-                mock.Mock(returncode=0, stdout="<html>", stderr=""),
+                mock.Mock(returncode=1, stdout=b'{"message": "Not Found"}', stderr=b"gh: Not Found (HTTP 404)"),
+                mock.Mock(returncode=1, stdout=b"", stderr=b"\xff"),
+                mock.Mock(returncode=0, stdout=b"<html>", stderr=b""),
+                mock.Mock(returncode=0, stdout=b'{"name": "caf\xe9"}', stderr=b""),
             ):
                 run.return_value = result
                 with self.assertRaises(GATE.GateError):
                     GATE.gh_api("repos/x/y/pulls/1")
-            run.side_effect = FileNotFoundError("gh")
-            with self.assertRaises(GATE.GateError):
-                GATE.gh_api("repos/x/y/pulls/1")
+            for error in (FileNotFoundError("gh"), GATE.subprocess.TimeoutExpired("gh", 120)):
+                run.side_effect = error
+                with self.assertRaises(GATE.GateError):
+                    GATE.gh_api("repos/x/y/pulls/1")
 
     def test_gh_api_raw_returns_the_file_text(self) -> None:
         with mock.patch.object(GATE.subprocess, "run") as run:
-            run.return_value = mock.Mock(returncode=0, stdout="module x\n", stderr="")
+            run.return_value = mock.Mock(returncode=0, stdout=b"module x\n", stderr=b"")
             self.assertEqual(GATE.gh_api("repos/x/y/contents/go.mod?ref=abc", raw=True), "module x\n")
             argv = run.call_args.args[0]
             self.assertEqual(argv[:6], ["gh", "api", "--method", "GET", "-H", "Accept: application/vnd.github.raw+json"])
-            self.assertEqual(run.call_args.kwargs["encoding"], "utf-8")
             # A file that happens to be JSON is still returned as text.
-            run.return_value = mock.Mock(returncode=0, stdout='{"name": "x"}', stderr="")
+            run.return_value = mock.Mock(returncode=0, stdout=b'{"name": "x"}', stderr=b"")
             self.assertEqual(GATE.gh_api("repos/x/y/contents/package.json?ref=abc", raw=True), '{"name": "x"}')
             self.assertEqual(GATE.gh_api("repos/x/y/pulls/1"), {"name": "x"})
             self.assertEqual(run.call_args.args[0][5], "Accept: application/vnd.github+json")
-            run.return_value = mock.Mock(returncode=1, stdout="", stderr="gh: Not Found (HTTP 404)")
+            run.return_value = mock.Mock(returncode=1, stdout=b"", stderr=b"gh: Not Found (HTTP 404)")
             with self.assertRaises(GATE.GateError):
                 GATE.gh_api("repos/x/y/contents/go.mod?ref=abc", raw=True)
-            run.side_effect = UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+            run.return_value = mock.Mock(returncode=0, stdout=b"module \xff\n", stderr=b"")
             with self.assertRaises(GATE.GateError):
                 GATE.gh_api("repos/x/y/contents/go.mod?ref=abc", raw=True)
+
+    def test_gh_api_keeps_carriage_returns(self) -> None:
+        # Finding Low 1, attack N12b: in text mode Python turned a bare
+        # carriage return into a line feed, so the rules read two lines
+        # where Go reads one. The bytes are decoded as they are.
+        raw = b"require (\n\tgithub.com/a/b v1.0.0\r\tgithub.com/evil/new v1.0.0\r\n)\n"
+        with mock.patch.object(GATE.subprocess, "run") as run:
+            run.return_value = mock.Mock(returncode=0, stdout=raw, stderr=b"")
+            self.assertEqual(GATE.gh_api("repos/x/y/contents/go.mod?ref=abc", raw=True), raw.decode("ascii"))
+            for option in ("text", "encoding", "errors", "universal_newlines"):
+                self.assertNotIn(option, run.call_args.kwargs)
+            self.assertIs(run.call_args.kwargs["capture_output"], True)
+        # Through a real child process, with the carriage return in its output.
+        child = [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'a\\rb\\r\\nc\\n')"]
+        with mock.patch.object(GATE.subprocess, "run", side_effect=lambda argv, **kwargs: subprocess_run(child, **kwargs)):
+            self.assertEqual(GATE.gh_api("repos/x/y/contents/go.mod?ref=abc", raw=True), "a\rb\r\nc\n")
+        # ... and the rules hold on the file that comes back.
+        snapshot = green_gomod()
+        entry = file_entry(snapshot, GO_MOD)
+        at = entry["head"].index("\n\tgolang.org/x/crypto ")
+        entry["head"] = entry["head"][:at] + "\r" + entry["head"][at + 1 :]
+        rc, verdict, _, _, _ = self.gate(FakeGitHub(snapshot), "--head-sha", self.SHA)
+        self.assertEqual((rc, verdict["reasons"]), (0, ["go.mod contains a carriage return"]))
 
     def test_up_to_date_command(self) -> None:
         def run(compare: object, repo: str = REPO, sha: str = self.SHA) -> tuple[int, str, str, list[str]]:
@@ -2317,6 +3090,22 @@ class CommandLineTests(unittest.TestCase):
         summary = GATE.render_summary(verdict, None)
         self.assertTrue(summary.isascii() and summary.replace("\n", "").isprintable(), summary)
         self.assertNotIn("Mode:", summary)
+        self.assertNotIn("Admitted", summary)
+
+    def test_summary_names_the_rule_that_admitted_a_line(self) -> None:
+        snapshot = green_gomod()
+        set_go_version(snapshot, "golang.org/x/net", "v0.63.0")
+        add_go_line(snapshot, "\tgithub.com/evil/new v1.2.3 // indirect")
+        verdict = GATE.decide(snapshot)
+        self.assertEqual((verdict["decision"], len(verdict["admitted"])), ("merge", 2))
+        summary = GATE.render_summary(verdict, "decide-only")
+        self.assertIn("### Dependabot merge gate: MERGE", summary)
+        self.assertIn("Admitted by a relaxation (rule named at the end of each line):", summary)
+        self.assertIn('- go.mod adds the indirect requirement "github.com/evil/new v1.2.3": admitted by indirect-side-effect\n', summary)
+        self.assertIn("(a minor bump of a 0.x version under golang.org/x/): admitted by allow-0x-minor\n", summary)
+        self.assertNotIn("Reasons to hold", summary)
+        self.assertNotIn("Admitted", GATE.render_summary(GATE.decide(green_gomod()), "decide-only"))
+        self.assertEqual(GATE.hold_verdict("x")["admitted"], [])
 
     def test_decide_command(self) -> None:
         out, err = io.StringIO(), io.StringIO()
