@@ -199,3 +199,24 @@ ties to a manual procedure and the table does not list: `cuelang.org/go`,
 states its reason in the script. When a Go or npm sync pair is added or
 removed, change both in the same commit; `scripts/test_dependabot_gate.py`
 compares them.
+
+What the gate accepts beyond a plain patch or minor update is fixed in the
+script as well, and named in each verdict's `admitted` list:
+`indirect-side-effect` (an unnamed `// indirect` Go requirement may be
+removed, added at a released or pseudo-version, or moved strictly forward to
+one; a step to another major is named, a pre-release holds) and
+`allow-0x-minor` (`ALLOW_0X_MINOR`: 0.x minors of `golang.org/x/` modules that
+are not on the deny list). A deny-listed module is outside both, so
+`golang.org/x/tools` still never merges. Do not add a prefix to
+`ALLOW_0X_MINOR` to get a held update through: that is a maintainer decision.
+
+When a workflow audit touches the jobs of `ci.yml`, `lint.yml`,
+`formal-verification.yml`, `codeql.yml` or `test-website.yml`, remember that
+the gate binds each required check to a job of Dependabot's own workflow run
+by id, and counts it only when the run, the job and every step succeeded: a
+check created through the API (as `Test Report` does with `JUnit Report
+(...)`) cannot stand in for a required check. No job that runs pull request
+code may hold `checks: write` (the token can rewrite any check of the commit,
+`persist-credentials: false` or not): `ci.yml`'s JUnit reports come from the
+`test-report` job, which checks out nothing and runs no step of its own.
+`scripts/test_dependabot_gate.py` fails on a new such job.
