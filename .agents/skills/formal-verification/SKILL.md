@@ -196,7 +196,12 @@ first; the evidence lands in `tools/mutation/triage/formal-bindings-reruns.jsonl
 3. **deferred gap:** keep it in the ledger with a `follow_up`.
 4. **abstraction:** state it in the row's abstraction cell; the ledger reason
    must be a substring of that cell.
-5. **equivalent:** record the reason.
+5. **equivalent:** record the reason. It must hold for every input the
+   function accepts. "A later check rejects the same input" is equivalent only
+   if that check always runs: four `LoadEnvFile` pre-check mutants were masked
+   by `os.Root` only while `os.OpenRoot` succeeded (module-read-physical-containment).
+   Probe the claim with `go test -overlay` and the mutated file in a scratch
+   directory; never mutate the worktree's bound files. Otherwise defer it.
 6. **defect:** a strengthened binding fails on unmodified code. Record a
    finding under the next free id (a `finding =` command next to a passing
    fix configuration, a characterisation test, a `formal/README.md` Findings
