@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
-	"strings"
 	"testing"
 
 	"pgregory.net/rapid"
@@ -126,7 +125,7 @@ func TestVirtualPathHarness_Property(t *testing.T) {
 		}
 		link := filepath.Join(allowed, "x")
 		// Targets are joined as text: filepath.Join would clean a ".." away.
-		targetText := strings.Join(linkTarget, string(filepath.Separator))
+		targetText := rawLinkTarget(linkTarget...)
 		switch {
 		case shape == propNoLink:
 		case shape == propJunction:
@@ -201,12 +200,12 @@ func TestVirtualPathHarness_Property(t *testing.T) {
 	})
 }
 
-// dirNames lists the entries of dir.
-func dirNames(rt *rapid.T, dir string) []string {
-	rt.Helper()
+// dirNames lists the entries of dir, in name order.
+func dirNames(t fstree.Fataler, dir string) []string {
+	t.Helper()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		rt.Fatalf("read %s: %v", dir, err)
+		t.Fatalf("read %s: %v", dir, err)
 	}
 	names := make([]string, 0, len(entries))
 	for _, entry := range entries {

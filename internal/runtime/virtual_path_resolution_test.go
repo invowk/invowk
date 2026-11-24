@@ -39,9 +39,10 @@ func pathTestJoin(dir string, names ...string) string {
 	return filepath.Join(append([]string{dir}, names...)...)
 }
 
-// pathTestRawTarget writes a link target exactly as given: filepath.Join would
-// clean a ".." away.
-func pathTestRawTarget(parts ...string) string {
+// rawLinkTarget writes a link target exactly as given, with the platform
+// separator: filepath.Join would clean a ".." away, and the walk must not
+// depend on a cleaned target.
+func rawLinkTarget(parts ...string) string {
 	return strings.Join(parts, string(filepath.Separator))
 }
 
@@ -360,7 +361,7 @@ func TestVirtualPathFullAccessFallback(t *testing.T) {
 	loop := filepath.Join(root, "loop")
 	fstree.MustSymlink(t, "loop", loop)
 	climb := filepath.Join(root, "climb")
-	fstree.MustSymlink(t, pathTestRawTarget("nope", "..", "x"), climb)
+	fstree.MustSymlink(t, rawLinkTarget("nope", "..", "x"), climb)
 	file := filepath.Join(root, "file")
 	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
 		t.Fatalf("write file: %v", err)

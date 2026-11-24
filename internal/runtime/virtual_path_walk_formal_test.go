@@ -72,12 +72,6 @@ func fakePath(parts ...string) string {
 	return filepath.Join(append([]string{fakeRoot()}, parts...)...)
 }
 
-// fakeTarget writes a link target exactly as given, with the platform
-// separator: the walk must not depend on a cleaned target.
-func fakeTarget(parts ...string) string {
-	return strings.Join(parts, string(filepath.Separator))
-}
-
 // newFakePathFS builds a filesystem holding the volume root, every directory
 // in dirs with its parents, and then entries (keyed by fakePath).
 func newFakePathFS(t *testing.T, dirs []string, entries map[string]fakePathEntry) *fakePathFS {
@@ -245,34 +239,34 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 	}
 	entries := map[string]fakePathEntry{
 		fakePath("root", "in", "f"):         file,
-		fakePath("root", "in", "dang"):      link(fakeTarget("..", "..", "outside", "new")),
+		fakePath("root", "in", "dang"):      link(rawLinkTarget("..", "..", "outside", "new")),
 		fakePath("root", "x"):               file,
 		fakePath("outside", "secret"):       file,
 		fakePath("elsewhere", "x"):          file,
-		fakePath("root", "rel"):             link(fakeTarget("..", "outside")),
+		fakePath("root", "rel"):             link(rawLinkTarget("..", "outside")),
 		fakePath("root", "abs"):             link(outside),
-		fakePath("root", "rooted"):          link(string(filepath.Separator) + fakeTarget("outside", "secret")),
+		fakePath("root", "rooted"):          link(string(filepath.Separator) + rawLinkTarget("outside", "secret")),
 		fakePath("root", "j"):               junction(outside),
 		fakePath("root", "injunction"):      junction(fakePath("root", "in")),
 		fakePath("root", "app"):             {mode: fakeJunctionMode, readlinkErr: syscall.ENOENT},
 		fakePath("root", "cloud"):           {mode: fs.ModeDir | fs.ModeIrregular | 0o755},
 		fakePath("root", "cloud", "f"):      file,
 		fakePath("root", "sub"):             link(fakePath("elsewhere", "deep")),
-		fakePath("root", "updown"):          link(fakeTarget("sub", "..", "x")),
-		fakePath("root", "dots"):            link(fakeTarget(".", "", "in", ".", "f")),
-		fakePath("root", "dotsmissing"):     link(fakeTarget(".", "in", "new", ".", "deep")),
-		fakePath("root", "climb"):           link(fakeTarget("..", "..", "..", "..", "outside")),
+		fakePath("root", "updown"):          link(rawLinkTarget("sub", "..", "x")),
+		fakePath("root", "dots"):            link(rawLinkTarget(".", "", "in", ".", "f")),
+		fakePath("root", "dotsmissing"):     link(rawLinkTarget(".", "in", "new", ".", "deep")),
+		fakePath("root", "climb"):           link(rawLinkTarget("..", "..", "..", "..", "outside")),
 		fakePath("root", "toin"):            link(outside),
-		fakePath("root", "d"):               link(fakeTarget("nope", "..", "toin", "new")),
-		fakePath("root", "dabs"):            link(root + string(filepath.Separator) + fakeTarget("nope", "..", "toin", "new")),
-		fakePath("root", "dangling"):        link(fakeTarget("..", "outside", "new")),
-		fakePath("root", "danglingdeep"):    link(fakeTarget("..", "outside", "a", "b")),
+		fakePath("root", "d"):               link(rawLinkTarget("nope", "..", "toin", "new")),
+		fakePath("root", "dabs"):            link(root + string(filepath.Separator) + rawLinkTarget("nope", "..", "toin", "new")),
+		fakePath("root", "dangling"):        link(rawLinkTarget("..", "outside", "new")),
+		fakePath("root", "danglingdeep"):    link(rawLinkTarget("..", "outside", "a", "b")),
 		fakePath("root", "loop"):            link("loop"),
 		fakePath("root", "ping"):            link("pong"),
 		fakePath("root", "pong"):            link("ping"),
 		fakePath("root", "locked"):          {mode: fs.ModeDir | 0o755, lstatErr: fs.ErrPermission},
 		fakePath("root", "tobroken"):        link("app"),
-		fakePath("root", "tolocked"):        link(fakeTarget("locked", "x")),
+		fakePath("root", "tolocked"):        link(rawLinkTarget("locked", "x")),
 		fakePath("dev", "stdout"):           link(fakePath("proc", "self", "fd", "1")),
 		fakePath("proc", "self"):            link("4242"),
 		fakePath("proc", "4242", "fd", "1"): link("pipe:[7]"),
@@ -392,7 +386,7 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 				t.Fatalf("%s: walk succeeded with (%q, %q)", name, walk.prefix, walk.suffix)
 			}
 			unwalked := fakePath("root", "toin", "new")
-			for _, got := range []string{walk.prefix, filepath.Join(append([]string{walk.prefix}, walk.suffix...)...)} {
+			for _, got := range []string{walk.prefix, walk.path()} {
 				if got == unwalked {
 					t.Errorf("%s: the walk returned %s", name, got)
 				}

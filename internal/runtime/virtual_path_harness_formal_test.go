@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil/fstree"
@@ -27,10 +26,7 @@ func TestVirtualPathHarness_DeepMissingPathThroughSymlinkDenied(t *testing.T) {
 	root := mustMkdir(t, filepath.Join(base, "root"))
 	outside := mustMkdir(t, filepath.Join(base, "outside"))
 	fstree.MustSymlink(t, outside, filepath.Join(root, "x"))
-	validator := virtualPathValidator{resolver: virtualPathResolver{
-		allowedRoots: normalizedRoots([]string{root}),
-		access:       invowkfile.VirtualFilesystemAccessRestricted,
-	}}
+	validator := pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, root)
 
 	expectHarnessWriteDenied(t, validator, root, filepath.Join(root, "x", "a"))
 	expectHarnessWriteDenied(t, validator, root, filepath.Join(root, "x", "a", "b"))
@@ -71,18 +67,15 @@ func TestVirtualPathHarness_DanglingLinkEscapeDenied(t *testing.T) {
 			// third leg keeps its "..".
 			target := func(fromRoot ...string) string {
 				if absolute {
-					return root + sep + strings.Join(fromRoot, sep)
+					return root + sep + rawLinkTarget(fromRoot...)
 				}
-				return strings.Join(fromRoot, sep)
+				return rawLinkTarget(fromRoot...)
 			}
 			fstree.MustSymlink(t, target("..", "outside"), filepath.Join(root, "in"))
 			fstree.MustSymlink(t, target("..", "outside", "new1"), filepath.Join(root, "d1"))
 			fstree.MustSymlink(t, target("..", "outside", "a", "b", "new2"), filepath.Join(root, "d2"))
 			fstree.MustSymlink(t, target("nope", "..", "in", "new3"), filepath.Join(root, "d3"))
-			validator := virtualPathValidator{resolver: virtualPathResolver{
-				allowedRoots: normalizedRoots([]string{root}),
-				access:       invowkfile.VirtualFilesystemAccessRestricted,
-			}}
+			validator := pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, root)
 
 			for _, link := range []string{"d1", "d2", "d3"} {
 				expectHarnessWriteDenied(t, validator, root, filepath.Join(root, link))
@@ -116,10 +109,7 @@ func TestVirtualPathHarness_JunctionEscapeDenied(t *testing.T) {
 	}
 	fstree.MustJunction(t, outside, filepath.Join(root, "j"))
 	fstree.MustJunction(t, inside, filepath.Join(root, "in"))
-	validator := virtualPathValidator{resolver: virtualPathResolver{
-		allowedRoots: normalizedRoots([]string{root}),
-		access:       invowkfile.VirtualFilesystemAccessRestricted,
-	}}
+	validator := pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, root)
 
 	// An existing file below the junction: denied, so it cannot be read.
 	if normalized, err := validator.validate(root, filepath.Join(root, "j", "secret.txt")); err == nil {
@@ -149,10 +139,7 @@ func TestVirtualPathHarness_JunctionEscapeDenied(t *testing.T) {
 	realDir := mustMkdir(t, filepath.Join(base, "real"))
 	alias := filepath.Join(base, "alias")
 	fstree.MustJunction(t, realDir, alias)
-	aliased := virtualPathValidator{resolver: virtualPathResolver{
-		allowedRoots: normalizedRoots([]string{alias}),
-		access:       invowkfile.VirtualFilesystemAccessRestricted,
-	}}
+	aliased := pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, alias)
 	if len(aliased.resolver.allowedRoots) != 1 {
 		t.Fatalf("a root given through a junction was dropped: %v", aliased.resolver.allowedRoots)
 	}
@@ -190,14 +177,7 @@ func expectHarnessWriteDenied(t *testing.T, validator virtualPathValidator, cwd,
 // expectHarnessDirEntries fails unless dir holds exactly the named entries.
 func expectHarnessDirEntries(t *testing.T, dir string, want ...string) {
 	t.Helper()
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatalf("read %s: %v", dir, err)
-	}
-	got := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		got = append(got, entry.Name())
-	}
+	got := dirNames(t, dir)
 	slices.Sort(want)
 	if !slices.Equal(got, want) {
 		t.Errorf("%s holds %q, want %q", dir, got, want)
