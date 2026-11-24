@@ -1,0 +1,127 @@
+# Test: under restricted filesystem access the virtual runtimes resolve a path
+# through every link before the allowed-root check, so a link that leaves the
+# allowed roots is denied at any depth (virtual-runtime-sandbox, "Virtual paths
+# are resolved physically before the allowed-root check"):
+#   - a deep new path below a symlink to an outside directory (finding F14);
+#   - a dangling symlink whose missing target lies outside (finding F19).
+# A descriptor duplication (>&2) opens no path and is not checked. Under full
+# access a path the resolver cannot express, such as /dev/stderr on a pipe, is
+# handed to the operating system.
+#
+# The denial exists only in the virtual runtimes, so this test has no native
+# mirror (runtime_mirror_exemptions.json). Junctions are covered by the Go
+# replays (testscript has no junction command).
+#
+# The outside directory must lie outside every allowed root. Off Windows /tmp
+# is always a root and $WORK is normally below it, so the test uses /var/tmp
+# and two fixed entries below it. Both are removed before every step, so that
+# no step depends on what an earlier one left behind, and both must be missing
+# after it: a passing run creates nothing outside $WORK.
+
+[!symlink] skip
+
+[!windows] env OUTSIDE=/var/tmp
+[windows] env OUTSIDE=$WORK/outside
+[windows] mkdir $WORK/outside
+env ESCAPE_DIR=$OUTSIDE/invowk-virtual-path-link-escape-dir
+env ESCAPE_FILE=$OUTSIDE/invowk-virtual-path-link-escape-file
+rm $ESCAPE_DIR
+rm $ESCAPE_FILE
+
+# The invowkfile lives in a subdirectory, so $WORK itself is not the script base.
+cd $WORK/proj
+symlink link -> $OUTSIDE
+symlink dangling -> $ESCAPE_FILE
+
+# virtual-sh: mkdir -p of a deep new path below the escaping link (F14)
+! exec invowk cmd sh-deep
+stderr 'virtual path denied'
+! exists $ESCAPE_DIR
+
+# virtual-sh: a redirection to the dangling link (F19). The >&2 before it is a
+# descriptor duplication: it is not path-checked and its output arrives.
+rm $ESCAPE_DIR
+rm $ESCAPE_FILE
+! exec invowk cmd sh-dangling-redirect
+stderr '^msg$'
+stderr 'virtual path denied'
+! exists $ESCAPE_FILE
+
+# virtual-sh: a u-root built-in on the dangling link (F19)
+rm $ESCAPE_DIR
+rm $ESCAPE_FILE
+! exec invowk cmd sh-dangling-touch
+stderr 'virtual path denied'
+! exists $ESCAPE_FILE
+
+# virtual-lua: io.open on the deep path and on the dangling link
+rm $ESCAPE_DIR
+rm $ESCAPE_FILE
+exec invowk cmd lua-escape
+stdout '^deep: .*virtual path denied'
+stdout '^dangling: .*virtual path denied'
+! exists $ESCAPE_DIR
+! exists $ESCAPE_FILE
+
+# full access: testscript gives the process a pipe as stderr, so /dev/stderr
+# is a link whose target names no file; the path is handed to the system.
+[!windows] exec invowk cmd sh-full-stderr
+[!windows] stderr '^msg$'
+
+-- proj/invowkfile.cue --
+cmds: [
+	{
+		name: "sh-deep"
+		implementations: [{
+			script: {content: "mkdir -p link/invowk-virtual-path-link-escape-dir/a/b"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "sh-dangling-redirect"
+		implementations: [{
+			script: {content: """
+				echo msg >&2
+				echo x > dangling
+				"""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "sh-dangling-touch"
+		implementations: [{
+			script: {content: "touch dangling"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "lua-escape"
+		implementations: [{
+			script: {content: """
+				local deep, deepErr = io.open("link/invowk-virtual-path-link-escape-dir/a/b", "w")
+				print("deep: " .. tostring(deepErr))
+				local dangling, danglingErr = io.open("dangling", "w")
+				print("dangling: " .. tostring(danglingErr))
+				if deep ~= nil or dangling ~= nil then
+					error("a path through an escaping link was opened")
+				end
+				"""}
+			runtimes: [{name: "virtual-lua"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "sh-full-stderr"
+		implementations: [{
+			script: {content: "echo msg > /dev/stderr"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [
+				{name: "linux", virtual: {filesystem: {access: "full"}}},
+				{name: "macos", virtual: {filesystem: {access: "full"}}},
+			]
+		}]
+	},
+]

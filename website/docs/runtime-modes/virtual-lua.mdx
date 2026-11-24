@@ -30,6 +30,17 @@ Lua scripts interact with Invowk through a read-only `invowk` table:
 
 Lua file I/O uses Invowk's virtual path validator. Relative paths resolve from the command workdir. Standard anchors are exposed as metadata, and the implicit writable/readable roots are `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, and the script or module source root.
 
+Under restricted access (the default), the validator resolves a path before it checks it:
+
+- **Links are followed first.** Every symbolic link and every Windows junction on the path is resolved, also when the last parts of the path do not exist yet. The resolved path must be inside an allowed root.
+- **A link that leaves the allowed roots is denied at any depth**, with `virtual path denied`. That includes a new path several directories below such a link, and a dangling link whose missing target is outside. A link or junction whose target stays inside an allowed root works, and so does an allowed root that is itself reached through a link (for example `/tmp` on macOS).
+- **Paths are reported in resolved form.** `invowk.path` results, `INVOWK_PATH_*` values and `virtual path denied` messages show the target of a link or junction, not the link.
+- **An operation on a link or junction acts on its target.** On Windows, removing a junction with `invowk.cmd.rm("-rf", ...)` removes the contents of the target directory and leaves the junction.
+- **A path that cannot be resolved is refused**: a link cycle, a link target that climbs with `..` out of a directory that does not exist, or a missing drive or share. A `virtual.filesystem.paths` entry that cannot be resolved fails the command before the script runs.
+- **`/dev/stdout`, `/dev/stderr` and `/dev/stdin` are not files when the stream is a pipe** (Linux), so they cannot be opened as paths, even with `/dev` declared. Use `io.stdout` and `io.stderr`.
+
+With `virtual.filesystem.access: "full"` there is no allowed-root check, and a path the validator cannot resolve is passed to the operating system as it is. This is a policy for the runtime's own file APIs. An allowed host binary runs as a normal host process and is not path-checked; use the [container runtime](./container) for isolation.
+
 Anchor bases are always absolute. A relative `XDG_*_HOME`, `APPDATA` or `LOCALAPPDATA` is ignored and the home-based default is used. When the home directory itself is relative or unset (and no absolute `XDG_*`/AppData value covers the anchor), `@home`, `@config`, `@data`, `@cache` and `@state` are unavailable: their `INVOWK_ANCHOR_*` variables are empty, they are not allowed roots, and `invowk.path("@config")` or a `virtual.filesystem.paths` entry such as `"@home/.dotfiles"` fails with `virtual path anchor "@config" is unavailable`.
 
 `@home` can be resolved for metadata, but restricted filesystem access does not make it a blanket allowed root. To make a host path available to Lua file APIs in restricted mode, define a `platforms[].virtual.filesystem.paths` entry. The key becomes `INVOWK_PATH_<KEY>` and can be resolved with `invowk.path("<KEY>/file")`. Set `platforms[].virtual.filesystem.access: "full"` only when VM-controlled Lua file operations should be allowed to access normalized host filesystem paths beyond those named handles.

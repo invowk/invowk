@@ -6,17 +6,21 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil/fstree"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// TestVirtualPathHarness_F14DeepSymlink records finding F14: normalizeExistingOrParent
-// evaluates only the path and its parent, so a path with two or more missing
-// components below an escaping symlink is judged lexically and accepted, then the
-// write lands outside the allowed root. This asserts today's behaviour.
-func TestVirtualPathHarness_F14DeepSymlink(t *testing.T) {
+// TestVirtualPathHarness_DeepMissingPathThroughSymlinkDenied replays the fixed
+// finding F14: the pre-fix normalizeExistingOrParent evaluated only the path
+// and its parent, so a path with two or more missing components below a
+// symlink that leaves the root was judged by its text, accepted, and written
+// outside. The resolver now finds the deepest existing ancestor physically, so
+// the one-level and the two-level path are both denied and the outside
+// directory stays empty.
+func TestVirtualPathHarness_DeepMissingPathThroughSymlinkDenied(t *testing.T) {
 	t.Parallel()
 	fstree.Require(t, fstree.CapSymlink)
 	base := fstree.TempRoot(t)
@@ -28,21 +32,63 @@ func TestVirtualPathHarness_F14DeepSymlink(t *testing.T) {
 		access:       invowkfile.VirtualFilesystemAccessRestricted,
 	}}
 
-	// depth 1 (parent evaluated) is correctly denied.
-	if _, err := validator.validate(root, filepath.Join(root, "x", "a")); err == nil {
-		t.Fatal("expected the one-level path through the symlink to be denied")
-	}
-	// depth 2+ (path and parent both missing) falls back to lexical and is accepted.
-	normalized, err := validator.validate(root, filepath.Join(root, "x", "a", "b"))
-	if err != nil {
-		t.Fatalf("F14 did not reproduce: deep path denied: %v", err)
-	}
-	// Writing lands physically outside the allowed root, through the symlink.
-	if mkErr := os.MkdirAll(normalized, 0o755); mkErr != nil {
-		t.Fatalf("mkdir normalized: %v", mkErr)
-	}
-	if _, statErr := os.Stat(filepath.Join(outside, "a", "b")); statErr != nil {
-		t.Fatalf("F14 did not reproduce: no directory created outside the root: %v", statErr)
+	expectHarnessWriteDenied(t, validator, root, filepath.Join(root, "x", "a"))
+	expectHarnessWriteDenied(t, validator, root, filepath.Join(root, "x", "a", "b"))
+	expectHarnessWriteDenied(t, validator, root, filepath.Join(root, "x", "a", "b", "c"))
+	expectHarnessDirEntries(t, outside)
+}
+
+// TestVirtualPathHarness_DanglingLinkEscapeDenied replays the fixed finding
+// F19: the pre-fix normalizeExistingOrParent could not evaluate a symlink whose
+// target is missing, fell back to the link's parent, and so judged the link as
+// a missing plain name inside the root; the write then followed the link and
+// created its target outside. It fails against the product code of c2fe96ff
+// (formal/README.md, F19, has the steps). Each leg has a relative and an
+// absolute target:
+//   - a link to a missing file in an outside directory;
+//   - a link to a missing file two missing levels below an outside directory;
+//   - a link whose target is `nope/../in/new`, with `nope` missing and `in` a
+//     link to the outside directory. Applied to the target's text, the ".."
+//     gives `in/new`, inside the root and through a link nobody walked; the
+//     resolver refuses a ".." after a missing component.
+//
+// Each is denied, and the outside directory is empty afterwards.
+func TestVirtualPathHarness_DanglingLinkEscapeDenied(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+	sep := string(filepath.Separator)
+	for _, absolute := range []bool{false, true} {
+		name := "relative target"
+		if absolute {
+			name = "absolute target"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			base := fstree.TempRoot(t)
+			root := mustMkdir(t, filepath.Join(base, "root"))
+			outside := mustMkdir(t, filepath.Join(base, "outside"))
+			// A target as it is written into the link: never cleaned, so the
+			// third leg keeps its "..".
+			target := func(fromRoot ...string) string {
+				if absolute {
+					return root + sep + strings.Join(fromRoot, sep)
+				}
+				return strings.Join(fromRoot, sep)
+			}
+			fstree.MustSymlink(t, target("..", "outside"), filepath.Join(root, "in"))
+			fstree.MustSymlink(t, target("..", "outside", "new1"), filepath.Join(root, "d1"))
+			fstree.MustSymlink(t, target("..", "outside", "a", "b", "new2"), filepath.Join(root, "d2"))
+			fstree.MustSymlink(t, target("nope", "..", "in", "new3"), filepath.Join(root, "d3"))
+			validator := virtualPathValidator{resolver: virtualPathResolver{
+				allowedRoots: normalizedRoots([]string{root}),
+				access:       invowkfile.VirtualFilesystemAccessRestricted,
+			}}
+
+			for _, link := range []string{"d1", "d2", "d3"} {
+				expectHarnessWriteDenied(t, validator, root, filepath.Join(root, link))
+			}
+			expectHarnessDirEntries(t, outside)
+		})
 	}
 }
 
@@ -50,10 +96,10 @@ func TestVirtualPathHarness_F14DeepSymlink(t *testing.T) {
 // Windows: filepath.EvalSymlinks does not follow a junction, so the pre-fix
 // validator judged a path through a junction by the junction's own location
 // and admitted it (windows-latest, CI run 44523520503, job 135557989975). The
-// walk follows junctions, so an existing file and a new file below a junction
-// to an outside directory are denied and nothing is created outside. A
-// junction whose target is inside the root, and a root that is itself given
-// through a junction, keep working.
+// walk follows junctions, so an existing file, a new file, and a new file two
+// missing components below a junction to an outside directory are denied and
+// nothing is created outside. A junction whose target is inside the root, and
+// a root that is itself given through a junction, keep working at every depth.
 //
 // It is required on Windows and skipped elsewhere by the capability policy, so
 // it is never a killer (the mutantPreFixF18JunctionNotFollowed row).
@@ -82,15 +128,19 @@ func TestVirtualPathHarness_JunctionEscapeDenied(t *testing.T) {
 	}
 	// A new file directly below the junction: denied, so it cannot be created.
 	expectHarnessWriteDenied(t, validator, root, filepath.Join(root, "j", "new.txt"))
+	// A new file two missing components below the junction: F14's shape through
+	// a junction, also denied.
+	expectHarnessWriteDenied(t, validator, root, filepath.Join(root, "j", "a", "b", "new.txt"))
 	expectHarnessDirEntries(t, outside, "secret.txt")
 
 	// A junction whose target is inside the root is followed and accepted.
-	for _, path := range []string{
-		filepath.Join(root, "in"),
-		filepath.Join(root, "in", "new.txt"),
+	for path, want := range map[string]string{
+		filepath.Join(root, "in"):                      inside,
+		filepath.Join(root, "in", "new.txt"):           filepath.Join(inside, "new.txt"),
+		filepath.Join(root, "in", "a", "b", "new.txt"): filepath.Join(inside, "a", "b", "new.txt"),
 	} {
-		if _, err := validator.validate(root, path); err != nil {
-			t.Errorf("path through the in-root junction denied: %s: %v", path, err)
+		if got, err := validator.validate(root, path); err != nil || got != want {
+			t.Errorf("path through the in-root junction: validate(%s) = (%q, %v), want %q", path, got, err, want)
 		}
 	}
 
@@ -106,9 +156,13 @@ func TestVirtualPathHarness_JunctionEscapeDenied(t *testing.T) {
 	if len(aliased.resolver.allowedRoots) != 1 {
 		t.Fatalf("a root given through a junction was dropped: %v", aliased.resolver.allowedRoots)
 	}
-	for _, path := range []string{alias, filepath.Join(alias, "new.txt")} {
-		if _, err := aliased.validate(alias, path); err != nil {
-			t.Errorf("request through the root's junction denied: %s: %v", path, err)
+	for path, want := range map[string]string{
+		alias:                                realDir,
+		filepath.Join(alias, "new.txt"):      filepath.Join(realDir, "new.txt"),
+		filepath.Join(alias, "new1", "new2"): filepath.Join(realDir, "new1", "new2"),
+	} {
+		if got, err := aliased.validate(alias, path); err != nil || got != want {
+			t.Errorf("request through the root's junction: validate(%s) = (%q, %v), want %q", path, got, err, want)
 		}
 	}
 	if _, err := aliased.validate(alias, filepath.Join(root, "new.txt")); err == nil {

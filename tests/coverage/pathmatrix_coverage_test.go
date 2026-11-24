@@ -122,6 +122,10 @@ var (
 			testFile: "internal/runtime/lua_test.go",
 			reason:   "thin optional-value wrapper around the registered pkg/types.FilesystemPath.Validate path-dialect contract",
 		},
+		"internal/runtime.isVirtualPathLink": {
+			testFile: "internal/runtime/virtual_path_walk_formal_test.go",
+			reason:   "classifies an os.Lstat file mode as a link the virtual path walk follows; it takes no path text",
+		},
 		"internal/runtime.resolveVirtualFilesystemPaths": {
 			testFile: "internal/runtime/virtual_policy_test.go",
 			reason:   "virtual filesystem mappings are resolved by the virtual runtime policy and its configured path dialect",

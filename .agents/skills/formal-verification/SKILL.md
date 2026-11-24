@@ -131,10 +131,20 @@ tool or a model.
        `filepath.EvalSymlinks` plus a prefix test: since Go 1.23 a mount point
        is not `ModeSymlink`, and `EvalSymlinks` may not evaluate it.
      - Exhaustive enumeration of a relational filesystem is intractable for a
-       materialised replay, so fix case-folding and junctions off in the golden
-       and constrain the tree topology with a `goldenScenario` predicate; cover
-       the fixed dimensions with witnesses, the rapid property, and
-       platform-gated findings tests.
+       materialised replay, so fix case-folding and junctions off in the
+       `ModulePathContainment` golden and constrain the tree topology with a
+       `goldenScenario` predicate; cover the fixed dimensions with witnesses,
+       the rapid property, and platform-gated findings tests. A model whose
+       requests are independent can carry the dimension instead: the
+       `VirtualPathHarness` golden holds junction and dangling-link requests
+       at two requests per instance. Its replay materialises junction requests
+       on Windows, leaves them out elsewhere through `fstree.Probe` and logs
+       their count, and is never skipped (a skipped killer fails the reach
+       gate and the mutation run).
+     - A replay that can only run on one platform (a junction replay) is never
+       a killer: table it alone on a row whose abstraction cell begins
+       `characterisation:`, and cover the same branch on Linux through
+       injected filesystem lookups (`TestVirtualPathHarness_WalkOverFakeFilesystem`).
      - Budget: golden replay ≤ 30 s per OS, deep rapid ≤ 60 s (decision D9,
        "Cost budgets", of the model-module-path-containment OpenSpec change).
      - Build the virtual-harness validator directly over materialised roots so

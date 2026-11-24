@@ -106,7 +106,7 @@ func TestVirtualPathMappingOnUnavailableAnchorFails(t *testing.T) {
 
 	anchors := standardVirtualAnchorsForOS("linux", t.TempDir(), t.TempDir(), anchorDirs("linux", nil, ".", nil))
 	paths := invowkfile.VirtualFilesystemPaths{"DOTFILES": "@home/.dotfiles"}
-	_, err := resolveVirtualFilesystemPaths(paths, t.TempDir(), anchors)
+	_, err := resolveVirtualFilesystemPaths(paths, t.TempDir(), anchors, invowkfile.VirtualFilesystemAccessRestricted)
 	if err == nil || !strings.Contains(err.Error(), `"@home" is unavailable`) {
 		t.Fatalf("resolveVirtualFilesystemPaths() error = %v, want @home unavailable", err)
 	}

@@ -149,6 +149,19 @@ O runtime virtual-sh **não é um sandbox de segurança**. Ele é um interpretad
 Se você precisa de isolamento de execução, use o runtime **container**.
 :::
 
+## Acesso a Arquivos
+
+Redirecionamentos e os utilitários integrados passam pelo validador de caminhos do Invowk. Por padrão (`virtual.filesystem.access: "restricted"`), um caminho precisa resolver para dentro de uma raiz permitida: o diretório de trabalho do comando, a raiz do script ou módulo, as âncoras `@tmp`, `@config`, `@data`, `@cache` e `@state`, e as entradas de `virtual.filesystem.paths` da plataforma selecionada (veja [Caminhos E Arquivos](./virtual-lua#caminhos-e-arquivos)).
+
+- **Os links são seguidos antes da verificação.** Todo link simbólico e toda junction do Windows no caminho é resolvido, mesmo quando as últimas partes do caminho ainda não existem.
+- **Um link que sai das raízes permitidas é negado em qualquer profundidade**, com `virtual path denied`: `mkdir -p link/a/b` e `echo x > link-quebrado` falham quando o link aponta para fora. Um link ou junction cujo destino fica dentro de uma raiz permitida funciona.
+- **Os caminhos são informados na forma resolvida.** Os valores de `INVOWK_PATH_*` e as mensagens `virtual path denied` mostram o destino do link ou da junction, não o link.
+- **Uma operação sobre um link ou junction atua no destino.** No Windows, `rm -rf` de uma junction remove o conteúdo do diretório de destino e mantém a junction.
+- **Um caminho que não pode ser resolvido é recusado** (um ciclo de links, uma unidade ou compartilhamento inexistente), e uma entrada de `virtual.filesystem.paths` que não pode ser resolvida faz o comando falhar antes de o script rodar.
+- **`/dev/stdout`, `/dev/stderr` e `/dev/stdin` não são arquivos quando o stream é um pipe** (Linux), então não podem ser abertos como caminhos. Escreva `echo msg >&2` ou `>&1`: uma duplicação de descritor não abre caminho nenhum.
+
+Com `access: "full"` não há verificação de raízes permitidas, e um caminho que o validador não consegue resolver é passado ao sistema operacional como está. A verificação cobre apenas as operações de arquivo do próprio interpretador: um binário do host permitido roda como um processo normal do host e não tem seus caminhos verificados. Use o runtime **container** para isolamento.
+
 ## Variáveis de Ambiente
 
 Variáveis de ambiente funcionam da mesma forma que no native:

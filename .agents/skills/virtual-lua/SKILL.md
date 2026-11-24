@@ -45,6 +45,15 @@ Use this with `.agents/skills/go/SKILL.md` and `.agents/skills/go-testing/SKILL.
   confines candidates to the bridge's `scriptBasePath` using
   `normalizeExistingOrParent` and `pathWithin` from `virtual_policy.go`. Keep it
   distinct from general VM-controlled file I/O.
+- `normalizeExistingOrParent` is the strict resolver for every containment
+  decision (the validator under restricted access, the allowed roots, `require`):
+  it walks the path through every symlink and Windows junction to the deepest
+  existing ancestor (`walkVirtualPath`) and has no lexical fallback, so an
+  unresolvable path is an error. Only `resolve`, `resolveBridgePath` and
+  declared `filesystem.paths` go through `normalizeVirtualPathForAccess`, whose
+  full-access fallback (a link's own path, or the cleaned path) must never
+  reach a containment check. The validated path is the resolved path, and the
+  operation runs on it.
 - Standard anchors: `@config`, `@data`, `@cache`, `@state`, `@tmp`, `@home`, and `@work`.
 - In restricted mode, implicit allowed roots are config/data/cache/state/tmp/work plus script/module source roots, mapped `virtual.filesystem.paths`, and the system temp roots from `defaultTempRoots()` (`/tmp` on Unix, none on Windows). `@home` is metadata/resolution only unless explicitly mapped through selected-platform `virtual.filesystem.paths`.
 - `virtual.filesystem.paths` keys are environment suffixes; keep them uppercase and safe for `INVOWK_PATH_<KEY>`.

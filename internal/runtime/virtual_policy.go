@@ -163,7 +163,7 @@ func newVirtualPathResolverForFilesystem(
 	filesystem invowkfile.VirtualFilesystemConfig,
 ) (virtualPathResolver, error) {
 	anchors := standardVirtualAnchors(workDir)
-	paths, err := resolveVirtualFilesystemPaths(filesystem.Paths, scriptBasePath, anchors)
+	paths, err := resolveVirtualFilesystemPaths(filesystem.Paths, scriptBasePath, anchors, filesystem.EffectiveAccess())
 	if err != nil {
 		return virtualPathResolver{}, err
 	}
@@ -261,6 +261,10 @@ func joinAvailable(base string, elems ...string) string {
 	return filepath.Join(append([]string{base}, elems...)...)
 }
 
+// normalizedRoots resolves the allowed roots with the strict resolver, the one
+// a request is resolved with, so a root given through a link or junction is
+// its target and compares with requests written through the same link. A root
+// that cannot be resolved is dropped: a request below it meets the same error.
 func normalizedRoots(paths []string) []string {
 	roots := make([]string, 0, len(paths))
 	for _, path := range paths {
@@ -273,10 +277,17 @@ func normalizedRoots(paths []string) []string {
 	return roots
 }
 
+// resolveVirtualFilesystemPaths resolves the declared filesystem.paths of the
+// selected platform. Their resolved form is what INVOWK_PATH_* and invowk.path
+// report, and each is an allowed root. Under restricted access an entry that
+// cannot be resolved is an error that names the entry, so the command fails
+// before its script runs; under full access the entry keeps its fallback path
+// (normalizeVirtualPathForAccess).
 func resolveVirtualFilesystemPaths(
 	filesystemPaths invowkfile.VirtualFilesystemPaths,
 	scriptBasePath string,
 	anchors map[string]string,
+	access invowkfile.VirtualFilesystemAccess,
 ) (map[string]string, error) {
 	if len(filesystemPaths) == 0 {
 		return map[string]string{}, nil
@@ -287,9 +298,9 @@ func resolveVirtualFilesystemPaths(
 		if err != nil {
 			return nil, err
 		}
-		normalized, err := normalizeExistingOrParent(expanded, scriptBasePath)
+		normalized, err := normalizeVirtualPathForAccess(expanded, scriptBasePath, access)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("virtual filesystem path %q: %w", name.String(), err)
 		}
 		paths[name.String()] = normalized
 	}
@@ -317,7 +328,7 @@ func (r virtualPathResolver) resolve(path, cwd string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return normalizeExistingOrParent(expanded, cwd)
+	return normalizeVirtualPathForAccess(expanded, cwd, r.access)
 }
 
 func (r virtualPathResolver) resolveBridgePath(path, cwd string) (string, error) {
@@ -332,7 +343,7 @@ func (r virtualPathResolver) resolveBridgePath(path, cwd string) (string, error)
 	if suffix != "" {
 		root = filepath.Join(root, suffix)
 	}
-	return normalizeExistingOrParent(root, cwd)
+	return normalizeVirtualPathForAccess(root, cwd, r.access)
 }
 
 func (r virtualPathResolver) expand(path string) (string, error) {
@@ -387,41 +398,92 @@ func splitVirtualAnchorPath(path string) (name, suffix string) {
 	return path[:index], path[index+1:]
 }
 
+// normalizeExistingOrParent resolves a path physically, for every containment
+// decision: the validator under restricted access, the allowed roots, and Lua
+// require. It makes the path absolute (against cwd, or the process working
+// directory when cwd is empty), walks it through every symbolic link and
+// Windows junction to the deepest existing ancestor (walkVirtualPath), and
+// returns that ancestor joined with the missing components. The result holds
+// no link, no "." and no "..".
+//
+// It has no fallback: an empty path, a failed os.Getwd, and every failure of
+// the walk (an error other than "does not exist", an unreadable link, too many
+// links, a ".." after a missing component, a missing volume root) is an error
+// that names the path, and the caller denies. Only full access, which makes no
+// containment decision, may use another form (normalizeVirtualPathForAccess).
+//
+// The name is historical and is bound by the VirtualPathHarness correspondence
+// table (formal/alloy/VirtualPathHarness.als); keep it.
 func normalizeExistingOrParent(path, cwd string) (string, error) {
+	cleaned, err := absoluteVirtualPath(path, cwd)
+	if err != nil {
+		return "", err
+	}
+	walk, err := walkVirtualPath(hostVirtualPathFS(), cleaned)
+	if err != nil {
+		return "", fmt.Errorf("resolve virtual path %s: %w", cleaned, err)
+	}
+	return walk.path(), nil
+}
+
+// normalizeVirtualPathForAccess is normalizeExistingOrParent for the callers
+// that only put a path in the form an operation runs on: resolve,
+// resolveBridgePath and declared filesystem.paths. Under restricted access it
+// is exactly the strict resolver. Full access has no allowed-root check, so
+// there a path the resolver cannot express is handed to the operating system
+// instead of being refused:
+//   - when the walk ended or failed inside a link's target (a dangling link, a
+//     link cycle, /dev/stderr on a pipe), the link's own path, which the
+//     system follows when it opens it;
+//   - when the walk failed anywhere else, the cleaned absolute path, for which
+//     the system reports its own error.
+//
+// An empty path and a failed os.Getwd stay errors. No containment decision
+// reads a fallback form: validate returns before the allowed-root check under
+// full access, and the allowed roots and Lua require call the strict resolver.
+//
+//goplint:ignore -- filesystem boundary helper: raw OS path strings in and out.
+func normalizeVirtualPathForAccess(path, cwd string, access invowkfile.VirtualFilesystemAccess) (string, error) {
+	if access != invowkfile.VirtualFilesystemAccessFull {
+		return normalizeExistingOrParent(path, cwd)
+	}
+	cleaned, err := absoluteVirtualPath(path, cwd)
+	if err != nil {
+		return "", err
+	}
+	walk, err := walkVirtualPath(hostVirtualPathFS(), cleaned)
+	switch {
+	case walk.unresolvedLink != "":
+		return walk.unresolvedLink, nil
+	case err != nil:
+		// Not refused: full access makes no containment decision, and the
+		// operating system reports its own error for this path.
+		return cleaned, nil //nolint:nilerr // the fallback form is the documented result
+	default:
+		return walk.path(), nil
+	}
+}
+
+// absoluteVirtualPath cleans path and makes it absolute against cwd, or
+// against the process working directory when cwd is empty.
+//
+//goplint:ignore -- filesystem boundary helper: raw OS path strings in and out.
+func absoluteVirtualPath(path, cwd string) (string, error) {
 	if strings.TrimSpace(path) == "" {
 		return "", errors.New("path must not be empty")
 	}
 	cleaned := filepath.Clean(path)
-	if !filepath.IsAbs(cleaned) {
-		if cwd == "" {
-			var err error
-			cwd, err = os.Getwd()
-			if err != nil {
-				return "", fmt.Errorf("get working directory: %w", err)
-			}
+	if filepath.IsAbs(cleaned) {
+		return cleaned, nil
+	}
+	if cwd == "" {
+		var err error
+		cwd, err = os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("get working directory: %w", err)
 		}
-		cleaned = filepath.Join(cwd, cleaned)
 	}
-	if resolved, ok := existingVirtualPath(cleaned); ok {
-		return resolved, nil
-	}
-	parent := filepath.Dir(cleaned)
-	if resolvedParent, ok := existingVirtualPath(parent); ok {
-		return filepath.Join(resolvedParent, filepath.Base(cleaned)), nil
-	}
-	return cleaned, nil
-}
-
-// existingVirtualPath resolves a cleaned absolute path through every link and
-// junction. ok is false when a component is missing or the walk fails.
-//
-//goplint:ignore -- filesystem boundary helper: raw OS path strings in and out.
-func existingVirtualPath(cleaned string) (resolved string, ok bool) {
-	walk, err := walkVirtualPath(hostVirtualPathFS(), cleaned)
-	if err != nil || len(walk.suffix) > 0 {
-		return "", false
-	}
-	return walk.prefix, true
+	return filepath.Join(cwd, cleaned), nil
 }
 
 // hostVirtualPathFS reads the host filesystem.
@@ -462,6 +524,14 @@ func walkVirtualPath(vfs virtualPathFS, cleaned string) (virtualPathWalk, error)
 	result.prefix = prefix
 	result.suffix = suffix
 	return result, nil
+}
+
+// path returns the resolved path: the existing prefix joined with the missing
+// names.
+//
+//goplint:ignore -- returns a raw OS path string.
+func (w virtualPathWalk) path() string {
+	return filepath.Join(append([]string{w.prefix}, w.suffix...)...)
 }
 
 // walk reads the queue until it is empty or a component is missing, and
