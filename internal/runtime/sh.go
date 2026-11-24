@@ -399,6 +399,7 @@ func RunShScript(ctx context.Context, opts ShScriptOptions) error {
 		interp.OpenHandler(pathValidator.openHandler(interp.DefaultOpenHandler())),
 		interp.ReadDirHandler2(pathValidator.readDirHandler(interp.DefaultReadDirHandler2())),
 		interp.StatHandler(pathValidator.statHandler(interp.DefaultStatHandler())),
+		interp.AccessHandler(pathValidator.accessHandler(interp.DefaultAccessHandler())),
 		interp.CallHandler(pathValidator.cdCallHandler()),
 	}
 	if opts.WorkDir != "" {
@@ -456,6 +457,7 @@ func (r *ShRuntime) prepareShExec(ctx *ExecutionContext, stdIO interp.RunnerOpti
 		interp.OpenHandler(pathValidator.openHandler(interp.DefaultOpenHandler())),
 		interp.ReadDirHandler2(pathValidator.readDirHandler(interp.DefaultReadDirHandler2())),
 		interp.StatHandler(pathValidator.statHandler(interp.DefaultStatHandler())),
+		interp.AccessHandler(pathValidator.accessHandler(interp.DefaultAccessHandler())),
 		interp.CallHandler(pathValidator.cdCallHandler()),
 	}
 
@@ -547,6 +549,7 @@ func (r *ShRuntime) tryUrootBuiltin(ctx context.Context, args []string, pathVali
 	// implementations before dispatching to cmd.Run().
 	handler := uroot.ExtractHandlerContext(ctx)
 	handler.ValidatePath = pathValidator.validate
+	handler.ValidateNoFollowPath = pathValidator.validateNoFollow
 	err := r.urootRegistry.Run(uroot.WithHandlerContext(ctx, handler), cmdName, args)
 	return true, err
 }

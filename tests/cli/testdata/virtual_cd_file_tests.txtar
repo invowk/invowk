@@ -3,7 +3,8 @@
 # denial"). Inside the allowed roots, cd and test -f, [ -e ], [ -d ] and
 # [[ -f ]] give the host shell's results and nothing panics. A restricted cd to
 # a directory outside every allowed root fails and names the denial; the same
-# cd under full access succeeds. Mirrored by native_cd_file_tests.txtar.
+# cd under full access succeeds. [ -L ] is true for a link and false for its
+# target. Mirrored by native_cd_file_tests.txtar.
 #
 # The outside directory must lie outside every allowed root. Off Windows /tmp
 # is always a root and $WORK is normally below it, so the test uses /var/tmp.
@@ -45,8 +46,17 @@ exec invowk cmd cd-outside-full
 stdout '^after-cd$'
 ! stderr 'panic|HandlerCtx'
 
+# [ -L ] tests the link itself: true for a link, false for its target
+[symlink] symlink live -> target.txt
+[symlink] exec invowk cmd link-tests
+[symlink] stdout '^L-live: yes$'
+[symlink] stdout '^L-target: no$'
+[symlink] ! stderr 'panic|HandlerCtx'
+
 -- proj/sub/file.txt --
 content
+-- proj/target.txt --
+target
 -- proj/invowkfile.cue --
 cmds: [
 	{
@@ -109,6 +119,17 @@ cmds: [
 				{name: "macos", virtual: {filesystem: {access: "full"}}},
 				{name: "windows", virtual: {filesystem: {access: "full"}}},
 			]
+		}]
+	},
+	{
+		name: "link-tests"
+		implementations: [{
+			script: {content: """
+				[ -L live ] && echo "L-live: yes"
+				[ -L target.txt ] || echo "L-target: no"
+				"""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
 ]

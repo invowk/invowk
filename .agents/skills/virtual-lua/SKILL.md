@@ -53,7 +53,16 @@ Use this with `.agents/skills/go/SKILL.md` and `.agents/skills/go-testing/SKILL.
   declared `filesystem.paths` go through `normalizeVirtualPathForAccess`, whose
   full-access fallback (a link's own path, or the cleaned path) must never
   reach a containment check. The validated path is the resolved path, and the
-  operation runs on it.
+  operation runs on it, for every operation that follows its last component.
+  The operations that act on the last component itself (`invowk.cmd.rm`
+  operands, `invowk.cmd.mv` sources, `invowk.cmd.ln`'s link name, and the
+  virtual-sh `-L`/`-h` stat) use the no-follow form instead:
+  `validateNoFollow`/`resolveNoFollow` (`internal/runtime/virtual_path_nofollow.go`)
+  resolve the parent with `normalizeVirtualPathForAccess` and join the final
+  name unread; an operand ending in a separator, `.` or `..` is resolved in
+  full and refused with `ENOTDIR` when it is not a directory. Both hooks are
+  set on the u-root handler context (`ValidatePath` and
+  `ValidateNoFollowPath`) by virtual-sh and virtual-lua alike.
 - Standard anchors: `@config`, `@data`, `@cache`, `@state`, `@tmp`, `@home`, and `@work`.
 - In restricted mode, implicit allowed roots are config/data/cache/state/tmp/work plus script/module source roots, mapped `virtual.filesystem.paths`, and the system temp roots from `defaultTempRoots()` (`/tmp` on Unix, none on Windows). `@home` is metadata/resolution only unless explicitly mapped through selected-platform `virtual.filesystem.paths`.
 - `virtual.filesystem.paths` keys are environment suffixes; keep them uppercase and safe for `INVOWK_PATH_<KEY>`.

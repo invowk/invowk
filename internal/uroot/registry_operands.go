@@ -331,9 +331,7 @@ func resolveUrootOperand(hc *HandlerContext, hook operandHook, operand string) (
 	case operandHookAsWritten:
 		return operand, nil
 	case operandHookNoFollow:
-		// Until the no-follow hook exists, rm and mv operands use full
-		// resolution like every other operand.
-		return hc.ResolvePath(operand)
+		return hc.ResolveNoFollowPath(operand)
 	default:
 		return hc.ResolvePath(operand)
 	}

@@ -734,10 +734,19 @@ func (v virtualPathValidator) readDirHandler(next interp.ReadDirHandlerFunc2) in
 	}
 }
 
+// statHandler validates the path of every stat the shell makes. A stat that
+// follows symbolic links (cd, and every file test but -L and -h) validates it
+// with validate; one that does not (-L, -h, and the access emulation on
+// non-Unix platforms, which accessHandler hands the resolved path) validates
+// it with validateNoFollow, so the test sees the link itself.
 func (v virtualPathValidator) statHandler(next interp.StatHandlerFunc) interp.StatHandlerFunc {
 	return func(ctx context.Context, path string, followSymlinks bool) (fs.FileInfo, error) {
 		hc := interp.HandlerCtx(ctx)
-		normalized, err := v.validate(hc.Dir, path)
+		check := v.validate
+		if !followSymlinks {
+			check = v.validateNoFollow
+		}
+		normalized, err := check(hc.Dir, path)
 		if err != nil {
 			return nil, &os.PathError{Op: "stat", Path: path, Err: err}
 		}

@@ -56,7 +56,10 @@ func (c *lnCommand) Run(ctx context.Context, args []string) error {
 	target := posArgs[0]
 	linkName := posArgs[1]
 
-	resolvedLinkName, err := hc.ResolvePath(linkName)
+	// The link name is the entry ln creates or, with -f, replaces: it is
+	// resolved without following its last component, so an existing link
+	// there is replaced and never its target.
+	resolvedLinkName, err := hc.ResolveNoFollowPath(linkName)
 	if err != nil {
 		return wrapError(c.name, err)
 	}

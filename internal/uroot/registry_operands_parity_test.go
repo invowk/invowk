@@ -216,6 +216,20 @@ func referenceAsWritten(name string, reading referenceReading, operand string) b
 	}
 }
 
+// referenceFollows reports whether the operand at index, of count operands,
+// takes the follow hook: false for every rm operand and every mv source (all
+// but the last of two or more), true otherwise (design D3).
+func referenceFollows(name string, index, count int) bool {
+	switch name {
+	case "rm":
+		return false
+	case "mv":
+		return count > 1 && index == count-1
+	default:
+		return true
+	}
+}
+
 // checkOperandParity checks the three properties of design D4 "Parity tests"
 // for one argument list.
 func checkOperandParity(t *testing.T, name string, raw []string) {
@@ -223,11 +237,12 @@ func checkOperandParity(t *testing.T, name string, raw []string) {
 	validator := &parityValidator{root: filepath.Join(os.TempDir(), "parity-root")}
 	r, wrapper := newRecordingRegistry(name)
 	hc := &HandlerContext{
-		Stdin:        strings.NewReader(""),
-		Stdout:       io.Discard,
-		Stderr:       io.Discard,
-		Dir:          validator.root,
-		ValidatePath: validator.hook(true),
+		Stdin:                strings.NewReader(""),
+		Stdout:               io.Discard,
+		Stderr:               io.Discard,
+		Dir:                  validator.root,
+		ValidatePath:         validator.hook(true),
+		ValidateNoFollowPath: validator.hook(false),
 	}
 	args := append([]string{name}, raw...)
 	runErr := r.Run(WithHandlerContext(t.Context(), hc), name, args)
@@ -243,19 +258,21 @@ func checkOperandParity(t *testing.T, name string, raw []string) {
 	}
 
 	// Property 1: every operand of the reference reading reached a hook,
-	// except the two as-written cases.
-	called1 := map[string]int{}
+	// except the two as-written cases, and the hook its position selects
+	// (design D3: rm operands and mv sources the no-follow hook).
+	called1 := map[operandTestCall]int{}
 	for _, call := range calls {
-		called1[call.path]++
+		called1[call]++
 	}
-	for _, operand := range reference.operands {
+	for index, operand := range reference.operands {
 		if referenceAsWritten(name, reference, operand) {
 			continue
 		}
-		if called1[operand] == 0 {
-			t.Fatalf("%q: operand %q reached no hook (calls %v)", args, operand, calls)
+		want := operandTestCall{path: operand, follow: referenceFollows(name, index, len(reference.operands))}
+		if called1[want] == 0 {
+			t.Fatalf("%q: operand %q reached no hook with follow=%v (calls %v)", args, operand, want.follow, calls)
 		}
-		called1[operand]--
+		called1[want]--
 	}
 
 	suffix, hasSuffix := reference.values["S"]

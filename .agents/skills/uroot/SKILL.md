@@ -145,6 +145,17 @@ add avoidable unbounded heap growth.
   operand, as `gzip`'s output path has.
 - Custom commands that touch the filesystem should resolve user paths with
   `HandlerContext.ResolvePath` before `os.Open`, `os.Create`, `os.Link`, or similar calls.
+- `HandlerContext` has a second hook, `ValidateNoFollowPath`, read through
+  `ResolveNoFollowPath`, for an operand the command acts on itself without
+  following its last component: every `rm` operand, the `mv` sources (all but
+  the last of two or more operands) and `ln`'s link name. Use it for any new
+  operand that removes, renames or replaces the entry it names. A context
+  with only `ValidatePath` makes `ResolveNoFollowPath` refuse
+  (`errNoFollowValidatorMissing`), and one with only `ValidateNoFollowPath`
+  makes `ResolvePath` refuse (`errFollowValidatorMissing`); neither falls back
+  to the other form. A context with either hook goes through the operand
+  collector. Tests that drive `rm`, `mv` or `ln` under a validating context set
+  both hooks.
 - The security boundary is normalized allowed-root validation, not symlink
   following by itself: following a symlink can expose its target path, and
   allowed-root validation decides whether that target may be accessed.

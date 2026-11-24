@@ -5,7 +5,6 @@
 package runtime
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -18,36 +17,52 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// TestVirtualPathWindowsRemoveJunctionActsOnTarget: an operation runs on the
-// validated path, and a junction validates to its target, as a symbolic link
-// does on every platform. `rm -rf` on a junction whose target is inside the
-// allowed root therefore removes the target directory and leaves the junction
-// entry in place (design D3).
-func TestVirtualPathWindowsRemoveJunctionActsOnTarget(t *testing.T) {
+// TestVirtualPathWindowsRemoveJunctionRemovesJunction: rm acts on its operand
+// itself and does not follow its last component (design D1-D3 of
+// virtual-path-no-follow-operands), so `rm -rf j` on a junction removes the
+// junction entry and leaves its target tree, wherever the target lies: under
+// restricted access with the target inside the root, under restricted access
+// with the target outside every root (the junction itself lies inside the
+// root, so its removal is allowed), and under full access with the target
+// outside the roots.
+func TestVirtualPathWindowsRemoveJunctionRemovesJunction(t *testing.T) {
 	t.Parallel()
-	fstree.Require(t, fstree.CapJunction)
-	work := fstree.TempRoot(t)
-	target := mustMkdir(t, filepath.Join(work, "target"))
-	if err := os.WriteFile(filepath.Join(target, "file.txt"), []byte("x"), 0o600); err != nil {
-		t.Fatalf("write file: %v", err)
-	}
-	junction := filepath.Join(work, "j")
-	fstree.MustJunction(t, target, junction)
+	for _, tt := range []struct {
+		name          string
+		access        invowkfile.VirtualFilesystemAccess
+		targetOutside bool
+	}{
+		{name: "restricted target inside", access: invowkfile.VirtualFilesystemAccessRestricted},
+		{name: "restricted target outside", access: invowkfile.VirtualFilesystemAccessRestricted, targetOutside: true},
+		{name: "full target outside", access: invowkfile.VirtualFilesystemAccessFull, targetOutside: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			fstree.Require(t, fstree.CapJunction)
+			work := mustMkdir(t, filepath.Join(fstree.TempRoot(t), "work"))
+			targetBase := work
+			if tt.targetOutside {
+				targetBase = outsideVirtualRootsDir(t)
+			}
+			target := mustMkdir(t, filepath.Join(targetBase, "target"))
+			file := filepath.Join(target, "file.txt")
+			if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+				t.Fatalf("write file: %v", err)
+			}
+			junction := filepath.Join(work, "j")
+			fstree.MustJunction(t, target, junction)
 
-	inv := &invowkfile.Invowkfile{FilePath: invowkfile.FilesystemPath(filepath.Join(work, "invowkfile.cue"))}
-	cmd := testCommandWithScript("rm-junction", "rm -rf j", invowkfile.RuntimeVirtualSh)
-	ctx := NewExecutionContext(t.Context(), cmd, inv)
-	ctx.IO.Stdout = &bytes.Buffer{}
-	ctx.IO.Stderr = &bytes.Buffer{}
-	if result := NewShRuntime(true).Execute(ctx); !result.Success() {
-		t.Fatalf("rm -rf j: %#v", result)
-	}
-
-	if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("the junction's target directory still exists (stat error %v)", err)
-	}
-	if _, err := os.Lstat(junction); err != nil {
-		t.Errorf("the junction entry was removed: %v", err)
+			run := runVirtualShTest(t, work, "rm -rf j", tt.access)
+			if run.exit != 0 {
+				t.Fatalf("rm -rf j = %+v", run)
+			}
+			if _, err := os.Lstat(junction); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("the junction entry is still there (lstat error %v)", err)
+			}
+			if _, err := os.Stat(file); err != nil {
+				t.Errorf("the junction's target tree was changed: %v", err)
+			}
+		})
 	}
 }
 
@@ -87,7 +102,7 @@ func TestVirtualPathWindowsMissingDrive(t *testing.T) {
 func TestVirtualPathWindowsMissingShare(t *testing.T) {
 	t.Parallel()
 	fake := newFakePathFS(t, nil, nil)
-	fake.entries[fakeRoot()] = fakePathEntry{mode: fs.ModeDir, lstatErr: errorBadNetName}
+	fake.entries[fakeRoot()] = fakePathEntry{mode: fs.ModeDir, lstatErr: errBadNetName}
 	_, err := walkVirtualPath(fake.vfs(), fakePath("a"))
 	if !errors.Is(err, errVirtualPathNoExistingAncestor) {
 		t.Fatalf("error = %v, want errVirtualPathNoExistingAncestor", err)

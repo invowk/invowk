@@ -1,0 +1,126 @@
+# Test: operations on the last component act on the link itself
+# (virtual-runtime-sandbox, "Operations on the last component do not follow
+# it"): rm, rm -f, the mv source and ln's link name act on the link and leave
+# its target, under restricted access a link inside the root whose target is
+# outside can be removed, and an rm operand with a trailing separator on a
+# link to a file fails with "not a directory".
+#
+# u-root built-ins are virtual-runtime commands, so this test has no native
+# mirror (the virtual_uroot_ prefix exemption). Junctions are covered by the
+# Go tests (testscript has no junction command).
+#
+# The outside file must lie outside every allowed root. Off Windows /tmp is
+# always a root and $WORK is normally below it, so the test uses a fixed entry
+# below /var/tmp, removed before and after its step.
+
+[!symlink] skip
+
+[!windows] env OUTSIDE=/var/tmp
+[windows] env OUTSIDE=$WORK/outside
+[windows] mkdir $WORK/outside
+env OUTFILE=$OUTSIDE/invowk-virtual-uroot-link-operands-target
+
+cd $WORK/proj
+
+# rm live removes the link and keeps target.txt
+symlink live -> target.txt
+exec invowk cmd rm-live
+exists target.txt
+! exists live
+
+# rm -f stale removes the dangling link: a new link can take its name
+symlink stale -> missing.txt
+exec invowk cmd rm-stale
+symlink stale -> target.txt
+
+# ln -sf replaces a dangling link, and nothing is created at its old target
+symlink stale2 -> missing2.txt
+exec invowk cmd ln-stale
+stdout '^target-content$'
+! exists missing2.txt
+
+# restricted access: rm of a link inside the root whose target is outside
+# removes the link and keeps the outside file
+rm $OUTFILE
+cp $WORK/outfile.txt $OUTFILE
+symlink outlink -> $OUTFILE
+exec invowk cmd rm-outlink
+exists $OUTFILE
+symlink outlink -> target.txt
+rm $OUTFILE
+
+# mv of a link moves the link itself
+symlink live2 -> target.txt
+exec invowk cmd mv-live
+stdout '^moved-is-link$'
+exists target.txt
+! exists live2
+
+# rm -r live3/ on a link to a file fails with "not a directory"
+symlink live3 -> target.txt
+! exec invowk cmd rm-r-slash
+stderr 'not a directory'
+exists target.txt
+exists live3
+
+-- outfile.txt --
+outside-content
+-- proj/target.txt --
+target-content
+-- proj/invowkfile.cue --
+cmds: [
+	{
+		name: "rm-live"
+		implementations: [{
+			script: {content: "rm live"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "rm-stale"
+		implementations: [{
+			script: {content: "rm -f stale"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "ln-stale"
+		implementations: [{
+			script: {content: """
+				ln -sf target.txt stale2
+				cat stale2
+				"""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "rm-outlink"
+		implementations: [{
+			script: {content: "rm outlink"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "mv-live"
+		implementations: [{
+			script: {content: """
+				mv live2 moved
+				[ -L moved ] && echo moved-is-link
+				"""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "rm-r-slash"
+		implementations: [{
+			script: {content: "rm -r live3/"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

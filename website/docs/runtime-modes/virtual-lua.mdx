@@ -39,10 +39,13 @@ Under restricted access (the default), the validator resolves a path before it c
 
 With `virtual.filesystem.access: "full"` there is no allowed-root check, and a path the validator cannot resolve is passed to the operating system as it is.
 
-Under both access modes a path that resolves is used in its resolved form:
+Under both access modes a path that resolves is used in its resolved form, except by the operations that act on the last component itself:
 
-- **Paths are reported in resolved form.** `invowk.path` results, `INVOWK_PATH_*` values and `virtual path denied` messages show the target of a link or junction, not the link.
-- **An operation on a link or junction acts on its target.** On Windows, removing a junction with `invowk.cmd.rm("-rf", ...)` removes the target directory itself and leaves the junction entry, which then dangles. Under `access: "full"` this holds for a target outside the allowed roots too.
+- **Paths are reported in resolved form.** `invowk.path` results, `INVOWK_PATH_*` values and `virtual path denied` messages show the target of a link or junction, not the link. For the operations that act on the link itself (below), they show the link's own path: its resolved directory joined with its name.
+- **Most operations follow a link or junction to its target:** the `io` functions, `invowk.cmd.cat`, `invowk.cmd.cp` and the destination of `invowk.cmd.mv`. The `mv` destination is a known difference from a host shell: with the destination a link to a file, that file is replaced and the link kept, where a host shell replaces the link.
+- **`invowk.cmd.rm`, the `invowk.cmd.mv` sources and the link name of `invowk.cmd.ln` act on the link itself** and do not follow the last component: `invowk.cmd.rm("link")` and `invowk.cmd.rm("-r", "link")` remove the link and keep its target, `invowk.cmd.mv("link", "dir")` moves the link, and `invowk.cmd.ln("-sf", "target", "link")` replaces an existing link, never its target. Under restricted access a link inside an allowed root can be removed or moved even when its target lies outside them; the target stays. On Windows `invowk.cmd.rm("-rf", ...)` of a junction removes the junction and keeps its target tree. On macOS a restricted `invowk.cmd.rm("-r", "/tmp")` is refused, because the link `/tmp` lies outside the allowed root `/private/tmp`.
+- **A trailing separator asks for a directory.** An operand of those calls that ends in a separator, `.` or `..` is resolved in full: `invowk.cmd.rm("-r", "dirlink/")` removes the target directory and keeps the link. When it names a link to a file, the call fails with `not a directory`, naming the resolved path, and nothing changes.
+- **The `invowk.cmd` built-ins find their operands the way each one parses its arguments.** `--` ends the options, and every operand is checked, whatever it starts with. Option values pass as written, except the ones that name paths, such as `tar -f`, which are checked too, and so is the file `gzip` writes for each operand. `gzip -S` refuses a suffix that contains a path separator.
 
 This is a policy for the runtime's own file APIs. An allowed host binary runs as a normal host process and is not path-checked; use the [container runtime](./container) for isolation.
 

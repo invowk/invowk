@@ -30,8 +30,16 @@ stdout '^after-cd\r?$'
 exec invowk cmd cd-outside-full
 stdout '^after-cd\r?$'
 
+# [ -L ] tests the link itself: true for a link, false for its target
+[symlink] symlink live -> target.txt
+[symlink] exec invowk cmd link-tests
+[symlink] stdout '^L-live: yes\r?$'
+[symlink] stdout '^L-target: no\r?$'
+
 -- proj/sub/file.txt --
 content
+-- proj/target.txt --
+target
 -- proj/invowkfile.cue --
 cmds: [
 	{
@@ -132,6 +140,27 @@ cmds: [
 				script: {content: """
 				Set-Location -LiteralPath $env:OUTSIDE -ErrorAction Stop
 				Write-Output after-cd
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name: "link-tests"
+		implementations: [
+			{
+				script: {content: """
+				[ -L live ] && echo "L-live: yes"
+				[ -L target.txt ] || echo "L-target: no"
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+				if ((Get-Item -LiteralPath live -Force).LinkType -eq 'SymbolicLink') { Write-Output "L-live: yes" }
+				if ((Get-Item -LiteralPath target.txt -Force).LinkType -ne 'SymbolicLink') { Write-Output "L-target: no" }
 				"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]

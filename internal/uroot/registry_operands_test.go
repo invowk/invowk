@@ -64,6 +64,10 @@ func (v *operandTestValidator) follow(cwd, path string) (string, error) {
 	return v.resolve(cwd, path, true)
 }
 
+func (v *operandTestValidator) noFollow(cwd, path string) (string, error) {
+	return v.resolve(cwd, path, false)
+}
+
 func (v *operandTestValidator) recorded() []operandTestCall {
 	v.mu.Lock()
 	defer v.mu.Unlock()
@@ -80,12 +84,13 @@ func (v *operandTestValidator) recordedPaths() []string {
 
 func (v *operandTestValidator) handler(dir string, stdout, stderr *bytes.Buffer) *HandlerContext {
 	hc := &HandlerContext{
-		Stdin:        strings.NewReader(""),
-		Stdout:       stdout,
-		Stderr:       stderr,
-		Dir:          dir,
-		LookupEnv:    os.LookupEnv,
-		ValidatePath: v.follow,
+		Stdin:                strings.NewReader(""),
+		Stdout:               stdout,
+		Stderr:               stderr,
+		Dir:                  dir,
+		LookupEnv:            os.LookupEnv,
+		ValidatePath:         v.follow,
+		ValidateNoFollowPath: v.noFollow,
 	}
 	return hc
 }
