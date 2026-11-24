@@ -158,8 +158,7 @@ func selectedVirtualFilesystem(ctx *ExecutionContext) invowkfile.VirtualFilesyst
 }
 
 func newVirtualPathResolverForFilesystem(
-	workDir string,
-	scriptBasePath string,
+	workDir, scriptBasePath string,
 	filesystem invowkfile.VirtualFilesystemConfig,
 ) (virtualPathResolver, error) {
 	anchors := standardVirtualAnchors(workDir)
@@ -186,8 +185,7 @@ func newVirtualPathResolverForFilesystem(
 }
 
 func newVirtualPathResolverForInteractiveConfig(
-	workDir string,
-	scriptBasePath string,
+	workDir, scriptBasePath string,
 	filesystem invowkfile.VirtualFilesystemConfig,
 ) (virtualPathResolver, error) {
 	resolver, err := newVirtualPathResolverForFilesystem(workDir, scriptBasePath, filesystem)
