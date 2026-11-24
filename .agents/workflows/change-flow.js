@@ -34,6 +34,15 @@ const CHECKLIST = '.agents/rules/checklist.md'
 // foreground Bash timeout. So a locked commit always runs in the background.
 const COMMIT_TIMEOUT = 'Run every `git commit` under the lock in the background with an rc= line appended to its log, and wait for it with the Monitor wait above; never in the foreground, not even with a 600000 ms timeout: the pre-commit hooks take about 5 minutes, and the time spent waiting for the lock counts against that timeout too.'
 
+// A stage restarts after a usage-limit pause, and this same prompt runs again
+// (runbook, probe P11). Every WRITING stage (spec, spec-fix, implement, simplify,
+// fix) gets this, so it continues from its own earlier work instead of stopping
+// on it or starting over. Read-only stages just run again and do not get it.
+// The base is a stop only where the prompt has baseCheck(): a later stage must
+// not block because the base moved during the run (probe P8).
+const RESUME = 'Restart: this prompt may run again after a pause, with this same text. Work of this stage that is already in the worktree (commits on the branch, uncommitted edits, checked tasks, logs with rc= lines, ledgers or reports on disk) is your own earlier attempt: read it, continue from it by finishing or redoing the unfinished step, then run this stage\'s checks on the result. Never discard it, never start over and never stop because it exists: for what you find in the worktree, the only stops (status blocked) are a worktree on another branch than the one named above and, where this prompt has a base check, a failed one; the stops this prompt names for other causes still hold. ' +
+  'Keep decisions and progress on disk as you go (tasks.md checkboxes, design.md, logs with rc= lines, the commits you make anyway), not only in your context; this asks for no extra commit.'
+
 // Advisor policy (the "Advisor" bullet of the floor rule; reason and numbers in
 // the runbook, probe P10). Workflow agents have the `advisor` tool and call it
 // unasked, so every prompt builder carries exactly one of these two: the
@@ -218,13 +227,44 @@ function validSnapshot(s) {
   return !!s && typeof s === 'object' && ['status', 'branch', 'head'].every((k) => typeof s[k] === 'string') && s.head !== ''
 }
 
+// At most this many porcelain lines are quoted per list; the rest is counted.
+const GUARD_LINES = 20
+
+function quoteLines(lines) {
+  const shown = lines.slice(0, GUARD_LINES).map((l) => JSON.stringify(l)).join(', ')
+  return lines.length > GUARD_LINES ? shown + ', +' + (lines.length - GUARD_LINES) + ' more' : shown
+}
+
+// snapshotDiff returns null for two equal snapshots of the primary checkout, or
+// what differs: the fields, HEAD before -> after (8 characters), the branch
+// before -> after, and the `git status --porcelain` lines that appeared and
+// that disappeared, so a foreign edit can be told from a stage writing there.
+function snapshotDiff(before, after) {
+  if (sameSnapshot(before, after)) return null
+  const fields = ['status', 'branch', 'head'].filter((k) => before[k] !== after[k])
+  const parts = []
+  if (before.head !== after.head) parts.push('HEAD ' + before.head.slice(0, 8) + ' -> ' + after.head.slice(0, 8))
+  if (before.branch !== after.branch) parts.push('branch ' + before.branch + ' -> ' + after.branch)
+  if (before.status !== after.status) {
+    // Leading spaces are part of a porcelain line (" M file"); trailing ones are not.
+    const lines = (s) => s.split('\n').map((l) => l.replace(/\s+$/, '')).filter((l) => l !== '')
+    const was = lines(before.status)
+    const now = lines(after.status)
+    const appeared = now.filter((l) => !was.includes(l))
+    const disappeared = was.filter((l) => !now.includes(l))
+    if (appeared.length) parts.push('appeared: ' + quoteLines(appeared))
+    if (disappeared.length) parts.push('disappeared: ' + quoteLines(disappeared))
+    if (!appeared.length && !disappeared.length) parts.push('the same porcelain lines in another order or spacing')
+  }
+  return '(' + fields.join(', ') + '): ' + parts.join('; ')
+}
+
 // guardChanged returns null when the primary checkout did not change during a
 // stage, or a description of the problem (missing guard counts as changed).
 function guardChanged(guard) {
   if (!guard || !validSnapshot(guard.before) || !validSnapshot(guard.after)) return 'missing or malformed guard'
-  if (sameSnapshot(guard.before, guard.after)) return null
-  const diff = ['status', 'branch', 'head'].filter((k) => guard.before[k] !== guard.after[k])
-  return 'primary checkout changed (' + diff.join(', ') + ')'
+  const diff = snapshotDiff(guard.before, guard.after)
+  return diff ? 'primary checkout changed ' + diff : null
 }
 
 // parseTextGuard reads the last "GUARD-JSON: {...}" line of a schemaless agent's text.
@@ -346,8 +386,16 @@ function selfChecks() {
 
   const snap = { status: '?? a.log', branch: 'main', head: 'abc' }
   expectEqual('guard.same', guardChanged({ before: snap, after: { ...snap } }), null)
-  expectEqual('guard.status', guardChanged({ before: snap, after: { ...snap, status: ' M x.go\n?? a.log' } }), 'primary checkout changed (status)')
-  expectEqual('guard.head', guardChanged({ before: snap, after: { ...snap, head: 'def' } }), 'primary checkout changed (head)')
+  expectEqual('guard.modified', guardChanged({ before: snap, after: { ...snap, status: ' M x.go\n?? a.log' } }), 'primary checkout changed (status): appeared: " M x.go"')
+  expectEqual('guard.untracked', guardChanged({ before: snap, after: { ...snap, status: '?? a.log\n?? notes.txt\n' } }), 'primary checkout changed (status): appeared: "?? notes.txt"')
+  expectEqual('guard.disappeared', guardChanged({ before: snap, after: { ...snap, status: '' } }), 'primary checkout changed (status): disappeared: "?? a.log"')
+  expectEqual('guard.head-clean', guardChanged({ before: { ...snap, status: '', head: 'abc1234567890' }, after: { ...snap, status: '', head: 'def4567890123' } }), 'primary checkout changed (head): HEAD abc12345 -> def45678')
+  expectEqual('guard.all', guardChanged({ before: snap, after: { status: 'M  x.go', branch: 'feat/x', head: 'def' } }),
+    'primary checkout changed (status, branch, head): HEAD abc -> def; branch main -> feat/x; appeared: "M  x.go"; disappeared: "?? a.log"')
+  expectEqual('guard.order', guardChanged({ before: { ...snap, status: '?? a\n?? b' }, after: { ...snap, status: '?? b\n?? a' } }), 'primary checkout changed (status): the same porcelain lines in another order or spacing')
+  const many = Array.from({ length: GUARD_LINES + 3 }, (_, i) => '?? f' + i).join('\n')
+  const bounded = guardChanged({ before: { ...snap, status: '' }, after: { ...snap, status: many } })
+  expectEqual('guard.bounded', [bounded.includes('"?? f' + (GUARD_LINES - 1) + '", +3 more'), bounded.includes('"?? f' + GUARD_LINES + '"')], [true, false])
   expectEqual('guard.missing', guardChanged(undefined), 'missing or malformed guard')
   expectEqual('guard.malformed', guardChanged({ before: snap, after: { status: '' } }), 'missing or malformed guard')
   const line = 'GUARD-JSON: ' + JSON.stringify({ before: snap, after: snap })
@@ -398,16 +446,17 @@ function baseCheck(a) {
 }
 
 function specPrompt(a, mode) {
-  const skill = mode === 'new'
-    ? 'Skill openspec-propose'
-    : mode === 'fast-lane'
-      ? 'Skill openspec-propose if openspec/changes/' + a.change + '/ does not exist in the worktree yet, otherwise Skill openspec-update-change,'
-      : 'Skill openspec-update-change'
+  // new and fast-lane: a restarted stage finds the change its earlier attempt
+  // created, and openspec-propose would ask whether to continue it.
+  const skill = mode === 'revise'
+    ? 'Skill openspec-update-change'
+    : 'Skill openspec-propose if openspec/changes/' + a.change + '/ does not exist in the worktree yet, otherwise Skill openspec-update-change' +
+      (mode === 'new' ? ' (an earlier attempt of this stage created it: continue it, do not propose it again),' : ',')
   const own = mode === 'fast-lane'
     ? '\nFast lane: after writing the artifacts, review them yourself against the openspec conventions and the repo rules they touch, and fix what you find. Say in summary what the self-review checked.'
     : ''
   return context(a, 'spec') + '\n\n' + baseCheck(a) + 'Invoke ' + skill + ' for change "' + a.change + '" inside the worktree. Commit the artifacts (signed, under the lock) on ' + a.branch + '; do not push yet. ' + COMMIT_TIMEOUT + own +
-    '\nReturn status "blocked" with the reason if the request is ambiguous or the change cannot be specified.\n' + ADVISOR_FORBIDDEN
+    '\nReturn status "blocked" with the reason if the request is ambiguous or the change cannot be specified.\n' + RESUME + '\n' + ADVISOR_FORBIDDEN
 }
 
 function specReviewPrompt(a, round) {
@@ -421,7 +470,7 @@ function specFixPrompt(a, review) {
   // The review is blocking as a whole; the reviewer may not have marked any single
   // finding "blocking", so the fixer sees every finding and the reviewer's summary.
   return context(a, 'spec-fix') + '\n\nThe independent spec review is blocking. Invoke Skill openspec-update-change for "' + a.change + '" to resolve it, then commit (signed, under the lock). ' + COMMIT_TIMEOUT + ' ' +
-    'Resolve every finding marked severity "blocking"; if none is marked, resolve the ones the summary names as blocking, or else every "major" one.\n' + ADVISOR_FORBIDDEN + '\n' +
+    'Resolve every finding marked severity "blocking"; if none is marked, resolve the ones the summary names as blocking, or else every "major" one.\n' + RESUME + '\n' + ADVISOR_FORBIDDEN + '\n' +
     'Reviewer summary: ' + review.summary + '\nFindings:\n' + JSON.stringify(review.findings, null, 1)
 }
 
@@ -433,12 +482,12 @@ function implementPrompt(a, firstStage) {
     'Commit (signed, under the lock; messages per .agents/rules/git.md), push ' + a.branch + ' and open or update its DRAFT pull request (never ready, never merge). ' + COMMIT_TIMEOUT + '\n' +
     'Formal lane (' + RUNBOOK + ', "Formal lane"): run `cd ' + a.worktree + ' && python3 scripts/formal.py affected --event pull_request --base ' + a.base + ' --head HEAD`; when it prints run=true, also run ' +
     '`python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check` and `make formal-reach` there, and fix what fails. Leave `make formal` to CI unless Java is present.\n' +
-    'Return head_sha, pr (the number) and formal_affected.\n' + ADVISOR_FORBIDDEN
+    'Return head_sha, pr (the number) and formal_affected.\n' + RESUME + '\n' + ADVISOR_FORBIDDEN
 }
 
 function simplifyPrompt(a) {
   return context(a, 'simplify') + '\n\nInvoke Skill simplify with args "the committed diff `git -C ' + a.worktree + ' diff ' + a.base + '...HEAD`" and apply its cleanups inside the worktree only. ' +
-    'Quality only: no behaviour changes. It runs single-pass here; that is expected. Run only the tests of the code you touched, then commit (signed, under the lock) and push ' + a.branch + '. ' + COMMIT_TIMEOUT + ' Return head_sha.\n' + ADVISOR_FORBIDDEN
+    'Quality only: no behaviour changes. It runs single-pass here; that is expected. Run only the tests of the code you touched, then commit (signed, under the lock) and push ' + a.branch + '. ' + COMMIT_TIMEOUT + ' Return head_sha.\n' + RESUME + '\n' + ADVISOR_FORBIDDEN
 }
 
 function selectorPrompt(a) {
@@ -520,7 +569,7 @@ function fixPrompt(a, review) {
     '(for example checklist step 5, or a scope question under .agents/rules/general-rules.md): you cannot ask, so list the question with your evidence, ' +
     'and return status blocked when the answer decides whether the change is correct.\n' +
     'Return changed_files: `git -C ' + a.worktree + ' log --format= --name-only` over the commits you created in this stage, deduplicated, tests included (paths relative to the worktree), so the maintainer session can review edits made after the review; [] when you changed nothing.\n' +
-    ADVISOR_FORBIDDEN + '\n\n' +
+    RESUME + '\n' + ADVISOR_FORBIDDEN + '\n\n' +
     reviewSection(a, review)
 }
 
@@ -558,7 +607,8 @@ function check(stage, result) {
   if (!result) return 'agent returned nothing (skipped or died)'
   const changed = guardChanged(result.guard)
   if (changed) return changed
-  if (baseline && !sameSnapshot(baseline, result.guard.before)) log('note: primary checkout differs from the previous stage (' + stage + '); not caused by a stage')
+  const between = baseline ? snapshotDiff(baseline, result.guard.before) : null
+  if (between) log('note: primary checkout changed between stages, before ' + stage + ', not by a stage ' + between)
   baseline = result.guard.after
   if (result.pr) {
     const n = prNumber(result.pr)

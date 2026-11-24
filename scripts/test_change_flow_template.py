@@ -9,8 +9,9 @@ The Workflow runtime runs the script body as an async function, so the body may
     .mjs file and runs `node --check` on it (ES-module parse);
   - imports it under node with stub agent()/parallel()/phase()/log() hooks and
     drives dry-run, bad args, a full run, failed code-review lenses, guard
-    violations, a malformed lens selector, resume and fast-lane paths, and the
-    advisor policy of every agent prompt in every mode.
+    violations (and what the guard message names), a malformed lens selector,
+    resume and fast-lane paths, and the advisor policy and the restart sentence
+    of every agent prompt in every mode.
 
 It needs node; without node it skips locally and fails under CI (CI=true).
 """
@@ -82,10 +83,28 @@ function checkAdvisor(calls, name) {
   }
 }
 
+// Restart rule (runbook, probe P11): every writing stage is told to continue
+// from its own earlier work when its prompt runs again; a read-only stage just
+// runs again and is not. go() checks every agent of every run.
+const WRITING = ['spec', 'spec-fast', 'spec-fix', 'implement', 'simplify', 'fix']
+const RESUME = 'Restart: this prompt may run again after a pause, with this same text.'
+
+function checkResume(calls, name) {
+  for (const c of calls) {
+    assert.equal(count(c.prompt, RESUME), WRITING.includes(c.label) ? 1 : 0, name + ' ' + c.label + ': the restart sentence')
+    if (!WRITING.includes(c.label)) continue
+    assert.ok(c.prompt.includes('Never discard it, never start over and never stop because it exists'), name + ' ' + c.label + ': continue, never stop')
+    assert.ok(c.prompt.includes('a worktree on another branch than the one named above and, where this prompt has a base check, a failed one'), name + ' ' + c.label + ': the only stops')
+    assert.ok(c.prompt.includes('Keep decisions and progress on disk as you go') && c.prompt.includes('this asks for no extra commit'), name + ' ' + c.label + ': decisions on disk')
+  }
+}
+
 async function go(args, overrides) {
   const s = stubs(overrides || {})
   const result = await run(...s.hooks, args, { total: null }, async () => { throw new Error('no nested workflows') })
-  checkAdvisor(s.calls, args.mode + (args.from ? ':' + args.from : ''))
+  const name = args.mode + (args.from ? ':' + args.from : '')
+  checkAdvisor(s.calls, name)
+  checkResume(s.calls, name)
   return { result, ...s }
 }
 
@@ -247,14 +266,42 @@ for (const [name, reply] of Object.entries({
   assert.match(result.reason, /review:code-review/)
 }
 
-// a guard difference stops the run at that stage.
+// a guard difference stops the run at that stage, and the reason says what
+// changed: the porcelain lines, HEAD and the branch, not only the field names.
 {
   const { result, calls } = await go(good, {
     simplify: () => ({ status: 'done', summary: 'x', guard: { before: snap, after: { ...snap, status: ' M internal/x.go' } } }),
   })
   assert.equal(result.status, 'blocked')
   assert.match(result.reason, /primary checkout changed \(status\)/)
+  assert.ok(result.reason.includes('simplify: primary checkout changed (status): appeared: " M internal/x.go"; disappeared: "?? a.log"'), result.reason)
   assert.equal(calls[calls.length - 1].label, 'simplify')
+  const moved = await go(good, {
+    implement: () => ({ status: 'done', summary: 'x', guard: { before: snap, after: { status: snap.status, branch: 'feat/other', head: 'def4567890123' } } }),
+  })
+  assert.ok(moved.result.reason.includes('implement: primary checkout changed (branch, head): HEAD abc123 -> def45678; branch main -> feat/other'), moved.result.reason)
+}
+
+// a difference between one stage's last record and the next stage's first is
+// logged with the same detail and does not stop the run.
+{
+  const pulled = { ...snap, head: 'fed9876543210' }
+  const { result, logs } = await go(good, {
+    simplify: () => ({ status: 'done', summary: 'x', guard: { before: pulled, after: { ...pulled } } }),
+  })
+  assert.equal(result.status, 'done', JSON.stringify(result))
+  assert.ok(logs.includes('note: primary checkout changed between stages, before simplify, not by a stage (head): HEAD abc123 -> fed98765'), logs.join('\n'))
+}
+
+// a restarted spec stage finds the change its earlier attempt created: new and
+// fast-lane continue it with openspec-update-change instead of proposing again.
+{
+  const specOf = async (mode, label) => (await go({ ...good, mode })).calls.find((c) => c.label === label).prompt
+  const fresh = await specOf('new', 'spec')
+  assert.ok(fresh.includes('Skill openspec-propose if openspec/changes/add-thing/ does not exist in the worktree yet, otherwise Skill openspec-update-change (an earlier attempt of this stage created it'))
+  assert.ok((await specOf('fast-lane', 'spec-fast')).includes('does not exist in the worktree yet, otherwise Skill openspec-update-change,'))
+  const revise = await specOf('revise', 'spec')
+  assert.ok(revise.includes('Invoke Skill openspec-update-change for change') && !revise.includes('openspec-propose'))
 }
 
 // continue from implement: implement starts the run, so it checks the base.
@@ -485,6 +532,16 @@ class TemplateTest(unittest.TestCase):
                 self.assertEqual(body.count("ADVISOR_FORBIDDEN"), 0 if name in allowed else 1)
         self.assertEqual(self.text.count("const ADVISOR_ALLOWED = "), 1)
         self.assertEqual(self.text.count("const ADVISOR_FORBIDDEN = "), 1)
+
+    def test_writing_prompt_builders_carry_the_restart_sentence(self) -> None:
+        # The stages that write get RESUME once; a read-only builder never does.
+        builders = dict(re.findall(r"(?ms)^function (\w+Prompt)\((.*?)^\}$", self.text))
+        writing = {"specPrompt", "specFixPrompt", "implementPrompt", "simplifyPrompt", "fixPrompt"}
+        self.assertLessEqual(writing, set(builders))
+        for name, body in builders.items():
+            with self.subTest(builder=name):
+                self.assertEqual(body.count("RESUME"), 1 if name in writing else 0)
+        self.assertEqual(self.text.count("const RESUME = "), 1)
 
     def test_node_parse_and_harness(self) -> None:
         node = shutil.which("node")
