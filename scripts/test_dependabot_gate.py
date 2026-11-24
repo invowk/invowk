@@ -2931,9 +2931,11 @@ class PolicyTableTests(unittest.TestCase):
     PR_EVENTS = frozenset({"pull_request", "pull_request_target", "workflow_run", "pull_request_review", "pull_request_review_comment", "issue_comment", "merge_group"})
     # The jobs that hold a write grant and may run pull request code by the
     # rule below (a checkout or a `run` step), with the grants they hold and
-    # why the token does not reach pull request code. Each reason is asserted
-    # in test_writers_that_check_out_pull_request_code_keep_their_evidence or
-    # test_pgo_profile_commit_runs_no_pull_request_code.
+    # why the token does not reach pull request code, or why the maintainer
+    # accepted the grant. Each reason is asserted in
+    # test_writers_that_check_out_pull_request_code_keep_their_evidence,
+    # test_pgo_profile_commit_runs_no_pull_request_code or
+    # test_maintainer_accepted_writers_keep_their_shape.
     WRITER_EXEMPTIONS = {
         ("benchmarks.yml", "bencher"): (
             frozenset({"checks", "pull-requests"}),
@@ -2955,26 +2957,17 @@ class PolicyTableTests(unittest.TestCase):
             "GraphQL API. Its `run` steps are inline shell that calls no make, go, script or git; PGO Sanity, which runs the "
             "pull request's code, holds `contents: read` only.",
         ),
-    }
-    # Write grants in jobs that run pull request code, found when the rule
-    # was generalised and left to the maintainer: the workflows are unchanged
-    # and each grant is needed by an action of the job, but nothing here
-    # shows the token stays out of reach of the code the job runs.
-    WRITERS_AWAITING_MAINTAINER = {
-        ("ci.yml", "release-dry-run"): (
-            frozenset({"id-token"}),
-            "Release Dry Run builds the pull request's code with GoReleaser and holds `id-token: write`, for keyless Cosign "
-            "signing on push and release runs; on pull_request runs it passes --skip=sign, so the grant is unused there.",
-        ),
+        # Accepted by the maintainer on 2026-11-24 (the grant is the action's own need).
         ("claude.yml", "claude"): (
             frozenset({"id-token"}),
-            "Claude Code checks out the event's ref (a pull request's merge ref on review events) and runs "
-            "anthropics/claude-code-action, which exchanges the OIDC token for its App token.",
+            "Maintainer decision 2026-11-24: Claude Code checks out the event's ref and runs anthropics/claude-code-action, "
+            "which exchanges the OIDC token for its App token; the job starts only on an @claude mention, and the action "
+            "acts only for a commenter with write access to the repository (no allowed_non_write_users input).",
         ),
         ("codeql.yml", "analyze"): (
             frozenset({"security-events"}),
-            "Analyze (go) builds the pull request's code (autobuild) and holds `security-events: write`, which the analyze "
-            "step needs to upload its results.",
+            "Maintainer decision 2026-11-24: Analyze uploads its results, which needs `security-events: write`; the job "
+            "only checks out, sets up Go and runs the CodeQL init, autobuild and analyze actions, with no `run` step.",
         ),
     }
     @staticmethod
@@ -3058,8 +3051,7 @@ class PolicyTableTests(unittest.TestCase):
                     self.assertIn("permissions", job, "a job a pull request can start declares its permissions")
 
     def test_no_job_that_runs_pull_request_code_may_write(self) -> None:
-        known = {**self.WRITER_EXEMPTIONS, **self.WRITERS_AWAITING_MAINTAINER}
-        self.assertFalse(set(self.WRITER_EXEMPTIONS) & set(self.WRITERS_AWAITING_MAINTAINER))
+        known = self.WRITER_EXEMPTIONS
         exempted, writers = [], {}
         for filename, doc in self.workflow_files().items():
             self.permissions_value(doc.get("permissions"), f"{filename}: permissions")
@@ -3187,6 +3179,62 @@ class PolicyTableTests(unittest.TestCase):
             for path in re.findall(r"^\s*source (\S+)", text, re.MULTILINE):
                 self.assertTrue(path.startswith("trusted/"), path)
             self.assertNotIn("source/", text.replace("source/.dockerignore", ""))
+
+    def test_maintainer_accepted_writers_keep_their_shape(self) -> None:
+        files = self.workflow_files()
+        # claude.yml: an @claude mention starts it; checkout and the pinned action only, write access left to the action.
+        job = files["claude.yml"]["jobs"]["claude"]
+        condition = " ".join(job["if"].split())
+        self.assertEqual(condition.count("'@claude'"), 5, condition)
+        self.assertEqual(
+            job["permissions"],
+            {"contents": "read", "pull-requests": "read", "issues": "read", "id-token": "write", "actions": "read"},
+        )
+        self.assertEqual([str(step.get("uses")) for step in job["steps"]], ["actions/checkout@v7", "anthropics/claude-code-action@v1"])
+        self.assertFalse(any("run" in step for step in job["steps"]))
+        for step in job["steps"]:
+            self.assertNotIn("allowed_non_write_users", step.get("with", {}))
+            self.assertNotIn("allowed_bots", step.get("with", {}))
+        # codeql.yml: CodeQL actions only, no `run` step.
+        job = files["codeql.yml"]["jobs"]["analyze"]
+        self.assertEqual(job["permissions"], {"contents": "read", "security-events": "write"})
+        self.assertFalse(any("run" in step for step in job["steps"]))
+        self.assertEqual(
+            sorted(str(step.get("uses")) for step in job["steps"]),
+            [
+                "actions/checkout@v7",
+                "actions/setup-go@v6",
+                "github/codeql-action/analyze@v4",
+                "github/codeql-action/autobuild@v4",
+                "github/codeql-action/init@v4",
+            ],
+        )
+
+    def test_release_signing_stays_out_of_pull_request_runs(self) -> None:
+        files = self.workflow_files()
+        # ci.yml's required `Release Dry Run`: tokenless, unconditional, and never signs.
+        job = files["ci.yml"]["jobs"]["release-dry-run"]
+        self.assertEqual(job["name"], "Release Dry Run")
+        self.assertEqual(job["permissions"], {"contents": "read"})
+        self.assertNotIn("if", job)
+        releasers = [step for step in job["steps"] if str(step.get("uses", "")).startswith("goreleaser/goreleaser-action@")]
+        self.assertEqual(len(releasers), 1)
+        self.assertNotIn("if", releasers[0])
+        self.assertIn("--skip=sign", releasers[0]["with"]["args"].split())
+        self.assertFalse(any(str(step.get("uses", "")).startswith("sigstore/cosign-installer@") for step in job["steps"]))
+        # The signed snapshot runs where no pull request can start it.
+        doc = files["release-signing.yml"]
+        self.assertFalse(self.triggers(doc) & self.PR_EVENTS)
+        self.assertEqual(self.triggers(doc), {"push", "release", "workflow_dispatch"})
+        (signer,) = doc["jobs"].values()
+        self.assertEqual(signer["permissions"], {"contents": "read", "id-token": "write"})
+        releasers = [step for step in signer["steps"] if str(step.get("uses", "")).startswith("goreleaser/goreleaser-action@")]
+        self.assertEqual(len(releasers), 1)
+        self.assertNotIn("--skip=sign", releasers[0]["with"]["args"])
+        # Its push paths are ci.yml's, with this workflow in place of ci.yml.
+        ci_paths = files["ci.yml"]["on"]["push"]["paths"]
+        expected = [".github/workflows/release-signing.yml" if path == ".github/workflows/ci.yml" else path for path in ci_paths]
+        self.assertEqual(doc["on"]["push"]["paths"], expected)
 
     def test_test_report_job_runs_no_pull_request_code(self) -> None:
         doc = self.workflow_files()["ci.yml"]

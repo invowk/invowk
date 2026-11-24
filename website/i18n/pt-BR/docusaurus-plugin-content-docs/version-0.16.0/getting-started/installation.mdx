@@ -138,15 +138,18 @@ Você deverá ver as informações de versão. Se receber um erro "command not f
 
 ### Verificando Assinaturas de Release
 
-Os artefatos de release são assinados com [Cosign](https://github.com/sigstore/cosign) (sem chave, via OIDC do GitHub Actions). Para verificar o arquivo de checksums baixado de um GitHub Release:
+Os artefatos de release são assinados com [Cosign](https://github.com/sigstore/cosign) (sem chave, via OIDC do GitHub Actions) pelo workflow de release, disparado pelo push da tag de release. Para verificar o arquivo de checksums baixado de um GitHub Release, troque `v0.16.0` pela versão que você baixou:
 
 ```bash
 cosign verify-blob \
   --bundle checksums.txt.sigstore.json \
-  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+  --certificate-identity='https://github.com/invowk/invowk/.github/workflows/release.yml@refs/tags/v0.16.0' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+  --certificate-github-workflow-trigger=push \
   checksums.txt
 ```
+
+Outros workflows do repositório também podem obter um token OIDC do GitHub, então fixe a identidade exata acima, e não um padrão que aceite qualquer workflow de `invowk/invowk`. Os bundles `.sigstore.json` precisam do Cosign v2.4.2 ou mais recente; versões anteriores os rejeitam com "bundle does not contain cert for verification".
 
 Em seguida, verifique os arquivos individuais contra o `checksums.txt`:
 

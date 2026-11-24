@@ -52,7 +52,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
 ```
 
-This downloads the latest release, verifies its SHA256 checksum, and installs to `~/.local/bin`. Customize with environment variables:
+This downloads the latest release, verifies its SHA256 checksum, and installs to `~/.local/bin`. When [Cosign](https://github.com/sigstore/cosign) is on your `PATH`, the script first verifies the signature of `checksums.txt` against the release workflow's identity and stops if it does not verify. It needs Cosign v2.4.2 or later, and stops with an upgrade hint when an older Cosign is found. Without Cosign it prints a warning and continues; set `INVOWK_REQUIRE_SIGNATURE=1` (or `true`/`yes`) to make that an error. Customize with environment variables:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | INSTALL_DIR=/usr/local/bin INVOWK_VERSION=v1.0.0 sh
@@ -147,15 +147,18 @@ Upgrade using the same method you used to install:
 
 ### Verifying Signatures
 
-Release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) (keyless, via GitHub Actions OIDC). To verify the checksums file:
+Release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) (keyless, via GitHub Actions OIDC) by the release workflow, run by the push of the release tag. To verify the checksums file, replace `v0.17.0` with the version you downloaded:
 
 ```bash
 cosign verify-blob \
   --bundle checksums.txt.sigstore.json \
-  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+  --certificate-identity='https://github.com/invowk/invowk/.github/workflows/release.yml@refs/tags/v0.17.0' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+  --certificate-github-workflow-trigger=push \
   checksums.txt
 ```
+
+Other workflows of the repository can also obtain a GitHub OIDC token, so pin the exact identity above rather than a pattern that matches any workflow of `invowk/invowk`. The `.sigstore.json` bundles need Cosign v2.4.2 or later; older versions reject them with "bundle does not contain cert for verification". The shell installer runs this check itself when Cosign is installed.
 
 Then verify individual archives against `checksums.txt` using `sha256sum -c checksums.txt`.
 

@@ -51,7 +51,7 @@ git tag -d <tag>
 
 ### Release notes missing or invalid
 
-The helper fails before tag creation when `RELEASE_NOTES_FILE` is missing, empty, non-markdown, or not a regular file. Fix the file and rerun. If a manual workflow dispatch failed validation, rerun with markdown notes input.
+The helper fails before tag creation when `RELEASE_NOTES_FILE` is missing, empty, non-markdown, or not a regular file. Fix the file and rerun. If a manual dry-run dispatch failed validation, rerun with markdown notes input and `dry_run` left true; a dispatch never publishes.
 
 ### Local release helper fails after creating a signed tag
 

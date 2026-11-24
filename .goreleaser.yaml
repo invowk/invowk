@@ -106,14 +106,15 @@ release:
     {{ end }}
     ### Verify Signatures
 
-    All release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) using keyless signing.
+    All release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) using keyless signing, by the release workflow at this tag.
 
     ```bash
     # Download the checksum file and Sigstore bundle
     cosign verify-blob \
       --bundle checksums.txt.sigstore.json \
-      --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+      --certificate-identity='https://github.com/invowk/invowk/.github/workflows/release.yml@refs/tags/{{ .Tag }}' \
       --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+      --certificate-github-workflow-trigger=push \
       checksums.txt
     ```
 
