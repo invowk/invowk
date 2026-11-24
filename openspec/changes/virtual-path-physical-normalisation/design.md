@@ -53,7 +53,7 @@ See proposal.md (Why). Current behaviour, verified on `main` at c2fe96ff. `GOROO
 
 **Goals:**
 - The harness verdict equals the model's fixed decision on every golden vector on Linux, macOS and Windows, junction vectors included.
-- No decision uses an unresolved path. Every failure other than "does not exist" denies.
+- No containment decision uses an unresolved path. In every containment decision, a failure other than "does not exist" denies. `full` access makes no containment decision and hands such a path to the operating system (D2).
 - Links and junctions that stay inside a root, and roots behind a link or junction, keep working.
 - Path forms change only where D3 lists them.
 
@@ -248,7 +248,7 @@ Why F14 and F19 share a commit: both come from one decision in the old code, "wh
 
 - The invowkfile lives in a subdirectory of `$WORK`, so `$WORK` itself is not the script base.
 - The outside location must be outside `/tmp` off Windows, because `/tmp` is always a root there and `$WORK` is normally below it. The test uses `/var/tmp` as the existing outside directory off Windows and `$WORK/outside` on Windows. It names a fixed, test-specific entry below it, removes that entry first, and asserts it does not exist afterwards. A passing run creates nothing outside `$WORK`.
-- `virtual-sh`: `mkdir -p link/<name>/a/b` (F14), `echo x > dangling` (F19, a redirection) and `touch dangling` (F19, a u-root built-in) fail with `virtual path denied`. The `touch` step is the u-root evidence that fails before the fix: `mkdir -p` may already be denied there, because the built-in checks each component.
+- `virtual-sh`: `mkdir -p link/<name>/a/b` (F14), `echo x > dangling` (F19, a redirection) and `touch dangling` (F19, a u-root built-in) fail with `virtual path denied`. In the same restricted command `echo msg >&2` succeeds: a descriptor duplication is not path-checked. The `touch` step is the u-root evidence that fails before the fix: `mkdir -p` may already be denied there, because the built-in checks each component.
 - `virtual-lua`: `io.open` on the deep path and on the dangling link returns an error containing `virtual path denied`.
 - A second command with `virtual.filesystem.access: "full"`, off Windows only: `echo msg > /dev/stderr` succeeds and `msg` is on stderr. testscript gives the process a pipe as stderr, which is the case D2's fallback exists for.
 - `[!symlink] skip`. Junctions are covered by the Go replays, not here (testscript has no junction command).
@@ -272,7 +272,7 @@ No data migration. A script that wrote outside the allowed roots through a link 
 ## Maintainer decisions (2026-11-24, brief `program-notes/briefs/b2-brief.md`; decisions 43, 45, 53)
 
 1. The decision equals the model's physical containment on every platform; no lexical fallback remains.
-2. Deepest existing ancestor; every error other than not-exist denies; a missing drive or share denies explicitly.
+2. Deepest existing ancestor; every error other than not-exist denies; a missing drive or share denies explicitly. This design applies "denies" wherever a containment decision is made; what `full` access does with such a path is an open question with a default (D2, Open Questions).
 3. Junction-aware on Windows; the design chooses among (a), (b), (c). This design picks (c) (D1). No new false denials for in-root links; roots behind a link or junction keep working, by the same resolver; the race is recorded, not closed.
 4. F18 is recorded with the probe run as evidence and closed in this change.
 5. F14's formal artefacts change as the triage lists; all model, golden, replay, manifest and reach edits belong to the implement stage.
