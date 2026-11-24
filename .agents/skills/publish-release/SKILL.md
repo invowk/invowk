@@ -14,7 +14,7 @@ Use this skill to ship Invowk releases deliberately: derive user-facing notes fr
 - `Makefile`: maintainer entry points `make release`, `make release-bump`, and `make version-docs`.
 - `scripts/release.sh`: semver, prerelease, promotion, clean-tree, tag, and push helper.
 - `scripts/release-notes.sh`: release-note file validation and annotated-tag extraction.
-- `.github/workflows/release.yml`: cross-platform tests, tag creation for manual dispatch, Bencher release tracking, GoReleaser, Homebrew, WinGet, and dry runs.
+- `.github/workflows/release.yml`: cross-platform tests, Bencher release tracking, GoReleaser, Homebrew, WinGet on a tag push, and dry runs on a manual dispatch.
 - `.goreleaser.yaml`: artifacts, checksums, Cosign bundle, GitHub Release settings, Homebrew cask, and WinGet config.
 - `scripts/enhance-winget-manifest.sh` and `scripts/winget/`: WinGet post-processing and manifest expectations.
 - `.github/workflows/version-docs.yml`: release-triggered documentation versioning.
@@ -80,7 +80,7 @@ make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md PROMOTE=1
 make release-bump TYPE=patch RELEASE_NOTES_FILE=release-notes.md DRY_RUN=1
 ```
 
-Manual workflow dispatch is available from GitHub Actions and requires release-notes markdown input. Prefer the Makefile path when publishing from a maintainer workstation because it creates a signed annotated tag (dispatch creates an unsigned annotated tag).
+A manual workflow dispatch of `release.yml` is a dry run only: it requires release-notes markdown input, tags locally inside the runner, never pushes the tag and never publishes, and its Validate job fails a dispatch with `dry_run` false before any build. Every real release goes through the Makefile path, a signed annotated tag pushed from the maintainer's workstation. The "Release tags" ruleset (`refs/tags/v*`: creation, update and deletion, bypassed only by the repository admin role) keeps workflow tokens from creating or moving release tags.
 
 ## Verification
 

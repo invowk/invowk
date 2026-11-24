@@ -8,7 +8,8 @@ Use this reference to verify what a release publishes and which channels should 
 - Real maintainer releases require a clean `main`, an unused `vMAJOR.MINOR.PATCH[-label.N]` tag, a markdown `RELEASE_NOTES_FILE`, and reachable `origin`.
 - Tags are signed annotated tags. The tag message carries the reviewed release notes so CI can recover the body after checkout.
 - `.github/workflows/release.yml` runs tests first, extracts release notes from the tag, tracks release performance in Bencher, then runs GoReleaser.
-- `workflow_dispatch` can create an annotated tag inside GitHub Actions. It validates `main`, requires markdown notes input, supports dry run, and uses an unsigned bot-created annotated tag.
+- `workflow_dispatch` is a dry run only. It validates `main`, requires markdown notes input, creates a local annotated tag inside the runner, never pushes it, and skips GoReleaser publishing and WinGet (only a tag push runs them). A dispatch with `dry_run` false fails in the Validate job, before tests or any build.
+- The "Release tags" ruleset covers `refs/tags/v*` (creation, update, deletion); only the repository admin role bypasses it. `make release` from the maintainer's machine works; workflow tokens cannot create, move or delete release tags.
 - CI also exercises release health before tag day through GoReleaser checks/dry-run coverage. If release config changed, inspect `.github/workflows/ci.yml` in addition to the dedicated release workflow.
 
 ## GitHub Release And Artifacts

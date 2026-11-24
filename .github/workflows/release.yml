@@ -10,11 +10,15 @@ on:
         description: 'Version to release (e.g., v1.0.0, v0.1.0-alpha.1)'
         required: true
         type: string
+      # A dispatch is always a dry run: the "Release tags" ruleset lets no
+      # workflow token create a v* tag, so real releases start from the signed
+      # tag `make release` pushes. A dispatch with dry_run=false fails in
+      # Validate, before any job that builds or publishes.
       dry_run:
-        description: 'Dry run (build but do not publish)'
+        description: 'Dry run (build but do not publish); must stay true, real releases use make release'
         required: false
         type: boolean
-        default: false
+        default: true
       release_notes:
         description: 'Release notes markdown for manual dispatch'
         required: true
@@ -36,6 +40,17 @@ jobs:
     outputs:
       version: ${{ steps.validate.outputs.version }}
     steps:
+      - name: Refuse a publishing dispatch
+        env:
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          if [[ "$DRY_RUN" != "true" ]]; then
+            echo "::error::A manual dispatch of this workflow is a dry run only (dry_run must be true)."
+            echo "Cut a release with 'make release' (or 'make release-bump') from main: it pushes a signed annotated tag,"
+            echo "and the tag push runs this workflow. Workflow tokens cannot create or move v* tags (\"Release tags\" ruleset)."
+            exit 1
+          fi
+
       - name: Validate version format
         id: validate
         env:
@@ -371,24 +386,19 @@ jobs:
           printf '%s\n' "$RELEASE_NOTES" > "$notes_file"
           echo "path=$notes_file" >> "$GITHUB_OUTPUT"
 
-      # Create and push tag for workflow_dispatch
-      - name: Create tag
+      # Dry-run dispatch only (Validate refuses any other): a local tag that
+      # carries the notes for the steps below. It is never pushed.
+      - name: Create local dry-run tag
         if: github.event_name == 'workflow_dispatch'
         env:
           VERSION: ${{ needs.validate.outputs.version }}
           RELEASE_NOTES_FILE: ${{ steps.manual-release-notes.outputs.path }}
-          DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a --cleanup=verbatim "$VERSION" -F "$RELEASE_NOTES_FILE"
-          if [[ "$DRY_RUN" == "true" ]]; then
-            echo "Created local dry-run tag with release notes: $VERSION"
-          else
-            git push origin "$VERSION"
-            echo "Created and pushed tag with release notes: $VERSION"
-          fi
+          echo "Created local dry-run tag with release notes: $VERSION"
 
       # Determine the effective tag for GoReleaser
       - name: Determine tag
@@ -491,7 +501,8 @@ jobs:
           BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
           BENCHER_IMAGE_REPOSITORY: registry.bencher.dev/invowk
           BENCHER_IMAGE_TAG: ${{ steps.bench-meta.outputs.release-sha }}
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
+          # Only a tag push publishes; a dispatch is always a dry run.
+          DRY_RUN: ${{ github.event_name != 'push' }}
         run: |
           set -euo pipefail
           source scripts/bencher-registry-login.sh
@@ -542,7 +553,8 @@ jobs:
           RELEASE_SHA: ${{ steps.bench-meta.outputs.release-sha }}
           PREVIOUS_TAG: ${{ steps.bench-meta.outputs.previous-tag }}
           PREVIOUS_SHA: ${{ steps.bench-meta.outputs.previous-sha }}
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
+          # Only a tag push publishes; a dispatch is always a dry run.
+          DRY_RUN: ${{ github.event_name != 'push' }}
         run: |
           set -euo pipefail
           source scripts/bencher-threshold-args.sh
@@ -584,9 +596,9 @@ jobs:
             "${dry_run_args[@]}" \
             "GOPROXY=off GOSUMDB=off GOFLAGS=-mod=vendor node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"
 
-      # Run GoReleaser (publish)
+      # Run GoReleaser (publish): tag push only
       - name: Run GoReleaser
-        if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"
+        if: github.event_name == 'push'
         uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2.16"
@@ -600,9 +612,9 @@ jobs:
       # Enhance WinGet manifest with fields GoReleaser doesn't support natively.
       # GoReleaser generates the manifest and creates the WinGet PR; this step adds
       # Commands, MinimumOSVersion, and Platform to the installer manifest.
-      # Only runs after a real (non-dry-run) release that creates a WinGet PR.
+      # Only runs after a real release (tag push) that creates a WinGet PR.
       - name: Enhance WinGet manifest
-        if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
           TAG_NAME: ${{ steps.tag.outputs.name }}
@@ -615,7 +627,7 @@ jobs:
       # template-expands .Env references even in snapshot mode. The real tokens are only
       # needed for the publish step above; --snapshot skips the actual push.
       - name: Run GoReleaser (dry run)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+        if: github.event_name == 'workflow_dispatch'
         uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2.16"
