@@ -11,8 +11,9 @@ import (
 	"os"
 )
 
-// errLnLinkNameIsDirectory refuses a link name that ends in a separator and
-// names an existing directory: ln never replaces a directory.
+// errLnLinkNameIsDirectory refuses a link name that names an existing
+// directory, in any form (`dir`, `dir/`, `dir/.`, `.`): ln never replaces a
+// directory.
 var errLnLinkNameIsDirectory = errors.New("cannot overwrite directory")
 
 // lnCommand implements the ln utility.
@@ -69,15 +70,14 @@ func (c *lnCommand) Run(ctx context.Context, args []string) error {
 	}
 	linkName = resolvedLinkName
 
-	// A link name that still ends in a separator names a directory: the
-	// no-follow validator refuses one that resolves to a file. ln never
-	// replaces a directory, since -f would remove an empty one and the link
-	// cannot be created at a path that ends in a separator, so it refuses
-	// before anything is removed.
-	if linkName != "" && os.IsPathSeparator(linkName[len(linkName)-1]) {
-		if info, statErr := os.Stat(linkName); statErr == nil && info.IsDir() {
-			return wrapError(c.name, fmt.Errorf("%s: %w", linkName, errLnLinkNameIsDirectory))
-		}
+	// ln never replaces a directory: -f would remove an empty one. The check
+	// looks at the resolved entry itself (Lstat), so it covers every form that
+	// names a directory, including `dir/.` and `.`, whose resolved form has no
+	// trailing separator, while a link to a directory named without a
+	// separator is still replaced as a link. It runs before anything is
+	// removed.
+	if info, statErr := os.Lstat(linkName); statErr == nil && info.IsDir() {
+		return wrapError(c.name, fmt.Errorf("%s: %w", linkName, errLnLinkNameIsDirectory))
 	}
 
 	// For hard links, resolve the target to an absolute path. For symlinks,
