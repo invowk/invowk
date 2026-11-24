@@ -386,6 +386,7 @@ Load environment variables from `.env` files at any scope level:
 env: {
 	// Files are loaded in order; later files override earlier ones
 	// Suffix with '?' to make a file optional (no error if missing)
+	// In a module, each file must resolve inside the module directory
 	files: [".env", ".env.local?", ".env.${ENV}?"]
 	vars: {
 		// Direct variables override values from files

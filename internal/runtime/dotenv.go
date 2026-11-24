@@ -5,19 +5,80 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
+)
+
+var (
+	// ErrEnvFileOutsideModule is returned when an env file of an invowkfile
+	// loaded from a module does not resolve inside the module directory: an
+	// absolute path, a path that leaves the module, a link to outside it, a
+	// link with an absolute target, or a link that does not resolve (SC-01,
+	// finding F17).
+	ErrEnvFileOutsideModule = errors.New("env file resolves outside module")
+
+	// errEnvFileEscapes marks a contained-read error that
+	// classifyModuleEnvFileError judged an escape; LoadEnvFile turns it into
+	// ErrEnvFileOutsideModule.
+	errEnvFileEscapes = errors.New("contained read escapes the module")
+
+	// errRootResolverPanic marks a panic recovered from os.Root (rootCall).
+	errRootResolverPanic = errors.New("os.Root path resolution panicked")
 )
 
 // LoadEnvFile loads a dotenv file and merges its contents into the provided env map.
 // The path is resolved relative to basePath (invowkfile directory or module root).
 // Files suffixed with '?' are optional; missing optional files do not cause an error.
 // Later calls to LoadEnvFile override earlier values for the same keys.
-func LoadEnvFile(env map[string]string, path, basePath string) error {
+//
+// moduleRoot is the module directory when the invowkfile was loaded from a
+// module, and "" otherwise. With a module root the read is physically
+// contained (design D3 of module-read-physical-containment): the file is read
+// through an os.Root opened on moduleRoot, so every link on the path is
+// followed by the filesystem and an escape fails with ErrEnvFileOutsideModule,
+// an optional file included. An optional file is skipped only when the
+// contained read reports that nothing exists (the module root is missing, or
+// Stat and Lstat both report not-exist). Without a module root the path is
+// read as before, and links on it are followed wherever they lead.
+func LoadEnvFile(env map[string]string, path, basePath, moduleRoot string) error {
 	optional := strings.HasSuffix(path, "?")
 	if optional {
 		path = strings.TrimSuffix(path, "?")
+	}
+
+	if moduleRoot != "" {
+		// Module context (SC-01): the module names this file, so it must
+		// resolve inside the module directory.
+		if isAbsoluteOnAnyOS(path) {
+			return envFileOutsideModuleError(path, moduleRoot, "is an absolute path outside", nil)
+		}
+		rel, relErr := filepath.Rel(moduleRoot, filepath.Join(basePath, filepath.FromSlash(path)))
+		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return envFileOutsideModuleError(path, moduleRoot, "resolves outside", relErr)
+		}
+		root, rootErr := os.OpenRoot(moduleRoot)
+		if rootErr != nil {
+			if optional && errors.Is(rootErr, fs.ErrNotExist) {
+				return nil // a missing module directory holds no file and no link
+			}
+			return fmt.Errorf("failed to read env file '%s': %w", path, rootErr)
+		}
+		defer func() { _ = root.Close() }() //nolint:errcheck // read-only os.Root; a close error is not actionable
+
+		moduleContent, absent, readErr := readModuleEnvFile(root, rel)
+		if readErr != nil {
+			if optional && absent {
+				return nil // Optional file missing is OK
+			}
+			if errors.Is(readErr, errEnvFileEscapes) {
+				return envFileOutsideModuleError(path, moduleRoot, "resolves outside", readErr)
+			}
+			return fmt.Errorf("failed to read env file '%s': %w", path, readErr)
+		}
+		return ParseEnvFile(env, moduleContent, path)
 	}
 
 	// Resolve relative paths against basePath
@@ -39,6 +100,125 @@ func LoadEnvFile(env map[string]string, path, basePath string) error {
 	}
 
 	return ParseEnvFile(env, content, path)
+}
+
+// isAbsoluteOnAnyOS reports whether a module env path is absolute on any
+// platform: rooted with a slash or a backslash, a Windows drive path ("C:/x"
+// or its backslash form), or absolute on this host. The rooted and drive forms
+// get the same verdict on every host (filepath.IsAbs alone treats "/x" as
+// relative on Windows), as in ValidateEnvFilePath at parse time. The host
+// fallback adds what only this host calls absolute: "1:/x" on Windows.
+//
+//goplint:ignore -- path is the raw CUE env.files entry, already validated at parse time.
+func isAbsoluteOnAnyOS(path string) bool {
+	if path == "" {
+		return false
+	}
+	if path[0] == '/' || path[0] == '\\' {
+		return true
+	}
+	if len(path) >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/') {
+		if c := path[0]; (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
+			return true
+		}
+	}
+	return filepath.IsAbs(path)
+}
+
+// readModuleEnvFile reads rel through root: Stat first, so an unresolvable link
+// is told apart from a missing file (Lstat), then ReadFile, whose content read
+// is race-free. Both errors go through classifyModuleEnvFileError.
+//
+//goplint:ignore -- rel is a transient os.Root-relative name and content raw dotenv bytes, as with os.ReadFile.
+func readModuleEnvFile(root *os.Root, rel string) (content []byte, absent bool, err error) {
+	return readModuleEnvFileWith(root, rel, root.Stat, root.ReadFile)
+}
+
+// readModuleEnvFileWith is readModuleEnvFile with the Stat and ReadFile calls
+// injected, so a test can drive the recovered-panic branches; Lstat still runs
+// on root.
+//
+//goplint:ignore -- rel is a transient os.Root-relative name and content raw dotenv bytes, as with os.ReadFile.
+func readModuleEnvFileWith(root *os.Root, rel string, stat func(string) (fs.FileInfo, error), readFile func(string) ([]byte, error)) (content []byte, absent bool, err error) {
+	if _, statErr := rootCall(stat, rel); statErr != nil {
+		if errors.Is(statErr, errRootResolverPanic) {
+			return nil, false, statErr // a link to its own directory: a read error
+		}
+		_, lstatErr := root.Lstat(rel)
+		absent, err = classifyModuleEnvFileError(statErr, lstatErr)
+		return nil, absent, err
+	}
+	content, err = rootCall(readFile, rel)
+	if err != nil {
+		if errors.Is(err, errRootResolverPanic) {
+			return nil, false, err
+		}
+		// After a successful Stat, a non-OS error is an escape that appeared
+		// since (os.Root's "path escapes from parent"); an OS error stays a
+		// read error, or absent when the file vanished.
+		absent, err = classifyModuleEnvFileError(err, err)
+		return nil, absent, err
+	}
+	return content, false, nil
+}
+
+// rootCall runs an os.Root method on rel and turns a panic into an error
+// wrapping errRootResolverPanic. Go 1.27's os.Root on Windows panics (index out
+// of range in doInRoot) when the last path component is a link whose target
+// resolves to the directory that holds it, such as a/x -> "." or
+// a/b/x -> "../b". Such a link names a directory inside the root, which holds
+// no env content, so LoadEnvFile reports a read error, as it does for a
+// directory on the other platforms.
+//
+//goplint:ignore -- rel is a transient os.Root-relative name, as with the os.Root methods.
+func rootCall[T any](call func(string) (T, error), rel string) (v T, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			var zero T
+			v, err = zero, fmt.Errorf("%w: %v", errRootResolverPanic, r)
+		}
+	}()
+	return call(rel)
+}
+
+// classifyModuleEnvFileError classifies an os.Root error on a module env file.
+// lstatErr is the result of Lstat on the same path (nil when it succeeded):
+//   - a non-OS error (os.Root rejected the path) is an escape;
+//   - an OS error while Lstat succeeds is an unresolvable link (dangling, a
+//     broken chain or a cycle), also reported as an escape;
+//   - not-exist from both is absent: only then may an optional file be skipped;
+//   - any other OS error is a read error.
+//
+// Escapes wrap errEnvFileEscapes and the cause.
+func classifyModuleEnvFileError(err, lstatErr error) (absent bool, classified error) {
+	switch {
+	case !isOSError(err):
+		return false, fmt.Errorf("%w: %w", errEnvFileEscapes, err)
+	case lstatErr == nil:
+		return false, fmt.Errorf("%w: link does not resolve: %w", errEnvFileEscapes, err)
+	case errors.Is(err, fs.ErrNotExist) && errors.Is(lstatErr, fs.ErrNotExist):
+		return true, err
+	default:
+		return false, err
+	}
+}
+
+// isOSError reports whether err carries an operating-system error number.
+// os.Root reports a path that leaves the root with a plain (non-errno) error.
+func isOSError(err error) bool {
+	_, ok := errors.AsType[syscall.Errno](err) //nolint:errcheck // only the type-match verdict matters
+	return ok
+}
+
+// envFileOutsideModuleError wraps ErrEnvFileOutsideModule with the path, the
+// module root, the case and, when known, its cause.
+//
+//goplint:ignore -- path, moduleRoot and how are display text for the error message.
+func envFileOutsideModuleError(path, moduleRoot, how string, cause error) error {
+	if cause == nil {
+		return fmt.Errorf("%w: env file '%s' %s module '%s'", ErrEnvFileOutsideModule, path, how, moduleRoot)
+	}
+	return fmt.Errorf("%w: env file '%s' %s module '%s': %w", ErrEnvFileOutsideModule, path, how, moduleRoot, cause)
 }
 
 // LoadEnvFileFromCwd loads a dotenv file relative to the working directory.

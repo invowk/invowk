@@ -72,26 +72,29 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.
 	cfg := resolveEnvInheritConfig(ctx, defaultMode)
 	env := buildHostEnv(cfg, b.Environ)
 
-	// Determine the base path for resolving env files
+	// Determine the base path for resolving env files, and the module root
+	// that contains them when the invowkfile was loaded from a module ("" for
+	// a plain invowkfile, whose env files keep following links).
 	basePath := string(ctx.Invowkfile.GetScriptBasePath())
+	moduleRoot := string(ctx.Invowkfile.ModulePath)
 
 	// 2. Root-level env.files
 	for _, path := range ctx.Invowkfile.Env.GetFiles() {
-		if err := LoadEnvFile(env, string(path), basePath); err != nil {
+		if err := LoadEnvFile(env, string(path), basePath, moduleRoot); err != nil {
 			return nil, err
 		}
 	}
 
 	// 3. Command-level env.files
 	for _, path := range ctx.Command.Env.GetFiles() {
-		if err := LoadEnvFile(env, string(path), basePath); err != nil {
+		if err := LoadEnvFile(env, string(path), basePath, moduleRoot); err != nil {
 			return nil, err
 		}
 	}
 
 	// 4. Implementation-level env.files
 	for _, path := range ctx.SelectedImpl.Env.GetFiles() {
-		if err := LoadEnvFile(env, string(path), basePath); err != nil {
+		if err := LoadEnvFile(env, string(path), basePath, moduleRoot); err != nil {
 			return nil, err
 		}
 	}

@@ -70,6 +70,8 @@ Referencie-os:
 
 <Snippet id="modules/env-files-ref" />
 
+Os arquivos de environment de um módulo precisam resolver dentro do diretório do módulo, com todos os links do caminho seguidos. Um caminho absoluto, um caminho que sai do módulo, um link para um arquivo fora dele (também em `invowk_modules/`), um link com alvo absoluto ou um link que não resolve faz o comando falhar com `env file resolves outside module` antes de ser executado, mesmo para um arquivo opcional `?`. Um arquivo opcional só é ignorado quando nada existe no seu caminho.
+
 ## Documentação
 
 Inclua um README para usuários:

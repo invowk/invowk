@@ -51,6 +51,9 @@ import "strings"
 	// Files are loaded in order; later files override earlier ones.
 	// Paths are relative to the invowkfile location (or module root for modules).
 	// Files suffixed with '?' are optional and will not cause an error if missing.
+	// [GO-ONLY] Path traversal checks (ValidateEnvFilePath) and, for invowkfiles
+	// loaded from a module, physical containment of the read inside the module
+	// (LoadEnvFile, through os.Root) happen in Go/runtime code.
 	files?: [...string & !="" & strings.MaxRunes(4096)]
 
 	// vars contains environment variables as key-value pairs (optional)

@@ -10,7 +10,7 @@ The module system has 10 identified attack surfaces. Each review should evaluate
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go`, script path validation helpers; modelled by `formal/alloy/ModulePathContainment.als` (findings F13, F17) | Mitigated (findings F13/F17 open) |
+| SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go`, `pkg/invowkfile/dependency.go`, `pkg/invowkfile/module_file_containment.go` (`checkModuleFilePhysicalContainment`), `internal/runtime/dotenv.go` (`LoadEnvFile`); modelled by `formal/alloy/ModulePathContainment.als` (F13 and F17 fixed) | Mitigated (residual: the interpreter re-opens the checked script path, a time-of-check race) |
 | SC-02 | Virtual host-binary policy | Medium | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Partial |
 | SC-03 | InvowkDir R/W volume mount to container | Medium | `internal/runtime/container*.go` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container*.go`, `internal/runtime/runtime.go` (`FilterInvowkEnvVars`), interactive adapters | Partial (scoped lifetime + `FilterInvowkEnvVars`) |
@@ -35,7 +35,8 @@ The module system has 10 identified attack surfaces. Each review should evaluate
 `ResolveScriptWithModule()` and `ResolveScriptWithFSAndModule()` now call `validateScriptPathContainment()` (lines 438–451) which uses `filepath.Rel` + `strings.HasPrefix("..")` to block traversal in module contexts. Root invowkfile scripts (where `modulePath == ""`) intentionally bypass containment — the user controls the root invowkfile.
 
 Review checklist:
-- [x] Script path resolution bounded to module directory via `validateScriptPathContainment`
+- [x] Script path resolution bounded to module directory via `validateScriptPathContainment` (lexical)
+- [x] Module script, custom-check and `env.files` reads physically contained through `os.Root` (`containModuleScriptRead` / `checkModuleFilePhysicalContainment`, `LoadEnvFile` with a module root), whatever reader is injected; a link that escapes, has an absolute target or does not resolve is denied
 - [x] `filepath.Rel` containment check applied (matching containerfile/env file validation)
 - [x] `../` traversal in script fields validated against module boundary
 - [ ] Script content read with size guard (matching 5MB CUE guard in `cueutil.CheckFileSize`)

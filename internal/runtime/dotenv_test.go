@@ -353,7 +353,7 @@ func TestLoadEnvFile_RelativePath(t *testing.T) {
 	}
 
 	env := make(map[string]string)
-	err := LoadEnvFile(env, "test.env", tmpDir)
+	err := LoadEnvFile(env, "test.env", tmpDir, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -376,7 +376,7 @@ func TestLoadEnvFile_AbsolutePath(t *testing.T) {
 	}
 
 	env := make(map[string]string)
-	err := LoadEnvFile(env, envFile, "/some/other/path")
+	err := LoadEnvFile(env, envFile, "/some/other/path", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestLoadEnvFile_OptionalMissing(t *testing.T) {
 
 	env := make(map[string]string)
 	// Optional file (suffixed with ?) should not error when missing
-	err := LoadEnvFile(env, "nonexistent.env?", "/nonexistent/path")
+	err := LoadEnvFile(env, "nonexistent.env?", "/nonexistent/path", "")
 	if err != nil {
 		t.Errorf("expected no error for optional missing file, got: %v", err)
 	}
@@ -402,7 +402,7 @@ func TestLoadEnvFile_RequiredMissing(t *testing.T) {
 
 	env := make(map[string]string)
 	// Required file should error when missing
-	err := LoadEnvFile(env, "nonexistent.env", "/nonexistent/path")
+	err := LoadEnvFile(env, "nonexistent.env", "/nonexistent/path", "")
 	if err == nil {
 		t.Error("expected error for missing required file, got nil")
 	}
@@ -419,7 +419,7 @@ func TestLoadEnvFile_OptionalExists(t *testing.T) {
 
 	env := make(map[string]string)
 	// Optional file should be loaded if it exists
-	err := LoadEnvFile(env, "optional.env?", tmpDir)
+	err := LoadEnvFile(env, "optional.env?", tmpDir, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -445,7 +445,7 @@ func TestLoadEnvFile_ForwardSlashPath(t *testing.T) {
 
 	env := make(map[string]string)
 	// Use forward slashes (common in CUE files)
-	err := LoadEnvFile(env, "config/app.env", tmpDir)
+	err := LoadEnvFile(env, "config/app.env", tmpDir, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
