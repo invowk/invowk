@@ -268,7 +268,8 @@ REQUIRED_COMMON = REQUIRED_EXTERNAL + (
     Required("CodeQL", "CodeQL", CODE_SCANNING_APP),
 )
 # ci.yml: its `pull_request` path filter lists go.mod and go.sum, and none of
-# its jobs has an `if`. All fourteen ran on #190; website-only #189 started
+# its required jobs has an `if` (test-report and pgo-commit have one and are
+# not required). All fourteen ran on #190; website-only #189 started
 # none of them, which is why they are required for gomod only.
 REQUIRED_GOMOD = REQUIRED_COMMON + tuple(
     Required(name, "CI")

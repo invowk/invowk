@@ -17,7 +17,7 @@ Procedures for the profile-guided optimization profile and Bencher benchmark dat
 Staleness automation, three layers:
 1. A Claude Code PostToolUse hook (`.claude/settings.json`) warns when a non-test file in `pkg/cueutil/`, `pkg/invowkfile/`, `pkg/invowkmod/` or `internal/discovery/` is edited. Another PostToolUse hook flags edits to `default.pgo`/`go.sum` after the fact; it cannot block them. Both are Claude Code only.
 2. The pre-commit `pgo-staleness` hook warns (advisory, exit 0) when those hot-path files are staged without `default.pgo`.
-3. On a same-repository PR, the CI `pgo-sanity` job (read-only token) regenerates and audits the profile and uploads it as an artifact; the `pgo-commit` job, which runs no repository code, commits it to the PR branch with `createCommitOnBranch`, and skips when the branch moved since. A fork PR fails with instructions instead.
+3. On a same-repository PR, the CI `pgo-sanity` job (read-only token) regenerates and audits the profile and uploads it as an artifact; the `pgo-commit` job, which runs no repository code, commits it to the PR branch with `createCommitOnBranch`, and skips when the branch moved since. It never runs on a Dependabot PR (Dependabot's `pull_request` runs get the declared write permissions). A fork PR fails with instructions instead.
 
 Prefer local regeneration when warned: `make pgo-profile-parse-discovery && git add default.pgo`.
 

@@ -587,6 +587,7 @@ jobs:
       needs.pgo-sanity.outputs.needs_refresh == 'true'
       && github.event_name == 'pull_request'
       && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -645,8 +646,9 @@ jobs:
           fi
 
           # Commit only on top of the head the profile was generated from.
-          # A branch that moved since is skipped, never overwritten; the next
-          # run regenerates the profile for the new head.
+          # A branch that moved since is skipped, never overwritten; one that
+          # moves during the commit fails the mutation (expectedHeadOid), and
+          # the next run regenerates the profile for the new head.
           # shellcheck disable=SC2016 # GraphQL variables, not shell ones
           CURRENT_HEAD=$(gh api graphql \
             -f query='query ($owner: String!, $name: String!, $ref: String!) {

@@ -2928,7 +2928,7 @@ class PolicyTableTests(unittest.TestCase):
     # pull request chose. push, schedule, release and workflow_dispatch run
     # only main's or a tag's code here (every push trigger is limited to main
     # or to tags: test_push_triggers_run_only_main_or_tags).
-    PR_EVENTS = frozenset({"pull_request", "pull_request_target", "workflow_run", "pull_request_review", "pull_request_review_comment", "issue_comment"})
+    PR_EVENTS = frozenset({"pull_request", "pull_request_target", "workflow_run", "pull_request_review", "pull_request_review_comment", "issue_comment", "merge_group"})
     # The jobs that hold a write grant and may run pull request code by the
     # rule below (a checkout or a `run` step), with the grants they hold and
     # why the token does not reach pull request code. Each reason is asserted
@@ -3046,6 +3046,16 @@ class PolicyTableTests(unittest.TestCase):
 
     def workflow_files(self) -> dict[str, dict]:
         return {path.name: load_yaml(path.read_text(encoding="utf-8")) for path in sorted(WORKFLOWS.glob("*.y*ml"))}
+
+    def test_every_pull_request_job_declares_permissions(self) -> None:
+        # write_grants falls back to the repository default (read) only for a job with no permissions at
+        # either level; requiring a declaration keeps the guard independent of that repository setting.
+        for filename, doc in self.workflow_files().items():
+            if not self.triggers(doc) & self.PR_EVENTS or "permissions" in doc:
+                continue
+            for job_id, job in doc["jobs"].items():
+                with self.subTest(workflow=filename, job=job_id):
+                    self.assertIn("permissions", job, "a job a pull request can start declares its permissions")
 
     def test_no_job_that_runs_pull_request_code_may_write(self) -> None:
         known = {**self.WRITER_EXEMPTIONS, **self.WRITERS_AWAITING_MAINTAINER}
@@ -3231,7 +3241,11 @@ class PolicyTableTests(unittest.TestCase):
             "needs.pgo-sanity.outputs.needs_refresh == 'true'",
             "&& github.event_name == 'pull_request'",
             "&& github.event.pull_request.head.repo.full_name == github.repository",
+            "&& github.event.pull_request.user.login != 'dependabot[bot]'",
         ])
+        # Dependabot's pull_request runs get the declared write permissions, so its PRs never reach the job.
+        for key in ("env", "continue-on-error"):
+            self.assertNotIn(key, commit)
         for key in ("uses", "services", "container", "defaults"):
             self.assertNotIn(key, commit)
         uses = [step["uses"] for step in commit["steps"] if "uses" in step]
