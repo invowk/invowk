@@ -3311,7 +3311,8 @@ class PolicyTableTests(unittest.TestCase):
         self.assertIn('if [ "$entries" != "default.pgo" ]', verify["run"])
         self.assertIn('if [ -L "$profile" ] || [ ! -f "$profile" ]', verify["run"])
         self.assertNotIn("GH_TOKEN", verify["env"])
-        # The commit goes to the pull request's own head branch, on top of the head PGO Sanity checked out.
+        # The commit goes to the pull request's own head branch, on top of the head the event names (PGO Sanity
+        # ran on that head's merge commit and outputs only needs_refresh).
         self.assertEqual(write["env"]["HEAD_BRANCH"], "${{ github.head_ref }}")
         self.assertEqual(write["env"]["EXPECTED_HEAD"], "${{ github.event.pull_request.head.sha }}")
         self.assertEqual(write["env"]["GH_TOKEN"], "${{ github.token }}")
@@ -3322,6 +3323,46 @@ class PolicyTableTests(unittest.TestCase):
         self.assertIn('--arg branch "$HEAD_BRANCH"', write["run"])
         self.assertNotIn("deletions", write["run"])
         self.assertNotIn("force", write["run"])
+
+    def test_pgo_freshness_check_sees_only_the_heads_changes(self) -> None:
+        # The check lists the head's changes since its merge base: a branch behind main must not see
+        # main's own hot-path commits (a two-dot diff lists them, reversed) as its changes.
+        (check,) = [step for step in self.workflow_files()["ci.yml"]["jobs"]["pgo-sanity"]["steps"] if step.get("id") == "pgo-check"]
+        self.assertNotIn("${{", check["run"])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, out = Path(tmp) / "repo", Path(tmp) / "output"
+            env = {"PATH": "/usr/bin:/bin", "HOME": tmp, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
+                   "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
+                   "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid"}
+
+            def git(*args: str) -> str:
+                return subprocess_run(["git", "-C", str(repo), *args], env=env, check=True, capture_output=True, text=True).stdout.strip()
+
+            def commit(path: str, text: str) -> str:
+                (repo / path).parent.mkdir(parents=True, exist_ok=True)
+                (repo / path).write_text(text, encoding="utf-8")
+                git("add", path)
+                git("commit", "-q", "-m", path)
+                return git("rev-parse", "HEAD")
+
+            def needs_refresh(base: str, head: str) -> str:
+                out.write_text("", encoding="utf-8")
+                pr = {"PR_BASE_SHA": base, "PR_HEAD_SHA": head, "PR_HEAD_REPO": REPO, "BASE_REPO": REPO, "GITHUB_OUTPUT": str(out)}
+                subprocess_run(["bash", "-c", check["run"]], cwd=repo, env={**env, **pr}, check=True, capture_output=True)
+                return out.read_text(encoding="utf-8").strip()
+
+            repo.mkdir()
+            git("init", "-q", "-b", "main")
+            commit("pkg/invowkfile/hot.go", "package invowkfile\n")
+            fork = commit("README.md", "fork point\n")
+            main = commit("pkg/invowkfile/hot.go", "package invowkfile // main moved\n")
+            git("checkout", "-q", "-b", "feature", fork)
+            docs_only = commit("README.md", "the branch changes docs only\n")
+            self.assertEqual(needs_refresh(main, docs_only), "needs_refresh=false")
+            hot = commit("internal/discovery/hot.go", "package discovery\n")
+            self.assertEqual(needs_refresh(main, hot), "needs_refresh=true")
+            refreshed = commit("default.pgo", "profile\n")
+            self.assertEqual(needs_refresh(main, refreshed), "needs_refresh=false")
 
     def test_ignored_checks_are_job_names(self) -> None:
         docs = workflow_docs()

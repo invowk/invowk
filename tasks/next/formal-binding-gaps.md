@@ -28,7 +28,7 @@ it escaped. The binding reach gate (`make formal-reach`, harden-formal-instrumen
 2026-11-14) found eight such rows: the seven this run listed, plus `Auth` /
 `Server.ValidateToken`. Their status:
 
-- `Invowkfile.GetEffectiveWorkDir` (`pkg/invowkfile/invowkfile.go`, 20 survivors): **rebound** to `TestModulePathContainment_ContainerWorkDirGolden`, which calls it through `getContainerWorkDir`.
+- `Invowkfile.GetEffectiveWorkDir` (`pkg/invowkfile/invowkfile.go`, 20 survivors until #181, 21 since: refresh-anchors-mutation-ledger (#181) added one `equivalent` entry): **rebound** to `TestModulePathContainment_ContainerWorkDirGolden`, which calls it through `getContainerWorkDir`.
 - `CustomCheckScript.ResolveWithFSAndModule` (`pkg/invowkfile/dependency.go`, 15 survivors until the 2026-11-19 refresh of module-read-physical-containment, 10 since): **rebound**; `TestModulePathContainment_GoldenVectors` replays it on every `ScriptRead` instance with a recording reader, F13 included. Calibration note (decision 11): the seeded defect "drop the `validateScriptPathContainment` call" survives, because it is redundant at this entry point, fully masked by `ScriptFilePath.Validate` (no input class is rejected only by `validateScriptPathContainment`; `TestModulePathContainment_ContainmentLayerGolden` binds that layer directly). The calibration seeds "resolve against the module's parent" instead, which the golden catches. This is not a ledger entry.
 - `LoadEnvFile` (`internal/runtime/dotenv.go`, 11 survivors until the 2026-11-19 refresh of module-read-physical-containment, 32 since): **rebound**; the golden calls it on every `EnvRead` instance of an admitted module that `ValidateEnvFilePath` accepts, F17 included.
 - `newVirtualPathResolverForFilesystem` (`internal/runtime/virtual_policy.go`, 12 survivors): **rebound** to `TestVirtualPathHarness_RootConstruction`.
@@ -38,15 +38,15 @@ it escaped. The binding reach gate (`make formal-reach`, harden-formal-instrumen
 - `Server.ValidateToken` (`internal/sshserver/server_auth.go`, 8 survivors): **unbound** (decision 1). It has no production caller; the model's `Auth` is implemented by `Server.admitConn` (row `Auth/End atomicity`).
 
 Retriage flags:
-- The 81 survivors of the six rebound functions keep their now-stale reason ("never calls ..."); rerun and retriage them.
+- The six rebound functions hold 81 survivors in the ledger at fa70957b (`GetEffectiveWorkDir` 21, `ResolveWithFSAndModule` 10, `LoadEnvFile` 32, `newVirtualPathResolverForFilesystem` 12, `EffectiveAccess` 1, `standardVirtualAnchorsForOS` 5). 33 of them keep their now-stale reason ("never calls ..."): `GetEffectiveWorkDir` 20, `newVirtualPathResolverForFilesystem` 12 and `EffectiveAccess` 1; rerun and retriage them. The other 48 carry reasons written by the refreshes above (refresh-anchors-mutation-ledger in #181, module-read-physical-containment in #188).
 - The 20 survivors of the two unbound rows (`validateDestinationPath` 12, `ValidateToken` 8) name functions the plan no longer targets. They are listed in `[triage] orphaned_survivors` in `formal/manifest.toml`, which `triage --check --base` keeps from growing.
-- The baseline carries one plan-inputs digest, and the change edited killer-test files many functions share, so by the digest convention the rerun evidence of the 397 survivors that refresh-anchors-mutation-ledger did not replace is stale. That check compares the baseline digest with the rerun records, not with the tree; since refresh-anchors-mutation-ledger, a separate per-entry anchor check fails when an entry's mutated lines leave its function.
+- The baseline carries one plan-inputs digest, and the change edited killer-test files many functions share, so by the digest convention the rerun evidence of the 391 survivors still at the baseline's digest is stale (fa70957b: 432 baseline ids, of which 41 carry their own evidence digest from a partial refresh; 397 of 403 after #181, before #188 merged the module-read-physical-containment refresh). The tree's plan-inputs digest at fa70957b (c7bc8354…) matches none of the three recorded digests (baseline 7c0bfca91bee…, per-mutant 83fa6108536c… and 857457136e35…). That check compares the baseline digest with the rerun records, not with the tree; since refresh-anchors-mutation-ledger, a separate per-entry anchor check fails when an entry's mutated lines leave its function.
 - The 2026-11-19 run on 567e7b00 regenerated 380 of the 419 then-baselined ids: 350 escaped and 30 killed (3 of them the anchors ids above). The 27 other now-killed survivors stay in the ledger until the full refresh: the anchor check finds dead mutants, not killed ones.
 
 ## Future work: survivor triage
 
 One follow-up change owns all of this:
-- triage the 397 survivors left at the old digest and refresh the baseline (new reruns at the new digest), which also drops the 27 survivors now killed and the per-mutant digests;
+- triage the 391 survivors left at the old digest and refresh the baseline (new reruns at the new digest), which also drops the 27 survivors now killed and the per-mutant digests;
 - empty `[triage] stale_survivors` (seeded empty on 2026-11-19; keep it empty: a change that rewrites a bound function refreshes its entries instead);
 - re-point the `Auth` row to `Server.admitConn`;
 - add a `normalizeZIPPath` row for `unpackInside`;
@@ -195,7 +195,7 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### Invowkfile.GetEffectiveWorkDir
 
-`pkg/invowkfile/invowkfile.go`, 20 survivors. The ModulePathContainment golden never calls GetEffectiveWorkDir; only the container-workdir golden reaches it and the row does not name that test.
+`pkg/invowkfile/invowkfile.go`, 21 survivors. 20 keep the first run's reason: the ModulePathContainment golden never calls GetEffectiveWorkDir; only the container-workdir golden reaches it and the row does not name that test (stale since the rebind above). refresh-anchors-mutation-ledger (#181) added one `equivalent` entry: the removed `if workdir == ""` body is unreachable, since every resolve call site checks `!= ""` first.
 
 ### ScriptFilePath.Validate
 
