@@ -156,6 +156,14 @@ add avoidable unbounded heap growth.
   to the other form. A context with either hook goes through the operand
   collector. Tests that drive `rm`, `mv` or `ln` under a validating context set
   both hooks.
+- The no-follow hook puts back a trailing separator when the request named a
+  directory by its form (`dir/`). A command that removes or replaces the
+  entry must check for that before acting: `ln` refuses a link name that ends
+  in a separator and names a directory ("cannot overwrite directory") before
+  its `-f` removal, which would otherwise remove an empty directory and then
+  fail to create the link (PR #198 review).
+- The operand rules are chosen by the dispatched command's `Name()`, not by
+  `args[0]`, which is handed on as written.
 - The security boundary is normalized allowed-root validation, not symlink
   following by itself: following a symlink can expose its target path, and
   allowed-root validation decides whether that target may be accessed.
