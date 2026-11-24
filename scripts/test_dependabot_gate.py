@@ -3162,7 +3162,7 @@ class PolicyTableTests(unittest.TestCase):
             for path in re.findall(r"^\s*source (\S+)", text, re.MULTILINE):
                 self.assertTrue(path.startswith("scripts/bencher-"), path)
         uses = sorted(str(step.get("uses")) for step in job["steps"] if "uses" in step)
-        self.assertEqual(uses, ["actions/checkout@v7", "bencherdev/bencher@v0.6.12"])
+        self.assertEqual(uses, ["actions/checkout@v7", "bencherdev/bencher@v0.6.17"])
         # benchmarks-upload.yml: the fork's code is the build context only, with the trusted files.
         job = files["benchmarks-upload.yml"]["jobs"]["upload-fork-pr"]
         checkouts = [step.get("with", {}) for step in job["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")]
@@ -3203,7 +3203,7 @@ class PolicyTableTests(unittest.TestCase):
             sorted(str(step.get("uses")) for step in job["steps"]),
             [
                 "actions/checkout@v7",
-                "actions/setup-go@v6",
+                "actions/setup-go@v7",
                 "github/codeql-action/analyze@v4",
                 "github/codeql-action/autobuild@v4",
                 "github/codeql-action/init@v4",

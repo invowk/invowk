@@ -81,8 +81,8 @@ build configuration. The exceptions below are deliberate. User-facing install in
 ### GitHub Actions
 - Pin to major version tags (e.g., `@v6`). Dependabot manages minor/patch bumps weekly.
 - All workflows MUST use the same major version for a given action (no stale pins like `@v4` when others use `@v6`).
-- **Exception**: `sigstore/cosign-installer` is pinned to `@v4.1.2` (exact version) because the floating `@v4` major tag has not been published yet. Switch to `@v4` when available.
-- **Exception**: `bencherdev/bencher` is pinned to the exact release tag `@v0.6.12` with CLI `version: 0.6.12` because upstream has no stable major tag for the action.
+- **Exception**: `sigstore/cosign-installer` is pinned to `@v4.1.3` (exact version) because the floating `@v4` major tag has not been published yet. Switch to `@v4` when available.
+- **Exception**: `bencherdev/bencher` is pinned to the exact release tag `@v0.6.17` with CLI `version: 0.6.17` because upstream has no stable major tag for the action.
 
 ### Container Images
 - NEVER use Alpine or Windows container images.
