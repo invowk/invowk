@@ -124,6 +124,7 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   assert.ok(fixP.includes('if a later gate makes you edit a bound function body, redo both on the new HEAD'), 'a later bound-body edit redoes the refresh')
   assert.ok(fixP.includes('on the FINAL tree after the review fixes are committed'), 'the refresh runs on the final tree')
   assert.ok(fixP.includes('`make mutation-formal-rerun MUTATION_MUTANT_ID=...` line it printed twice'), 'two reruns per new escapee')
+  assert.ok(fixP.includes("first commit every tracked edit outside the wrapper's allow-list") && !fixP.includes('commit first if it changed formal/manifest.toml'), 'the reruns need every tracked edit outside the allow-list committed')
   assert.ok(fixP.includes('commit the baseline, the ledger and the reruns'))
   assert.ok(fixP.includes('A survivor you cannot classify goes into maintainer_asks') && fixP.includes('return status blocked'))
   assert.ok(!fixP.includes('report-only, in a throwaway worktree, ONLY'), 'no report-only-only mutation run')
