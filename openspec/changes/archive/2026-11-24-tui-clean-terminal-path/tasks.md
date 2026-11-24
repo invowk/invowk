@@ -53,11 +53,11 @@ The brief asks for one commit per item: groups 1-3 make the N14 commit, groups 4
 
 ## 7. Completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 7.1 Run `make tidy` and `make license-check` (for the new Go files); both must be clean.
-- [ ] 7.2 Run `make lint` under the heavy lock and fix every finding, including pre-existing ones. It must exit 0.
-- [ ] 7.3 Run `make test` under the heavy lock, in the background with an `rc=` line; it must reach `rc=0`.
-- [ ] 7.4 Run `make check-baseline` under the heavy lock and triage every new goplint finding; inconclusives block. It must exit 0.
-- [ ] 7.5 Run `make check-file-length`: every touched Go file stays under 1000 lines.
-- [ ] 7.6 Run `make sonar-local`, with no new code-fixable issues (go:S8209, S8193, S1192 outside tests, S107, S8239); S3776 is accepted under e5.
-- [ ] 7.7 Conditional checks: `cd website && npm run build` (website changed). No `formal/`, `scripts/` or schema changes are expected: confirm with `git diff --stat origin/main`, and run `make check-agent-docs` only if `.agents/` changed.
-- [ ] 7.8 Run `/learn` (`.agents/skills/learn/`) as the last step.
+- [x] 7.1 Run `make tidy` and `make license-check` (for the new Go files); both must be clean.
+- [x] 7.2 Run `make lint` under the heavy lock and fix every finding, including pre-existing ones. It must exit 0.
+- [x] 7.3 Run `make test` under the heavy lock, in the background with an `rc=` line; it must reach `rc=0`.
+- [x] 7.4 Run `make check-baseline` under the heavy lock and triage every new goplint finding; inconclusives block. It must exit 0.
+- [x] 7.5 Run `make check-file-length`: every touched Go file stays under 1000 lines.
+- [x] 7.6 Run `make sonar-local`, with no new code-fixable issues (go:S8209, S8193, S1192 outside tests, S107, S8239); S3776 is accepted under e5.
+- [x] 7.7 Conditional checks: `cd website && npm run build` (website changed). No `formal/`, `scripts/` or schema changes are expected: confirm with `git diff --stat origin/main`, and run `make check-agent-docs` only if `.agents/` changed.
+- [x] 7.8 Run `/learn` (`.agents/skills/learn/`) as the last step.
