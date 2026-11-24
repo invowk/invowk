@@ -1,3 +1,30 @@
+# Dependabot version updates. Security updates are enabled in the repository
+# settings and arrive as individual pull requests (no group applies to them).
+#
+# The gomod and npm entries are shaped for the merge gate
+# (.github/workflows/dependabot-gate.yml, scripts/dependabot-gate.py), which
+# may merge patch and minor updates when every check passes:
+# - one group per ecosystem takes the patch and minor updates;
+# - a major update is in no group, so it arrives alone and waits for a person;
+# - `exclude-patterns` keeps out the dependencies the gate never merges (its
+#   sync-pair deny list, DENY_GOMOD and DENY_NPM in the script) and the
+#   fast-moving SDKs, so one of them cannot hold the whole group back. Each
+#   gets its own pull request.
+# scripts/test_dependabot_gate.py fails when a deny-list entry is missing
+# from these excludes.
+#
+# `open-pull-requests-limit` counts version-update pull requests only
+# (security updates have their own fixed limit of 10). The dependencies kept
+# out of a group arrive one pull request each, and the gate never merges most
+# of them, so they stay open until a person acts. With the default of 5 they
+# would fill the limit and Dependabot would stop opening the group pull
+# request, the one the gate can merge. The limits below leave room for every
+# excluded dependency, the group and a few majors.
+#
+# `cooldown` (version updates only; it never delays a security update) makes
+# Dependabot wait 7 days after a release before proposing it, instead of its
+# default of 3: a release that is withdrawn or found malicious in its first
+# days is never proposed, and never merged by the gate.
 version: 2
 updates:
   # Go modules (main application)
@@ -8,11 +35,34 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
-    open-pull-requests-limit: 5
+    # 8 excluded modules (the 6 sync pairs never merge here) + the group +
+    # majors.
+    open-pull-requests-limit: 15
+    cooldown:
+      default-days: 7
     groups:
       go-dependencies:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          # Sync pairs (the gate's deny list): bumped by hand with their
+          # second pin or procedure.
+          - "github.com/invowk/goplint"
+          - "github.com/golangci/golangci-lint/v2"
+          - "github.com/jonbaldie/go-mutesting/v2"
+          - "cuelang.org/go"
+          - "golang.org/x/tools"
+          - "github.com/invowk/golua"
+          # 0.x SDK whose minor releases break the API (0.13.5 -> 0.20.0
+          # broke internal/acpclient in #190). The gate holds its minors.
+          - "github.com/coder/acp-go-sdk"
+          # Generated SDK that releases several minors a week (3.53.0 on
+          # 2026-08-27, 3.105.0 on 2026-11-23). It is past 1.0, so alone the
+          # gate can still merge it, and a bad release is one revert.
+          - "github.com/openai/openai-go/v3"
     commit-message:
       prefix: "deps(go)"
     labels:
@@ -27,18 +77,36 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
-    open-pull-requests-limit: 5
+    # 6 excluded Docusaurus packages (they never merge here) + the group +
+    # majors.
+    open-pull-requests-limit: 15
+    cooldown:
+      default-days: 7
     groups:
       npm-dependencies:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          # Core Docusaurus packages: exact versions that move together, by
+          # hand (the gate's deny list).
+          - "@docusaurus/core"
+          - "@docusaurus/faster"
+          - "@docusaurus/preset-classic"
+          - "@docusaurus/module-type-aliases"
+          - "@docusaurus/tsconfig"
+          - "@docusaurus/types"
     commit-message:
       prefix: "deps(npm)"
     labels:
       - "dependencies"
       - "website"
 
-  # GitHub Actions
+  # GitHub Actions. The gate never merges these (pins are major tags, some
+  # are sync pairs, and PR CI does not exercise release.yml), so they stay in
+  # one group for a single manual review.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -47,6 +115,8 @@ updates:
       time: "09:00"
       timezone: "UTC"
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       github-actions:
         patterns:

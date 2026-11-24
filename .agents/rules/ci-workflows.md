@@ -17,3 +17,20 @@ paths:
 - `mutation-testing.yml` is manual dispatch only; never make it a PR or scheduled gate.
 - CodeQL stays on the advanced setup (`codeql.yml`, with `go-version-file: go.mod` for Go). Never enable GitHub's default CodeQL setup.
 - Pins: `.agents/rules/version-pinning.md`. Workflow inventory and pre-commit hooks: `.agents/runbooks/quality-gates.md`.
+
+## Dependabot merge gate
+
+- `dependabot-gate.yml` runs on `workflow_run` of the workflows whose checks it requires, so it always executes main's copy of itself and of `scripts/dependabot-gate.py`. Never give it a `pull_request_target` trigger, and never check out or run pull request code in it.
+- The script decides `merge` or `hold` from read-only API calls and fails closed. The decision is a pure function of one JSON snapshot; the list in the script's docstring is the authority. In short, `merge` needs all of:
+  - a pull request by `dependabot[bot]` on `main` from this repository, open, not a draft, without conflict and without a `hold` or `do-not-merge` label;
+  - one verified Dependabot commit that is the head the triggering run tested, and a head that is not behind `main` (the ruleset does not require up-to-date branches, so GitHub never reports "behind");
+  - gomod or npm files only (GitHub Actions updates never merge), and a gomod update that changes `go.mod`;
+  - file contents the script compares itself, base against head, because nothing binds Dependabot's commit metadata to the files. `go.mod` may change requirement versions only; `website/package.json` only the ranges of dependencies the metadata names; every changed `website/package-lock.json` entry must come from `registry.npmjs.org` with a sha512 integrity and gain no install script. Each version step is classified by the script: a major, a downgrade, a pre-release, a pseudo-version, `+incompatible`, a minor bump of a 0.x version, any 0.0.z version and an added or removed Go requirement all hold. The metadata's update types must be semver-patch or semver-minor as well;
+  - nothing on the sync-pair deny list, named or changed as a side effect;
+  - every check on the head commit green, except `Track Benchmarks`, and every required check of the ecosystem present and successful, including the Socket and SonarCloud checks;
+  - a workflow run behind every required GitHub Actions check that `dependabot[bot]` started (by user id) on `pull_request`, from the expected workflow file. A commit authored by the bot and signed by GitHub does not prove Dependabot pushed it.
+- Expect most grouped Go updates to hold: their `go.mod` side effects usually include a 0.x minor (all of `golang.org/x/*`) or a pseudo-version. That is the rule working, not a defect.
+- `GATE_MODE` is a constant in the workflow file, now `decide-only`: the job writes the verdict and its reasons to the job summary and stops. The move to `merge` is a reviewed PR that changes that line; never read the mode from a repository variable.
+- Only in `merge` mode and after a `merge` verdict does the job mint the `invowk-dependabot-merge` App token (`vars.DEPENDABOT_MERGE_APP_ID`, `secrets.DEPENDABOT_MERGE_APP_PRIVATE_KEY`). The merge step first runs `dependabot-gate.py up-to-date`, which stops the step when `main` moved since the verdict, then squash-merges with `--match-head-commit`. The App has no ruleset bypass, so the `main` ruleset still applies to its merges. Keep `GITHUB_TOKEN` read-only in this workflow (`actions: read` lists the workflow runs), and add no comments, labels or approvals.
+- The job condition admits only runs whose `actor` is `dependabot[bot]`, by user id. Do not add `triggering_actor` to it: a maintainer who re-runs a flaky job must let the gate evaluate again.
+- Keep the tables in step. A job renamed in `ci.yml`, `lint.yml`, `formal-verification.yml`, `codeql.yml` or `test-website.yml` needs the same change in `REQUIRED_*`, and a renamed workflow or workflow file the same change in `WORKFLOW_FILES`. A new sync pair goes into `DENY_GOMOD` or `DENY_NPM` and into the `exclude-patterns` of `.github/dependabot.yml`. `scripts/test_dependabot_gate.py` (run by `make test-scripts`) fails on drift.

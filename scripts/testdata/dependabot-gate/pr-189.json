@@ -1,0 +1,336 @@
+{
+ "repository": "invowk/invowk",
+ "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+ "pull_request": {
+  "number": 189,
+  "state": "open",
+  "draft": false,
+  "mergeable": true,
+  "mergeable_state": "clean",
+  "commits": 1,
+  "changed_files": 2,
+  "user": {
+   "login": "dependabot[bot]",
+   "id": 49699333,
+   "type": "Bot"
+  },
+  "base": {
+   "ref": "main",
+   "repo": {
+    "full_name": "invowk/invowk"
+   }
+  },
+  "head": {
+   "ref": "dependabot/npm_and_yarn/website/npm-dependencies-23c02d14cc",
+   "sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "repo": {
+    "full_name": "invowk/invowk"
+   }
+  },
+  "labels": []
+ },
+ "compare": {
+  "behind_by": 1,
+  "merge_base_sha": "f895970f71f3fedaa1dfdde78e6f19cde5ab9e1c"
+ },
+ "commits": [
+  {
+   "sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447
+   },
+   "commit": {
+    "message": "deps(npm): bump the npm-dependencies group in /website with 3 updates\n\nBumps the npm-dependencies group in /website with 3 updates: [react](https://github.com/react/react/tree/HEAD/packages/react), [react-dom](https://github.com/react/react/tree/HEAD/packages/react-dom) and [typescript](https://github.com/microsoft/TypeScript).\n\n\nUpdates `react` from 19.2.8 to 19.3.1\n- [Release notes](https://github.com/react/react/releases)\n- [Changelog](https://github.com/react/react/blob/main/CHANGELOG.md)\n- [Commits](https://github.com/react/react/commits/v19.3.1/packages/react)\n\nUpdates `react-dom` from 19.2.8 to 19.3.1\n- [Release notes](https://github.com/react/react/releases)\n- [Changelog](https://github.com/react/react/blob/main/CHANGELOG.md)\n- [Commits](https://github.com/react/react/commits/v19.3.1/packages/react-dom)\n\nUpdates `typescript` from 6.0.3 to 7.0.2\n- [Release notes](https://github.com/microsoft/TypeScript/releases)\n- [Commits](https://github.com/microsoft/TypeScript/compare/v6.0.3...v7.0.2)\n\n---\nupdated-dependencies:\n- dependency-name: react\n  dependency-version: 19.3.1\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n  dependency-group: npm-dependencies\n- dependency-name: react-dom\n  dependency-version: 19.3.1\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n  dependency-group: npm-dependencies\n- dependency-name: typescript\n  dependency-version: 7.0.2\n  dependency-type: direct:development\n  update-type: version-update:semver-major\n  dependency-group: npm-dependencies\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+    "verification": {
+     "verified": true,
+     "reason": "valid"
+    }
+   }
+  }
+ ],
+ "files": [
+  {
+   "filename": "website/package-lock.json",
+   "status": "modified",
+   "base": "{\n  \"name\": \"invowk-docs\",\n  \"version\": \"0.0.0\",\n  \"lockfileVersion\": 3,\n  \"requires\": true,\n  \"packages\": {\n    \"\": {\n      \"name\": \"invowk-docs\",\n      \"version\": \"0.0.0\",\n      \"dependencies\": {\n        \"@docusaurus/core\": \"3.10.2\",\n        \"@docusaurus/faster\": \"3.10.2\",\n        \"@docusaurus/preset-classic\": \"3.10.2\",\n        \"@easyops-cn/docusaurus-search-local\": \"^0.55.3\",\n        \"@mdx-js/react\": \"^3.1.1\",\n        \"clsx\": \"^2.1.1\",\n        \"docusaurus-plugin-image-zoom\": \"^3.0.1\",\n        \"prism-react-renderer\": \"^2.4.1\",\n        \"react\": \"^19.2.8\",\n        \"react-dom\": \"^19.2.8\"\n      },\n      \"devDependencies\": {\n        \"@docusaurus/module-type-aliases\": \"3.10.2\",\n        \"@docusaurus/tsconfig\": \"3.10.2\",\n        \"@docusaurus/types\": \"3.10.2\",\n        \"typescript\": \"~6.0.3\"\n      },\n      \"engines\": {\n        \"node\": \">=20.0\"\n      }\n    },\n    \"node_modules/react\": {\n      \"version\": \"19.2.8\",\n      \"resolved\": \"https://registry.npmjs.org/react/-/react-19.2.8.tgz\",\n      \"integrity\": \"sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==\",\n      \"license\": \"MIT\",\n      \"engines\": {\n        \"node\": \">=0.10.0\"\n      }\n    },\n    \"node_modules/react-dom\": {\n      \"version\": \"19.2.8\",\n      \"resolved\": \"https://registry.npmjs.org/react-dom/-/react-dom-19.2.8.tgz\",\n      \"integrity\": \"sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==\",\n      \"license\": \"MIT\",\n      \"dependencies\": {\n        \"scheduler\": \"^0.27.0\"\n      },\n      \"peerDependencies\": {\n        \"react\": \"^19.2.8\"\n      }\n    },\n    \"node_modules/scheduler\": {\n      \"version\": \"0.27.0\",\n      \"resolved\": \"https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz\",\n      \"integrity\": \"sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==\",\n      \"license\": \"MIT\"\n    },\n    \"node_modules/typescript\": {\n      \"version\": \"6.0.3\",\n      \"resolved\": \"https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz\",\n      \"integrity\": \"sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==\",\n      \"devOptional\": true,\n      \"license\": \"Apache-2.0\",\n      \"bin\": {\n        \"tsc\": \"bin/tsc\",\n        \"tsserver\": \"bin/tsserver\"\n      },\n      \"engines\": {\n        \"node\": \">=14.17\"\n      }\n    }\n  }\n}\n",
+   "head": "{\n  \"name\": \"invowk-docs\",\n  \"version\": \"0.0.0\",\n  \"lockfileVersion\": 3,\n  \"requires\": true,\n  \"packages\": {\n    \"\": {\n      \"name\": \"invowk-docs\",\n      \"version\": \"0.0.0\",\n      \"dependencies\": {\n        \"@docusaurus/core\": \"3.10.2\",\n        \"@docusaurus/faster\": \"3.10.2\",\n        \"@docusaurus/preset-classic\": \"3.10.2\",\n        \"@easyops-cn/docusaurus-search-local\": \"^0.55.3\",\n        \"@mdx-js/react\": \"^3.1.1\",\n        \"clsx\": \"^2.1.1\",\n        \"docusaurus-plugin-image-zoom\": \"^3.0.1\",\n        \"prism-react-renderer\": \"^2.4.1\",\n        \"react\": \"^19.3.1\",\n        \"react-dom\": \"^19.3.1\"\n      },\n      \"devDependencies\": {\n        \"@docusaurus/module-type-aliases\": \"3.10.2\",\n        \"@docusaurus/tsconfig\": \"3.10.2\",\n        \"@docusaurus/types\": \"3.10.2\",\n        \"typescript\": \"~7.0.2\"\n      },\n      \"engines\": {\n        \"node\": \">=20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-aix-ppc64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-aix-ppc64/-/typescript-aix-ppc64-7.0.2.tgz\",\n      \"integrity\": \"sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==\",\n      \"cpu\": [\n        \"ppc64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"aix\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-darwin-arm64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-darwin-arm64/-/typescript-darwin-arm64-7.0.2.tgz\",\n      \"integrity\": \"sha512-gowzar9MwS/aRWp6f3a4KUqzRjAZjOsmGNCM6LcTgXum+dBfgsBVMN+AgvOCCbguXyick6LJhpBszxMebJ8syA==\",\n      \"cpu\": [\n        \"arm64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"darwin\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-darwin-x64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-darwin-x64/-/typescript-darwin-x64-7.0.2.tgz\",\n      \"integrity\": \"sha512-SZ9xZInqApNlNGc9s0W1VSsktYSOe9cFqNOIqmN1Gs8SmkjKZYFt017G4VwPxASInODuAdbTW7sXiFUf893RgA==\",\n      \"cpu\": [\n        \"x64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"darwin\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-freebsd-arm64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-freebsd-arm64/-/typescript-freebsd-arm64-7.0.2.tgz\",\n      \"integrity\": \"sha512-W5NH4y/J0plIIS5b2xvTEkU7JFxyqdMAOgf+Ilhl0vHQXKO5dZoxd+C/jEtq56c4F3wk71RB4BMRQ2XdI+bwYQ==\",\n      \"cpu\": [\n        \"arm64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"freebsd\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-freebsd-x64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-freebsd-x64/-/typescript-freebsd-x64-7.0.2.tgz\",\n      \"integrity\": \"sha512-UMGDx5sTpzNw3WiPebH7l90IWfJggEd+egHt/q6p7/Cm3zqoV7VxkGXt+3DxPIw8CcmvAB0j3sVVfbhX+M4Tpw==\",\n      \"cpu\": [\n        \"x64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"freebsd\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-linux-arm\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-linux-arm/-/typescript-linux-arm-7.0.2.tgz\",\n      \"integrity\": \"sha512-gffT3xPz9sR7j/YJExkyPntrI0P2EP9XbOyWzth2/Gs0RstK+90RBcO0ncXoXy/beYll1SXw846Nf2zdnEz0QQ==\",\n      \"cpu\": [\n        \"arm\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"linux\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-linux-arm64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-linux-arm64/-/typescript-linux-arm64-7.0.2.tgz\",\n      \"integrity\": \"sha512-Qh4eU4/y3yDjnfjjyPYihMj5/ODIlmt+Bzu17OI+fiSRDW57QmU5SiN63exPRNJPKUzcc1INa1NXdrJ+MqHjUQ==\",\n      \"cpu\": [\n        \"arm64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"linux\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-linux-loong64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-linux-loong64/-/typescript-linux-loong64-7.0.2.tgz\",\n      \"integrity\": \"sha512-uEHck9i8hoAzXPiYRib1O7miOnz23SxIeVl6F4LXox+qov1K35jHcEW6VHKvZI+pyvl7fZEP4MCU5LYvIq1GuQ==\",\n      \"cpu\": [\n        \"loong64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"linux\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-linux-mips64el\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-linux-mips64el/-/typescript-linux-mips64el-7.0.2.tgz\",\n      \"integrity\": \"sha512-R4KvAMnE43W5Qeqb0Ly56O3mWMWIAgsMyz36DCaycd5nbg/9kzm0liw3JocfRqyJY0KPmzFjbswozXyW0DnIYA==\",\n      \"cpu\": [\n        \"mips64el\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"linux\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-linux-ppc64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-linux-ppc64/-/typescript-linux-ppc64-7.0.2.tgz\",\n      \"integrity\": \"sha512-DORx5b3sd/4S7eayxm4FQv+A7CrkUIGRaHiwI8oiHTAI1fAPWhF4J0vAlkC8biAlHSVVwxMQ3tjZ2/DVbnQiiA==\",\n      \"cpu\": [\n        \"ppc64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"linux\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-linux-riscv64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-linux-riscv64/-/typescript-linux-riscv64-7.0.2.tgz\",\n      \"integrity\": \"sha512-wf0jqEDOjrPRnKwYRyyJDRo11KMbvMFrU+q4zqKyChODBzvlkbhNQfKvLxQCcwTpdDaXSHZTVuh0JoCrKCUMHQ==\",\n      \"cpu\": [\n        \"riscv64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"linux\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-linux-s390x\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-linux-s390x/-/typescript-linux-s390x-7.0.2.tgz\",\n      \"integrity\": \"sha512-IkwJc3L7yhytWd/ewjyxNDfOmswCm9GWMJT/ue/dU4aZNbwZeYAetq42VyLmsmSjvoX7z74X6ZaYCtzAr0EuGw==\",\n      \"cpu\": [\n        \"s390x\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"linux\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-linux-x64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-linux-x64/-/typescript-linux-x64-7.0.2.tgz\",\n      \"integrity\": \"sha512-EYdf2cNg7rgCWJnxCdJ+F3V39O8ihb37eHAu1LK8oAFizgTQbPOK7zHHXbPt8rX24COqODXeI3sIf0fCXG7H/A==\",\n      \"cpu\": [\n        \"x64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"linux\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-netbsd-arm64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-netbsd-arm64/-/typescript-netbsd-arm64-7.0.2.tgz\",\n      \"integrity\": \"sha512-+polYF4MF04aPpO5FTkHran9yUQDSXqy5GiSDKpsll5jy3l3+g9QLhpf39T+ePtefhXLOGrLl0QIjkQP6VnelA==\",\n      \"cpu\": [\n        \"arm64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"netbsd\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-netbsd-x64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-netbsd-x64/-/typescript-netbsd-x64-7.0.2.tgz\",\n      \"integrity\": \"sha512-8YIT0EHM/3dq10ZOVF/A7pc/YSMtbcecct4rWtexrnSCHOPcpC2KTLXfTCR6vDpnSiY12heNb1GiN/wu+T/FyA==\",\n      \"cpu\": [\n        \"x64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"netbsd\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-openbsd-arm64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-openbsd-arm64/-/typescript-openbsd-arm64-7.0.2.tgz\",\n      \"integrity\": \"sha512-APT8+ClYnuYm1u9+kgGXoMj2VzWzcymwh2gNSQVySHfkRDGOTVkoWLjCmOQSaO+PoqQ57B0flRp9SA+7GnnkzQ==\",\n      \"cpu\": [\n        \"arm64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"openbsd\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-openbsd-x64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-openbsd-x64/-/typescript-openbsd-x64-7.0.2.tgz\",\n      \"integrity\": \"sha512-yX7s+Q0Dln0Dt9tEzZsAjXXR/+ytBM7AlglaqyeMPxQszJ1JhlJdZ6jLA+IzldHtflX81em7lDao1xXu+aRRkg==\",\n      \"cpu\": [\n        \"x64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"openbsd\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-sunos-x64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-sunos-x64/-/typescript-sunos-x64-7.0.2.tgz\",\n      \"integrity\": \"sha512-dLJDGaLZ1D4HPQn62u1n8mBDkJREwMsAkCdkwd4Ieqw+x3TUyTsqY0YiBCtE6H6OzzgGk3iuZ3vFWRS+E8/d1g==\",\n      \"cpu\": [\n        \"x64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"sunos\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-win32-arm64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-win32-arm64/-/typescript-win32-arm64-7.0.2.tgz\",\n      \"integrity\": \"sha512-Gyl1Vy6OsWesLzmq+EP0Fb7b4Nid5232AvcA2SFcdYreldpNtYFFofPjnt62y9hQy7VTaZp65ICJjuAQRaVcIQ==\",\n      \"cpu\": [\n        \"arm64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"win32\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/@typescript/typescript-win32-x64\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/@typescript/typescript-win32-x64/-/typescript-win32-x64-7.0.2.tgz\",\n      \"integrity\": \"sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g==\",\n      \"cpu\": [\n        \"x64\"\n      ],\n      \"license\": \"Apache-2.0\",\n      \"optional\": true,\n      \"os\": [\n        \"win32\"\n      ],\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      }\n    },\n    \"node_modules/react\": {\n      \"version\": \"19.3.1\",\n      \"resolved\": \"https://registry.npmjs.org/react/-/react-19.3.1.tgz\",\n      \"integrity\": \"sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==\",\n      \"license\": \"MIT\",\n      \"engines\": {\n        \"node\": \">=0.10.0\"\n      }\n    },\n    \"node_modules/react-dom\": {\n      \"version\": \"19.3.1\",\n      \"resolved\": \"https://registry.npmjs.org/react-dom/-/react-dom-19.3.1.tgz\",\n      \"integrity\": \"sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ==\",\n      \"license\": \"MIT\",\n      \"dependencies\": {\n        \"scheduler\": \"^0.28.0\"\n      },\n      \"peerDependencies\": {\n        \"react\": \"^19.3.1\"\n      }\n    },\n    \"node_modules/scheduler\": {\n      \"version\": \"0.28.0\",\n      \"resolved\": \"https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz\",\n      \"integrity\": \"sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==\",\n      \"license\": \"MIT\"\n    },\n    \"node_modules/typescript\": {\n      \"version\": \"7.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/typescript/-/typescript-7.0.2.tgz\",\n      \"integrity\": \"sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA==\",\n      \"devOptional\": true,\n      \"license\": \"Apache-2.0\",\n      \"bin\": {\n        \"tsc\": \"bin/tsc\"\n      },\n      \"engines\": {\n        \"node\": \">=16.20.0\"\n      },\n      \"optionalDependencies\": {\n        \"@typescript/typescript-aix-ppc64\": \"7.0.2\",\n        \"@typescript/typescript-darwin-arm64\": \"7.0.2\",\n        \"@typescript/typescript-darwin-x64\": \"7.0.2\",\n        \"@typescript/typescript-freebsd-arm64\": \"7.0.2\",\n        \"@typescript/typescript-freebsd-x64\": \"7.0.2\",\n        \"@typescript/typescript-linux-arm\": \"7.0.2\",\n        \"@typescript/typescript-linux-arm64\": \"7.0.2\",\n        \"@typescript/typescript-linux-loong64\": \"7.0.2\",\n        \"@typescript/typescript-linux-mips64el\": \"7.0.2\",\n        \"@typescript/typescript-linux-ppc64\": \"7.0.2\",\n        \"@typescript/typescript-linux-riscv64\": \"7.0.2\",\n        \"@typescript/typescript-linux-s390x\": \"7.0.2\",\n        \"@typescript/typescript-linux-x64\": \"7.0.2\",\n        \"@typescript/typescript-netbsd-arm64\": \"7.0.2\",\n        \"@typescript/typescript-netbsd-x64\": \"7.0.2\",\n        \"@typescript/typescript-openbsd-arm64\": \"7.0.2\",\n        \"@typescript/typescript-openbsd-x64\": \"7.0.2\",\n        \"@typescript/typescript-sunos-x64\": \"7.0.2\",\n        \"@typescript/typescript-win32-arm64\": \"7.0.2\",\n        \"@typescript/typescript-win32-x64\": \"7.0.2\"\n      }\n    }\n  }\n}\n"
+  },
+  {
+   "filename": "website/package.json",
+   "status": "modified",
+   "base": "{\n  \"name\": \"invowk-docs\",\n  \"version\": \"0.0.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"docusaurus\": \"docusaurus\",\n    \"start\": \"docusaurus start\",\n    \"build\": \"docusaurus build\",\n    \"swizzle\": \"docusaurus swizzle\",\n    \"deploy\": \"docusaurus deploy\",\n    \"clear\": \"docusaurus clear\",\n    \"serve\": \"docusaurus serve\",\n    \"write-translations\": \"docusaurus write-translations\",\n    \"write-heading-ids\": \"docusaurus write-heading-ids\",\n    \"docs:parity\": \"node ../scripts/validate-docs-parity.mjs --mode strict --all-locales\",\n    \"docs:parity:report\": \"node ../scripts/validate-docs-parity.mjs --mode report --format json --all-locales\",\n    \"typecheck\": \"tsc\"\n  },\n  \"dependencies\": {\n    \"@docusaurus/core\": \"3.10.2\",\n    \"@docusaurus/faster\": \"3.10.2\",\n    \"@docusaurus/preset-classic\": \"3.10.2\",\n    \"@easyops-cn/docusaurus-search-local\": \"^0.55.3\",\n    \"@mdx-js/react\": \"^3.1.1\",\n    \"clsx\": \"^2.1.1\",\n    \"docusaurus-plugin-image-zoom\": \"^3.0.1\",\n    \"prism-react-renderer\": \"^2.4.1\",\n    \"react\": \"^19.2.8\",\n    \"react-dom\": \"^19.2.8\"\n  },\n  \"devDependencies\": {\n    \"@docusaurus/module-type-aliases\": \"3.10.2\",\n    \"@docusaurus/tsconfig\": \"3.10.2\",\n    \"@docusaurus/types\": \"3.10.2\",\n    \"typescript\": \"~6.0.3\"\n  },\n  \"browserslist\": {\n    \"production\": [\n      \">0.5%\",\n      \"not dead\",\n      \"not op_mini all\"\n    ],\n    \"development\": [\n      \"last 3 chrome version\",\n      \"last 3 firefox version\",\n      \"last 5 safari version\"\n    ]\n  },\n  \"engines\": {\n    \"node\": \">=20.0\"\n  }\n}\n",
+   "head": "{\n  \"name\": \"invowk-docs\",\n  \"version\": \"0.0.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"docusaurus\": \"docusaurus\",\n    \"start\": \"docusaurus start\",\n    \"build\": \"docusaurus build\",\n    \"swizzle\": \"docusaurus swizzle\",\n    \"deploy\": \"docusaurus deploy\",\n    \"clear\": \"docusaurus clear\",\n    \"serve\": \"docusaurus serve\",\n    \"write-translations\": \"docusaurus write-translations\",\n    \"write-heading-ids\": \"docusaurus write-heading-ids\",\n    \"docs:parity\": \"node ../scripts/validate-docs-parity.mjs --mode strict --all-locales\",\n    \"docs:parity:report\": \"node ../scripts/validate-docs-parity.mjs --mode report --format json --all-locales\",\n    \"typecheck\": \"tsc\"\n  },\n  \"dependencies\": {\n    \"@docusaurus/core\": \"3.10.2\",\n    \"@docusaurus/faster\": \"3.10.2\",\n    \"@docusaurus/preset-classic\": \"3.10.2\",\n    \"@easyops-cn/docusaurus-search-local\": \"^0.55.3\",\n    \"@mdx-js/react\": \"^3.1.1\",\n    \"clsx\": \"^2.1.1\",\n    \"docusaurus-plugin-image-zoom\": \"^3.0.1\",\n    \"prism-react-renderer\": \"^2.4.1\",\n    \"react\": \"^19.3.1\",\n    \"react-dom\": \"^19.3.1\"\n  },\n  \"devDependencies\": {\n    \"@docusaurus/module-type-aliases\": \"3.10.2\",\n    \"@docusaurus/tsconfig\": \"3.10.2\",\n    \"@docusaurus/types\": \"3.10.2\",\n    \"typescript\": \"~7.0.2\"\n  },\n  \"browserslist\": {\n    \"production\": [\n      \">0.5%\",\n      \"not dead\",\n      \"not op_mini all\"\n    ],\n    \"development\": [\n      \"last 3 chrome version\",\n      \"last 3 firefox version\",\n      \"last 5 safari version\"\n    ]\n  },\n  \"engines\": {\n    \"node\": \">=20.0\"\n  }\n}\n"
+  }
+ ],
+ "check_runs": [
+  {
+   "name": "SonarCloud Code Analysis",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "sonarqubecloud"
+   },
+   "check_suite": {
+    "id": 122165222963
+   }
+  },
+  {
+   "name": "SonarCloud",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-advanced-security"
+   },
+   "check_suite": {
+    "id": 122165440144
+   }
+  },
+  {
+   "name": "CodeQL",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-advanced-security"
+   },
+   "check_suite": {
+    "id": 122165440144
+   }
+  },
+  {
+   "name": "Benchmark Fork PR",
+   "status": "completed",
+   "conclusion": "skipped",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262236
+   }
+  },
+  {
+   "name": "Socket Security: Pull Request Alerts",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "socket-security"
+   },
+   "check_suite": {
+    "id": 122165223646
+   }
+  },
+  {
+   "name": "Track Benchmarks",
+   "status": "completed",
+   "conclusion": "skipped",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262236
+   }
+  },
+  {
+   "name": "script tests (worktree-safety gate)",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262589
+   }
+  },
+  {
+   "name": "file length gate (1000 lines)",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262589
+   }
+  },
+  {
+   "name": "agent docs integrity",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262589
+   }
+  },
+  {
+   "name": "goplint consumer gates",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262589
+   }
+  },
+  {
+   "name": "Models, golden vectors, and correspondence",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262372
+   }
+  },
+  {
+   "name": "normalized golangci-lint gates",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262589
+   }
+  },
+  {
+   "name": "Analyze (python)",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262270
+   }
+  },
+  {
+   "name": "Analyze (actions)",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262270
+   }
+  },
+  {
+   "name": "Analyze (go)",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262270
+   }
+  },
+  {
+   "name": "test-build",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262383
+   }
+  },
+  {
+   "name": "Analyze (javascript-typescript)",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165262270
+   }
+  },
+  {
+   "name": "Socket Security: Project Report",
+   "status": "completed",
+   "conclusion": "success",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "app": {
+    "slug": "socket-security"
+   },
+   "check_suite": {
+    "id": 122165223646
+   }
+  }
+ ],
+ "statuses": [],
+ "workflow_runs": [
+  {
+   "path": ".github/workflows/benchmarks.yml",
+   "event": "pull_request",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "check_suite_id": 122165262236,
+   "actor": {
+    "id": 49699333
+   }
+  },
+  {
+   "path": ".github/workflows/formal-verification.yml",
+   "event": "pull_request",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "check_suite_id": 122165262372,
+   "actor": {
+    "id": 49699333
+   }
+  },
+  {
+   "path": ".github/workflows/lint.yml",
+   "event": "pull_request",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "check_suite_id": 122165262589,
+   "actor": {
+    "id": 49699333
+   }
+  },
+  {
+   "path": ".github/workflows/codeql.yml",
+   "event": "pull_request",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "check_suite_id": 122165262270,
+   "actor": {
+    "id": 49699333
+   }
+  },
+  {
+   "path": ".github/workflows/test-website.yml",
+   "event": "pull_request",
+   "head_sha": "22e302640f243f026dbe8ee02efa573327382153",
+   "check_suite_id": 122165262383,
+   "actor": {
+    "id": 49699333
+   }
+  }
+ ]
+}

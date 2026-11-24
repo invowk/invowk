@@ -187,3 +187,15 @@ Dependabot normally covers GitHub Actions, Go modules, and website npm
 dependencies. This skill owns uncovered inline installs, action input versions,
 MCP versions, runtime lifecycle, cross-file consistency, and CI optimization.
 Verify `.github/dependabot.yml` before relying on that division.
+
+The Dependabot merge gate (`scripts/dependabot-gate.py`,
+`.agents/rules/ci-workflows.md`) never merges a sync-pair dependency: its
+`DENY_GOMOD` and `DENY_NPM` tables and the `exclude-patterns` in
+`.github/dependabot.yml` name the Go modules of the table above
+(golangci-lint, go-mutesting, and goplint and `golang.org/x/tools` from its Go
+toolchain row) and the dependencies that `.agents/rules/version-pinning.md`
+ties to a manual procedure and the table does not list: `cuelang.org/go`,
+`github.com/invowk/golua` and the six core Docusaurus packages. Each entry
+states its reason in the script. When a Go or npm sync pair is added or
+removed, change both in the same commit; `scripts/test_dependabot_gate.py`
+compares them.

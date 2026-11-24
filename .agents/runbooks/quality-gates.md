@@ -58,3 +58,4 @@ Not covered by any hook (manual discipline): `make test`, `make tidy`, `make che
 | `version-docs.yml` | release published, dispatch | docs versioning |
 | `codeql.yml` | push, PR, schedule | advanced-setup CodeQL for actions, go, javascript-typescript, python (`go-version-file: go.mod`) |
 | `claude.yml` | issue/PR comments and reviews | Claude Code GitHub integration |
+| `dependabot-gate.yml` | `workflow_run` of CI, Lint, Formal Verification, CodeQL and Test Website Build | decides whether a Dependabot gomod or npm PR may merge (`scripts/dependabot-gate.py`); `decide-only` mode writes the verdict to the job summary and merges nothing (rule: `ci-workflows.md`, "Dependabot merge gate") |
