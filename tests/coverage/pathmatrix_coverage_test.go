@@ -126,6 +126,10 @@ var (
 			testFile: "internal/runtime/virtual_path_walk_formal_test.go",
 			reason:   "classifies an os.Lstat file mode as a link the virtual path walk follows; it takes no path text",
 		},
+		"internal/runtime.isVirtualPathMissingVolume": {
+			testFile: "internal/runtime/virtual_path_resolution_windows_test.go",
+			reason:   "classifies an os.Lstat error of a volume root as a missing drive or share; it takes no path text",
+		},
 		"internal/runtime.resolveVirtualFilesystemPaths": {
 			testFile: "internal/runtime/virtual_policy_test.go",
 			reason:   "virtual filesystem mappings are resolved by the virtual runtime policy and its configured path dialect",
