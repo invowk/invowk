@@ -55,7 +55,9 @@ Caminhos são relativos à localização do invowkfile:
 
 <Snippet id="environment/env-files-path-resolution" />
 
-Para módulos, caminhos são relativos à raiz do módulo.
+Para módulos, caminhos são relativos à raiz do módulo, e todo arquivo de environment precisa resolver dentro do diretório do módulo. Os links do caminho são seguidos, mas um link que leva para fora do módulo (inclusive um em `invowk_modules/`), um link com alvo absoluto ou um link que não resolve faz o comando falhar com `env file resolves outside module`. Em um módulo, um arquivo opcional `?` só é ignorado quando nada existe no seu caminho; um link quebrado ou que escapa continua falhando.
+
+Arquivos de environment de um `invowkfile.cue` comum (fora de um módulo) não têm essa restrição: um `.env` que é um link para um arquivo em outro lugar, como `~/secrets/.env`, continua funcionando.
 
 ## Interpolação de Variáveis
 

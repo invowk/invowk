@@ -174,7 +174,7 @@ antecedents, witnesses, and mutants failed and exposed it.
 | `HostCallbackToken` | TLA+ | SSH host-callback token and session lifetime across executions | trace validation of a started server with real SSH clients; rapid state machine over the token API; Go replay of F11 |
 | `Watch` | TLA+ | debounce loop safety and no-lost-burst liveness under fairness | skip-if-busy scenario on a fake timer checked against `time.AfterFunc` |
 | `ConcurrentModuleEdits` | TLA+ | two module commands interleaved step by step over `invowkmod.cue`, the lock, the shared module cache, and `invowk_modules/`, with advisory-lock and atomic-restore fix configurations | deterministic gated replays of F8, F9, and the stale-vendor case against the real `Resolver` and `vendorDependenciesWithResolver` |
-| `ModulePathContainment` | Alloy | module filesystem path containment across script/env/containerfile reads, workdir, vendored discovery, copies, hash, and unpack, with the discovery facts named | 22848 golden instances (1680 distinct trees); rapid property; findings F13, F17 |
+| `ModulePathContainment` | Alloy | module filesystem path containment across script/env/containerfile reads, workdir, vendored discovery, copies, hash, and unpack, with the discovery facts named | 22848 golden instances (1680 distinct trees), replayed with relative and with absolute link targets; rapid property; findings F13, F16 and F17 (fixed) |
 | `VirtualPathHarness` | Alloy | the virtual runtime's allowed-root construction, `normalizeExistingOrParent`, and `pathWithin` under restricted/full access | 14580 golden instances; rapid property; findings F14, F15 |
 
 ### Golden vectors
@@ -264,21 +264,41 @@ change.
 | F10 | module add rollback | The rollback restores `invowkmod.cue` and the lock with `os.WriteFile`, which truncates in place, so a concurrent reader sees an empty or partial file (`ConcurrentModuleEdits.findingF10NonAtomicRollback`; model-only, as `os.WriteFile` has no seam) | Open: fix requires maintainer approval | an atomic restore (temp file and rename) |
 | F11 | SSH tokens | `Server.Stop` keeps authenticated connections open: `ssh.Server.Shutdown` closes the listener, waits for connections until `ShutdownTimeout`, and closes none, so `Stop` returns `context.DeadlineExceeded` with the client still connected. Production calls `Stop` after executions end, when revocation has already closed their connections, so F11 matters only for sessions of executions still running at `Stop`, for example under a different cancellation ordering | Open: `HostCallbackToken.findingF11StopKeepsSessions`; Go replay `TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen` | `HostCallbackToken.noSessionAfterStopFixed` (`StopClosesSessions`): Stop closes every tracked connection |
 | F12 | lock integrity | Command-scope admission admits a sibling's vendored copy when the caller's lock entry has no content hash; `LoadCommandScopeLock` loads the lock without `RequireV2`, so a v1.0 lock reaches that branch | Open: `LockIntegrity.findingF12HashlessSiblingAdmission`; Go replay `TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy` | `LockIntegrity.f12AdmitRequiresCallerHash` (`AdmitRequiresCallerHash`): admission refuses a caller entry without a hash |
-| F13 | module path containment | A module's `script.file` (or custom-check file) into `invowk_modules/` reaches a symlink that `Load` never scans, and the read follows it outside the module | Open: `ModulePathContainment.findingF13VendoredSymlink` reproduces; `scriptReadContainedPhysical` (physical containment) passes; replay `TestModulePathContainment_F13VendoredSymlink` | physical containment (out of scope) |
+| F13 | module path containment | A module's `script.file` (or custom-check file) into `invowk_modules/` reaches a symlink that `Load` never scans, and the read follows it outside the module | Fixed (module-read-physical-containment): both resolvers check the path through an `os.Root` opened on the module directory before the injected reader runs; the pre-fix code is kept as `ModulePathContainment.mutantPreFixF13LexicalScriptContainment`; `scriptReadContainedPhysical` passes; replay `TestModulePathContainment_VendoredSymlinkScriptReadDenied` | (shipped) |
 | F14 | virtual path harness | `normalizeExistingOrParent` evaluates only the path and its parent, so a path with two or more missing components below an escaping symlink is judged lexically and admitted; the write lands outside the allowed root | Open: `VirtualPathHarness.findingF14DeepSymlink` reproduces; `harnessContainedFixed` (deepest-existing-ancestor eval) passes; replay `TestVirtualPathHarness_F14DeepSymlink` | evaluate the deepest existing ancestor (out of scope) |
 | F15 | virtual path harness | A module-declared `workdir` outside the module widens the allowed roots under `restricted` access, admitting reads that are not cwd operations | Open: `VirtualPathHarness.findingF15WorkdirWidening` reproduces; `harnessContainedFixed` passes; replay `TestVirtualPathHarness_F15WorkdirWidening` | keep the workdir out of the read roots (out of scope) |
-| F16 | module path containment | A Windows junction inside a module is not `ModeSymlink` (Go 1.23+), so `IsModule` and `Load` admit a module with an inner non-vendored junction and a script read follows it out of the module (both copies and the hash stay contained: `copyHashJunctionScan`) | Open: `ModulePathContainment.findingF16JunctionScan` reproduces; `scriptReadScanAllKinds` (a scan that records junctions) passes; replay `TestModulePathContainment_F16Junction`, confirmed on windows-latest (CI run 43657442894, job 132639016048) | a junction-aware module scan (out of scope) |
-| F17 | module path containment | An env file declared as `invowk_modules/x` is read at runtime through the same symlink hole, with no containment check in `LoadEnvFile` | Open: `ModulePathContainment.findingF17EnvVendoredSymlink` reproduces; `envReadContainedPhysical` passes; replay `TestModulePathContainment_F17EnvVendoredSymlink` | physical containment (out of scope) |
+| F16 | module path containment | A Windows junction inside a module is not `ModeSymlink` (Go 1.23+), so `IsModule` and `Load` admit a module with an inner non-vendored junction and a script read follows it out of the module (both copies and the hash stay contained: `copyHashJunctionScan`) | Fixed (module-read-physical-containment, outcome d): the admission is unchanged, but the `os.Root` read check denies the script and env reads through the junction; the pre-fix configuration is kept as `ModulePathContainment.mutantPreFixF16JunctionScriptRead`; `scriptReadScanPhysical` passes; replay `TestModulePathContainment_F16Junction`, escape on windows-latest CI run 43657442894 (job 132639016048), contained on CI run 44648263846 (job 135996334113) | (shipped) |
+| F17 | module path containment | An env file declared as `invowk_modules/x` is read at runtime through the same symlink hole, with no containment check in `LoadEnvFile` | Fixed (module-read-physical-containment): in module context `LoadEnvFile` reads through an `os.Root` on the module root and fails with `ErrEnvFileOutsideModule`; the pre-fix code is kept as `ModulePathContainment.mutantPreFixF17EnvNoPhysicalContainment`; `envReadContainedPhysical` passes; replay `TestModulePathContainment_VendoredSymlinkEnvReadDenied` | (shipped) |
 
 F8–F12 are owned by sibling changes (`model-concurrent-lock-writes`, `trace-validate-token-and-lock`) and are merged separately.
+
+**Code stricter than the model (F13 and F17 fixes).** `os.Root` rejects a link with an
+absolute target even when the target lies inside the module, while the model's
+`physContains` accepts it. `TestModulePathContainment_GoldenVectors` therefore
+replays the golden twice: with relative link targets, where the code equals
+`dAccepts` on every vector, and with absolute targets, where the accepted
+reads whose reference is a link (384 `ScriptRead` and 384 `EnvRead` vectors)
+are classified "in-module link with an absolute target" and must be denied (the
+pass fails if a class is empty). The env replay takes the code's verdict only
+from `LoadEnvFile`'s error class (`ErrEnvFileOutsideModule`).
+`TestModulePathContainment_AbsoluteInModuleLinkDenied` pins the same denial
+outside the golden scope, for both script resolvers and the env read. Junctions always have absolute targets, so the
+contained script and env reads also deny a path through a junction, which
+fixed F16 (below).
 
 **F16 was decided on Windows CI** (harden-formal-instruments design D7, outcome
 "escape"): junction creation works on windows-latest, and
 `TestModulePathContainment_F16Junction` showed the module admitted and the
 script read of `j/secret` returning the outside sentinel, while both copies
-and the hash stayed contained (run 43657442894). The leg now asserts that
-behaviour, the rapid property admits a junction escape as the recorded F16
-hole, and `findingF16JunctionScan` records it in the model. The copies and the
+and the hash stayed contained (run 43657442894). module-read-physical-containment
+fixed it (outcome d): on CI run 44648263846 (job 135996334113) the leg showed the
+module still admitted, the script read through the junction denied by the
+`os.Root` check, and the copies and the hash contained. The leg asserts that
+behaviour, with an env-read arm, the rapid property fails on every junction
+escape, and the model keeps the pre-fix configuration as
+`mutantPreFixF16JunctionScriptRead` next to `scriptReadScanPhysical`. On Go
+1.27.4, `os.Root.Stat` on Windows panics on a link to its own directory; both
+contained reads recover it (run 44645245657, job 135986033972). The copies and the
 hash have a model command for those modules too: base admission counts
 junctions as scanned, so `copyHashStaysInside` never examines a module with an
 inner junction, and `copyHashJunctionScan` checks copy and hash containment

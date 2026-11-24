@@ -457,6 +457,10 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 		if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
 			return "", err
 		}
+		// Security: physical containment, whatever reader is injected (SC-01).
+		if err := containModuleScriptRead(*s.Script.File, scriptPath, modulePath); err != nil {
+			return "", err
+		}
 
 		if readFile == nil {
 			return "", ErrScriptReaderRequired

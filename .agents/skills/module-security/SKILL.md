@@ -351,7 +351,7 @@ audit through call-path tracing and focused behavior tests.
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go`, script path validation helpers; modelled by `formal/alloy/ModulePathContainment.als` (findings F13, F17) | Mitigated (findings F13/F17 open) |
+| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go`, `pkg/invowkfile/dependency.go`, `pkg/invowkfile/module_file_containment.go` (`checkModuleFilePhysicalContainment`: `os.Root` check before every module script and custom-check read, whatever reader is injected); modelled by `formal/alloy/ModulePathContainment.als` (F13 fixed, regression mutant `mutantPreFixF13LexicalScriptContainment`); module `env.files` read through `os.Root` in `internal/runtime/dotenv.go` `LoadEnvFile` (`ErrEnvFileOutsideModule`; F17 fixed, `mutantPreFixF17EnvNoPhysicalContainment`) | Mitigated (residual: the interpreter re-opens the checked script path, a time-of-check race) |
 | SC-02 | Virtual host-binary policy | Medium | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Partial |
 | SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container*.go` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container*.go`, `internal/runtime/runtime.go`, interactive adapters | Partial |
@@ -420,7 +420,7 @@ When reviewing module-related changes, adapt the workflow:
 | Pitfall | Fix |
 |---------|-----|
 | Regressing symlink skipping in module copy/provision paths | Keep copy helpers and scan-context artifact/clone paths from following symlinked module content outside trusted roots |
-| Reading a module script without the containment check | `ScriptFilePath.Validate` rejects absolute paths and `..` segments at parse time, and `ScriptChecker` still flags both (High). `GetScriptFilePathWithModule` only resolves, by design; file I/O must go through `ResolveScriptWithModule` / `ResolveScriptWithFSAndModule` (`validateScriptPathContainment`, SC-01) |
+| Reading a module script without the containment check | `ScriptFilePath.Validate` rejects absolute paths and `..` segments at parse time, and `ScriptChecker` still flags both (High). `GetScriptFilePathWithModule` only resolves, by design; file I/O must go through `ResolveScriptWithModule` / `ResolveScriptWithFSAndModule`, which run both the lexical `validateScriptPathContainment` and the physical `os.Root` check (`containModuleScriptRead` / `checkModuleFilePhysicalContainment`) before the injected reader (SC-01); module `env.files` go through `LoadEnvFile` with the module root |
 | New `checks_*.go` missing SPDX header | `// SPDX-License-Identifier: MPL-2.0` as first line |
 | Hiding corrupt module files | Keep `loadScannedModule` recording `InvowkfileParseErr` / `LockFileParseErr` so they surface as "Module invowkfile failed to parse" and "Lock file present but unparseable"; modules without these files stay valid |
 | Scan context hides invalid modules/files | Preserve structured diagnostics in `Report.Diagnostics` and CLI JSON/text output |

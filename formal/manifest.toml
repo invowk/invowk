@@ -88,7 +88,7 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 180
+command_count = 181
 
 # Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
 # every killer test of every bound correspondence row must execute at least one
@@ -158,10 +158,6 @@ unresolved_elements = [
     "ModulePathContainment: copySkipsInnerLinks",
     "ModulePathContainment: hashSkipsLinks",
     "ModulePathContainment: unpackRejectsEscape",
-    "ModulePathContainment: ValidateScriptPath",
-    "ModulePathContainment: checkSymlinkSafety",
-    "ModulePathContainment: findingF13",
-    "ModulePathContainment: findingF17",
     "ModulePathContainment: probeF16",
     "VirtualPathHarness: normalize",
     "VirtualPathHarness: pathWithin",
@@ -216,8 +212,6 @@ binding_gaps = [
     { model = "HostCallbackToken", element = "Auth", symbol = "Server.ValidateToken" },
     { model = "HostCallbackToken", element = "End paths", symbol = "ContainerRuntime.prepareContainerExecution" },
     { model = "LockIdentity", element = "v2Parse", symbol = "parseLockFile" },
-    { model = "ModulePathContainment", element = "ValidateScriptPath", symbol = "ValidateScriptPath" },
-    { model = "ModulePathContainment", element = "checkSymlinkSafety", symbol = "checkSymlinkSafety" },
     { model = "ModulePathContainment", element = "unpackRejectsEscape", symbol = "validateDestinationPath" },
     { model = "ScopeConstruction", element = "modUnlessExplicit", symbol = "CheckModuleCollisions" },
     { model = "ScopeConstruction", element = "moduleSourcesHaveIDs", symbol = "moduleIdentityFor" },
@@ -1223,7 +1217,61 @@ the leg fails on a copy or hash error, decision 30). Recorded as \
 findingF16JunctionScan (scan records symlinks only) \
 next to the passing fix configuration scriptReadScanAllKinds, guarded by \
 mutantScanNoKinds; the leg asserts the escape and the property admits the \
-junction hole."""
+junction hole. \
+2026-11-19 (module-read-physical-containment, F13 fixed, decision 46 option \
+(a)): accepts gains physContains for ScriptRead; both resolvers run \
+checkModuleFilePhysicalContainment (os.Root Stat on the module directory) \
+before the injected reader, bound as the physContains row. The golden is \
+replayed twice: a relative pass (fstree RelativeLinkTargets) equal to dAccepts \
+on every vector, and an absolute pass on the instances with a link, in which \
+os.Root denies a link with an absolute target even inside the module (code \
+stricter than model); its class "in-module link with an absolute target" \
+holds 384 ScriptRead vectors, each denied by both resolvers, and the pass \
+fails when the class is empty. Both passes take 3.4-3.9 s locally, and the \
+reach gate 7.3 s, under budget_seconds = 36. Seeded in the helper one at a \
+time and reverted: treating os.Root's escape error as absent fails the golden \
+(1728 disagreements, relative pass first), \
+TestModulePathContainment_VendoredSymlinkScriptReadDenied and \
+TestModulePathContainment_AbsoluteInModuleLinkDenied; following absolute link \
+targets (EvalSymlinks of both sides and a prefix test in place of the os.Root \
+Stat, unresolvable links still denied) fails only the absolute pass's \
+classified vectors (768 disagreements: 384 vectors x 2 resolvers) and \
+TestModulePathContainment_AbsoluteInModuleLinkDenied. findingF13VendoredSymlink \
+is renamed mutantPreFixF13LexicalScriptContainment (pre-fix regression \
+mutant). F16 interim: the leg's script-read arm now asserts the denial \
+(containment pending windows-latest evidence); findingF16JunctionScan keeps \
+reporting the escape for the script read until F16 is reclassified. \
+Same day, F17 fixed: accepts gains physContains for EnvRead; LoadEnvFile \
+takes the module root and, in module context, reads through os.Root \
+(ErrEnvFileOutsideModule for an absolute path, an escape or an unresolvable \
+link). The golden env replay calls the real LoadEnvFile with the module root \
+on every admitted and validated vector and takes the code's verdict only from \
+the error class (ErrEnvFileOutsideModule = denied). The absolute pass's class \
+holds 384 EnvRead vectors. Seeded in LoadEnvFile's module branch and \
+reverted: bypassing the root (os.ReadFile of the joined path after the \
+lexical check) fails the golden with 960 disagreements, among them the 96 \
+relative-pass escaping-link vectors on which LoadEnvFile loads the outside \
+sentinel with no error ("real accept=true, want false"), 288 relative-pass \
+env disagreements in all; treating an unresolvable link as not-exist fails it \
+with 96 disagreements, the relative-pass link-cycle vectors (ELOOP). The \
+golden's dangling links name a missing entry under the host root, so os.Root \
+reports them as escapes before the Lstat branch; the unit tests in \
+internal/runtime cover a dangling link inside the module. \
+findingF17EnvVendoredSymlink is renamed \
+mutantPreFixF17EnvNoPhysicalContainment (pre-fix regression mutant). \
+F16 fixed (outcome d): on windows-latest (CI run 44648263846, Test (windows) \
+job 135996334113) TestModulePathContainment_F16Junction ran and passed with \
+IsModule and Load still admitting a module with an inner junction, the script \
+read of j/secret denied (ErrScriptPathTraversal, no sentinel), and both copies \
+and the hash contained. The same run first needed a recovered os.Root panic \
+(Go 1.27.4 on Windows, a link to its own directory; run 44645245657, job \
+135986033972). scriptReadScanGuarded gains phys (the os.Root read check); the \
+fix configuration scriptReadScanPhysical (SymKind scan, phys) passes, and \
+findingF16JunctionScan is renamed mutantPreFixF16JunctionScriptRead (SymKind \
+scan, no phys: counterexample). scriptReadScanAllKinds and mutantScanNoKinds \
+keep their meaning with phys off. The leg gains an env-read arm, and the rapid \
+property drops its F16 carve-out; both are confirmed by the next windows-latest \
+run of the PR."""
 
 [model.golden]
 command = "golden"
@@ -1256,31 +1304,45 @@ expect = "counterexample"
 property = "scriptReadGuarded"
 mutant_of = "scriptReadDiscoveryGuarded"
 
-# Junction-aware scan (fix) with the F16 finding: Load's scan on Windows
-# records symlinks only, so an inner junction admits an escaping read.
+# Junction-aware scan, and the physical read check that fixed F16: Load's scan
+# on Windows records symlinks only, so an inner junction is admitted, and only
+# the os.Root read check keeps the read inside (module-read-physical-containment).
 [[model.command]]
 name = "scriptReadScanAllKinds"
-body = "scriptReadScanGuarded[LinkKind]"
+body = "scriptReadScanGuarded[LinkKind, False]"
 expect = "pass"
 property = "scriptReadScanGuarded"
 antecedent = "anteScriptGuarded"
 
 [[model.command]]
 name = "mutantScanNoKinds"
-body = "scriptReadScanGuarded[none]"
+body = "scriptReadScanGuarded[none, False]"
 expect = "counterexample"
 property = "scriptReadScanGuarded"
 mutant_of = "scriptReadScanAllKinds"
+
+# scriptReadScanPhysical is a definitional fix configuration: with phys on, the
+# guard includes physContains, which already implies contained whatever the
+# scan records, so the command restates the F16 fix rather than checking it.
+# The code-side assurance (os.Root denies the read through an inner junction)
+# comes from TestModulePathContainment_F16Junction on windows-latest and the
+# golden replay's absolute pass. The same holds for the PhysMode commands.
+[[model.command]]
+name = "scriptReadScanPhysical"
+body = "scriptReadScanGuarded[SymKind, True]"
+expect = "pass"
+property = "scriptReadScanGuarded"
+antecedent = "anteScriptGuarded"
 
 [[model.command]]
-name = "findingF16JunctionScan"
-body = "scriptReadScanGuarded[SymKind]"
-finding = "F16"
+name = "mutantPreFixF16JunctionScriptRead"
+body = "scriptReadScanGuarded[SymKind, False]"
 expect = "counterexample"
 property = "scriptReadScanGuarded"
-mutant_of = "scriptReadScanAllKinds"
+mutant_of = "scriptReadScanPhysical"
 
-# Script read containment (physical fix), with the F13 finding.
+# Script read containment (physical fix), with the fixed F13 as its pre-fix
+# regression mutant (module-read-physical-containment).
 [[model.command]]
 name = "scriptReadContainedPhysical"
 body = "readContainedKind[ScriptRead, PhysMode]"
@@ -1301,14 +1363,14 @@ property = "readContainedKind"
 mutant_of = "scriptReadContainedPhysical"
 
 [[model.command]]
-name = "findingF13VendoredSymlink"
+name = "mutantPreFixF13LexicalScriptContainment"
 body = "readContainedKind[ScriptRead, LexMode]"
-finding = "F13"
 expect = "counterexample"
 property = "readContainedKind"
 mutant_of = "scriptReadContainedPhysical"
 
-# Env-file read containment (physical fix), with the F17 finding.
+# Env-file read containment (physical fix), with the fixed F17 as its pre-fix
+# regression mutant (module-read-physical-containment).
 [[model.command]]
 name = "envReadContainedPhysical"
 body = "readContainedKind[EnvRead, PhysMode]"
@@ -1329,9 +1391,8 @@ property = "readContainedKind"
 mutant_of = "envReadContainedPhysical"
 
 [[model.command]]
-name = "findingF17EnvVendoredSymlink"
+name = "mutantPreFixF17EnvNoPhysicalContainment"
 body = "readContainedKind[EnvRead, LexMode]"
-finding = "F17"
 expect = "counterexample"
 property = "readContainedKind"
 mutant_of = "envReadContainedPhysical"

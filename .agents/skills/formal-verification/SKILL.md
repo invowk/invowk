@@ -196,7 +196,12 @@ first; the evidence lands in `tools/mutation/triage/formal-bindings-reruns.jsonl
 3. **deferred gap:** keep it in the ledger with a `follow_up`.
 4. **abstraction:** state it in the row's abstraction cell; the ledger reason
    must be a substring of that cell.
-5. **equivalent:** record the reason.
+5. **equivalent:** record the reason. It must hold for every input the
+   function accepts. "A later check rejects the same input" is equivalent only
+   if that check always runs: four `LoadEnvFile` pre-check mutants were masked
+   by `os.Root` only while `os.OpenRoot` succeeded (module-read-physical-containment).
+   Probe the claim with `go test -overlay` and the mutated file in a scratch
+   directory; never mutate the worktree's bound files. Otherwise defer it.
 6. **defect:** a strengthened binding fails on unmodified code. Record a
    finding under the next free id (a `finding =` command next to a passing
    fix configuration, a characterisation test, a `formal/README.md` Findings
@@ -256,7 +261,9 @@ mutation-partial-refresh):
    moved between two chosen symbols comes back untriaged too.
 4. Run the `make mutation-formal-rerun MUTATION_MUTANT_ID=...` line the refresh
    printed twice (commit first when it changed `formal/manifest.toml`: the
-   wrapper refuses a dirty manifest). The reruns record evidence at the
+   wrapper refuses a dirty manifest, and any other tracked edit outside its
+   allow-list, such as a `tasks/next/formal-binding-gaps.md` update; the
+   refreshed ledger and baseline themselves may stay uncommitted). The reruns record evidence at the
    entries' own digest; no digest is copied by hand.
 5. `python3 scripts/formal_mutation.py triage --check` must pass. Remove the
    throwaway worktree.

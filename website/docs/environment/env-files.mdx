@@ -55,7 +55,9 @@ Paths are relative to the invowkfile location:
 
 <Snippet id="environment/env-files-path-resolution" />
 
-For modules, paths are relative to the module root.
+For modules, paths are relative to the module root, and every env file must resolve inside the module directory. Links on the path are followed, but a link that leads outside the module (including one under `invowk_modules/`), a link with an absolute target, or a link that does not resolve fails the command with `env file resolves outside module`. For a module, an optional `?` file is skipped only when nothing exists at its path; a broken or escaping link still fails.
+
+Env files of a plain `invowkfile.cue` (not in a module) are not restricted this way: a `.env` that is a link to a file elsewhere, such as `~/secrets/.env`, keeps working.
 
 ## Variable Interpolation
 

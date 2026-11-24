@@ -41,7 +41,6 @@ var (
 		"pkg/invowkfile.VolumeMountSpec.Validate":                   {testFile: "pkg/invowkfile/volume_mount_test.go", testFunc: "TestVolumeMountSpec_Validate_Matrix"},
 		"pkg/invowkfile.isAbsolutePath":                             {testFile: "pkg/invowkfile/validation_test.go", testFunc: "TestIsAbsolutePath"},
 		"pkg/invowkmod.Module.ResolveScriptPath":                    {testFile: "pkg/invowkmod/operations_test.go", testFunc: "TestModule_ResolveScriptPath"},
-		"pkg/invowkmod.Module.ValidateScriptPath":                   {testFile: "pkg/invowkmod/operations_test.go", testFunc: "TestModule_ValidateScriptPath"},
 		"pkg/invowkmod.SubdirectoryPath.Validate":                   {testFile: "pkg/invowkmod/module_types_test.go", testFunc: "TestSubdirectoryPath_Validate"},
 		"pkg/types.FilesystemPath.Validate":                         {testFile: "pkg/types/filesystem_path_test.go", testFunc: "TestFilesystemPath_Validate"},
 	}
@@ -207,10 +206,6 @@ var (
 			testFile: "pkg/invowkfile/workdir_type_test.go",
 			testFunc: "TestWorkDir_Validate",
 			reason:   "WorkDir.Validate enforces value-object emptiness rules; path dialect resolution belongs to GetEffectiveWorkDir",
-		},
-		"pkg/invowkmod.isWindowsDrivePath": {
-			testFile: "pkg/invowkmod/invowkmod_mutation_test.go",
-			reason:   "private lexical predicate is exercised through the registered SubdirectoryPath validator matrix",
 		},
 		"pkg/invowkmod.resolveValidatedModulePath": {
 			testFile: "pkg/invowkmod/operations_validate_mutation_test.go",

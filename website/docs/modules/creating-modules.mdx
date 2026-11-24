@@ -70,6 +70,8 @@ Reference them:
 
 <Snippet id="modules/env-files-ref" />
 
+A module's env files must resolve inside the module directory, with every link on the path followed. An absolute path, a path that leaves the module, a link to a file outside it (also under `invowk_modules/`), a link with an absolute target, or a link that does not resolve makes the command fail with `env file resolves outside module` before it runs, even for an optional `?` file. An optional file is skipped only when nothing exists at its path.
+
 ## Documentation
 
 Include a README for users:
