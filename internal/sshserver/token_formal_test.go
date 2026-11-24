@@ -197,11 +197,22 @@ func dialWithToken(t *testing.T, srv *Server, token TokenValue) *gossh.Client {
 // of the handshake returns. A Stop in that window finds nothing to wait for
 // and returns nil, which a slow CI runner hit once. The server reads global
 // requests only on a goroutine it starts after that registration, so any
-// reply, accepted or not, proves the connection is tracked.
+// reply, accepted or not, proves the connection is tracked. The wait is
+// bounded so a server that stops answering fails the test instead of hanging.
 func waitUntilServerTracksConn(t *testing.T, client *gossh.Client) {
 	t.Helper()
-	if _, _, err := client.SendRequest("keepalive@openssh.com", true, nil); err != nil {
-		t.Fatalf("SendRequest(keepalive) error = %v, want a reply once the server tracks the connection", err)
+	replied := make(chan error, 1)
+	go func() {
+		_, _, err := client.SendRequest("keepalive@openssh.com", true, nil)
+		replied <- err
+	}()
+	select {
+	case err := <-replied:
+		if err != nil {
+			t.Fatalf("SendRequest(keepalive) error = %v, want a reply once the server tracks the connection", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("SendRequest(keepalive) got no reply within 10s; the server never tracked the connection")
 	}
 }
 
