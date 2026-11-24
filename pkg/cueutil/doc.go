@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package cueutil provides shared CUE parsing utilities.
+// Package cueutil provides shared CUE parsing utilities for invowk.
 //
 // The package consolidates the 3-step CUE parsing pattern used across invowkfile,
 // invowkmod, and config packages:
