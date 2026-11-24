@@ -19,7 +19,8 @@ replaced the 22 stale `standardVirtualAnchorsForOS` survivors with the 5 of its
 new body, which left 403 distinct ids in the ledger and in the baseline (no id
 is listed twice any more). The partial refresh of
 module-read-physical-containment (2026-11-19) removed 6 and added 35, so both
-now hold 432.
+held 432. The partial refresh of virtual-path-physical-normalisation
+(2026-11-24) removed 21 and added 1, so both now hold 412.
 
 ## Rows whose binding does not reach the function
 
@@ -143,11 +144,15 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### newVirtualPathResolverForFilesystem
 
-`internal/runtime/virtual_policy.go`, 12 survivors. The harness golden builds its validator over materialised roots directly and never calls the resolver constructor.
+`internal/runtime/virtual_policy.go`, 4 survivors (12 before virtual-path-physical-normalisation, 2026-11-24, whose refresh found 8 of them killed). The harness golden builds its validator over materialised roots directly and never calls the resolver constructor.
 
 ### normalizeExistingOrParent
 
-`internal/runtime/virtual_policy.go`, 12 survivors. Golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached.
+`internal/runtime/virtual_policy.go`, no survivors. virtual-path-physical-normalisation (2026-11-24) moved the resolution into `walkVirtualPath` and its helpers, so the 12 survivors of the old body were no longer generated and left the ledger.
+
+### walkVirtualPath
+
+`internal/runtime/virtual_policy.go`, 1 survivor, added by virtual-path-physical-normalisation (2026-11-24). Returning the zero walk when the canonical step fails drops `unresolvedLink`. Strict callers deny on that error either way; only the full-access fallback form changes, and no killer makes the canonical step fail after a walk that ended inside a link target. A `TestVirtualPathHarness_WalkOverFakeFilesystem` case with a `canonErr` on a dangling link's target directory that asserts `unresolvedLink` would close it.
 
 ### pathWithin
 
@@ -159,7 +164,7 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### virtualPathValidator.validate
 
-`internal/runtime/virtual_policy.go`, 3 survivors. Error-message and early-return branches no golden instance reaches.
+`internal/runtime/virtual_policy.go`, 2 survivors (3 before virtual-path-physical-normalisation, 2026-11-24, whose refresh found one killed). Error-message and early-return branches no golden instance reaches.
 
 ### Server.GenerateToken
 
