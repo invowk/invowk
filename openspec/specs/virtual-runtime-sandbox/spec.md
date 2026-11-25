@@ -579,7 +579,7 @@ virtual-lua's `invowk.cmd` and `invowk.capture` SHALL run `cp` through the same 
 - **THEN** the call SHALL fail with `virtual path denied`, and the link's target SHALL NOT change
 
 ### Requirement: The work directory is an allowed root unless a module declares it outside the module
-Under `restricted` access the effective work directory SHALL be an allowed root, except when the invowkfile belongs to a module, the work directory comes from that invowkfile's root, command or implementation `workdir`, and it resolves physically outside the module directory. That work directory SHALL NOT be an allowed root by being the work directory, and SHALL still be the process's working directory.
+Under `restricted` access the effective work directory SHALL be an allowed root, except when Invowk loaded the invowkfile as part of a module, the work directory comes from that invowkfile's root, command or implementation `workdir`, and it resolves physically outside the module directory. That work directory SHALL NOT be an allowed root by being the work directory, and SHALL still be the process's working directory.
 
 #### Scenario: Other roots may still enclose an outside workdir
 - **WHEN** a module-declared work directory outside the module lies below a `virtual.filesystem.paths` entry or another implicit root (the script base, a standard anchor, the temporary roots)
@@ -610,7 +610,7 @@ Under `restricted` access the effective work directory SHALL be an allowed root,
 - **THEN** that directory SHALL be an allowed root, and reads and writes below it SHALL be allowed
 
 #### Scenario: Plain invowkfile workdir stays a root
-- **WHEN** an invowkfile that does not belong to a module declares a `workdir` outside its own directory, such as `../packages/x`, and a virtual script reads there under `restricted` access
+- **WHEN** an invowkfile that Invowk did not load as part of a module declares a `workdir` outside its own directory, such as `../packages/x`, and a virtual script reads there under `restricted` access
 - **THEN** that directory SHALL be an allowed root, and the read SHALL be allowed
 
 #### Scenario: Declared path keeps an outside workdir readable

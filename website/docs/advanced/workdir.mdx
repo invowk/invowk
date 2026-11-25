@@ -76,14 +76,14 @@ With `workdir`, that subdirectory becomes the container's working directory:
 
 ## Virtual Runtimes
 
-Under the default `restricted` filesystem access of the `virtual-sh` and `virtual-lua` runtimes, the workdir is also an allowed root for the script's file access, with one exception: a `workdir` that a module's own invowkfile declares (at the root, command or implementation level) and that resolves outside the module directory. Links and junctions are followed, and a workdir that cannot be resolved, or that lies on another drive, counts as outside.
+Under the default `restricted` filesystem access of the `virtual-sh` and `virtual-lua` runtimes, the workdir is also an allowed root for the script's file access, with one exception: a `workdir` that a module's own invowkfile declares (at the root, command or implementation level) and that resolves outside the module directory. Links and junctions are followed, and a workdir that cannot be resolved, or that lies on another drive, counts as outside. Here a module's invowkfile is one that Invowk loads as part of a module.
 
 Such a workdir is still the script's working directory, and `@work`, `INVOWK_ANCHOR_WORK` and `invowk.path("@work")` still name it, but reads and writes there are refused with `virtual path denied` unless another allowed root covers them. The same check covers `cd` and the shell's file tests: `cd` into a directory there fails, and a test such as `[ -f settings.json ]` is false even when the file exists. Host binaries listed in `allowed_binaries` are not checked: they run as native host processes with that directory as their working directory and keep their host access, because the virtual runtimes do not isolate host binaries (use the `container` runtime for isolation). To keep the directory readable and writable for the script itself:
 
 - declare it in the selected platform's `virtual.filesystem.paths`, for example `WORK: "@work"`;
 - or pass `--ivk-workdir` with that directory: a workdir chosen on the command line is always an allowed root.
 
-These workdirs stay allowed roots as before: the `--ivk-workdir` override, any workdir of an invowkfile that is not in a module (such as `../packages/x` in a monorepo), a module's default workdir, and a module workdir inside the module. `virtual.filesystem.access: "full"`, the `native` runtime and the `container` runtime are not affected. See [File Access](../runtime-modes/virtual#file-access) for the other roots.
+These workdirs stay allowed roots as before: the `--ivk-workdir` override, any workdir of an invowkfile that Invowk does not load as part of a module (such as `../packages/x` in a monorepo), a module's default workdir, and a module workdir inside the module. `virtual.filesystem.access: "full"`, the `native` runtime and the `container` runtime are not affected. See [File Access](../runtime-modes/virtual#file-access) for the other roots.
 
 ## Cross-Platform Paths
 

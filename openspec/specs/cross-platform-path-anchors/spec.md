@@ -79,7 +79,7 @@ Invowk SHALL automatically allow restricted virtual runtime access to `@config`,
 - **THEN** virtual scripts SHALL be able to access only that mapped path subtree
 
 #### Scenario: Work anchor of a trusted work directory is allowed
-- **WHEN** the effective work directory is the `--ivk-workdir` override, a workdir of an invowkfile that is not in a module, a module's default work directory, or a module-declared workdir inside the module, and a restricted virtual script opens `invowk.path("@work/out.json")`
+- **WHEN** the effective work directory is the `--ivk-workdir` override, a workdir of an invowkfile that Invowk did not load as part of a module, a module's default work directory, or a module-declared workdir inside the module, and a restricted virtual script opens `invowk.path("@work/out.json")`
 - **THEN** Invowk SHALL allow the access if the resolved path remains under `@work`
 
 #### Scenario: Work anchor of a module workdir outside the module is not a root
