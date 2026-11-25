@@ -290,7 +290,7 @@ func TestLockFileSaveIfChangedFailedSaveIsNotAWrite(t *testing.T) {
 	}
 }
 
-func TestLockFileSaveIfChangedWriteErrorIsNotAWrite(t *testing.T) {
+func TestLockFileSaveIfChangedMkdirErrorIsNotAWrite(t *testing.T) {
 	t.Parallel()
 
 	// A regular file where the parent directory should be makes MkdirAll fail.
@@ -304,5 +304,31 @@ func TestLockFileSaveIfChangedWriteErrorIsNotAWrite(t *testing.T) {
 	}
 	if written {
 		t.Fatal("SaveIfChanged() written = true on a failed save")
+	}
+}
+
+func TestLockFileSaveIfChangedAtomicWriteErrorIsNotAWrite(t *testing.T) {
+	t.Parallel()
+
+	// A non-empty directory at the lock path: the parent exists, so MkdirAll
+	// succeeds, and the atomic write fails when it renames its temporary file
+	// over the directory.
+	path := filepath.Join(t.TempDir(), LockFileName)
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatalf("MkdirAll(lock path) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(path, "keep"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("WriteFile(keep) error = %v", err)
+	}
+	written, err := saveTestLock(saveTestModules()).SaveIfChanged(path)
+	if err == nil {
+		t.Fatal("SaveIfChanged() error = nil, want the atomic write to fail")
+	}
+	if written {
+		t.Fatal("SaveIfChanged() written = true on a failed write")
+	}
+	info, statErr := os.Stat(path)
+	if statErr != nil || !info.IsDir() {
+		t.Fatalf("Stat(lock path) = %v, %v; want the directory left in place", info, statErr)
 	}
 }

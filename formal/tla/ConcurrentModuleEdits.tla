@@ -9,12 +9,13 @@
   this module and the scenario is an ordinary string constant.
 
   Named assumptions:
-    A1  Every fspath.AtomicWriteFile call (LockFile.Save, AddRequirement,
-        RemoveRequirement) is one atomic replace; AtomicWrite owns crash
-        durability and is not re-checked here. LockFile.Save skips the write
-        when the valid lock on disk already has equal content; the model
-        tracks lock entries, not bytes or timestamps, so that skip is the
-        same step as a replace with identical content.
+    A1  Every fspath.AtomicWriteFile call (LockFile.SaveIfChanged, which
+        LockFile.Save wraps; AddRequirement; RemoveRequirement) is one atomic
+        replace; AtomicWrite owns crash durability and is not re-checked
+        here. LockFile.SaveIfChanged skips the write when the valid lock on
+        disk already has equal content; the model tracks lock entries, not
+        bytes or timestamps, so that skip is the same step as a replace with
+        identical content.
     A2  A fetch (ListVersions, clone/fetch, checkout) has no shared effect,
         except that an abstract (non-source) fetch fills the cache with the
         honest content of the resolved version, idempotently. Scenarios that
@@ -336,8 +337,8 @@ CopyToCache(p) ==
                /\ Advance(p)
                /\ UNCHANGED <<fileVars, worktree, vendor, snapLock, snapMod, readLock, readMod, editErr, rphase, histVars>>
 
-\* LockFile.Save (A1). Add re-reads the lock before saving; remove, sync, and
-\* update write from their earlier reads.
+\* LockFile.SaveIfChanged, which LockFile.Save wraps (A1). Add re-reads the
+\* lock before saving; remove, sync, and update write from their earlier reads.
 WriteLock(p) ==
     /\ At(p, "WriteLock")
     /\ LET j == ProjOf(p)

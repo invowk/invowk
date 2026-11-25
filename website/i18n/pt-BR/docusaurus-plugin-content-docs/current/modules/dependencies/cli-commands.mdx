@@ -98,7 +98,7 @@ Remove uma dependência de módulo do lock file e de `invowkmod.cue`.
 1. Remove o módulo do lock file
 2. Autoedita `invowkmod.cue` para remover a entrada correspondente em `requires`
 
-A saída termina com `✓ Lock file and invowkmod.cue updated`. Se o lock file no disco já não tinha as entradas removidas quando foi salvo, o salvamento não o altera e a última linha fica `✓ Lock file unchanged; invowkmod.cue updated`.
+A saída termina com `✓ Lock file and invowkmod.cue updated`. Só quando outro processo removeu as mesmas entradas do lock file entre a leitura deste comando e o salvamento o lock no disco já não as tem; então o salvamento não o altera e a última linha fica `✓ Lock file unchanged; invowkmod.cue updated`.
 
 Arquivos de cache não são deletados.
 :::

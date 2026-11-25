@@ -107,7 +107,7 @@ Remove Module Dependency
 ✓ Lock file and invowkmod.cue updated
 ```
 
-If the lock file on disk already lacked the removed entries when it was saved, the save leaves it untouched and the last line reads `✓ Lock file unchanged; invowkmod.cue updated`.
+Only when another process removed the same entries from the lock file between this command's read and its save does the lock on disk already lack them; then the save leaves it untouched and the last line reads `✓ Lock file unchanged; invowkmod.cue updated`.
 
 Cached files are not deleted.
 :::

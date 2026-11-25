@@ -1,8 +1,9 @@
 \* SPDX-License-Identifier: MPL-2.0
 ------------------------------ MODULE AtomicWrite ------------------------------
 (*
-  pkg/fspath.AtomicWriteFile (used by LockFile.Save) over an abstract
-  filesystem that separates what processes see from what survives power loss.
+  pkg/fspath.AtomicWriteFile (used by LockFile.SaveIfChanged, which
+  LockFile.Save wraps) over an abstract filesystem that separates what
+  processes see from what survives power loss.
 
   Named axioms:
     A1  Writes change the visible inode data, not its durable data.
