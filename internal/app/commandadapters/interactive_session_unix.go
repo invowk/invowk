@@ -7,6 +7,7 @@ package commandadapters
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"syscall"
 
@@ -40,11 +41,10 @@ func prepareInteractiveCmd(cmd *exec.Cmd, pty xpty.Pty) error {
 	if cmd.SysProcAttr != nil {
 		return errInteractiveSysProcAttrPreset
 	}
-	unixPty, ok := pty.(*xpty.UnixPty)
-	if !ok {
-		return fmt.Errorf("interactive terminal is %T, want a Unix PTY", pty)
+	slave, err := ptySlave(pty)
+	if err != nil {
+		return err
 	}
-	slave := unixPty.Slave()
 	cmd.Stdin = slave
 	cmd.Stdout = slave
 	cmd.Stderr = slave
@@ -59,9 +59,18 @@ func prepareInteractiveCmd(cmd *exec.Cmd, pty xpty.Pty) error {
 // (design D8). UnixPty.Close closes the slave again later; the adapter
 // ignores the os.ErrClosed of that second close.
 func releaseParentSlave(pty xpty.Pty) error {
+	slave, err := ptySlave(pty)
+	if err != nil {
+		return err
+	}
+	return slave.Close()
+}
+
+// ptySlave returns the slave side of the viewer's Unix PTY.
+func ptySlave(pty xpty.Pty) (*os.File, error) {
 	unixPty, ok := pty.(*xpty.UnixPty)
 	if !ok {
-		return fmt.Errorf("interactive terminal is %T, want a Unix PTY", pty)
+		return nil, fmt.Errorf("interactive terminal is %T, want a Unix PTY", pty)
 	}
-	return unixPty.Slave().Close()
+	return unixPty.Slave(), nil
 }

@@ -46,7 +46,7 @@ type (
 )
 
 // newEmulatedScreen creates the emulator at width x height and starts the
-// reply pump and the writer, which writes queued input to sink.
+// reply pump and the writer, which writes queued input to sink (non-nil).
 func newEmulatedScreen(width, height TerminalDimension, sink io.Writer) *emulatedScreen {
 	emu := vt.NewEmulator(max(int(width), 1), max(int(height), 1))
 	emu.SetScrollbackSize(interactiveScrollbackLines)
@@ -58,9 +58,6 @@ func newEmulatedScreen(width, height TerminalDimension, sink io.Writer) *emulate
 	}
 	if closer, ok := emu.InputPipe().(io.Closer); ok {
 		s.input = closer
-	}
-	if sink == nil {
-		sink = io.Discard
 	}
 	go s.pump()
 	go s.write(sink)
@@ -74,8 +71,8 @@ func newEmulatedScreen(width, height TerminalDimension, sink io.Writer) *emulate
 func (s *emulatedScreen) pump() {
 	defer close(s.pumpDone)
 	defer close(s.queue)
+	buf := make([]byte, interactiveInputReadSize)
 	for {
-		buf := make([]byte, interactiveInputReadSize)
 		n, err := s.emu.Read(buf)
 		if n > 0 {
 			size := int64(n)
@@ -83,7 +80,7 @@ func (s *emulatedScreen) pump() {
 				s.dropped.Add(size)
 			} else {
 				select {
-				case s.queue <- buf[:n]:
+				case s.queue <- append([]byte(nil), buf[:n]...):
 					s.queued.Add(size)
 				default:
 					s.dropped.Add(size)

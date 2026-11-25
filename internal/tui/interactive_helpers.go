@@ -12,6 +12,11 @@ const (
 	interactiveHeaderRows = 2
 	// interactiveFooterRows is the viewer's status line.
 	interactiveFooterRows = 1
+
+	// interactiveDefaultWidth and interactiveDefaultHeight are the size
+	// assumed when the terminal's size cannot be read.
+	interactiveDefaultWidth  TerminalDimension = 80
+	interactiveDefaultHeight TerminalDimension = 24
 )
 
 // InteractiveCommandArea returns the size of the command area of an
@@ -23,17 +28,24 @@ func InteractiveCommandArea(width, height TerminalDimension) (cols, rows Termina
 	return width, max(height-interactiveHeaderRows-interactiveFooterRows, 1)
 }
 
-// newInteractiveModel creates the viewer model with its emulated screen at
-// the command area of the current terminal (80x24 when it cannot be read),
-// the size the runtime adapter gave the command's PTY. The screen writes
-// replies and keys to terminal (discarded when terminal is nil).
-func newInteractiveModel(opts InteractiveOptions, terminal InteractiveTerminal) *interactiveModel {
-	width, height := TerminalDimension(80), TerminalDimension(24)
+// InteractiveTerminalSize returns the size of the terminal the interactive
+// viewer draws in, or 80x24 when it cannot be read. The runtime adapter
+// sizes the command's PTY and the viewer sizes its emulated screen from it,
+// so both start at the same command area.
+func InteractiveTerminalSize() (width, height TerminalDimension) {
 	if w, h, err := TerminalSize(); err == nil && w > 0 && h > 0 {
-		width, height = w, h
+		return w, h
 	}
-	cols, rows := InteractiveCommandArea(width, height)
-	var sink io.Writer
+	return interactiveDefaultWidth, interactiveDefaultHeight
+}
+
+// newInteractiveModel creates the viewer model with its emulated screen at
+// the command area of InteractiveTerminalSize, the size the runtime adapter
+// gave the command's PTY. The screen writes replies and keys to terminal
+// (discarded when terminal is nil).
+func newInteractiveModel(opts InteractiveOptions, terminal InteractiveTerminal) *interactiveModel {
+	cols, rows := InteractiveCommandArea(InteractiveTerminalSize())
+	sink := io.Discard
 	if terminal != nil {
 		sink = terminal
 	}

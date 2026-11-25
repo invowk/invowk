@@ -17,11 +17,7 @@ import (
 )
 
 func runInteractiveCmd(ctx context.Context, opts tui.InteractiveOptions, cmd *exec.Cmd) (result *tui.InteractiveResult, err error) {
-	width, height := tui.TerminalDimension(80), tui.TerminalDimension(24)
-	if w, h, termErr := tui.TerminalSize(); termErr == nil && w > 0 && h > 0 {
-		width, height = w, h
-	}
-
+	width, height := tui.InteractiveTerminalSize()
 	pty, err := startInteractivePty(cmd, width, height)
 	if err != nil {
 		return nil, err

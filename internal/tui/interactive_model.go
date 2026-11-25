@@ -53,12 +53,8 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleWindowSize(msg)
 
 	case outputMsg:
-		m.writeScreen(msg)
-		if m.state == stateCompleted {
-			rebuild := m.scheduleCompletedRebuild()
-			return m, rebuild
-		}
-		return m, nil
+		rebuild := m.applyOutput(msg)
+		return m, rebuild
 
 	case completedRebuildMsg:
 		m.rebuildPending = false
@@ -290,15 +286,21 @@ func (m *interactiveModel) handleStyledTextRequest(msg TUIComponentMsg) (tea.Mod
 	}
 	// The text goes where the command's output is: onto its screen, with
 	// each line starting at the left margin.
-	m.writeScreen(outputMsg{data: []byte(strings.ReplaceAll(rendered, "\n", "\r\n"))})
+	rebuild := m.applyOutput(outputMsg{data: []byte(strings.ReplaceAll(rendered, "\n", "\r\n"))})
 	go func() {
 		msg.ResponseCh <- ComponentResponse{}
 	}()
+	return m, rebuild
+}
+
+// applyOutput writes the command's output to its screen and, past
+// completion, schedules the rebuild of the completed view that shows it.
+func (m *interactiveModel) applyOutput(out outputMsg) tea.Cmd {
+	m.writeScreen(out)
 	if m.state == stateCompleted {
-		rebuild := m.scheduleCompletedRebuild()
-		return m, rebuild
+		return m.scheduleCompletedRebuild()
 	}
-	return m, nil
+	return nil
 }
 
 // writeScreen applies output to the command's emulated screen. vt's Write
