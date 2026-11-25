@@ -3118,6 +3118,38 @@ added = '''
 '''
 
 [[survivor]]
+id = "2cfa81ff5b450eadcbb32761ee35c1f6"
+file = "internal/runtime/virtual_policy.go"
+symbol = "newVirtualPathResolverForFilesystem"
+model = "VirtualPathHarness"
+element = "allowedRoots"
+class = "equivalent"
+reason = "statement/remove (Changes: `roots = append(roots, workdir.path)` → `_, _, _ = roots, roots, workdir.path`) is equivalent: in the same branch the @work anchor is appended to rootAnchors, and standardVirtualAnchorsForOS sets @work to workdir.path exactly, so the loop over rootAnchors adds the same root and normalizedRoots dedupes it; an empty workdir path is no root either way (normalizeExistingOrParent refuses \"\" and the anchor loop skips \"\"). This is the mirror of the anchors row's masked case (decision 31)"
+follow_up = ""
+removed = '''
+		roots = append(roots, workdir.path)
+'''
+added = '''
+		_, _, _ = roots, roots, workdir.path
+'''
+
+[[survivor]]
+id = "ef1aa630722a0b1c88192f61bc8e0e83"
+file = "internal/runtime/virtual_policy.go"
+symbol = "newVirtualPathResolverForFilesystem"
+model = "VirtualPathHarness"
+element = "allowedRoots"
+class = "equivalent"
+reason = "statement/remove (Changes: `rootAnchors = append(rootAnchors, virtualAnchorWork)` → `_, _ = rootAnchors, rootAnchors`) is equivalent: the same branch appends workdir.path itself, and standardVirtualAnchorsForOS sets @work to workdir.path exactly, so the allowed roots are unchanged; this is the anchors row's masked case (decision 31): dropping @work is equivalent wherever the workdir itself is an allowed root"
+follow_up = ""
+removed = '''
+		rootAnchors = append(rootAnchors, virtualAnchorWork)
+'''
+added = '''
+		_, _ = rootAnchors, rootAnchors
+'''
+
+[[survivor]]
 id = "f0199139481c561d569d265945e762e2"
 file = "internal/runtime/virtual_policy.go"
 symbol = "standardVirtualAnchorsForOS"
@@ -6984,6 +7016,22 @@ removed = '''
 '''
 added = '''
 	if endsInVirtualPathSeparator(path) && true {
+'''
+
+[[survivor]]
+id = "bb3af7485f500c7243ab47d2dd2251f1"
+file = "internal/runtime/virtual_workdir.go"
+symbol = "virtualWorkdirFor"
+model = "VirtualPathHarness"
+element = "workdirIsRoot"
+class = "equivalent"
+reason = "expression/remove (Changes: `if inv.IsFromModule() && effective.Source.DeclaredByInvowkfile() {` → `if true && ...`) is equivalent: IsFromModule is `inv.ModulePath != \"\"` and the branch sets moduleRoot to string(inv.ModulePath), so for an invowkfile outside a module the mutant sets moduleRoot to \"\", which is the trusted workdir that isReadRoot admits, exactly as the original"
+follow_up = ""
+removed = '''
+	if inv.IsFromModule() && effective.Source.DeclaredByInvowkfile() {
+'''
+added = '''
+	if true && effective.Source.DeclaredByInvowkfile() {
 '''
 
 [[closed]]
