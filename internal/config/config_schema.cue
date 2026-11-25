@@ -88,11 +88,15 @@ import "strings"
 
 	// strict makes provisioning failure a hard error instead of falling back
 	// to the unprovisioned base image. When false (default), provisioning
-	// failure logs a warning and continues with the base image.
+	// failure logs a warning and continues with the base image. An unusable
+	// binary_path fails the command either way; a running binary skipped
+	// because it cannot run in the container only warns either way.
 	strict: *false | bool
 
-	// binary_path overrides the path to the invowk binary to provision.
-	// If not set, the currently running invowk binary is used.
+	// binary_path is the invowk binary to provision: a Linux executable for
+	// the image's architecture, or the command fails. If not set, the running
+	// invowk binary is used when it is such an executable; otherwise (macOS
+	// and Windows hosts, other architectures) it is skipped with a warning.
 	binary_path: *"" | (string & !="" & strings.MaxRunes(4096))
 
 	// includes specifies modules to provision into containers.

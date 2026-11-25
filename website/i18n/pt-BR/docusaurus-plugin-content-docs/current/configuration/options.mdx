@@ -237,14 +237,21 @@ Configura o comportamento do runtime container.
 **Padrão:** `true`
 
 Habilita o provisionamento automático do binário do invowk e módulos dentro dos containers.
-Quando habilitado, o Invowk cria uma imagem derivada em cache para cada execução de container, anexando uma pequena camada de provisionamento sobre a imagem base. Se o provisionamento falhar, o Invowk avisa e usa a imagem base.
+Quando habilitado, o Invowk cria uma imagem derivada em cache para cada execução de container, anexando uma pequena camada de provisionamento sobre a imagem base. Se o provisionamento falhar, o Invowk avisa e usa a imagem base (a menos que `strict` esteja ativo), exceto para um `binary_path` inutilizável, que sempre faz o comando falhar.
 
 #### container.auto_provision.binary_path
 
 **Tipo:** `string`
-**Padrão:** *(vazio; usa o binário do invowk em execução)*
+**Padrão:** *(vazio; usa o binário do invowk em execução quando ele é um executável Linux para a arquitetura da imagem)*
 
-Sobrescreve o caminho do binário do invowk para provisionar.
+O binário do invowk a instalar nas imagens provisionadas, para que comandos dentro do container possam executar o próprio `invowk` (dependências `invowk cmd` dentro do container, `invowk tui` com `-i`). Ele roda dentro de um container Linux, então precisa ser um executável Linux (ELF) compilado para a arquitetura da imagem. O Invowk lê o cabeçalho do arquivo antes de instalá-lo; ele nunca executa o arquivo para verificar.
+
+- **Não definido:** o Invowk usa o binário do invowk em execução. Num host Linux com a mesma arquitetura da imagem, nada muda. Num host macOS ou Windows o binário em execução é um arquivo Mach-O ou PE, e num host Linux ele pode ter sido compilado para outra arquitetura que não a da imagem (um host amd64 e uma imagem arm64, por exemplo). O Invowk então não o instala: continua provisionando seus módulos e executando o comando, exibe um aviso que cita `container.auto_provision.binary_path`, e chamadas `invowk` aninhadas dentro do container não funcionam.
+- **Definido:** o arquivo precisa ser um executável Linux para a arquitetura da imagem. Se ele não existir, não puder ser lido, não for um executável Linux ou tiver sido compilado para outra arquitetura, o comando falha com um erro que cita o caminho e o motivo, qualquer que seja o valor de `strict`.
+
+O Invowk descobre a arquitetura da imagem pela engine de containers (um `image inspect` somente leitura da imagem base; nada é baixado nem executado para isso). Quando a engine ainda não tem a imagem, o Invowk assume a arquitetura do host num host Linux e não verifica arquitetura nenhuma em outros hosts. Assim, num host Linux, um `binary_path` compilado para uma imagem de outra plataforma falha na primeira execução com um erro dizendo que a arquitetura foi assumida: baixe a imagem antes (`docker pull <imagem>` ou `podman pull <imagem>`), ou construa o Containerfile dela, e execute de novo.
+
+Para usar comandos invowk aninhados a partir de um host macOS ou Windows, baixe o arquivo de release Linux para a arquitetura da imagem (`invowk_<versão>_linux_amd64.tar.gz` para imagens amd64, `invowk_<versão>_linux_arm64.tar.gz` para imagens arm64, como as que o Docker Desktop executa no Apple silicon), descompacte-o e defina `binary_path` como o arquivo `invowk` dentro dele. Deixe-o vazio num host Linux cuja arquitetura seja a mesma da imagem.
 
 #### container.auto_provision.includes
 
@@ -265,7 +272,7 @@ Quando `true`, as entradas de `includes` do nível raiz são automaticamente her
 **Tipo:** `bool`
 **Padrão:** `false`
 
-Quando `true`, falhas de auto-provisionamento são tratadas como erros fatais ao invés de avisos. Por padrão, se o provisionamento falhar, o Invowk exibe um aviso e executa a imagem base. Com `strict: true`, o comando falha imediatamente em caso de falha de provisionamento.
+Quando `true`, falhas de auto-provisionamento são tratadas como erros fatais ao invés de avisos. Por padrão, se o provisionamento falhar, o Invowk exibe um aviso e executa a imagem base; um `binary_path` inutilizável é a exceção e sempre faz o comando falhar. Com `strict: true`, o comando falha imediatamente em caso de falha de provisionamento. Um binário do invowk em execução que é deixado de fora por não poder rodar no container (veja `binary_path`) não é uma falha: o comando executa com o aviso nos dois modos.
 
 #### container.auto_provision.cache_dir
 

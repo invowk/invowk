@@ -72,7 +72,7 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 |--------------------|----------|--------------|
 | **runtime.ContainerRuntime** | Private `runtime.containerEngine` port | Stores the narrowed engine contract needed for image build, one-shot runs, and persistent inspect/create/start/exec operations. The Docker, Podman, and sandbox-aware engine implementations satisfy this port. |
 | **provision.Provisioner** | Image-provisioning port stored by `ContainerRuntime` | `LayerProvisioner` is the production implementation created by the runtime constructors. |
-| **provision.LayerProvisioner** | Private `provision.imageBuilder` port | Uses the engine's `Build` and `ImageExists` operations without depending on the full `container.Engine` contract. |
+| **provision.LayerProvisioner** | Private `provision.imageBuilder` port | Uses the engine's `Build` and `ImageExists` operations without depending on the full `container.Engine` contract. When the engine also implements `EngineQueryRunner` (as for the network facts query `QueryEngineNetworkFacts`), it calls `QueryImageArchitecture`, a read-only `image inspect` of the base image, and installs the invowk binary only when it is a Linux ELF executable for that architecture. |
 | **runtime.persistentContainerPlan** | `containerplan.ResolvePersistentTarget` | Delegates the ephemeral-versus-persistent target decision to `internal/containerplan`; `ContainerRuntime` then applies the returned `PersistentPlan` through engine lifecycle operations. |
 
 ## Key Patterns

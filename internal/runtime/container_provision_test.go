@@ -225,8 +225,11 @@ func TestBuildProvisionConfig_HostDefaultsOwnedByRuntimeAdapter(t *testing.T) {
 	cfg := config.DefaultConfig()
 	provCfg := buildProvisionConfig(cfg)
 
-	if provCfg.InvowkBinaryPath == "" {
-		t.Fatal("buildProvisionConfig().InvowkBinaryPath is empty")
+	if provCfg.DefaultInvowkBinaryPath == "" {
+		t.Fatal("buildProvisionConfig().DefaultInvowkBinaryPath is empty, want the running executable")
+	}
+	if provCfg.InvowkBinaryPath != "" {
+		t.Fatalf("buildProvisionConfig().InvowkBinaryPath = %q, want empty without binary_path", provCfg.InvowkBinaryPath)
 	}
 	if provCfg.CacheDir == "" {
 		t.Fatal("buildProvisionConfig().CacheDir is empty")
@@ -328,12 +331,12 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 
 	engine := NewMockEngine().WithImageExists(false).WithBuildError(errors.New("disk full"))
 
-	// Configure provisioner with strict=true and a non-existent binary path
-	// to force Provision() to fail during resource hash computation.
+	// Configure provisioner with strict=true; the mocked build error makes
+	// Provision() fail.
 	provCfg := &provision.Config{
 		Enabled:          true,
 		Strict:           true,
-		InvowkBinaryPath: types.FilesystemPath(filepath.Join(tmpDir, "nonexistent-invowk")),
+		CacheDir:         types.FilesystemPath(tmpDir),
 		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
@@ -385,11 +388,12 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 
 	engine := NewMockEngine().WithImageExists(false).WithBuildError(errors.New("disk full"))
 
-	// Configure provisioner with strict=false and a non-existent binary path
+	// Configure provisioner with strict=false; the mocked build error makes
+	// Provision() fail.
 	provCfg := &provision.Config{
 		Enabled:          true,
 		Strict:           false,
-		InvowkBinaryPath: types.FilesystemPath(filepath.Join(tmpDir, "nonexistent-invowk")),
+		CacheDir:         types.FilesystemPath(tmpDir),
 		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}

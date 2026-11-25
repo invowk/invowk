@@ -76,6 +76,11 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 		Stderr:       ctx.IO.Stderr,
 	})
 	if err != nil {
+		// An unusable configured binary_path is what the user asked for:
+		// fail whatever strict says, never fall back to the base image.
+		if errors.Is(err, provision.ErrUnusableInvowkBinary) {
+			return "", nil, nil, nil, err
+		}
 		if r.provisionConfig.Strict {
 			// Multi-wrap (Go 1.20+): callers can match either sentinel via errors.Is
 			return "", nil, nil, nil, fmt.Errorf("%w: %w", errStrictModeProvisioning, err)
@@ -198,6 +203,9 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 	provisionCfg.Enabled = autoProv.Enabled
 	provisionCfg.Strict = autoProv.Strict
 
+	// InvowkBinaryPath carries only the configured binary_path; the running
+	// executable stays in DefaultInvowkBinaryPath, so the provisioner can
+	// fail on the first and skip the second.
 	if autoProv.BinaryPath != "" {
 		provisionCfg.InvowkBinaryPath = types.FilesystemPath(autoProv.BinaryPath)
 	}
@@ -234,9 +242,9 @@ func applyHostProvisionDefaults(provisionCfg *provision.Config) {
 		return
 	}
 
-	if provisionCfg.InvowkBinaryPath == "" {
+	if provisionCfg.DefaultInvowkBinaryPath == "" {
 		if binaryPath, err := os.Executable(); err == nil {
-			provisionCfg.InvowkBinaryPath = types.FilesystemPath(binaryPath) //goplint:ignore -- host path validated by provision.Config.Validate()
+			provisionCfg.DefaultInvowkBinaryPath = types.FilesystemPath(binaryPath) //goplint:ignore -- host path validated by provision.Config.Validate()
 		}
 	}
 	if userDir, err := config.CommandsDir(); err == nil {

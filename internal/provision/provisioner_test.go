@@ -182,9 +182,7 @@ func TestLayerProvisioner_Provision_CacheHit(t *testing.T) {
 
 	// Create a fake binary so hash calculation succeeds
 	binaryPath := filepath.Join(tmpDir, "invowk")
-	if err := os.WriteFile(binaryPath, []byte("fake-binary"), 0o755); err != nil {
-		t.Fatalf("failed to create fake binary: %v", err)
-	}
+	writeHostLinuxBinary(t, binaryPath, []byte("fake-binary"))
 
 	engine := newMockEngine()
 	engine.imageExistsResult = true // Simulate cached image exists
@@ -232,9 +230,7 @@ func TestLayerProvisioner_Provision_ForceRebuild(t *testing.T) {
 
 	// Create a fake binary
 	binaryPath := filepath.Join(tmpDir, "invowk")
-	if err := os.WriteFile(binaryPath, []byte("fake-binary"), 0o755); err != nil {
-		t.Fatalf("failed to create fake binary: %v", err)
-	}
+	writeHostLinuxBinary(t, binaryPath, []byte("fake-binary"))
 
 	engine := newMockEngine()
 	engine.imageExistsResult = true // Would be a cache hit normally
@@ -289,9 +285,7 @@ func TestLayerProvisioner_Provision_CacheMiss(t *testing.T) {
 
 	// Create a fake binary
 	binaryPath := filepath.Join(tmpDir, "invowk")
-	if err := os.WriteFile(binaryPath, []byte("fake-binary"), 0o755); err != nil {
-		t.Fatalf("failed to create fake binary: %v", err)
-	}
+	writeHostLinuxBinary(t, binaryPath, []byte("fake-binary"))
 
 	engine := newMockEngine()
 	engine.imageExistsResult = false // Cache miss
@@ -332,9 +326,7 @@ func TestLayerProvisioner_ProvisionUsesRequestWriters(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	binaryPath := filepath.Join(tmpDir, "invowk")
-	if err := os.WriteFile(binaryPath, []byte("fake-binary"), 0o755); err != nil {
-		t.Fatalf("failed to create fake binary: %v", err)
-	}
+	writeHostLinuxBinary(t, binaryPath, []byte("fake-binary"))
 
 	engine := newMockEngine()
 	engine.imageExistsResult = false
@@ -377,9 +369,7 @@ func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	binaryPath := filepath.Join(tmpDir, "invowk")
-	if err := os.WriteFile(binaryPath, []byte("fake-binary"), 0o755); err != nil {
-		t.Fatalf("failed to create fake binary: %v", err)
-	}
+	writeHostLinuxBinary(t, binaryPath, []byte("fake-binary"))
 
 	cfg := &Config{
 		Enabled:          true,
@@ -453,9 +443,7 @@ func TestLayerProvisioner_IsImageProvisioned(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	binaryPath := filepath.Join(tmpDir, "invowk")
-	if err := os.WriteFile(binaryPath, []byte("fake-binary"), 0o755); err != nil {
-		t.Fatalf("failed to create fake binary: %v", err)
-	}
+	writeHostLinuxBinary(t, binaryPath, []byte("fake-binary"))
 
 	t.Run("image exists", func(t *testing.T) {
 		t.Parallel()
@@ -524,9 +512,7 @@ func TestLayerProvisioner_PrepareBuildContext(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	binaryPath := filepath.Join(tmpDir, "invowk")
-	if err := os.WriteFile(binaryPath, []byte("fake-binary"), 0o755); err != nil {
-		t.Fatalf("failed to create fake binary: %v", err)
-	}
+	writeHostLinuxBinary(t, binaryPath, []byte("fake-binary"))
 
 	// Create a module directory
 	modulesDir := filepath.Join(tmpDir, "modules")
@@ -545,7 +531,7 @@ func TestLayerProvisioner_PrepareBuildContext(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -605,7 +591,7 @@ func TestLayerProvisioner_PrepareBuildContextPreservesModuleEntryNamespaces(t *t
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("prepareBuildContext() error = %v", err)
 	}
@@ -622,7 +608,7 @@ func TestLayerProvisioner_PrepareBuildContextPreservesModuleEntryNamespaces(t *t
 		t.Fatalf("copied module entries = %d, want 2", len(entries))
 	}
 
-	manifest, err := provisionenv.ParseManifest(provisionenv.Value(provisioner.buildEnvVars()[provisionenv.ModuleManifestName.String()]))
+	manifest, err := provisionenv.ParseManifest(provisionenv.Value(provisioner.buildEnvVars(provisioner.config.InvowkBinaryPath)[provisionenv.ModuleManifestName.String()]))
 	if err != nil {
 		t.Fatalf("parse module manifest: %v", err)
 	}
@@ -680,7 +666,7 @@ func TestLayerProvisioner_PrepareBuildContext_NoBinary(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -729,7 +715,7 @@ func TestLayerProvisioner_PrepareBuildContext_UsesCacheDir(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("prepareBuildContext() error = %v", err)
 	}
@@ -751,9 +737,7 @@ func TestLayerProvisioner_PrepareBuildContext_Cleanup(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	binaryPath := filepath.Join(tmpDir, "invowk")
-	if err := os.WriteFile(binaryPath, []byte("fake-binary"), 0o755); err != nil {
-		t.Fatalf("failed to create fake binary: %v", err)
-	}
+	writeHostLinuxBinary(t, binaryPath, []byte("fake-binary"))
 
 	cfg := &Config{
 		Enabled:          true,
@@ -767,7 +751,7 @@ func TestLayerProvisioner_PrepareBuildContext_Cleanup(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -811,7 +795,7 @@ func TestLayerProvisioner_PrepareBuildContext_ModuleCopyWarnings(t *testing.T) {
 		return errors.New("copy failed")
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

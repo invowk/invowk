@@ -3830,6 +3830,18 @@ pattern = "Config.InvowkBinaryPath.nonzero"
 reason = "required value-field using a nonzero value type"
 
 [[exceptions]]
+pattern = "Config.DefaultInvowkBinaryPath.nonzero"
+reason = "optional value-field using a nonzero value type; empty means the adapter supplied no binary"
+
+[[exceptions]]
+pattern = "UnusableInvowkBinaryError.Path.nonzero"
+reason = "required value-field using a nonzero value type"
+
+[[exceptions]]
+pattern = "UnusableInvowkBinaryError.Image.nonzero"
+reason = "required value-field using a nonzero value type"
+
+[[exceptions]]
 pattern = "Config.ModulesMountPath.nonzero"
 reason = "required value-field using a nonzero value type"
 

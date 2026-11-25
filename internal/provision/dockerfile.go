@@ -9,12 +9,15 @@ import (
 
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provisionenv"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // generateDockerfile creates the Dockerfile content for the provisioned image.
+// The binary lines appear only when binaryPath, the resolved invowk binary,
+// is set.
 //
 //plint:render
-func (p *LayerProvisioner) generateDockerfile(baseImage string) string {
+func (p *LayerProvisioner) generateDockerfile(baseImage string, binaryPath types.FilesystemPath) string {
 	var sb strings.Builder
 
 	fmt.Fprintf(&sb, "FROM %s\n\n", baseImage)
@@ -22,7 +25,7 @@ func (p *LayerProvisioner) generateDockerfile(baseImage string) string {
 	sb.WriteString("# This layer adds invowk binary and modules to enable nested invowk commands\n\n")
 
 	// Copy invowk binary
-	if p.config.InvowkBinaryPath != "" {
+	if binaryPath != "" {
 		binaryPath := string(p.config.BinaryMountPath)
 		sb.WriteString("# Install invowk binary\n")
 		fmt.Fprintf(&sb, "COPY invowk %s/invowk\n", binaryPath)
@@ -40,7 +43,7 @@ func (p *LayerProvisioner) generateDockerfile(baseImage string) string {
 
 	// Set environment variables
 	sb.WriteString("# Configure environment\n")
-	if p.config.InvowkBinaryPath != "" {
+	if binaryPath != "" {
 		fmt.Fprintf(&sb, "ENV PATH=\"%s:$PATH\"\n", string(p.config.BinaryMountPath))
 	}
 	modulePathValue := provisionEnvironmentValue(p.config.ModulesMountPath)
@@ -62,11 +65,12 @@ func provisionEnvironmentValue(path container.MountTargetPath) provisionenv.Valu
 }
 
 // buildEnvVars returns environment variables to set in the container.
-func (p *LayerProvisioner) buildEnvVars() map[string]string {
+// PATH carries the binary directory only when binaryPath is set.
+func (p *LayerProvisioner) buildEnvVars(binaryPath types.FilesystemPath) map[string]string {
 	env := make(map[string]string)
 
 	// PATH is set in the Dockerfile, but we also set it here for consistency
-	if p.config.InvowkBinaryPath != "" {
+	if binaryPath != "" {
 		env["PATH"] = string(p.config.BinaryMountPath) + ":/usr/local/bin:/usr/bin:/bin"
 	}
 

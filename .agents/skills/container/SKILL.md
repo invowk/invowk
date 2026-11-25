@@ -73,6 +73,14 @@ Keep pure target selection in `containerplan`, engine state mutation in
   API).
 - Prepared interactive commands return cleanup functions. Hold serialization
   leases until the PTY command has exited.
+- Auto-provision installs the invowk binary only when its ELF header says
+  Linux executable for the base image's architecture
+  (`internal/provision/binary_format.go`). The configured
+  `InvowkBinaryPath` fails with `ErrUnusableInvowkBinary` (never softened by
+  non-strict mode); the adapter-supplied `DefaultInvowkBinaryPath`
+  (`os.Executable()`) is skipped with a warning. Tests never rely on the test
+  binary being an ELF (macOS and Windows CI legs): use the
+  `internal/testutil` binary fixtures.
 
 ## Host And Container Paths
 
