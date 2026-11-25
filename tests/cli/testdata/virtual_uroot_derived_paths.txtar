@@ -43,7 +43,8 @@ stderr 'virtual path denied'
 rm $ENTRY
 [exec:tar] cd $WORK/arch
 [exec:tar] cp $WORK/entry.txt l/$NAME
-[exec:tar] exec tar -cf $WORK/proj/a.tar l/$NAME
+# A relative archive path: GNU tar reads "C:..." as a remote host.
+[exec:tar] exec tar -cf ../proj/a.tar l/$NAME
 [exec:tar] cd $WORK/proj
 [exec:tar] symlink ex/l -> $OUTSIDE
 [exec:tar] ! exec invowk cmd tar-extract
