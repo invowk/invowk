@@ -2,6 +2,27 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Modelled module operations
+The model SHALL decompose each of the following into the reads, network-fetch windows, and writes the code performs, in the code's order, together with the project and source mutex acquisitions and releases where the configuration takes them:
+- `Resolver.AddModuleDependency`, including its pre-fetch snapshots and its rollback;
+- `Resolver.RemoveModuleDependency`, `Resolver.SyncModule` (and `Resolver.Sync`), and `Resolver.UpdateModule` (and `Resolver.Update`);
+- vendoring through `vendorDependenciesWithResolver` and `VendorModules`;
+- the Git source checkout and the `cacheModule` copy inside `resolveOne`.
+
+Each program a process can run SHALL be a named operator that `Program` calls: `AddProg`, `RemoveProg`, `SyncProg`, `UpdateProg`, `VendorProg`, and `ReadProg` for the read-only consumer.
+
+#### Scenario: Operations follow the code's order
+- **WHEN** the model is checked
+- **THEN** each listed operation SHALL appear as its reads, network-fetch windows, and writes in the order the code performs them, with `Resolver.AddModuleDependency` including its pre-fetch snapshots and its rollback
+
+#### Scenario: Program rows resolve
+- **WHEN** `scripts/formal.py correspondence` runs
+- **THEN** every `ConcurrentModuleEdits` row whose element names a program SHALL resolve to its operator, and `[correspondence] unresolved_elements` SHALL list no `ConcurrentModuleEdits` pair
+
+#### Scenario: Naming the programs changes no verdict
+- **WHEN** the programs are expressed as named operators instead of inline `CASE` arms, with the same bodies
+- **THEN** every manifest command of the model SHALL keep its verdict and its `distinct_states`
+
 ### Requirement: Modelled file primitives
 A read-only consumer (discovery, a command run, `validate`, `audit`) SHALL be modelled as a reader of `requires` and the lock file that takes no lock in any configuration. Every `fspath.AtomicWriteFile` call SHALL be modelled as an atomic replace. In the base configuration the rollback SHALL be modelled as an atomic replace of each file and its `os.Remove` as a remove step; the pre-fix rollback, an `os.WriteFile` modelled as a truncate step followed by a write step, SHALL remain selectable as a configuration.
 
@@ -30,7 +51,11 @@ The model SHALL define process results `ok`, `rolled_back`, and `err`, matching 
 - **THEN** at least one seeded mutant that is not a pre-fix configuration SHALL produce a counterexample through the same property
 
 ### Requirement: Characterisation tests replay counterexamples against the real code
-Each fixed finding's counterexample that a seam can reproduce SHALL have a deterministic Go test that replays the same interleaving against the real code and asserts the fixed outcome. The test SHALL call the real use-case entry points or `Resolver` methods, or `vendorDependenciesWithResolver`, with one `Resolver` per simulated process and the real file lock on real files. Each process SHALL have its own fetcher and gate, and the processes SHALL synchronise only through channels and the lock. Each test SHALL also meet "Characterisation test constraints".
+Each fixed finding's counterexample that a seam can reproduce SHALL have a deterministic Go test that replays the same interleaving against the real code and asserts the fixed outcome. The test SHALL call the real use-case entry points or `Resolver` methods, or `vendorDependenciesWithResolver`, with one `Resolver` per simulated process and the real file lock on real files. Each process SHALL have its own fetcher and gate, and the processes SHALL synchronise only through channels and the lock. Each test SHALL also meet "Characterisation test constraints". Because each test now asserts the fixed behaviour, it SHALL NOT match the characterisation name pattern of `scripts/formal.py` (`_FindingF<n>`, `_Characterisation`), and no correspondence row that tables it SHALL carry a note beginning `characterisation:`, so the reach run and `mutation-formal` use it as a killer.
+
+#### Scenario: Inverted replays are killers
+- **WHEN** the formal tooling (`is_characterisation_test` in `scripts/formal.py`) classifies the binding tests of the `ConcurrentModuleEdits` rows
+- **THEN** none of `TestConcurrentEdits_F8SyncKeepsConcurrentAdd`, `TestConcurrentEdits_F8UpdateKeepsConcurrentAdd`, `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove`, `TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd`, `TestConcurrentEdits_F9SourceLockRecordsMatchingContent`, `TestConcurrentEdits_F10RestoreReplacesFile` and `TestConcurrentEdits_VendorFromStaleLock` SHALL be classified as a characterisation test
 
 #### Scenario: Test runs in the ordinary suite
 - **WHEN** `make test` runs
@@ -86,23 +111,23 @@ The base configuration SHALL mirror the fixed code: `AdvisoryLock = "project_and
 
 #### Scenario: Sync overlaps an add
 - **WHEN** under `sync_add` one process syncs while another completes `module add` of a different key
-- **THEN** `syncAddProjectLock`, run under the base constants, SHALL pass `LockMatchesRequires`, `mutantPreFixF8SyncOverwritesConcurrentAdd` (`AdvisoryLock = "none"`) SHALL be a counterexample, and `TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd` SHALL show the lock holding the added key
+- **THEN** `syncAddProjectLock`, run under the base constants, SHALL pass `LockMatchesRequires`, `mutantPreFixF8SyncOverwritesConcurrentAdd` (`AdvisoryLock = "none"`) SHALL be a counterexample, and `TestConcurrentEdits_F8SyncKeepsConcurrentAdd` SHALL show the lock holding the added key
 
 #### Scenario: Update overlaps an add or a remove
 - **WHEN** under `update_add` or `update_remove` one process updates while another completes an add or a remove
-- **THEN** `updateAddProjectLock` and `updateRemoveProjectLock`, run under the base constants, SHALL each pass `NoLostUpdate`, the matching `mutantPreFixF8Update…` command SHALL be a counterexample, and the matching `TestConcurrentEdits_FindingF8_Update…` test SHALL show the added key in the lock, or the removed key out of it
+- **THEN** `updateAddProjectLock` and `updateRemoveProjectLock`, run under the base constants, SHALL each pass `NoLostUpdate`, the matching `mutantPreFixF8Update…` command SHALL be a counterexample, and `TestConcurrentEdits_F8UpdateKeepsConcurrentAdd` or `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` SHALL show the added key in the lock, or the removed key out of it
 
 #### Scenario: Two adds of the same key
 - **WHEN** under `add_add_same` two processes add the same key
-- **THEN** `addAddSameProjectLock`, run under the base constants, SHALL pass `NoLostUpdate`, `mutantPreFixF8DuplicateAddRollsBackOtherAdd` SHALL be a counterexample, and `TestConcurrentEdits_FindingF8_DuplicateAddRollsBackOtherAdd` SHALL show the key in both files after the second add rolled back
+- **THEN** `addAddSameProjectLock`, run under the base constants, SHALL pass `NoLostUpdate`, `mutantPreFixF8DuplicateAddRollsBackOtherAdd` SHALL be a counterexample, and `TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd` SHALL show the key in both files after the second add rolled back
 
 #### Scenario: Reader during a rollback
 - **WHEN** under `rollback_read` one process rolls back an add while the read-only consumer reads the lock file or `invowkmod.cue`
-- **THEN** `rollbackReadAtomicRestore`, run under the base constants, SHALL pass `ReadersSeeWholeFiles`, `mutantPreFixF10NonAtomicRollback` (`AtomicRestore = FALSE`) SHALL be a counterexample, and the `Restore` correspondence row SHALL name a Go test showing that a restore replaces the file instead of rewriting it in place
+- **THEN** `rollbackReadAtomicRestore`, run under the base constants, SHALL pass `ReadersSeeWholeFiles`, `mutantPreFixF10NonAtomicRollback` (`AtomicRestore = FALSE`) SHALL be a counterexample, and the `Restore` correspondence row SHALL name `TestConcurrentEdits_F10RestoreReplacesFile`, a Go test showing that a restore replaces the file instead of rewriting it in place
 
 #### Scenario: Shared source worktree
 - **WHEN** under `fetch_v1_v2` two projects that share a cache add different versions of one repository
-- **THEN** `fetchProjectAndSourceLock`, run under the base constants, SHALL pass `LockHashMatchesCommit`, `mutantPreFixF9SharedWorktreeRecordsWrongContent` (`AdvisoryLock = "none"`) and `mutantNoSourceLock` (`AdvisoryLock = "project"`) SHALL be counterexamples, and `TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent` SHALL show the lock hash equal to the locked commit's content
+- **THEN** `fetchProjectAndSourceLock`, run under the base constants, SHALL pass `LockHashMatchesCommit`, `mutantPreFixF9SharedWorktreeRecordsWrongContent` (`AdvisoryLock = "none"`) and `mutantNoSourceLock` (`AdvisoryLock = "project"`) SHALL be counterexamples, and `TestConcurrentEdits_F9SourceLockRecordsMatchingContent` SHALL show the lock hash equal to the locked commit's content
 
 #### Scenario: Vendor overlaps an update
 - **WHEN** under `vendor_sync` one process vendors from the lock while another updates it
@@ -116,11 +141,22 @@ Every scenario of a fixed finding SHALL have a passing command that runs under t
 - **THEN** each SHALL set neither `AdvisoryLock` nor `AtomicRestore`
 
 ### Requirement: Lock elements are bound to the code
-The model's `Acquire` and `Release` elements SHALL each have a correspondence row naming the Go symbols that take and release the project and source locks, with a binding test among the inverted replays.
+The model's `Acquire` and `Release` elements SHALL each have a correspondence row naming the Go symbols that take and release the project and source locks, and the `SyncProg` and `UpdateProg` rows SHALL name `Resolver.SyncModule` and `Resolver.UpdateModule`; each of these rows SHALL have a binding test among the inverted replays.
 
 #### Scenario: Correspondence check
 - **WHEN** `scripts/formal.py correspondence` runs
-- **THEN** the `Acquire` and `Release` rows SHALL name existing Go symbols and binding tests, and the check SHALL pass
+- **THEN** the `Acquire`, `Release`, `SyncProg` and `UpdateProg` rows SHALL name existing Go symbols and binding tests, and the check SHALL pass
+
+### Requirement: Use-case wrappers and renamed replays are bound
+The package-level `AddModuleDependency` and `RemoveModuleDependency` use cases SHALL each have a correspondence row of their own, bound to a test that calls them. Every row that names a renamed replay SHALL name it by its new name.
+
+#### Scenario: Wrapper rows
+- **WHEN** `scripts/formal.py correspondence` runs
+- **THEN** a row SHALL name each package-level wrapper with an existing binding test, no row SHALL name a test that no longer exists, and the check SHALL pass
+
+#### Scenario: Lock code is planned for mutation
+- **WHEN** `scripts/formal_mutation.py plan` runs
+- **THEN** `Resolver.LockProject`, `Resolver.lockSource` and `editLocks.release` SHALL be planned, and the plan SHALL NOT fail closed on the package-level `AddModuleDependency` or `RemoveModuleDependency`
 
 ## REMOVED Requirements
 

@@ -47,7 +47,7 @@ The rollback after a failed `invowkmod.cue` edit SHALL put `invowkmod.cue` and t
 - **THEN** the rollback outcome SHALL be incomplete and the command SHALL report the restore error
 
 ### Requirement: Requires entries written on one line are matched
-`invowk module add` and `invowk module remove` SHALL find a `requires` entry by its `git_url` and `path` whether the entry spans several lines or is written on one line, with or without other entries on that line. Braces, brackets and field names inside quoted strings or comments SHALL NOT be taken as structure.
+`invowk module add` and `invowk module remove` SHALL find a `requires` entry by its `git_url` and `path` whether the entry spans several lines or is written on one line, with or without other entries on that line. Braces, brackets and field names inside quoted strings or comments SHALL NOT be taken as structure. Whenever add or remove changes a `requires` block written on one line, the resulting `invowkmod.cue` SHALL be valid CUE that `invowk` parses.
 
 #### Scenario: Remove a one-line entry
 - **WHEN** `invowkmod.cue` has the entry `{git_url: "https://github.com/user/tools.git", version: "^1.0.0"},` on one line and `invowk module remove` removes that module
@@ -64,6 +64,10 @@ The rollback after a failed `invowkmod.cue` edit SHALL put `invowkmod.cue` and t
 #### Scenario: Add a module already required on one line
 - **WHEN** `invowkmod.cue` requires a module through a one-line entry and `invowk module add` adds the same `git_url` and `path`
 - **THEN** the edit SHALL fail as a duplicate, `invowkmod.cue` SHALL be unchanged, and the command SHALL roll back the lock and exit with status 1
+
+#### Scenario: Add to a one-line requires block
+- **WHEN** `invowkmod.cue` has `requires: [{git_url: "https://github.com/user/tools.git", version: "^1.0.0"}]` on one line and `invowk module add` adds a different module
+- **THEN** the new entry SHALL be inside the `requires` list after the existing entry, the existing entry and everything outside the `requires` field SHALL be unchanged, and `invowkmod.cue` SHALL be valid CUE
 
 #### Scenario: Multi-line entries keep today's edit
 - **WHEN** `invowk module add` or `invowk module remove` edits an `invowkmod.cue` whose entries use the multi-line layout `module add` writes
