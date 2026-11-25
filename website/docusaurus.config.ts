@@ -69,7 +69,7 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/invowk/invowk/tree/main/website/',
           // Versioning
-          lastVersion: '0.17.0',
+          lastVersion: '0.17.1',
           versions: {
             current: {
               label: 'Next',

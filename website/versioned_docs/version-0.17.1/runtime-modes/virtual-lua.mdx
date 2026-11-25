@@ -1,0 +1,84 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Virtual-Lua Runtime
+
+The **virtual-lua** runtime executes commands with Invowk's embedded Lua interpreter. It is useful for portable automation that wants Lua's tables, functions, and module style without requiring a host Lua installation.
+
+## Basic Usage
+
+<Snippet id="runtime-modes/virtual-lua-basic" />
+
+## Bridge API
+
+Lua scripts interact with Invowk through a read-only `invowk` table:
+
+| API | Purpose |
+|-----|---------|
+| `invowk.path(nameOrAnchor)` | Resolve standard anchors such as `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, and selected-platform `virtual.filesystem.paths` names |
+| `invowk.env.NAME` / `os.getenv("NAME")` | Read the effective command environment |
+| `invowk.state.bin_path` | Inspect the last resolved host binary path |
+| `invowk.cmd.<name>(...)` | Stream an enabled utility or allowed host binary to the command's stdout/stderr |
+| `invowk.capture.<name>(...)` | Return stdout, stderr, and exit code |
+
+<Snippet id="runtime-modes/virtual-lua-bridge" />
+
+## Paths And Files
+
+Lua file I/O uses Invowk's virtual path validator. Relative paths resolve from the command workdir. Standard anchors are exposed as metadata, and the implicit writable/readable roots are `@work` (except a module workdir outside the module: see [Working Directory](../advanced/workdir#virtual-runtimes)), `@tmp`, `@config`, `@data`, `@cache`, `@state`, the script or module source root, and `/tmp` (except on Windows).
+
+Under restricted access (the default), the validator resolves a path before it checks it:
+
+- **Links are followed first.** Every symbolic link and every Windows junction on the path is resolved, also when the last parts of the path do not exist yet. The resolved path must be inside an allowed root.
+- **A link that leaves the allowed roots is denied at any depth**, with `virtual path denied`. That includes a new path several directories below such a link, and a dangling link whose missing target is outside. A link or junction whose target stays inside an allowed root works, and so does an allowed root that is itself reached through a link (for example `/tmp` on macOS).
+- **A path that cannot be resolved is refused**: a link cycle, a link target that climbs with `..` out of a directory that does not exist, or a missing drive or share. A `virtual.filesystem.paths` entry that cannot be resolved fails the command before the script runs.
+- **`/dev/stdout`, `/dev/stderr` and `/dev/stdin` are not files when the stream is a pipe** (Linux), so they cannot be opened as paths, even with `/dev` declared. Use `io.stdout` and `io.stderr`.
+
+With `virtual.filesystem.access: "full"` there is no allowed-root check, and a path the validator cannot resolve is passed to the operating system as it is.
+
+Under both access modes a path that resolves is used in its resolved form, except by the operations that act on the last component itself:
+
+- **Paths are reported in resolved form.** `invowk.path` results, `INVOWK_PATH_*` values and `virtual path denied` messages show the target of a link or junction, not the link. For the operations that act on the link itself (below), they show the link's own path: its resolved directory joined with its name.
+- **Most operations follow a link or junction to its target:** the `io` functions, `invowk.cmd.cat`, `invowk.cmd.cp` and the destination of `invowk.cmd.mv`. The `mv` destination is a known difference from a host shell: with the destination a link to a file, that file is replaced and the link kept, where a host shell replaces the link.
+- **`invowk.cmd.rm`, the `invowk.cmd.mv` sources and the link name of `invowk.cmd.ln` act on the link itself** and do not follow the last component: `invowk.cmd.rm("link")` and `invowk.cmd.rm("-r", "link")` remove the link and keep its target, `invowk.cmd.mv("link", "dir")` moves the link, and `invowk.cmd.ln("-sf", "target", "link")` replaces an existing link, never its target. Under restricted access a link inside an allowed root can be removed or moved even when its target lies outside them; the target stays. On Windows `invowk.cmd.rm("-rf", ...)` of a junction removes the junction and keeps its target tree. On macOS a restricted `invowk.cmd.rm("-r", "/tmp")` is refused, because the link `/tmp` lies outside the allowed root `/private/tmp`.
+- **A trailing separator asks for a directory.** An operand of those calls that ends in a separator, `.` or `..` is resolved in full: `invowk.cmd.rm("-r", "dirlink/")` removes the target directory and keeps the link. When it names a link to a file, the call fails with `not a directory`, naming the resolved path, and nothing changes.
+- **The `invowk.cmd` built-ins find their operands the way each one parses its arguments.** `--` ends the options, and every operand is checked, whatever it starts with. Option values pass as written, except the ones that name paths, such as `tar -f`, which are checked too, and so is the file `gzip` writes for each operand. `gzip -S` refuses a suffix that contains a path separator.
+- **`invowk.cmd.cp` and `invowk.cmd.tar` with `-x` check the paths they derive from their operands**, as in [virtual-sh](./virtual): under restricted access every path they create, write or change the mode of, and every source link `cp` follows without `-P`, must resolve inside an allowed root, and one refusal refuses the whole call with `virtual path denied` before anything is written. A restricted `cp` also refuses a later source that does not exist when it starts, `cp -r` does not write into a source tree of the same call, `cp -P` refuses a copy that would create a link next to other entries, and `tar -x` reads its archive only from a regular file. `virtual.filesystem.access: "full"` keeps the u-root behaviour.
+
+This is a policy for the runtime's own file APIs. An allowed host binary runs as a normal host process and is not path-checked; use the [container runtime](./container) for isolation.
+
+Anchor bases are always absolute. A relative `XDG_*_HOME`, `APPDATA` or `LOCALAPPDATA` is ignored and the home-based default is used. When the home directory itself is relative or unset (and no absolute `XDG_*`/AppData value covers the anchor), `@home`, `@config`, `@data`, `@cache` and `@state` are unavailable: their `INVOWK_ANCHOR_*` variables are empty, they are not allowed roots, and `invowk.path("@config")` or a `virtual.filesystem.paths` entry such as `"@home/.dotfiles"` fails with `virtual path anchor "@config" is unavailable`.
+
+`@home` can be resolved for metadata, but restricted filesystem access does not make it a blanket allowed root. To make a host path available to Lua file APIs in restricted mode, define a `platforms[].virtual.filesystem.paths` entry. The key becomes `INVOWK_PATH_<KEY>` and can be resolved with `invowk.path("<KEY>/file")`. Set `platforms[].virtual.filesystem.access: "full"` only when VM-controlled Lua file operations should be allowed to access normalized host filesystem paths beyond those named handles.
+
+<Snippet id="runtime-modes/virtual-lua-filesystem-paths" />
+
+## Module-Local Require
+
+`require("helpers.format")` loads Lua source files from the script or module tree, such as `helpers/format.lua` or `helpers/format/init.lua`. Traversal, absolute paths, and native shared-library loading are blocked.
+
+## Host Binaries And Utilities
+
+When `virtual.utilities.enabled` is true, `invowk.cmd` and `invowk.capture` can call Invowk's built-in u-root utilities. Host binaries are still denied by default and must be listed in `allowed_binaries`.
+
+<Snippet id="runtime-modes/virtual-lua-host-binary" />
+
+:::caution Not a Sandbox
+The virtual-lua runtime is **not a security sandbox**. Allowed host binaries execute as native host processes with host access. For execution isolation, use the **container** runtime.
+:::
+
+## Lua Standard Library Boundary
+
+Virtual-lua intentionally does not expose unrestricted host-facing APIs such as `os.execute`, `io.popen`, `package.loadlib`, `debug`, `dofile`, `loadfile`, or dynamic `golib` imports. Use the Invowk bridge, path-validated `io` functions, and module-local `require` instead.
+
+## Arguments And Interactive Mode
+
+Command arguments are available through both Lua varargs and the `arg` table. Interactive mode attaches stdin, stdout, and stderr to the Lua process; it does not start a Lua REPL.
+
+## Next Steps
+
+- [Virtual-Sh Runtime](./virtual) - For portable POSIX shell scripts
+- [Container Runtime](./container) - For isolated execution

@@ -1,0 +1,102 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# TUI Components Overview
+
+Invowk™ includes a set of interactive terminal UI components inspired by [gum](https://github.com/charmbracelet/gum). Use them in your scripts to create interactive prompts, selections, and styled output.
+
+## Available Components
+
+| Component | Description | Use Case |
+|-----------|-------------|----------|
+| [input](./input-and-write#input) | Single-line text input | Names, paths, simple values |
+| [write](./input-and-write#write) | Multi-line text editor | Descriptions, commit messages |
+| [choose](./choose-and-confirm#choose) | Select from options | Menus, choices |
+| [confirm](./choose-and-confirm#confirm) | Yes/no prompt | Confirmations |
+| [filter](./filter-and-file#filter) | Fuzzy filter list | Search through options |
+| [file](./filter-and-file#file) | File picker | Select files/directories |
+| [table](./table-and-spin#table) | Display tabular data | CSV, data tables |
+| [spin](./table-and-spin#spin) | Spinner with command | Long-running tasks |
+| [pager](./pager) | Scrollable content viewer | Logs, code review, long output |
+| [format](./format-and-style#format) | Format text (markdown, code) | Rendering content |
+| [style](./format-and-style#style) | Style text (colors, bold) | Decorating output |
+
+## Quick Examples
+
+<Snippet id="tui/overview-quick-examples" />
+
+## Using in Invowkfiles
+
+TUI components work great inside command scripts, including those running in containers with interactive mode (`-i`):
+
+:::tip Container Support
+TUI components work seamlessly inside containers when using interactive mode. The components render as modal overlays on your host terminal. See [Container Runtime - Interactive Mode](/docs/runtime-modes/container#interactive-mode) for details.
+:::
+
+<Snippet id="tui/overview-invowkfile-example" />
+
+## Common Patterns
+
+### Input with Validation
+
+<Snippet id="tui/overview-input-validation" />
+
+### Menu System
+
+<Snippet id="tui/overview-menu-system" />
+
+### Progress Feedback
+
+<Snippet id="tui/overview-progress-feedback" />
+
+### Styled Headers
+
+<Snippet id="tui/overview-styled-headers" />
+
+## Piping and Capture
+
+The components draw their UI on your terminal (`/dev/tty` on Unix, the console on Windows) and read keys from it, not from stdin and stdout. stdout carries only the result, so `NAME=$(invowk tui input)` captures exactly the answer, with no control sequences. The UI stays visible when stderr is redirected, and stdin stays free for piped data such as `filter` options or `table` rows. `format` and `style` are the exception: their styled text is their result, so they write it to stdout.
+
+`pager` and a `table` without `--selectable` only display content. When their stdout is not a terminal, they write that content to stdout and do not open the terminal: `pager` passes it through unchanged, like `less` in a pipe, and the table prints its rows as plain text.
+
+<Snippet id="tui/overview-piping" />
+
+### Without a Terminal
+
+If the controlling terminal cannot be opened, a component draws on stderr and reads keys from stdin when both are terminals. With no terminal at all, as in a CI job:
+
+- `input`, `write`, `choose`, `confirm`, `filter`, `file` and `table --selectable` exit with status 1, print an error saying the component needs a terminal, and leave stdout empty;
+- `spin` runs its command once, without the spinner, and keeps the command's output and exit status;
+- `pager` writes the content unchanged to stdout and exits 0;
+- a `table` without `--selectable` prints its rows as plain text and exits 0.
+
+## Exit Codes
+
+Components use exit codes to communicate:
+
+| Component | Exit 0 | Exit 1 |
+|-----------|--------|--------|
+| confirm | User said yes | User said no |
+| input | Value entered | Cancelled |
+| choose | Option selected | Cancelled |
+| filter | Option selected | Cancelled |
+| pager | Exited normally | Error occurred |
+| spin | Command succeeded | Cancelled with Ctrl+C, the command was killed by a signal, or it was still running 15 seconds after it was stopped (any other failure forwards the command's own code) |
+
+Use in conditionals:
+
+<Snippet id="tui/overview-exit-codes" />
+
+## Next Steps
+
+Explore each component in detail:
+
+- [Input and Write](./input-and-write) - Text entry
+- [Choose and Confirm](./choose-and-confirm) - Selection and confirmation
+- [Filter and File](./filter-and-file) - Search and file picking
+- [Table and Spin](./table-and-spin) - Data display and spinners
+- [Pager](./pager) - Scrollable content viewing
+- [Format and Style](./format-and-style) - Text formatting and styling
