@@ -32,26 +32,26 @@
 ## 6. CLI test and docs
 
 - [x] 6.1 Finish `virtual_module_workdir_roots.txtar` for the fixed behaviour. Under restricted access the module-outside virtual-sh read and write and the virtual-lua `io.open` fail with `virtual path denied`, and nothing is written. They succeed with `virtual.filesystem.paths: {WORK: "@work"}`, with `--ivk-workdir` naming the same directory, and under `full` access. A plain invowkfile with `workdir: "../shared"` succeeds. The module command's cwd is the outside directory (`pwd`). Off Windows a native command of the same module with the same workdir reads `./data.txt` and prints its `pwd` (spec 'Native and container runtimes are unaffected'). The placement stays as in task 1.1, and nothing is left below `$OUTSIDE` after the run. Verify: `go test -run 'TestCLI/virtual_module_workdir_roots' ./tests/cli/` and `go test -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/` pass.
-- [ ] 6.2 Docs (design D7): `website/docs/runtime-modes/virtual.mdx` (the root list), `virtual-lua.mdx` (the implicit roots sentence), `website/docs/advanced/workdir.mdx` (the virtual-runtime note with the `virtual.filesystem.paths` escape hatch and `--ivk-workdir`), their pt-BR copies, and README.md if it lists the roots or the internal command flags. Never say "sandbox" or "isolated", and give no exploit steps. Verify: `cd website && npm run build` passes.
+- [x] 6.2 Docs (design D7): `website/docs/runtime-modes/virtual.mdx` (the root list), `virtual-lua.mdx` (the implicit roots sentence), `website/docs/advanced/workdir.mdx` (the virtual-runtime note with the `virtual.filesystem.paths` escape hatch and `--ivk-workdir`), their pt-BR copies, and README.md if it lists the roots or the internal command flags. Never say "sandbox" or "isolated", and give no exploit steps. Verify: `cd website && npm run build` passes.
 - [x] 6.3 Agent docs where they describe the harness roots (`.agents/skills/virtual-lua/SKILL.md`, `.agents/skills/formal-verification/SKILL.md`, `.agents/skills/module-security/` if it mentions workdirs). Verify: `make check-agent-docs` passes.
 
 ## 7. Commit, formal lane and platform evidence
 
 - [x] 7.1 Commit, signed and under the heavy lock: `fix(runtime): module workdirs outside the module are not virtual roots` (70 characters; the git rule caps subjects at 72), with the release note of the proposal in the body and the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Verify: `git log -1 --show-signature` shows a good signature.
-- [ ] 7.2 Formal lane: `python3 scripts/formal.py affected --event pull_request --base origin/main --head HEAD`. When it prints `run=true`, run `python3 scripts/formal.py correspondence`, `make formal-reach`, `make formal` and `make test-scripts`. Run `python3 scripts/formal_mutation.py symbols` and note in the PR body which bound symbols need a refresh (expected: `newVirtualPathResolverForFilesystem`, plus the new bound symbols; not `GetEffectiveWorkDir`). Verify: each passes and no killer is reported as skipped.
-- [ ] 7.3 Push `fix/module-workdir-roots` and open the draft PR. Verify: `gh pr view` shows a draft.
+- [x] 7.2 Formal lane: `python3 scripts/formal.py affected --event pull_request --base origin/main --head HEAD`. When it prints `run=true`, run `python3 scripts/formal.py correspondence`, `make formal-reach`, `make formal` and `make test-scripts`. Run `python3 scripts/formal_mutation.py symbols` and note in the PR body which bound symbols need a refresh (expected: `newVirtualPathResolverForFilesystem`, plus the new bound symbols; not `GetEffectiveWorkDir`). Verify: each passes and no killer is reported as skipped.
+- [x] 7.3 Push `fix/module-workdir-roots` and open the draft PR. Verify: `gh pr view` shows a draft.
 - [ ] 7.4 From the PR's `Test (windows)` and `Test (macos)` jobs, quote the run id, the job id and the test names that ran and passed: `TestVirtualWorkdir*` (the other-volume and junction cases on Windows, `/private` on macOS), `TestVirtualPathHarness_ModuleWorkdirOutsideNotRoot`, `TestVirtualPathHarness_RootConstruction`, `TestVirtualPathHarness_GoldenVectors`, `TestVirtualPathHarness_Property` and `TestCLI/virtual_module_workdir_roots`. Verify: none of the quoted tests is reported as skipped; a green job alone is not evidence.
 
 ## 8. Completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 8.1 `make tidy`, and `make license-check` for the new Go files. Verify: no diff, no missing header.
-- [ ] 8.2 `make lint`. Verify: `rc=0`.
-- [ ] 8.3 `make test` (full suite). Verify: `rc=0`.
-- [ ] 8.4 `make check-baseline`, and triage of any new goplint finding (the new value types `WorkDirSource` and `EffectiveWorkDir` included). Verify: `rc=0`.
-- [ ] 8.5 `make check-file-length`. Verify: every Go file stays under 1000 lines.
-- [ ] 8.6 `make sonar-local`. Verify: no new issue that code can fix (go:S8209, go:S1192, go:S107, go:S8193, go:S8239).
-- [ ] 8.7 Conditional checks: `make test-scripts`, `python3 scripts/formal.py correspondence`, `make formal`, the schema sync tests only if a CUE-backed struct changed (none expected), `cd website && npm run build` and `make check-agent-docs`. Verify: each passes.
-- [ ] 8.8 Mutation: the partial refresh of the touched ledger entries (design D6) and `python3 scripts/formal_mutation.py triage --check`. On a rebase over the concurrent lock-unchanged-message change, keep both sides' entries in `tools/mutation/triage/formal-bindings.toml`. Verify: `triage --check` passes.
+- [x] 8.1 `make tidy`, and `make license-check` for the new Go files. Verify: no diff, no missing header.
+- [x] 8.2 `make lint`. Verify: `rc=0`.
+- [x] 8.3 `make test` (full suite). Verify: `rc=0`.
+- [x] 8.4 `make check-baseline`, and triage of any new goplint finding (the new value types `WorkDirSource` and `EffectiveWorkDir` included). Verify: `rc=0`.
+- [x] 8.5 `make check-file-length`. Verify: every Go file stays under 1000 lines.
+- [x] 8.6 `make sonar-local`. Verify: no new issue that code can fix (go:S8209, go:S1192, go:S107, go:S8193, go:S8239).
+- [x] 8.7 Conditional checks: `make test-scripts`, `python3 scripts/formal.py correspondence`, `make formal`, the schema sync tests only if a CUE-backed struct changed (none expected), `cd website && npm run build` and `make check-agent-docs`. Verify: each passes.
+- [x] 8.8 Mutation: the partial refresh of the touched ledger entries (design D6) and `python3 scripts/formal_mutation.py triage --check`. On a rebase over the concurrent lock-unchanged-message change, keep both sides' entries in `tools/mutation/triage/formal-bindings.toml`. Verify: `triage --check` passes.
 
 ## Workflow follow-up
 
