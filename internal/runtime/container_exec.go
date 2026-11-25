@@ -97,8 +97,10 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	if err != nil {
 		return nil, NewErrorResult(1, err)
 	}
+	// The spec image is needed only to reuse a managed persistent container
+	// without preparing an image; every other run takes the prepared image.
 	var specImage container.ImageTag
-	if !existingExternalCLI {
+	if skipImagePrep && !existingExternalCLI {
 		specImage, err = r.persistentSpecImage(ctx, containerCfg)
 		if err != nil {
 			return nil, NewErrorResult(1, err)

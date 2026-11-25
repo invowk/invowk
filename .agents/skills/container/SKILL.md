@@ -73,6 +73,19 @@ Keep pure target selection in `containerplan`, engine state mutation in
   API).
 - Prepared interactive commands return cleanup functions. Hold serialization
   leases until the PTY command has exited.
+- Auto-provision installs the invowk binary only when its ELF header says
+  Linux executable for the base image's architecture
+  (`internal/provision/binary_format.go`). The configured
+  `InvowkBinaryPath` fails with `ErrUnusableInvowkBinary` (never softened by
+  non-strict mode); the adapter-supplied `DefaultInvowkBinaryPath`
+  (`os.Executable()`) is skipped with a warning. Tests never rely on the test
+  binary being an ELF (macOS and Windows CI legs): use the
+  `internal/testutil` binary fixtures.
+- `persistentSpecImage` (`GetProvisionedImageTag`) runs only when an existing
+  managed persistent container is reused (`skipImagePrep`); every other run
+  takes the tag `ensureProvisionedImage` returns. Do not call it for
+  ephemeral runs: it costs an image inspect and mislabels binary errors as
+  persistent-identity errors.
 
 ## Host And Container Paths
 

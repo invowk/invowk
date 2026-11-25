@@ -25,7 +25,7 @@ func TestLayerProvisionerGenerateDockerfile(t *testing.T) {
 		config: cfg,
 	}
 
-	dockerfile := provisioner.generateDockerfile("debian:stable-slim")
+	dockerfile := provisioner.generateDockerfile("debian:stable-slim", provisioner.config.InvowkBinaryPath)
 
 	// Verify Dockerfile content
 	if !strings.Contains(dockerfile, "FROM debian:stable-slim") {
@@ -63,7 +63,7 @@ func TestLayerProvisionerBuildEnvVars(t *testing.T) {
 		config: cfg,
 	}
 
-	envVars := provisioner.buildEnvVars()
+	envVars := provisioner.buildEnvVars(provisioner.config.InvowkBinaryPath)
 
 	if envVars["INVOWK_MODULE_PATH"] != "/invowk/modules" {
 		t.Errorf("Expected INVOWK_MODULE_PATH=/invowk/modules, got %s", envVars["INVOWK_MODULE_PATH"])
@@ -226,7 +226,7 @@ func TestLayerProvisionerGenerateDockerfile_NoBinary(t *testing.T) {
 		config: cfg,
 	}
 
-	dockerfile := provisioner.generateDockerfile("debian:stable-slim")
+	dockerfile := provisioner.generateDockerfile("debian:stable-slim", provisioner.config.InvowkBinaryPath)
 
 	// Should have FROM instruction
 	if !strings.Contains(dockerfile, "FROM debian:stable-slim") {
@@ -272,7 +272,7 @@ func TestLayerProvisionerBuildEnvVars_NoBinary(t *testing.T) {
 		config: cfg,
 	}
 
-	envVars := provisioner.buildEnvVars()
+	envVars := provisioner.buildEnvVars(provisioner.config.InvowkBinaryPath)
 
 	// PATH should NOT be set when there's no binary
 	if _, ok := envVars["PATH"]; ok {

@@ -19,9 +19,7 @@ func TestLayerProvisioner_CalculateCacheKey_Determinism(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	binaryPath := filepath.Join(tmpDir, "invowk")
-	if err := os.WriteFile(binaryPath, []byte("fake-binary-content"), 0o755); err != nil {
-		t.Fatalf("failed to create fake binary: %v", err)
-	}
+	writeHostLinuxBinary(t, binaryPath, []byte("fake-binary-content"))
 
 	cfg := &Config{
 		Enabled:          true,
@@ -35,12 +33,12 @@ func TestLayerProvisioner_CalculateCacheKey_Determinism(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key1, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage)
+	key1, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	key2, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage)
+	key2, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -60,14 +58,10 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	binary1 := filepath.Join(tmpDir, "invowk1")
-	if err := os.WriteFile(binary1, []byte("binary-v1"), 0o755); err != nil {
-		t.Fatalf("failed to create binary1: %v", err)
-	}
+	writeHostLinuxBinary(t, binary1, []byte("binary-v1"))
 
 	binary2 := filepath.Join(tmpDir, "invowk2")
-	if err := os.WriteFile(binary2, []byte("binary-v2"), 0o755); err != nil {
-		t.Fatalf("failed to create binary2: %v", err)
-	}
+	writeHostLinuxBinary(t, binary2, []byte("binary-v2"))
 
 	baseConfig := func(binaryPath string) *Config {
 		return &Config{
@@ -127,11 +121,11 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewLayerProvisioner(second) error = %v", err)
 			}
-			key1, err := p1.calculateCacheKey(t.Context(), image1)
+			key1, err := p1.calculateCacheKey(t.Context(), image1, p1.config.InvowkBinaryPath)
 			if err != nil {
 				t.Fatalf("calculateCacheKey(first) error = %v", err)
 			}
-			key2, err := p2.calculateCacheKey(t.Context(), image2)
+			key2, err := p2.calculateCacheKey(t.Context(), image2, p2.config.InvowkBinaryPath)
 			if err != nil {
 				t.Fatalf("calculateCacheKey(second) error = %v", err)
 			}
@@ -147,9 +141,7 @@ func TestLayerProvisioner_CalculateCacheKey_IgnoresWorkspaceContent(t *testing.T
 
 	tmpDir := t.TempDir()
 	binaryPath := filepath.Join(tmpDir, "invowk")
-	if err := os.WriteFile(binaryPath, []byte("fake-binary-content"), 0o755); err != nil {
-		t.Fatalf("failed to create fake binary: %v", err)
-	}
+	writeHostLinuxBinary(t, binaryPath, []byte("fake-binary-content"))
 	workspace := filepath.Join(tmpDir, "workspace")
 	if err := os.MkdirAll(workspace, 0o755); err != nil {
 		t.Fatalf("failed to create workspace: %v", err)
@@ -170,14 +162,14 @@ func TestLayerProvisioner_CalculateCacheKey_IgnoresWorkspaceContent(t *testing.T
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key1, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage)
+	key1, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if writeErr := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("changed workspace content"), 0o644); writeErr != nil {
 		t.Fatalf("failed to write workspace file: %v", writeErr)
 	}
-	key2, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage)
+	key2, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -203,7 +195,7 @@ func TestLayerProvisioner_CalculateCacheKey_NoBinary(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage)
+	key, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

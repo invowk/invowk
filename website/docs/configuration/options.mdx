@@ -237,14 +237,21 @@ Configures container runtime behavior.
 **Default:** `true`
 
 Enables automatic provisioning of the invowk binary and modules into container images.
-When enabled, Invowk builds a cached, derived image for every container run by attaching a small provisioned layer on top of your base image. If provisioning fails, Invowk warns and uses the base image.
+When enabled, Invowk builds a cached, derived image for every container run by attaching a small provisioned layer on top of your base image. If provisioning fails, Invowk warns and uses the base image (unless `strict` is set), except for an unusable `binary_path`, which always fails the command.
 
 #### container.auto_provision.binary_path
 
 **Type:** `string`
-**Default:** *(empty; uses the running invowk binary)*
+**Default:** *(empty; uses the running invowk binary when it is a Linux executable for the image's architecture)*
 
-Overrides the path to the invowk binary to provision into containers.
+The invowk binary to install in provisioned images, so that commands inside the container can run `invowk` themselves (in-container `invowk cmd` dependencies, `invowk tui` under `-i`). It runs inside a Linux container, so it must be a Linux executable (ELF) built for the image's architecture. Invowk reads the file's header before it installs it; it never runs the file to check.
+
+- **Not set:** Invowk uses the running invowk binary. On a Linux host with the same architecture as the image, nothing changes. On a macOS or Windows host the running binary is a Mach-O or PE file, and on a Linux host it can be built for another architecture than the image (an amd64 host and an arm64 image, for example). Invowk then does not install it: it still provisions your modules and runs the command, prints a warning that names `container.auto_provision.binary_path`, and nested `invowk` calls inside the container do not work. One exception: on a Linux host, a run before the engine has the image assumes the host's architecture (see below), so on that first run the running binary is still installed in an image for another architecture, where it cannot run; from the next run, once the engine reports the image's architecture, it is skipped.
+- **Set:** the file must be a Linux executable for the image's architecture. If it is missing, unreadable, not a Linux executable, or built for another architecture, the command fails with an error that names the path and the reason, whatever `strict` says.
+
+Invowk learns the image's architecture from the container engine (a read-only `image inspect` of the base image; nothing is pulled or run for it). When the engine does not have the image yet, Invowk assumes the host's architecture on a Linux host and checks no architecture on other hosts. So on a Linux host, a `binary_path` built for an image of another platform fails on the first run with an error that says the architecture was assumed: pull the image first (`docker pull <image>` or `podman pull <image>`), or build its Containerfile, and run again.
+
+To use nested invowk commands from a macOS or Windows host, download the Linux release archive for the image's architecture (`invowk_<version>_linux_amd64.tar.gz` for amd64 images, `invowk_<version>_linux_arm64.tar.gz` for arm64 images, such as the ones Docker Desktop runs on Apple silicon), unpack it, and set `binary_path` to the `invowk` file inside it. Leave it unset on a Linux host whose architecture matches the image.
 
 #### container.auto_provision.includes
 
@@ -265,7 +272,7 @@ When `true`, the root-level `includes` entries are automatically inherited by au
 **Type:** `bool`
 **Default:** `false`
 
-When `true`, auto-provisioning failures are treated as hard errors instead of warnings. By default, if provisioning fails, Invowk warns and runs the base image. With `strict: true`, the command fails immediately on provisioning failure.
+When `true`, auto-provisioning failures are treated as hard errors instead of warnings. By default, if provisioning fails, Invowk warns and runs the base image; an unusable `binary_path` is the exception and always fails the command. With `strict: true`, the command fails immediately on provisioning failure. A running invowk binary that is skipped because it cannot run in the container (see `binary_path`) is not a failure: the command runs with the warning either way.
 
 #### container.auto_provision.cache_dir
 

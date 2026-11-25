@@ -309,7 +309,9 @@ container: {
     auto_provision: {
         enabled: true
         strict: false
-        binary_path: "/usr/local/bin/invowk"
+        // A Linux build for the image's architecture, unpacked from
+        // invowk_<version>_linux_amd64.tar.gz (not a macOS or Windows binary)
+        binary_path: "/opt/invowk/linux-amd64/invowk"
         includes: [
             {path: "/opt/company/modules/tools.invowkmod"},
         ]
@@ -920,7 +922,9 @@ import "strings"
     auto_provision: {
         enabled: true
         strict: false
-        binary_path: "/usr/local/bin/invowk"
+        // A Linux build for the image's architecture, unpacked from
+        // invowk_<version>_linux_amd64.tar.gz (not a macOS or Windows binary)
+        binary_path: "/opt/invowk/linux-amd64/invowk"
         includes: [
             {path: "/opt/company/modules/tools.invowkmod"},
         ]

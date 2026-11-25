@@ -187,9 +187,13 @@ Here's a full-featured container command:
 
 ## Auto-provisioning
 
-When `container.auto_provision.enabled` is `true` (default), Invowk builds a cached, derived image by attaching a small provisioned layer on top of your base image (either the `image` you specify or the image built from your Containerfile/Dockerfile). That layer includes the `invowk` binary and any modules, so `invowk` commands are available inside the container.
+When `container.auto_provision.enabled` is `true` (default), Invowk builds a cached, derived image by attaching a small provisioned layer on top of your base image (either the `image` you specify or the image built from your Containerfile/Dockerfile). That layer includes any modules and, when it can run in the container, the `invowk` binary, so `invowk` commands are available inside the container.
 
-Auto-provisioning applies to image-based container executions, including both non-interactive and interactive runs. When a command targets an existing persistent container, Invowk skips image preparation and uses that container directly. For image-based runs, the derived image is cached as `invowk-provisioned:<hash>` and reused; if provisioning fails, Invowk warns and runs the base image only in the default non-strict mode. With `container.auto_provision.strict: true`, provisioning failure stops the command.
+The binary must be a Linux executable for the image's architecture. By default Invowk uses the running binary, which fits on a Linux host with the same architecture as the image. On a macOS or Windows host, or a Linux host of another architecture, Invowk leaves the binary out, still provisions the modules, runs the command and prints a warning: nested `invowk` calls inside the container then do not work until you set [`container.auto_provision.binary_path`](../configuration/options.mdx#containerauto_provisionbinary_path) to a Linux build for the image's architecture. A `binary_path` that is not such a build fails the command.
+
+Auto-provisioning applies to image-based container executions, including both non-interactive and interactive runs. When a command targets an existing persistent container, Invowk skips image preparation and uses that container directly. For image-based runs, the derived image is cached as `invowk-provisioned:<hash>` and reused; if provisioning fails, Invowk warns and runs the base image only in the default non-strict mode. With `container.auto_provision.strict: true`, provisioning failure stops the command. An unusable `binary_path` stops the command in either mode.
+
+Whether the binary is installed is part of the provisioned image's identity. A managed persistent container created with the binary left out (or with it) therefore no longer matches once that changes, for example after you set or remove `binary_path`, or on the first run after upgrading Invowk on a macOS or Windows host: the run fails with the existing "was created by invowk with a different runtime configuration" error until you remove the container.
 
 ## Interactive Mode
 

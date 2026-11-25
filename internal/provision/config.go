@@ -34,9 +34,18 @@ type (
 		// ForceRebuild bypasses cached images and forces a rebuild
 		ForceRebuild bool
 
-		// InvowkBinaryPath is the path to the invowk binary on the host.
-		// If empty, the runtime adapter may supply the current executable.
+		// InvowkBinaryPath is the configured invowk binary on the host
+		// (container.auto_provision.binary_path), and nothing else. When set it
+		// wins over DefaultInvowkBinaryPath, and a file that is not a Linux
+		// executable for the container architecture fails provisioning with
+		// ErrUnusableInvowkBinary.
 		InvowkBinaryPath types.FilesystemPath
+
+		// DefaultInvowkBinaryPath is the binary the runtime adapter supplies
+		// when nothing is configured (the running executable). A file that is
+		// not a Linux executable for the container architecture is not
+		// installed: provisioning continues without it and warns.
+		DefaultInvowkBinaryPath types.FilesystemPath
 
 		// ModulesPaths are paths to module directories on the host.
 		// These are discovered from config search paths.
@@ -106,11 +115,19 @@ type (
 // or an error wrapping ErrInvalidProvisionConfig if any are invalid.
 // Boolean fields and TagSuffix (free-form test-only string) are skipped.
 // Path fields are only validated when non-empty, since empty paths indicate
-// "use default" semantics (e.g., os.Executable() for InvowkBinaryPath).
+// "not set" semantics (no configured InvowkBinaryPath, no adapter-supplied
+// DefaultInvowkBinaryPath). Validate checks the path values only; whether the
+// binary can run in the container is decided per request, against the base
+// image's architecture.
 func (c Config) Validate() error {
 	var errs []error
 	if c.InvowkBinaryPath != "" {
 		if err := c.InvowkBinaryPath.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if c.DefaultInvowkBinaryPath != "" {
+		if err := c.DefaultInvowkBinaryPath.Validate(); err != nil {
 			errs = append(errs, err)
 		}
 	}

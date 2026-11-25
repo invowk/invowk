@@ -2614,8 +2614,8 @@ virtual: {
 container: {
   auto_provision: {
     enabled: true                         // Enable/disable auto-provisioning of invowk into containers (default: true)
-    strict: false                         // Hard error on provisioning failure instead of warning (default: false)
-    binary_path: ""                       // Empty default auto-detects via os.Executable()
+    strict: false                         // Hard error on provisioning failure instead of warning (default: false); an unusable binary_path always fails
+    binary_path: ""                       // Linux invowk build for the image's architecture; empty uses the running binary, skipped with a warning when it cannot run in the container (macOS/Windows hosts)
     includes: [{path: "/extra/modules.invowkmod"}] // Modules to provision into containers (optional)
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
     cache_dir: ""                         // Empty default uses the platform cache directory

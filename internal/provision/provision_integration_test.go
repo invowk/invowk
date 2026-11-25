@@ -5,7 +5,6 @@ package provision
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -50,18 +49,15 @@ func TestLayerProvisioner_Integration(t *testing.T) {
 	}
 }
 
-// setupProvisionTest creates a snap-safe temp directory with a minimal binary stub.
+// setupProvisionTest creates a snap-safe temp directory with a minimal binary fixture.
 func setupProvisionTest(t *testing.T) string {
 	t.Helper()
 
 	tmpDir := testutil.ContainerSafeTempDir(t, "provision-test")
 
-	// Write a minimal binary stub that the provisioner can copy into the image
-	binaryPath := filepath.Join(tmpDir, "invowk")
-	binaryContent := []byte("#!/bin/sh\nexec /bin/true\n")
-	if writeErr := os.WriteFile(binaryPath, binaryContent, 0o755); writeErr != nil {
-		t.Fatalf("Failed to write binary stub: %v", writeErr)
-	}
+	// Write a Linux ELF header for the host architecture that the provisioner
+	// accepts and copies into the image; the tests never execute it.
+	writeHostLinuxBinary(t, filepath.Join(tmpDir, "invowk"), nil)
 
 	return tmpDir
 }

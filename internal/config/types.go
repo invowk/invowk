@@ -353,9 +353,14 @@ type (
 		Enabled bool `json:"enabled" mapstructure:"enabled"`
 		// Strict makes provisioning failure a hard error instead of falling back
 		// to the unprovisioned base image. When false (default), provisioning
-		// failure logs a warning and continues with the base image.
+		// failure logs a warning and continues with the base image. An unusable
+		// BinaryPath fails the command either way; a running binary skipped
+		// because it cannot run in the container only warns either way.
 		Strict bool `json:"strict" mapstructure:"strict"`
-		// BinaryPath overrides the path to the invowk binary to provision
+		// BinaryPath is the invowk binary to provision: a Linux executable for
+		// the image's architecture, or the command fails. When empty, the
+		// running invowk binary is used if it is such an executable and is
+		// skipped with a warning otherwise.
 		BinaryPath BinaryFilePath `json:"binary_path" mapstructure:"binary_path"`
 		// Includes specifies modules to provision into containers.
 		Includes []IncludeEntry `json:"includes" mapstructure:"includes"`
