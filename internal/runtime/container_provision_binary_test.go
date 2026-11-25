@@ -196,7 +196,7 @@ func TestContainerRuntimeExecuteReusedPersistentContainerSkipsBinaryWarning(t *t
 	if second.Error != nil {
 		t.Fatalf("second Execute() error = %v, want the managed container reused", second.Error)
 	}
-	if n := countDiagnostics(second.Diagnostics, CodeContainerProvisioningWarning); n != 0 {
+	if countDiagnostics(second.Diagnostics, CodeContainerProvisioningWarning) != 0 {
 		t.Fatalf("second Execute() diagnostics = %+v, want no provisioning warning", second.Diagnostics)
 	}
 	if len(engine.CreateCalls) != 1 || len(engine.BuildCalls) != 1 {
