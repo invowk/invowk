@@ -8,7 +8,7 @@ Module commands that run at the same time lose each other's work. A `module sync
 
 - Every module command that writes `invowkmod.cue` or the lock (`module add`, `remove`, `sync`, `update`, `tidy`, `vendor`) holds an exclusive per-project lock from before its first read of either file until after its last write or rollback. A command that finds the lock busy prints `Waiting for another invowk module command on this project (lock: <path>)` once on stderr and waits up to 5 minutes; Ctrl+C ends the wait. Fixes F8 and the stale-vendor case.
 - Fetching a Git source holds an exclusive per-source lock from checkout until the cache copy is verified, always taken after the project lock. A busy source prints `Waiting for another invowk module command on module source <url> (lock: <path>)`. Fixes F9.
-- Lock files are empty files under `<module cache>/locks/`, outside every project, module, cache worktree and cache copy. They are never deleted. The OS releases a lock when its holder exits, so no lock goes stale. Read-only consumers (discovery, command runs, `validate`, `audit`, `module deps`) take no lock.
+- Lock files are empty files under `<module cache>/locks/`, which is never a module directory, `invowk_modules/`, cache worktree or cache copy, so no content hash, vendored copy, `validate` or `audit` sees them. They are never deleted. The OS releases a lock when its holder exits, so no lock goes stale. Read-only consumers (discovery, command runs, `validate`, `audit`, `module deps`) take no lock.
 - The rollback restores each file with an atomic replace (temporary file and rename), so a concurrent reader sees the old or the new file, never a partial one. Fixes F10.
 - The rollback snapshot no longer follows symbolic links: a dangling `invowkmod.cue` link survives a rollback instead of being deleted, and a linked file is restored as the link it was.
 - **BREAKING** (exit status): `module add` and `module remove` exit with status 1 when they rolled back after a failed `invowkmod.cue` edit. Until now they exited 0.
@@ -21,7 +21,7 @@ Module commands that run at the same time lose each other's work. A `module sync
 
 - Scripts that call `invowk module add` or `invowk module remove` and treat exit status 0 as success now see status 1 when the command rolled back its lock change. In that case the dependency was not added or removed. Before this release such a run exited 0 and only stdout said so.
 - Module commands on the same project, or on the same Git source across projects, now run one at a time. A command that has to wait says so on stderr. If another invowk process keeps the lock for more than 5 minutes, the waiting command fails and names the lock file.
-- The module cache directory gets a `locks/` subdirectory (mode 0700). Do not delete lock files while a module command runs; deleting them is harmless otherwise.
+- The module cache directory gets a `locks/` subdirectory (mode 0700). The first locking module command creates it, and the cache root when missing, including `module remove` and a `module sync`, `tidy` or `vendor` on a project with no `requires`, which until now created nothing. Do not delete lock files while a module command runs; deleting them is harmless otherwise.
 
 ## Capabilities
 

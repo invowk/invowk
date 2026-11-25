@@ -7,7 +7,7 @@ Module commands that write a project's `invowkmod.cue` or lock file, or that fet
 ## ADDED Requirements
 
 ### Requirement: Module edits hold the project lock
-`invowk module add`, `remove`, `sync`, `update`, `tidy` and `vendor` SHALL each hold an exclusive lock on the project directory from before their first read of `invowkmod.cue` or the lock file until after their last write or rollback of either file. Two such commands on one project SHALL NOT overlap inside that span.
+`invowk module add`, `remove`, `sync`, `update`, `tidy` and `vendor` SHALL each hold an exclusive lock on the project directory from before their first read of `invowkmod.cue` or the lock file until after their last write or rollback of either file; `invowk module vendor` SHALL hold it until after its last copy into `invowk_modules/` as well. Two such commands on one project SHALL NOT overlap inside that span.
 
 #### Scenario: Sync overlaps an add
 - **WHEN** `invowk module sync` and `invowk module add` of a module not yet required run at the same time on one project
@@ -24,6 +24,10 @@ Module commands that write a project's `invowkmod.cue` or lock file, or that fet
 #### Scenario: Vendor overlaps an update
 - **WHEN** `invowk module vendor` and `invowk module update` run at the same time on one project
 - **THEN** the vendored copies SHALL match the lock file as it was when the vendor finished copying
+
+#### Scenario: Nothing is read before the project lock
+- **WHEN** `invowk module add`, `remove`, `sync`, `update`, `tidy` or `vendor` runs and `invowkmod.cue` or the lock file changes between the command's start and the moment it acquires the project lock
+- **THEN** the command SHALL act on the files as they are once it holds the lock
 
 ### Requirement: Fetching a Git source holds the source lock
 A module command that checks out a Git source into the module cache SHALL hold an exclusive lock on that source from before the checkout until the module copy taken from it has been verified and read. The lock SHALL be keyed on the cache's checkout of the source, so every URL that maps to that checkout shares it.
@@ -48,7 +52,7 @@ Lock files SHALL be empty files in the `locks` directory of the module cache roo
 
 #### Scenario: Locks stay out of module content
 - **WHEN** a module command takes a project or source lock
-- **THEN** the lock file SHALL be outside the project directory, every module directory, `invowk_modules/`, every cache checkout and every cache copy, so it is part of no content hash, vendored copy, `validate` or `audit` input
+- **THEN** the lock file SHALL be in `<cache root>/locks/`, which is never a module directory, an `invowk_modules/` directory, a cache checkout or a cache copy, and the lock file SHALL be part of no content hash, vendored copy, `validate` input or `audit` input, also when the cache root lies inside the project directory
 
 #### Scenario: One project through two paths
 - **WHEN** two commands run in one project, one through its real path and one through a symbolic link to it
@@ -69,13 +73,17 @@ A command whose lock is held by another process SHALL print once on stderr `Wait
 - **WHEN** a command finds its lock free
 - **THEN** it SHALL print no waiting line
 
-#### Scenario: Wait cancelled
-- **WHEN** the user presses Ctrl+C while a command waits for a lock
+#### Scenario: Wait for the project lock cancelled
+- **WHEN** the user presses Ctrl+C while a command waits for the project lock
 - **THEN** the command SHALL stop waiting, SHALL NOT read or write `invowkmod.cue` or the lock file, and SHALL exit non-zero
 
-#### Scenario: Wait times out
-- **WHEN** another invowk process holds the lock for more than 5 minutes
+#### Scenario: Wait for the project lock times out
+- **WHEN** another invowk process holds the project lock for more than 5 minutes
 - **THEN** the waiting command SHALL fail with exit status 1 and an error that names the lock file and says another invowk process holds it, and SHALL NOT have read or written `invowkmod.cue` or the lock file
+
+#### Scenario: Wait for a source lock cancelled or timed out
+- **WHEN** the user presses Ctrl+C while a command waits for a source lock, or another invowk process holds that source lock for more than 5 minutes
+- **THEN** the command SHALL fail (exit non-zero after Ctrl+C, exit status 1 with an error that names the lock file and says another invowk process holds it after the timeout), and `invowkmod.cue` and the project's lock file SHALL be as the command found them: it SHALL NOT have written either file, and `invowk module add` SHALL report no rollback
 
 ### Requirement: Read-only consumers take no lock
 Discovery, command runs, `invowk validate`, `invowk audit` and `invowk module deps` SHALL NOT take a project or source lock. They SHALL rely on every write of `invowkmod.cue` and of the lock file, the rollback included, being an atomic replace.

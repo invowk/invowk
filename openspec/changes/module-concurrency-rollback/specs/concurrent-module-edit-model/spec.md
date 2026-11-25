@@ -86,27 +86,34 @@ The base configuration SHALL mirror the fixed code: `AdvisoryLock = "project_and
 
 #### Scenario: Sync overlaps an add
 - **WHEN** under `sync_add` one process syncs while another completes `module add` of a different key
-- **THEN** the base command SHALL pass `LockMatchesRequires`, `mutantPreFixF8SyncOverwritesConcurrentAdd` (`AdvisoryLock = "none"`) SHALL be a counterexample, and `TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd` SHALL show the lock holding the added key
+- **THEN** `syncAddProjectLock`, run under the base constants, SHALL pass `LockMatchesRequires`, `mutantPreFixF8SyncOverwritesConcurrentAdd` (`AdvisoryLock = "none"`) SHALL be a counterexample, and `TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd` SHALL show the lock holding the added key
 
 #### Scenario: Update overlaps an add or a remove
 - **WHEN** under `update_add` or `update_remove` one process updates while another completes an add or a remove
-- **THEN** each base command SHALL pass `NoLostUpdate`, the matching `mutantPreFixF8Update…` command SHALL be a counterexample, and the matching `TestConcurrentEdits_FindingF8_Update…` test SHALL show the added key in the lock, or the removed key out of it
+- **THEN** `updateAddProjectLock` and `updateRemoveProjectLock`, run under the base constants, SHALL each pass `NoLostUpdate`, the matching `mutantPreFixF8Update…` command SHALL be a counterexample, and the matching `TestConcurrentEdits_FindingF8_Update…` test SHALL show the added key in the lock, or the removed key out of it
 
 #### Scenario: Two adds of the same key
 - **WHEN** under `add_add_same` two processes add the same key
-- **THEN** the base command SHALL pass `NoLostUpdate`, `mutantPreFixF8DuplicateAddRollsBackOtherAdd` SHALL be a counterexample, and `TestConcurrentEdits_FindingF8_DuplicateAddRollsBackOtherAdd` SHALL show the key in both files after the second add rolled back
+- **THEN** `addAddSameProjectLock`, run under the base constants, SHALL pass `NoLostUpdate`, `mutantPreFixF8DuplicateAddRollsBackOtherAdd` SHALL be a counterexample, and `TestConcurrentEdits_FindingF8_DuplicateAddRollsBackOtherAdd` SHALL show the key in both files after the second add rolled back
 
 #### Scenario: Reader during a rollback
 - **WHEN** under `rollback_read` one process rolls back an add while the read-only consumer reads the lock file or `invowkmod.cue`
-- **THEN** the base command SHALL pass `ReadersSeeWholeFiles`, `mutantPreFixF10NonAtomicRollback` (`AtomicRestore = FALSE`) SHALL be a counterexample, and the `Restore` correspondence row SHALL name a Go test showing that a restore replaces the file instead of rewriting it in place
+- **THEN** `rollbackReadAtomicRestore`, run under the base constants, SHALL pass `ReadersSeeWholeFiles`, `mutantPreFixF10NonAtomicRollback` (`AtomicRestore = FALSE`) SHALL be a counterexample, and the `Restore` correspondence row SHALL name a Go test showing that a restore replaces the file instead of rewriting it in place
 
 #### Scenario: Shared source worktree
 - **WHEN** under `fetch_v1_v2` two projects that share a cache add different versions of one repository
-- **THEN** the base command SHALL pass `LockHashMatchesCommit`, `mutantPreFixF9SharedWorktreeRecordsWrongContent` (`AdvisoryLock = "none"`) and the `"project"` command SHALL be counterexamples, and `TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent` SHALL show the lock hash equal to the locked commit's content
+- **THEN** `fetchProjectAndSourceLock`, run under the base constants, SHALL pass `LockHashMatchesCommit`, `mutantPreFixF9SharedWorktreeRecordsWrongContent` (`AdvisoryLock = "none"`) and `mutantNoSourceLock` (`AdvisoryLock = "project"`) SHALL be counterexamples, and `TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent` SHALL show the lock hash equal to the locked commit's content
 
 #### Scenario: Vendor overlaps an update
 - **WHEN** under `vendor_sync` one process vendors from the lock while another updates it
-- **THEN** the base command SHALL pass `VendorMatchesFinalLock`, `mutantPreFixVendorFromStaleLock` (`AdvisoryLock = "none"`) SHALL be a counterexample, and `TestConcurrentEdits_VendorFromStaleLock` SHALL show that the update's lock write waits until the vendor has returned
+- **THEN** `vendorSyncProjectLock`, run under the base constants, SHALL pass `VendorMatchesFinalLock`, `mutantPreFixVendorFromStaleLock` (`AdvisoryLock = "none"`) SHALL be a counterexample, and `TestConcurrentEdits_VendorFromStaleLock` SHALL show that the update's lock write waits until the vendor has returned
+
+### Requirement: Fixed scenarios pass under the base constants
+Every scenario of a fixed finding SHALL have a passing command that runs under the base constants, with no `AdvisoryLock` or `AtomicRestore` override, so the model checks the configuration the code runs.
+
+#### Scenario: Passing commands use the base
+- **WHEN** the manifest's passing commands for `sync_add`, `update_add`, `update_remove`, `add_add_same`, `rollback_read`, `fetch_v1_v2` and `vendor_sync` are read
+- **THEN** each SHALL set neither `AdvisoryLock` nor `AtomicRestore`
 
 ### Requirement: Lock elements are bound to the code
 The model's `Acquire` and `Release` elements SHALL each have a correspondence row naming the Go symbols that take and release the project and source locks, with a binding test among the inverted replays.
