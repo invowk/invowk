@@ -1481,54 +1481,6 @@ added = '''
 '''
 
 [[survivor]]
-id = "447f20f9a56bc0bebf437186676c32cd"
-file = "internal/app/modulesync/resolver.go"
-symbol = "Resolver.Sync"
-model = "LockIntegrity"
-element = "Sync"
-class = "binding-gap"
-reason = "branch/if (Removes an if-block body so the condition becomes a no-op) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
-follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
-removed = '''
-		return nil, nil
-'''
-added = '''
-
-'''
-
-[[survivor]]
-id = "179f01c31a4d292a62dee92634002503"
-file = "internal/app/modulesync/resolver.go"
-symbol = "Resolver.Sync"
-model = "LockIntegrity"
-element = "Sync"
-class = "binding-gap"
-reason = "branch/if (Changes: `return nil, err` → `_ = err`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
-follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
-removed = '''
-		return nil, err
-'''
-added = '''
-		_ = err
-'''
-
-[[survivor]]
-id = "8099a3ca8cfa79a64cb845220fff4022"
-file = "internal/app/modulesync/resolver.go"
-symbol = "Resolver.Sync"
-model = "LockIntegrity"
-element = "Sync"
-class = "binding-gap"
-reason = "statement/return (Changes: `return nil, err` → `return nil, nil`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
-follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
-removed = '''
-		return nil, err
-'''
-added = '''
-		return nil, nil
-'''
-
-[[survivor]]
 id = "68c4473cb240d57429cd8758ae0584e7"
 file = "internal/app/modulesync/resolver.go"
 symbol = "Resolver.Sync"
@@ -1545,99 +1497,163 @@ added = '''
 '''
 
 [[survivor]]
-id = "41bcb0ddeef3995c655bc30570690083"
+id = "aa381f08eb809bcbac2f746546e1c55f"
 file = "internal/app/modulesync/resolver.go"
 symbol = "Resolver.Sync"
 model = "LockIntegrity"
 element = "Sync"
 class = "binding-gap"
-reason = "branch/if (Changes: `return nil, &MissingTransitiveDepError{Diagnostics: diags}` → `_ = diags`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
+reason = "branch/if (Removes an if-block body so the condition becomes a no-op) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
 follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
 removed = '''
-		return nil, &MissingTransitiveDepError{Diagnostics: diags}
+		return nil, false, nil
+'''
+added = '''
+
+'''
+
+[[survivor]]
+id = "2dfc4f73fc1c0a790bc964eae6545e56"
+file = "internal/app/modulesync/resolver.go"
+symbol = "Resolver.Sync"
+model = "LockIntegrity"
+element = "Sync"
+class = "binding-gap"
+reason = "statement/return (Changes: `return nil, false, err` → `return nil, false, nil`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
+follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
+removed = '''
+		return nil, false, err
+'''
+added = '''
+		return nil, false, nil
+'''
+
+[[survivor]]
+id = "66552de45de671d24e13badc5101747f"
+file = "internal/app/modulesync/resolver.go"
+symbol = "Resolver.Sync"
+model = "LockIntegrity"
+element = "Sync"
+class = "binding-gap"
+reason = "branch/if (Changes: `return nil, false, err` → `_ = err`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
+follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
+removed = '''
+		return nil, false, err
+'''
+added = '''
+		_ = err
+'''
+
+[[survivor]]
+id = "1ca349f8489931a815353005e7e09386"
+file = "internal/app/modulesync/resolver.go"
+symbol = "Resolver.Sync"
+model = "LockIntegrity"
+element = "Sync"
+class = "binding-gap"
+reason = "statement/return (Changes: `return nil, false, &MissingTransitiveDepError{Diagnostics: diags}` → `return nil, false, nil`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
+follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
+removed = '''
+		return nil, false, &MissingTransitiveDepError{Diagnostics: diags}
+'''
+added = '''
+		return nil, false, nil
+'''
+
+[[survivor]]
+id = "4c61264daed7b93ba9606ae6116efcb9"
+file = "internal/app/modulesync/resolver.go"
+symbol = "Resolver.Sync"
+model = "LockIntegrity"
+element = "Sync"
+class = "binding-gap"
+reason = "branch/if (Changes: `return nil, false, &MissingTransitiveDepError{Diagnostics: diags}` → `_ = diags`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
+follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
+removed = '''
+		return nil, false, &MissingTransitiveDepError{Diagnostics: diags}
 '''
 added = '''
 		_ = diags
 '''
 
 [[survivor]]
-id = "52ab7713375290501ffd157c6506dc5a"
+id = "82ec3af3c51e00580f3845f4bfde140b"
 file = "internal/app/modulesync/resolver.go"
 symbol = "Resolver.Sync"
 model = "LockIntegrity"
 element = "Sync"
 class = "binding-gap"
-reason = "composite/field-clear (Changes: `return nil, &MissingTransitiveDepError{Diagnostics: diags}` → `return nil, &MissingTransitiveDepError{}`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
+reason = "composite/field-clear (Changes: `return nil, false, &MissingTransitiveDepError{Diagnostics: diags}` → `return nil, false, &MissingTransitiveDepError{}`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
 follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
 removed = '''
-		return nil, &MissingTransitiveDepError{Diagnostics: diags}
+		return nil, false, &MissingTransitiveDepError{Diagnostics: diags}
 '''
 added = '''
-		return nil, &MissingTransitiveDepError{}
+		return nil, false, &MissingTransitiveDepError{}
 '''
 
 [[survivor]]
-id = "7aa032768f836c8e0767045fa2234910"
+id = "b874859d71d0c4b9acd904c05c4c80e5"
 file = "internal/app/modulesync/resolver.go"
 symbol = "Resolver.Sync"
 model = "LockIntegrity"
 element = "Sync"
 class = "binding-gap"
-reason = "statement/return (Changes: `return nil, &MissingTransitiveDepError{Diagnostics: diags}` → `return nil, nil`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
+reason = "expression/error-guard (Changes: `if saveErr != nil {` → `if false {`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
 follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
 removed = '''
-		return nil, &MissingTransitiveDepError{Diagnostics: diags}
+	if saveErr != nil {
 '''
 added = '''
-		return nil, nil
+	if false {
 '''
 
 [[survivor]]
-id = "c832b83f133cf4f4b91ee63b0c65b6c3"
+id = "10455e677b7589f734769a6f7375e42e"
 file = "internal/app/modulesync/resolver.go"
 symbol = "Resolver.Sync"
 model = "LockIntegrity"
 element = "Sync"
 class = "binding-gap"
-reason = "expression/error-guard (Changes: `if err := lock.Save(lockPath); err != nil {` → `if err := lock.Save(lockPath); false {`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
+reason = "statement/return (Changes: `return nil, false, fmt.Errorf(errFmtSaveLockFile, saveErr)` → `return nil, false, nil`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
 follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
 removed = '''
-	if err := lock.Save(lockPath); err != nil {
+		return nil, false, fmt.Errorf(errFmtSaveLockFile, saveErr)
 '''
 added = '''
-	if err := lock.Save(lockPath); false {
+		return nil, false, nil
 '''
 
 [[survivor]]
-id = "0f03c7cffa2304b1276c857f9db11daf"
+id = "3f857412e48a34ea3a0776c198766499"
 file = "internal/app/modulesync/resolver.go"
 symbol = "Resolver.Sync"
 model = "LockIntegrity"
 element = "Sync"
 class = "binding-gap"
-reason = "branch/if (Changes: `return nil, fmt.Errorf(errFmtSaveLockFile, err)` → `_, _ = fmt.Errorf, err`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
+reason = "branch/if (Changes: `return nil, false, fmt.Errorf(errFmtSaveLockFile, saveErr)` → `_, _ = fmt.Errorf, saveErr`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
 follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
 removed = '''
-		return nil, fmt.Errorf(errFmtSaveLockFile, err)
+		return nil, false, fmt.Errorf(errFmtSaveLockFile, saveErr)
 '''
 added = '''
-		_, _ = fmt.Errorf, err
+		_, _ = fmt.Errorf, saveErr
 '''
 
 [[survivor]]
-id = "fc71be7d34d6c3b2e6ae56410732b8ab"
+id = "1733ea6d2cc34dc5b05f8b779ecb2eb8"
 file = "internal/app/modulesync/resolver.go"
 symbol = "Resolver.Sync"
 model = "LockIntegrity"
 element = "Sync"
 class = "binding-gap"
-reason = "statement/return (Changes: `return nil, fmt.Errorf(errFmtSaveLockFile, err)` → `return nil, nil`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted"
+reason = "statement/return (Changes: `return resolved, lockWritten, nil` → `return resolved, false, nil`) survives TestSyncFreshCacheRejectsChangedContent: TestSyncFreshCacheRejectsChangedContent covers one rejection and does not read Sync's lockWritten result, which is reporting only (the resolver_lock_generated tests assert it, but no correspondence row binds them)"
 follow_up = "tasks/next/formal-binding-gaps.md#resolversync"
 removed = '''
-		return nil, fmt.Errorf(errFmtSaveLockFile, err)
+	return resolved, lockWritten, nil
 '''
 added = '''
-		return nil, nil
+	return resolved, false, nil
 '''
 
 [[survivor]]

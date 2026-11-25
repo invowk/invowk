@@ -69,7 +69,7 @@ func TestSyncDeduplicatesSameSourceRequirement(t *testing.T) {
 	}
 
 	req := ModuleRef{GitURL: "https://github.com/user/tools.git", Version: "^1.0.0"}
-	resolved, err := resolver.Sync(t.Context(), []ModuleRef{req, req})
+	resolved, _, err := resolver.Sync(t.Context(), []ModuleRef{req, req})
 	if err != nil {
 		t.Fatalf("Sync() error = %v", err)
 	}
@@ -97,7 +97,7 @@ func TestSyncRejectsCanonicalModuleCollision(t *testing.T) {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
 
-	_, err = resolver.Sync(t.Context(), []ModuleRef{
+	_, _, err = resolver.Sync(t.Context(), []ModuleRef{
 		{GitURL: "https://github.com/org-a/tools.git", Version: "^1.0.0"},
 		{GitURL: "https://github.com/org-b/tools.git", Version: "^1.0.0"},
 	})

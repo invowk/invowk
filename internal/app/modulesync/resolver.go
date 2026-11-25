@@ -123,48 +123,54 @@ func (m *Resolver) CacheDir() types.FilesystemPath { return m.cacheDir }
 func (m *Resolver) WorkingDir() types.FilesystemPath { return m.workingDir }
 
 // Add resolves a new module requirement, caches it, and updates the lock file.
-func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, error) {
+//
+// lockWritten reports whether the lock file was written (false when the
+// equal-content skip left it byte-identical, and on every error).
+func (m *Resolver) Add(ctx context.Context, req ModuleRef) (added *ResolvedModule, lockWritten bool, addErr error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	// Validate the requirement
 	if err := m.validateModuleRef(req); err != nil {
-		return nil, fmt.Errorf("invalid requirement: %w", err)
+		return nil, false, fmt.Errorf("invalid requirement: %w", err)
 	}
 
 	// Load the existing lock entries for commit and content tamper detection.
 	locked, err := m.loadLockedModules()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Resolve the module
 	resolved, err := m.resolveOne(ctx, req, locked)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve module: %w", err)
+		return nil, false, fmt.Errorf("failed to resolve module: %w", err)
 	}
 
 	// Persist to lock file so Add is a complete single-step operation
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := invowkmod.LoadLockFile(lockPath)
 	if err != nil {
-		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+		return nil, false, fmt.Errorf(errFmtLoadLockFile, err)
 	}
 	// Reject v1.0 lock files — require upgrade to v2.0 for tamper detection.
 	if v2Err := lock.RequireV2(); v2Err != nil {
-		return nil, v2Err
+		return nil, false, v2Err
 	}
 	lock.AddModule(resolved)
-	if err := lock.Save(lockPath); err != nil {
-		return nil, fmt.Errorf(errFmtSaveLockFile, err)
+	lockWritten, saveErr := lock.SaveIfChanged(lockPath)
+	if saveErr != nil {
+		return nil, false, fmt.Errorf(errFmtSaveLockFile, saveErr)
 	}
 
-	return resolved, nil
+	return resolved, lockWritten, nil
 }
 
 // Remove removes module(s) matching the identifier from the lock file.
 // The identifier can be a git URL, lock file key, namespace, or module name.
-func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult, error) {
+//
+// lockWritten reports whether the lock file was written.
+func (m *Resolver) Remove(_ context.Context, identifier string) (removed []RemoveResult, lockWritten bool, removeErr error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -172,17 +178,17 @@ func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult,
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := invowkmod.LoadLockFile(lockPath)
 	if err != nil {
-		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+		return nil, false, fmt.Errorf(errFmtLoadLockFile, err)
 	}
 	// Reject v1.0 lock files — require upgrade to v2.0 for tamper detection.
 	if v2Err := lock.RequireV2(); v2Err != nil {
-		return nil, v2Err
+		return nil, false, v2Err
 	}
 
 	// Resolve identifier to lock file keys
 	keys, err := resolveIdentifier(identifier, lock.Modules)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Collect results and delete entries
@@ -197,17 +203,20 @@ func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult,
 	}
 
 	// Save updated lock file
-	if err := lock.Save(lockPath); err != nil {
-		return nil, fmt.Errorf(errFmtSaveLockFile, err)
+	lockWritten, saveErr := lock.SaveIfChanged(lockPath)
+	if saveErr != nil {
+		return nil, false, fmt.Errorf(errFmtSaveLockFile, saveErr)
 	}
 
-	return results, nil
+	return results, lockWritten, nil
 }
 
 // Update updates one or all modules to their latest matching versions.
 // If identifier is empty, all modules are updated. The identifier can be a
 // git URL, lock file key, namespace, or module name.
-func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedModule, error) {
+//
+// lockWritten reports whether the lock file was written.
+func (m *Resolver) Update(ctx context.Context, identifier string) (updatedModules []*ResolvedModule, lockWritten bool, updateErr error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -215,11 +224,11 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := invowkmod.LoadLockFile(lockPath)
 	if err != nil {
-		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+		return nil, false, fmt.Errorf(errFmtLoadLockFile, err)
 	}
 	// Reject v1.0 lock files — require upgrade to v2.0 for tamper detection.
 	if v2Err := lock.RequireV2(); v2Err != nil {
-		return nil, v2Err
+		return nil, false, v2Err
 	}
 
 	// Determine which keys to update
@@ -231,7 +240,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	} else {
 		keysToUpdate, err = resolveIdentifier(identifier, lock.Modules)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
 
@@ -252,7 +261,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 		// passing the live map never exposes an already-updated entry.
 		resolved, err := m.resolveOne(ctx, req, lock.Modules)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update %s: %w", key, err)
+			return nil, false, fmt.Errorf("failed to update %s: %w", key, err)
 		}
 
 		lock.AddModule(resolved)
@@ -261,20 +270,24 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	}
 
 	// Save updated lock file
-	if err := lock.Save(lockPath); err != nil {
-		return nil, fmt.Errorf(errFmtSaveLockFile, err)
+	lockWritten, saveErr := lock.SaveIfChanged(lockPath)
+	if saveErr != nil {
+		return nil, false, fmt.Errorf(errFmtSaveLockFile, saveErr)
 	}
 
-	return updated, nil
+	return updated, lockWritten, nil
 }
 
 // Sync resolves all requirements from invowkmod.cue and updates the lock file.
-func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*ResolvedModule, error) {
+//
+// lockWritten reports whether the lock file was written; it is false when
+// there are no requirements, since nothing is saved then.
+func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) (synced []*ResolvedModule, lockWritten bool, syncErr error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if len(requirements) == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	// Load the existing lock entries for tamper detection. When re-syncing a
@@ -282,19 +295,19 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 	// against the prior lock entry, whether or not the module is cached locally.
 	locked, err := m.loadLockedModules()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Resolve only direct dependencies (no transitive recursion).
 	resolved, err := m.resolveAll(ctx, requirements, locked)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Validate that all transitive deps are explicitly declared in root requirements.
 	// If any are missing, return an actionable error suggesting `invowk module tidy`.
 	if diags := invowkmod.CheckMissingTransitiveDeps(requirements, resolved); len(diags) > 0 {
-		return nil, &MissingTransitiveDepError{Diagnostics: diags}
+		return nil, false, &MissingTransitiveDepError{Diagnostics: diags}
 	}
 
 	lock := invowkmod.NewLockFile()
@@ -304,11 +317,12 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 	}
 
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
-	if err := lock.Save(lockPath); err != nil {
-		return nil, fmt.Errorf(errFmtSaveLockFile, err)
+	lockWritten, saveErr := lock.SaveIfChanged(lockPath)
+	if saveErr != nil {
+		return nil, false, fmt.Errorf(errFmtSaveLockFile, saveErr)
 	}
 
-	return resolved, nil
+	return resolved, lockWritten, nil
 }
 
 // List returns all currently resolved modules from the lock file.

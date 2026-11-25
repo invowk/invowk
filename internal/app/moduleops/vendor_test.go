@@ -24,9 +24,9 @@ type fakeVendorDependencyResolver struct {
 	lockCalls  int
 }
 
-func (r *fakeVendorDependencyResolver) Sync(context.Context, []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, error) {
+func (r *fakeVendorDependencyResolver) Sync(context.Context, []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, bool, error) {
 	r.syncCalls++
-	return r.syncResult, nil
+	return r.syncResult, true, nil
 }
 
 func (r *fakeVendorDependencyResolver) LoadDeclaredFromLock(context.Context, []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, error) {

@@ -63,7 +63,7 @@ description: "Benchmark tools"
 
 	b.ResetTimer()
 	for b.Loop() {
-		resolved, syncErr := resolver.Sync(b.Context(), requirements)
+		resolved, _, syncErr := resolver.Sync(b.Context(), requirements)
 		if syncErr != nil {
 			b.Fatalf("Sync() error = %v", syncErr)
 		}

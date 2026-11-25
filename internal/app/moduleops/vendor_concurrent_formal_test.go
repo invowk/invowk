@@ -63,7 +63,7 @@ func staleVendorResolved(version invowkmod.SemVer, commit invowkmod.GitCommit, h
 }
 
 // saveStaleVendorLock performs Resolver.Update's lock write for one entry:
-// load the lock, replace the entry, save (resolver.go:216, 258, 264).
+// load the lock, replace the entry, save (resolver.go:225, 267, 273).
 func saveStaleVendorLock(t *testing.T, lockPath string, mod *invowkmod.ResolvedModule) {
 	t.Helper()
 	lock, err := invowkmod.LoadLockFile(lockPath)

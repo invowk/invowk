@@ -67,6 +67,8 @@ The output looks like:
 ✓ Module lock file updated
 ✓ Updated invowkmod.cue with new requires entry
 ```
+
+When the lock file already held the module with the same entry, the save leaves it untouched and the lock line reads `✓ Module lock file unchanged`; the `invowkmod.cue` line still reports its own edit.
 :::
 
 ## invowk module remove
@@ -105,6 +107,8 @@ Remove Module Dependency
 ✓ Lock file and invowkmod.cue updated
 ```
 
+Only when another process removed the same entries from the lock file between this command's read and its save does the lock on disk already lack them; then the save leaves it untouched and the last line reads `✓ Lock file unchanged; invowkmod.cue updated`.
+
 Cached files are not deleted.
 :::
 
@@ -136,6 +140,8 @@ Sync all dependencies declared in `invowkmod.cue`. This reads the `requires` fie
 
 <Snippet id="modules/dependencies/cli/sync-output" />
 
+When the resolved lock has the same content as the lock on disk, the save leaves it untouched and the last line reads `✓ Lock file unchanged: invowkmod.lock.cue`.
+
 ### No Requirements
 
 <Snippet id="modules/dependencies/cli/sync-empty" />
@@ -161,6 +167,8 @@ Update dependencies to their latest versions matching the declared constraints.
 ### Output
 
 <Snippet id="modules/dependencies/cli/update-output" />
+
+When nothing newer matches the constraints, the lock keeps its content, the save leaves it untouched and the last line reads `✓ Lock file unchanged: invowkmod.lock.cue`.
 
 ### No Updates
 

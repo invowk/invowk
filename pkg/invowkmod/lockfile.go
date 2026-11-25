@@ -368,25 +368,41 @@ func LoadLockFile(path string) (*LockFile, error) {
 // content) Save stamps l.Generated with the write time and replaces the file.
 // For the formal models, a skipped write equals an atomic replace with
 // identical content.
+//
+// Save delegates to SaveIfChanged and drops its written flag; callers that
+// report whether the file changed call SaveIfChanged directly.
 func (l *LockFile) Save(path string) error {
-	if err := l.validateForSave(); err != nil {
-		return err
+	_, err := l.SaveIfChanged(path)
+	return err
+}
+
+// SaveIfChanged saves the lock file exactly as Save describes and reports
+// whether it wrote path: written is false when the equal-content skip left the
+// file byte-identical, and true only after the atomic write replaced or created
+// it. On any error (validation, directory creation, write) written is false.
+// The flag is reporting only; it never changes when the lock is written.
+func (l *LockFile) SaveIfChanged(path string) (written bool, err error) {
+	if validateErr := l.validateForSave(); validateErr != nil {
+		return false, validateErr
 	}
 	existing := InspectLockFile(types.FilesystemPath(path))
 	// InspectLockFile sets LockFile only for a present file that parsed.
 	if existing.LockFile != nil && l.sameContent(existing.LockFile) {
 		l.Generated = existing.LockFile.Generated
-		return nil
+		return false, nil
 	}
 	l.Generated = time.Now()
 	content := l.toCUE()
 
 	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
+	if mkdirErr := os.MkdirAll(filepath.Dir(path), 0o755); mkdirErr != nil {
+		return false, fmt.Errorf("failed to create directory: %w", mkdirErr)
 	}
 
-	return fspath.AtomicWriteFile(path, []byte(content), fspath.DefaultFilePerm)
+	if writeErr := fspath.AtomicWriteFile(path, []byte(content), fspath.DefaultFilePerm); writeErr != nil {
+		return false, writeErr
+	}
+	return true, nil
 }
 
 // AddModule adds a resolved module to the lock file.

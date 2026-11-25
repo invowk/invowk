@@ -67,6 +67,8 @@ A saída se parece com:
 ✓ Module lock file updated
 ✓ Updated invowkmod.cue with new requires entry
 ```
+
+Quando o lock file já tinha o módulo com a mesma entrada, o salvamento não o altera e a linha do lock fica `✓ Module lock file unchanged`; a linha de `invowkmod.cue` continua informando a própria edição.
 :::
 
 ## invowk module remove
@@ -95,6 +97,8 @@ Remove uma dependência de módulo do lock file e de `invowkmod.cue`.
 `invowk module remove` realiza duas ações automaticamente:
 1. Remove o módulo do lock file
 2. Autoedita `invowkmod.cue` para remover a entrada correspondente em `requires`
+
+A saída termina com `✓ Lock file and invowkmod.cue updated`. O lock no disco só deixa de ter essas entradas quando outro processo as removeu entre a leitura deste comando e o salvamento; então o salvamento não o altera e a última linha fica `✓ Lock file unchanged; invowkmod.cue updated`.
 
 Arquivos de cache não são deletados.
 :::
@@ -127,6 +131,8 @@ Sincroniza todas as dependências declaradas em `invowkmod.cue`. Lê o campo `re
 
 <Snippet id="modules/dependencies/cli/sync-output" />
 
+Quando o lock resolvido tem o mesmo conteúdo do lock no disco, o salvamento não o altera e a última linha fica `✓ Lock file unchanged: invowkmod.lock.cue`.
+
 ### Sem Requirements
 
 <Snippet id="modules/dependencies/cli/sync-empty" />
@@ -152,6 +158,8 @@ Atualiza dependências para as versões mais recentes compatíveis com as restri
 ### Saída
 
 <Snippet id="modules/dependencies/cli/update-output" />
+
+Quando nada mais novo atende às restrições, o lock mantém o conteúdo, o salvamento não o altera e a última linha fica `✓ Lock file unchanged: invowkmod.lock.cue`.
 
 ### Sem Atualizações
 

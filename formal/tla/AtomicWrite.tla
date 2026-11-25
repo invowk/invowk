@@ -1,8 +1,9 @@
 \* SPDX-License-Identifier: MPL-2.0
 ------------------------------ MODULE AtomicWrite ------------------------------
 (*
-  pkg/fspath.AtomicWriteFile (used by LockFile.Save) over an abstract
-  filesystem that separates what processes see from what survives power loss.
+  pkg/fspath.AtomicWriteFile (used by LockFile.SaveIfChanged, which
+  LockFile.Save wraps) over an abstract filesystem that separates what
+  processes see from what survives power loss.
 
   Named axioms:
     A1  Writes change the visible inode data, not its durable data.
@@ -24,7 +25,7 @@
 \* |---|---|---|---|---|
 \* | steps | atomicWriteFile | pkg/fspath/atomic.go | TestAtomicWriteFile_FailureAtEveryStep | chmod folded into create; one writer |
 \* | cleanup | atomicWriteOps | pkg/fspath/atomic.go | TestAtomicWriteFile_FailureAtEveryStep | temp files left by a process crash are an expected abstraction |
-\* | caller | LockFile.Save | pkg/invowkmod/lockfile.go | - | one writer; concurrent multi-process writers are modelled by ConcurrentModuleEdits; a save of content equal to the valid lock on disk skips the write, which equals a replace with identical content |
+\* | caller | LockFile.Save | pkg/invowkmod/lockfile.go | - | one writer; concurrent multi-process writers are modelled by ConcurrentModuleEdits; a save of content equal to the valid lock on disk skips the write, which equals a replace with identical content; Save delegates to SaveIfChanged, which holds the skip-or-replace body and which the resolver calls; its written flag is reporting only |
 EXTENDS Naturals
 
 CONSTANTS SyncFile, SyncDir, Mutant

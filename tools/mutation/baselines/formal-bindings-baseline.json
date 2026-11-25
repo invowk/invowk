@@ -561,22 +561,11 @@
       "line": 276
     },
     {
-      "id": "447f20f9a56bc0bebf437186676c32cd",
+      "id": "aa381f08eb809bcbac2f746546e1c55f",
       "file": "internal/app/modulesync/resolver.go",
       "mutator": "branch/if",
-      "line": 277
-    },
-    {
-      "id": "179f01c31a4d292a62dee92634002503",
-      "file": "internal/app/modulesync/resolver.go",
-      "mutator": "branch/if",
-      "line": 285
-    },
-    {
-      "id": "8099a3ca8cfa79a64cb845220fff4022",
-      "file": "internal/app/modulesync/resolver.go",
-      "mutator": "statement/return",
-      "line": 285
+      "line": 290,
+      "digest": "f7b0a58c9977c807c9a1100f499cf3409b8987a54149933771a5f5676d052a62"
     },
     {
       "id": "68c4473cb240d57429cd8758ae0584e7",
@@ -585,40 +574,67 @@
       "line": 296
     },
     {
-      "id": "41bcb0ddeef3995c655bc30570690083",
+      "id": "66552de45de671d24e13badc5101747f",
       "file": "internal/app/modulesync/resolver.go",
       "mutator": "branch/if",
-      "line": 297
+      "line": 298,
+      "digest": "f7b0a58c9977c807c9a1100f499cf3409b8987a54149933771a5f5676d052a62"
     },
     {
-      "id": "52ab7713375290501ffd157c6506dc5a",
+      "id": "2dfc4f73fc1c0a790bc964eae6545e56",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "statement/return",
+      "line": 298,
+      "digest": "f7b0a58c9977c807c9a1100f499cf3409b8987a54149933771a5f5676d052a62"
+    },
+    {
+      "id": "4c61264daed7b93ba9606ae6116efcb9",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "branch/if",
+      "line": 310,
+      "digest": "f7b0a58c9977c807c9a1100f499cf3409b8987a54149933771a5f5676d052a62"
+    },
+    {
+      "id": "82ec3af3c51e00580f3845f4bfde140b",
       "file": "internal/app/modulesync/resolver.go",
       "mutator": "composite/field-clear",
-      "line": 297
+      "line": 310,
+      "digest": "f7b0a58c9977c807c9a1100f499cf3409b8987a54149933771a5f5676d052a62"
     },
     {
-      "id": "7aa032768f836c8e0767045fa2234910",
+      "id": "1ca349f8489931a815353005e7e09386",
       "file": "internal/app/modulesync/resolver.go",
       "mutator": "statement/return",
-      "line": 297
+      "line": 310,
+      "digest": "f7b0a58c9977c807c9a1100f499cf3409b8987a54149933771a5f5676d052a62"
     },
     {
-      "id": "c832b83f133cf4f4b91ee63b0c65b6c3",
+      "id": "b874859d71d0c4b9acd904c05c4c80e5",
       "file": "internal/app/modulesync/resolver.go",
       "mutator": "expression/error-guard",
-      "line": 307
+      "line": 321,
+      "digest": "f7b0a58c9977c807c9a1100f499cf3409b8987a54149933771a5f5676d052a62"
     },
     {
-      "id": "0f03c7cffa2304b1276c857f9db11daf",
+      "id": "3f857412e48a34ea3a0776c198766499",
       "file": "internal/app/modulesync/resolver.go",
       "mutator": "branch/if",
-      "line": 308
+      "line": 322,
+      "digest": "f7b0a58c9977c807c9a1100f499cf3409b8987a54149933771a5f5676d052a62"
     },
     {
-      "id": "fc71be7d34d6c3b2e6ae56410732b8ab",
+      "id": "10455e677b7589f734769a6f7375e42e",
       "file": "internal/app/modulesync/resolver.go",
       "mutator": "statement/return",
-      "line": 308
+      "line": 322,
+      "digest": "f7b0a58c9977c807c9a1100f499cf3409b8987a54149933771a5f5676d052a62"
+    },
+    {
+      "id": "1733ea6d2cc34dc5b05f8b779ecb2eb8",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "statement/return",
+      "line": 325,
+      "digest": "f7b0a58c9977c807c9a1100f499cf3409b8987a54149933771a5f5676d052a62"
     },
     {
       "id": "9c0deacb09af7e0a9ef51344954fb009",

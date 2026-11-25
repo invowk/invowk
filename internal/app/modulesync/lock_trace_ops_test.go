@@ -132,7 +132,7 @@ func newLockTraceRun(t *testing.T, fx *lockTraceFixture, st lockTraceInit) *lock
 		t.Fatalf("NewResolverWithFetcher() error = %v", err)
 	}
 	r.resolver = resolver
-	resolved, err := resolver.Sync(t.Context(), lockTraceRequirements)
+	resolved, _, err := resolver.Sync(t.Context(), lockTraceRequirements)
 	if err != nil {
 		t.Fatalf("setup Sync() error = %v", err)
 	}
@@ -279,7 +279,7 @@ func (r *lockTraceRun) apply(op string) {
 
 func (r *lockTraceRun) sync() {
 	r.syncs++
-	_, err := r.resolver.Sync(r.t.Context(), lockTraceRequirements)
+	_, _, err := r.resolver.Sync(r.t.Context(), lockTraceRequirements)
 	if err != nil && !errors.Is(err, modulesync.ErrLockedCommitMismatch) && !errors.Is(err, invowkmod.ErrContentHashMismatch) {
 		r.t.Fatalf("Sync() error = %v", err)
 	}
