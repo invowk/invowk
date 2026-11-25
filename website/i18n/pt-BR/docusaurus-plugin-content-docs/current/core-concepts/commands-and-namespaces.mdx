@@ -68,7 +68,7 @@ O Invowk descobre comandos de múltiplas fontes em ordem de prioridade:
 3. **Includes configurados** (caminhos de módulos do arquivo de configuração)
 4. **Diretório de comandos do usuário** (`~/.invowk/cmds/` — apenas `*.invowkmod`, não recursivo)
 
-Um invowkfile dentro de um diretório de módulo é sempre carregado como parte desse módulo. Executado a partir de um diretório `*.invowkmod`, o invowk carrega esse módulo no lugar da fonte 1 e não escaneia a fonte 2; assim, seus comandos levam o namespace do módulo ali como em qualquer outro lugar: `invowk cmd <módulo> <cmd>`, `invowk cmd @<módulo> <cmd>` ou `--ivk-from <módulo>`. Um nome simples continua funcionando enquanto for único entre as fontes. O mesmo diretório de módulo encontrado por várias fontes é carregado uma vez.
+O invowkfile de um diretório de módulo é sempre carregado como parte desse módulo. Executado a partir de um diretório `*.invowkmod`, o invowk carrega esse módulo no lugar da fonte 1 e não escaneia a fonte 2; assim, seus comandos levam o namespace do módulo ali como em qualquer outro lugar: `invowk cmd <módulo> <cmd>`, `invowk cmd @<módulo> <cmd>` ou `--ivk-from <módulo>`. Um nome simples continua funcionando enquanto for único entre as fontes. O mesmo diretório de módulo encontrado por várias fontes é carregado uma vez.
 
 Com `--ivk-no-cwd` (ou `INVOWK_NO_CWD=1`), as fontes 1 e 2 são ignoradas, inclusive um diretório atual que seja ele próprio um diretório de módulo; veja [Ignorando os Comandos do Diretório Atual](../configuration/overview#ignorando-os-comandos-do-diretório-atual).
 

@@ -15,10 +15,16 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// symlinkModuleSkippedFormat is the module_symlink_skipped message for a
-// symlinked module directory, found by a parent scan or as the current
-// directory.
-const symlinkModuleSkippedFormat = "skipping symlinked module directory %s — symlink modules are not supported"
+const (
+	// symlinkModuleSkippedFormat is the module_symlink_skipped message for a
+	// symlinked module directory, found by a parent scan or as the current
+	// directory.
+	symlinkModuleSkippedFormat = "skipping symlinked module directory %s — symlink modules are not supported"
+
+	// maxLinkHops bounds the chain of links linkChainTargets follows from the
+	// current directory's own entry, as filepath.EvalSymlinks bounds its walk.
+	maxLinkHops = 255
+)
 
 // discoverCurrentDirModule decides whether the current directory is a module
 // directory and, when it is, loads it as that module.
@@ -29,7 +35,7 @@ const symlinkModuleSkippedFormat = "skipping symlinked module directory %s — s
 //   - a module-directory candidate is a directory any of whose names ends in
 //     ".invowkmod", compared ignoring case: the logical base name, the name the
 //     parent directory stores, the physical (EvalSymlinks) base name and, for a
-//     link entry, the base name of its target;
+//     link entry, the base name of every target along its chain of links;
 //   - a link entry (a symbolic link, or a junction or other name-surrogate
 //     reparse point, which Windows reports as ModeIrregular) that is a candidate
 //     loads nothing and is reported as module_symlink_skipped, as the scan of
@@ -71,9 +77,10 @@ func discoverCurrentDirModule(baseDir types.FilesystemPath) (isModuleDir bool, f
 	}
 
 	parentDir, parentErr := parentPath(absPath)
+	volumeRoot := parentErr == nil && filepath.Clean(string(parentDir)) == filepath.Clean(string(absPath))
 	var stored os.DirEntry
 	hasStored := false
-	if parentErr == nil {
+	if parentErr == nil && !volumeRoot {
 		stored, hasStored = storedDirEntry(parentDir, absPath, info)
 	}
 	if hasStored {
@@ -102,15 +109,7 @@ func discoverCurrentDirModule(baseDir types.FilesystemPath) (isModuleDir bool, f
 
 	candidate := anyModuleSuffixFold(names)
 	if !hasStored {
-		// A volume root, or a parent directory that cannot be listed or does not
-		// list this entry: the stored name is unknown.
-		if candidate {
-			return true, nil, []Diagnostic{currentDirSkipped(absPath, errors.New("cannot find its entry in the parent directory"))}
-		}
-		if evalErr != nil {
-			return true, nil, []Diagnostic{currentDirSkipped(absPath, fmt.Errorf("cannot find its entry in the parent directory or resolve it: %w", evalErr))}
-		}
-		return false, nil, nil
+		return unstoredEntryVerdict(absPath, candidate, volumeRoot, evalErr)
 	}
 	if !candidate {
 		return false, nil, nil
@@ -129,32 +128,46 @@ func discoverCurrentDirModule(baseDir types.FilesystemPath) (isModuleDir bool, f
 	return true, files, entryDiags
 }
 
+// unstoredEntryVerdict judges a current directory whose stored name is unknown:
+// a volume root, or a directory whose parent cannot be listed or does not list
+// it.
+//   - A candidate cannot be classified as the parent scan would classify it, so
+//     it loads nothing.
+//   - A volume root has no stored name by nature, and none of its names can
+//     carry the suffix, so a volume root that is not a candidate is an ordinary
+//     directory.
+//   - Any other directory that is not a candidate is an ordinary directory only
+//     when its physical name is known (evalErr is nil); with neither the stored
+//     nor the physical name, a name that ends in ".invowkmod" may be hidden (a
+//     Windows short name), so it loads nothing.
+func unstoredEntryVerdict(absPath types.FilesystemPath, candidate, volumeRoot bool, evalErr error) (isModuleDir bool, files []*DiscoveredFile, diagnostics []Diagnostic) {
+	if candidate {
+		return true, nil, []Diagnostic{currentDirSkipped(absPath, errors.New("cannot find its entry in the parent directory"))}
+	}
+	if evalErr != nil && !volumeRoot {
+		return true, nil, []Diagnostic{currentDirSkipped(absPath, fmt.Errorf("cannot find its entry in the parent directory or resolve it: %w", evalErr))}
+	}
+	return false, nil, nil
+}
+
 // storedDirEntry returns the entry parentDir stores for absPath: the one that
 // is the same file as info. Entries whose names equal the base name ignoring
 // case are compared first; every other entry is compared only when none of
-// those match (Windows short names, Unicode normalisation on macOS). A volume
-// root has no stored entry.
+// those match (Windows short names, Unicode normalisation on macOS). The caller
+// never passes a volume root, which has no stored entry.
 func storedDirEntry(parentDir, absPath types.FilesystemPath, info os.FileInfo) (os.DirEntry, bool) {
-	if filepath.Clean(string(parentDir)) == filepath.Clean(string(absPath)) {
-		return nil, false
-	}
 	entries, err := os.ReadDir(string(parentDir))
 	if err != nil {
 		return nil, false
 	}
 	base := filepath.Base(string(absPath))
-	rest := make([]os.DirEntry, 0, len(entries))
 	for _, entry := range entries {
-		if !strings.EqualFold(entry.Name(), base) {
-			rest = append(rest, entry)
-			continue
-		}
-		if sameEntry(parentDir, entry, info) {
+		if strings.EqualFold(entry.Name(), base) && sameEntry(parentDir, entry, info) {
 			return entry, true
 		}
 	}
-	for _, entry := range rest {
-		if sameEntry(parentDir, entry, info) {
+	for _, entry := range entries {
+		if !strings.EqualFold(entry.Name(), base) && sameEntry(parentDir, entry, info) {
 			return entry, true
 		}
 	}
@@ -179,18 +192,20 @@ func isLinkEntry(info os.FileInfo) bool {
 	return info.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0
 }
 
-// linkTargets returns a link's targets: the target os.Readlink reads (it reads
-// junction targets too), that target resolved, and the path
-// filepath.EvalSymlinks resolves for the link. It fails only when neither
-// os.Readlink nor filepath.EvalSymlinks resolves the link.
+// linkTargets returns a link's targets: every target reached by following
+// os.Readlink (it reads junction targets too) from the link, each also
+// resolved, and the path filepath.EvalSymlinks resolves for the link. It fails
+// when neither os.Readlink nor filepath.EvalSymlinks resolves the link, and
+// when a link further along the chain cannot be followed.
 func linkTargets(link types.FilesystemPath) ([]types.FilesystemPath, error) {
 	var targets []types.FilesystemPath
 	target, readErr := readlinkPath(link)
 	if readErr == nil {
-		targets = append(targets, target)
-		if resolved, err := resolvedPath(target); err == nil {
-			targets = append(targets, resolved)
+		chain, err := linkChainTargets(target)
+		if err != nil {
+			return nil, err
 		}
+		targets = append(targets, chain...)
 	}
 	resolved, evalErr := resolvedPath(link)
 	if evalErr == nil {
@@ -200,6 +215,40 @@ func linkTargets(link types.FilesystemPath) ([]types.FilesystemPath, error) {
 		return nil, errors.Join(readErr, evalErr)
 	}
 	return targets, nil
+}
+
+// linkChainTargets returns target and every later target of the chain of links
+// that starts at it, each followed by its filepath.EvalSymlinks result when
+// that resolves. filepath.EvalSymlinks does not follow Windows junctions, so a
+// chain that runs through junctions is followed here, one os.Readlink at a time.
+// The chain ends at the first target that is not a link or does not exist. A
+// target whose entry cannot be read, a link that cannot be read, and a chain
+// longer than maxLinkHops are errors, since the end of the chain is then
+// unknown.
+func linkChainTargets(target types.FilesystemPath) ([]types.FilesystemPath, error) {
+	var targets []types.FilesystemPath
+	for range maxLinkHops {
+		targets = append(targets, target)
+		if resolved, err := resolvedPath(target); err == nil {
+			targets = append(targets, resolved)
+		}
+		info, err := os.Lstat(string(target))
+		if errors.Is(err, fs.ErrNotExist) {
+			return targets, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read link target entry: %w", err)
+		}
+		if !isLinkEntry(info) {
+			return targets, nil
+		}
+		next, err := readlinkPath(target)
+		if err != nil {
+			return nil, err
+		}
+		target = next
+	}
+	return nil, fmt.Errorf("more than %d links in a chain", maxLinkHops)
 }
 
 func absolutePath(path types.FilesystemPath) (types.FilesystemPath, error) {

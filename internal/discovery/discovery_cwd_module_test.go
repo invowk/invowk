@@ -541,3 +541,131 @@ func TestDiscoverCurrentDirModule_UnreadableEntry(t *testing.T) {
 		t.Fatalf("missing plain dir: isModuleDir=%v files=%d diags=%v, want false and nothing", isModuleDir, len(files), diags)
 	}
 }
+
+// TestDiscovery_CurrentDirModule_SymlinkChainWithoutSuffix: a chain of links
+// without the suffix that ends at a module directory is judged by the end of
+// the chain.
+func TestDiscovery_CurrentDirModule_SymlinkChainWithoutSuffix(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+
+	root := fstree.TempRoot(t)
+	target := filepath.Join(root, "real", "tools.invowkmod")
+	createTestModule(t, target, "tools", "hello")
+	mid := filepath.Join(root, "mid")
+	fstree.MustSymlink(t, target, mid)
+	link := filepath.Join(root, "tools")
+	fstree.MustSymlink(t, mid, link)
+
+	inside := discoverFromBase(t, nil, link)
+	inside.requireNothingLoaded(t, "module dir")
+	inside.requireCode(t, "module dir", CodeModuleSymlinkSkipped)
+}
+
+// TestDiscovery_CurrentDirModule_JunctionChainWithoutSuffix: filepath.EvalSymlinks
+// does not follow junctions, so a junction to a junction to a module directory
+// is followed hop by hop.
+func TestDiscovery_CurrentDirModule_JunctionChainWithoutSuffix(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapJunction)
+
+	target := filepath.Join(t.TempDir(), "tools.invowkmod")
+	createTestModule(t, target, "tools", "hello")
+	links := t.TempDir()
+	mid := filepath.Join(links, "mid")
+	fstree.MustJunction(t, target, mid)
+	junction := filepath.Join(links, "tools")
+	fstree.MustJunction(t, mid, junction)
+
+	inside := discoverFromBase(t, nil, junction)
+	inside.requireNothingLoaded(t, "module dir")
+	inside.requireCode(t, "module dir", CodeModuleSymlinkSkipped)
+}
+
+func TestLinkChainTargets(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+
+	t.Run("every hop is a target", func(t *testing.T) {
+		t.Parallel()
+		root := fstree.TempRoot(t)
+		end := filepath.Join(root, "end.invowkmod")
+		if err := os.Mkdir(end, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		hop := filepath.Join(root, "hop")
+		fstree.MustSymlink(t, end, hop)
+
+		targets, err := linkChainTargets(types.FilesystemPath(hop))
+		if err != nil {
+			t.Fatalf("linkChainTargets: %v", err)
+		}
+		if !slices.ContainsFunc(targets, func(p types.FilesystemPath) bool { return filepath.Base(string(p)) == "hop" }) ||
+			!anyModuleSuffixFold(targets) {
+			t.Fatalf("targets = %v, want the hop and the module-named end", targets)
+		}
+	})
+
+	t.Run("dangling end", func(t *testing.T) {
+		t.Parallel()
+		root := fstree.TempRoot(t)
+		hop := filepath.Join(root, "hop")
+		fstree.MustSymlink(t, filepath.Join(root, "missing"), hop)
+
+		targets, err := linkChainTargets(types.FilesystemPath(hop))
+		if err != nil {
+			t.Fatalf("linkChainTargets: %v", err)
+		}
+		if anyModuleSuffixFold(targets) {
+			t.Fatalf("targets = %v, want no module name", targets)
+		}
+	})
+
+	t.Run("loop", func(t *testing.T) {
+		t.Parallel()
+		root := fstree.TempRoot(t)
+		a := filepath.Join(root, "a")
+		b := filepath.Join(root, "b")
+		fstree.MustSymlink(t, b, a)
+		fstree.MustSymlink(t, a, b)
+
+		if _, err := linkChainTargets(types.FilesystemPath(a)); err == nil {
+			t.Fatal("linkChainTargets of a loop: want an error")
+		}
+	})
+}
+
+func TestUnstoredEntryVerdict(t *testing.T) {
+	t.Parallel()
+
+	path := types.FilesystemPath(filepath.Join(t.TempDir(), "dir"))
+	evalErr := errors.New("resolve links: unsupported volume")
+	tests := []struct {
+		name       string
+		candidate  bool
+		volumeRoot bool
+		evalErr    error
+		wantModule bool
+	}{
+		{name: "candidate", candidate: true, wantModule: true},
+		{name: "candidate volume root", candidate: true, volumeRoot: true, wantModule: true},
+		{name: "plain, physical name known", wantModule: false},
+		{name: "plain, physical name unknown", evalErr: evalErr, wantModule: true},
+		{name: "volume root, physical name unknown", volumeRoot: true, evalErr: evalErr, wantModule: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isModuleDir, files, diags := unstoredEntryVerdict(path, tt.candidate, tt.volumeRoot, tt.evalErr)
+			if isModuleDir != tt.wantModule || len(files) != 0 {
+				t.Fatalf("isModuleDir=%v files=%d, want %v and none", isModuleDir, len(files), tt.wantModule)
+			}
+			if tt.wantModule && (len(diags) != 1 || diags[0].Code() != CodeModuleLoadSkipped) {
+				t.Fatalf("diagnostics = %v, want one %s", diags, CodeModuleLoadSkipped)
+			}
+			if !tt.wantModule && len(diags) != 0 {
+				t.Fatalf("diagnostics = %v, want none", diags)
+			}
+		})
+	}
+}

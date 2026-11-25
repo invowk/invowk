@@ -19,7 +19,7 @@
 //
 // Discovery follows a precedence order:
 //  1. Current directory invowkfile.cue (highest), or the module the current
-//     directory is: an invowkfile inside a module directory is always loaded as
+//     directory is: the invowkfile of a module directory is always loaded as
 //     part of that module
 //  2. Modules in current directory (*.invowkmod) and their vendored dependencies;
 //     not scanned when the current directory is itself a module directory

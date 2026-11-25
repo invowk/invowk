@@ -378,7 +378,9 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 // loadModuleEntry classifies one directory entry of parentDir as a module and
 // loads it. It is the single entry classifier shared by the scan of a
 // directory's children and by the current-directory module check, so a module
-// directory is judged the same way whichever directory invowk runs from.
+// directory is loaded or skipped the same way whichever directory invowk runs
+// from. (The current-directory check also reports a link entry that this
+// helper skips without a diagnostic, such as a Windows junction.)
 // It returns the module file, or the diagnostics explaining a skip; an entry
 // that is not a module candidate returns neither.
 func loadModuleEntry(parentDir types.FilesystemPath, entry os.DirEntry) (*DiscoveredFile, []Diagnostic) {

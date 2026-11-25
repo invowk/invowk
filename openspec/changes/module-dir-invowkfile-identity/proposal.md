@@ -4,7 +4,7 @@ A module's identity should be a property of where its files live, not of the dir
 
 ## What Changes
 
-- When the current directory is a `*.invowkmod` directory, discovery loads it as a module, through the same entry classifier and checks that the scan of its parent directory uses. A file in a module directory is never parsed as a plain invowkfile. A module that does not load contributes nothing, and the skip is reported as a diagnostic.
+- When the current directory is a `*.invowkmod` directory, discovery loads it as a module, through the same entry classifier and checks that the scan of its parent directory uses. The invowkfile of a module directory is never parsed as a plain invowkfile. A module that does not load contributes nothing, and the skip is reported as a diagnostic.
 - "Module directory" means a directory whose name, as its parent directory stores it, ends in `.invowkmod`: the rule the parent-directory scan already uses. A directory that only contains an `invowkmod.cue` (for example a project root that declares `requires`) is unchanged.
 - The name is judged on the entry the parent directory stores, so the letter case or short form used to enter the directory does not change the result. A current directory whose name ends in `.invowkmod` in any letter case is never read as a plain invowkfile directory.
 - A current directory whose own entry is a symbolic link or a junction to a module directory is treated as the parent-directory scan treats that link: nothing is loaded from it, and the skip is reported. A link in an ancestor directory does not count.

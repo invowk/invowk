@@ -359,8 +359,8 @@ audit through call-path tracing and focused behavior tests.
 | SC-06 | `--ivk-env-var` priority override | Low | `internal/runtime/env_builder.go` | By-design |
 | SC-07 | Custom-check `script.content` host execution | High | `internal/app/deps/checks.go`, `internal/app/commandadapters/dependency_host.go` | Partial |
 | SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go`, `pkg/invowkfile/runtime.go` | Mitigated (allowlist in Validate; residual: it checks the interpreter basename only, so an absolute path such as `/tmp/python3` passes) |
-| SC-09 | Root invowkfile scope bypass | Low | `internal/app/deps/deps.go` | By-design |
-| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go`, command-scope lock checks | Partial |
+| SC-09 | Root invowkfile scope bypass | Low | `internal/app/deps/deps.go`, `internal/discovery/discovery_cwd_module.go` (the invowkfile of a module directory is always loaded as that module) | By-design |
+| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go`, `internal/discovery/discovery_module_dedupe.go` (global flag of a merged duplicate), command-scope lock checks | Partial |
 
 **Status legend:** Open (no mitigation), Partial (gaps remain), Mitigated (fixed, residual gap only), By-design (intentional, document only)
 

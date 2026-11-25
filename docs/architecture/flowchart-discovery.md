@@ -29,7 +29,7 @@ When names collide, Invowk handles two different cases:
 
 Vendored modules (`invowk_modules/`) are scanned one level deep for each discovered module source.
 
-An invowkfile inside a module directory is always loaded as part of that module: when the current directory is itself a `*.invowkmod` directory, level 1 is that module, classified by the same entry check as level 2 (`loadModuleEntry`), and level 2 does not run. One module directory reached through several levels is loaded once, at the highest-precedence level (`os.SameFile` on the module directory).
+The invowkfile of a module directory is always loaded as part of that module: when the current directory is itself a `*.invowkmod` directory, level 1 is that module, classified by the same entry check as level 2 (`loadModuleEntry`), and level 2 does not run. One module directory reached through several levels is loaded once, at the highest-precedence level (`os.SameFile` on the module directory).
 
 ## Module Discovery Details
 

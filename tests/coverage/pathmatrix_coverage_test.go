@@ -98,6 +98,10 @@ var (
 			testFile: "internal/discovery/discovery_mutation_test.go",
 			reason:   "alias derivation consumes an already discovered host path and only extracts its module basename",
 		},
+		"internal/discovery.resolvedPath": {
+			testFile: "internal/discovery/discovery_cwd_module_test.go",
+			reason:   "resolves the links of an already absolute host-native discovery path with filepath.EvalSymlinks to learn its physical name; it does not interpret portable path syntax",
+		},
 		"internal/discovery.validatedDiscoveredEntryPath": {
 			testFile: "internal/discovery/discovery_modules_test.go",
 			reason:   "joins an already validated host-native discovery root with an os.DirEntry name; it does not interpret portable path syntax",

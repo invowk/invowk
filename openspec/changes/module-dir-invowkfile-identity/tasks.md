@@ -1,6 +1,6 @@
 # Tasks
 
-Public text uses hardening wording only, for example "the invowkfile of a module directory is always loaded as part of that module". Public text is everything that leaves this machine: the `openspec/` artifacts of this change, code comments, tests, docs, commit messages and the PR. It names no finding id, does not describe how the code behaved before this change, and never describes how to get that behaviour. Negative-control results (a pair's module-directory leg run against the base 693f0e17) and their mapping to the maintainer's probe report go into the stage result for the maintainer session, never into repository text.
+Public text uses hardening wording only, for example "the invowkfile of a module directory is always loaded as part of that module". Public text is everything that leaves this machine: the `openspec/` artifacts of this change, code comments, tests, docs, commit messages and the PR. It names no finding id, does not describe how the code behaved before this change, and never describes how to get that behaviour. Negative-control results go into the stage result for the maintainer session, never into repository text.
 
 Every locked command (`make lint`, `make test`, `make test-scripts`, `make check-baseline`, `make formal`, mutation targets and `git commit`) runs as `flock "$(git -C <worktree> rev-parse --git-common-dir)/invowk-heavy.lock" <cmd>`, in the background, with a `head=` and an `rc=` line appended to its log, and is waited for with the Monitor tool (`until grep -q '^rc=' <log>; do sleep 5; done`).
 
@@ -40,6 +40,7 @@ Every locked command (`make lint`, `make test`, `make test-scripts`, `make check
   - `TestDiscovery_CurrentDirModule_CaseVariantCwd`: the module is stored as `tools.invowkmod` and `WithBaseDir` names `TOOLS.INVOWKMOD`. On a case-insensitive volume (detected by `Lstat` of the variant succeeding: macOS APFS, Windows NTFS) the module loads under its stored name with the parent scan's result. On a case-sensitive volume the variant does not exist and the test asserts that nothing is loaded and a diagnostic is reported.
   - `TestDiscovery_CurrentDirModule_JunctionModuleDir`: `fstree.CapJunction`, so it is required on Windows and skipped elsewhere. A junction `j.invowkmod` to a valid module loads nothing in either direction; from inside, `module_symlink_skipped`.
   - `TestDiscovery_CurrentDirModule_JunctionWithoutSuffix`: Windows; a junction `tools` to `tools.invowkmod` as the base gives `module_symlink_skipped` and no plain parse.
+  - `TestDiscovery_CurrentDirModule_JunctionChainWithoutSuffix`: Windows; a junction `tools` to a junction `mid` to `tools.invowkmod` as the base gives `module_symlink_skipped` and no plain parse.
   - `TestDiscovery_CurrentDirModule_ShortNameCwd`: Windows; the base is the 8.3 short name of `tools.invowkmod` and the module loads under its stored name. Skipped, with a log line, when the volume has no short names.
 
   All run in short mode, so the CI jobs `Test (windows)` and `Test (macos)` run them. Name those jobs, their run ids and each test's pass or skip in the stage result. Check: `go test -run 'TestDiscovery_CurrentDirModule_(AncestorLink|CaseVariant|Junction|ShortName)' ./internal/discovery/`.
@@ -86,7 +87,7 @@ Every locked command (`make lint`, `make test`, `make test-scripts`, `make check
 
   Check: `go test -run 'TestCLI/module_dir_identity' ./tests/cli/`.
 - [x] 5.2 Add an inside-the-module leg to `tests/cli/testdata/virtual_module_workdir_roots.txtar`, for both the virtual-sh read and the virtual-lua read: a module-declared workdir outside the module is denied when invowk runs in the module directory too. Check: `go test -run 'TestCLI/virtual_module_workdir_roots' ./tests/cli/`.
-- [x] 5.3 Negative control: build origin/main 693f0e17 in a throwaway worktree under this stage's scratch dir. Run 5.1 and 5.2 against that binary and record each module-directory leg's result. Expected to pass on the base (regression guards): the unique bare name, `--ivk-no-cwd` inside the module, the plain-directory control, the audit pair, and the vendored command-run leg. Expected to fail on the base: every other module-directory leg. A leg that deviates is investigated before the stage returns. Map each leg to its row in the maintainer's probe report (its path is in the stage brief, outside the repository). Report the result and the mapping in the stage result only, then remove the throwaway worktree.
+- [x] 5.3 Negative control: run 5.1 and 5.2 against a build of the base in a throwaway worktree under this stage's scratch dir, investigate any leg that deviates from the expectation, report the result in the stage result only, then remove the throwaway worktree.
 
 ## 6. Docs (checklist step 9; sync map in `.agents/skills/docs/SKILL.md`)
 

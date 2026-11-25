@@ -43,7 +43,7 @@ Modules are automatically discovered from:
 2. Configured `includes` entries
 3. `~/.invowk/cmds/` (user modules — `*.invowkmod` only, non-recursive)
 
-When the current directory is the module directory itself, the module is loaded as that module, under its namespace and with its checks: an invowkfile inside a module directory is always loaded as part of that module.
+When the current directory is the module directory itself, the module is loaded as that module, under its namespace and with its checks: the invowkfile of a module directory is always loaded as part of that module.
 
 With `--ivk-no-cwd` (or `INVOWK_NO_CWD=1`), source 1 is skipped, a current directory that is itself a module directory included; see [Ignoring the Current Directory's Commands](../configuration/overview#ignoring-the-current-directorys-commands).
 
@@ -123,7 +123,7 @@ Modules are discovered from these locations:
 3. **Configured includes** (module paths from config)
 4. **User commands directory** (`~/.invowk/cmds/` — `*.invowkmod` only, non-recursive)
 
-An invowkfile inside a module directory is always loaded as part of that module. Run from a `*.invowkmod` directory, invowk loads that module in place of source 1, with the same validation, command scope and vendored-dependency policy as from its parent directory, and does not scan source 2. A directory whose name ends in `.invowkmod` is only ever loaded as a module; one that does not load is reported by `invowk validate`. The same module directory found through several sources is loaded once, at the highest-precedence source.
+The invowkfile of a module directory is always loaded as part of that module. Run from a `*.invowkmod` directory, invowk loads that module in place of source 1, with the same validation, command scope and vendored-dependency policy as from its parent directory, and does not scan source 2. A directory whose name ends in `.invowkmod` is only ever loaded as a module; one that does not load is reported by `invowk validate`. The same module directory found through several sources is loaded once, at the highest-precedence source.
 
 With `--ivk-no-cwd` (or `INVOWK_NO_CWD=1`), sources 1 and 2 are skipped; see [Ignoring the Current Directory's Commands](../configuration/overview#ignoring-the-current-directorys-commands).
 

@@ -6,7 +6,7 @@ See proposal.md (Why). Line numbers are from origin/main 693f0e17.
 
 Code map:
 
-- Step 1 of `discoverAllWithDiagnostics` reads the current directory through `discoverInDir` (`internal/discovery/discovery_files.go:155-158`, `:289-309`), which returns a file without `Module`. Its doc comment (`DiscoverAll`, `discovery_files.go:87-95`) lists the six precedence levels.
+- Step 1 of `discoverAllWithDiagnostics` reads the current directory through `discoverInDir` (`internal/discovery/discovery_files.go:155-158`, `:289-309`). Its doc comment (`DiscoverAll`, `discovery_files.go:87-95`) lists the six precedence levels.
 - Step 2 scans the current directory's children for modules (`discovery_files.go:161-162`). `discoverModulesInDirWithDiagnostics` judges each entry the parent's `os.ReadDir` returns:
   - a symbolic-link entry is skipped, with `module_symlink_skipped` when its name ends in `.invowkmod` (`discovery_files.go:360-370`);
   - an entry that is not a directory is skipped (`discovery_files.go:372-374`). On Windows, Go 1.23 and later give a junction neither `ModeDir` nor `ModeSymlink`, and set `ModeIrregular` (`GOROOT/src/os/types_windows.go`, `mode`), so the scan skips a junction here, silently;
@@ -47,7 +47,7 @@ Collisions:
 **Goals:**
 
 - One rule, in discovery, decides whether the current directory is a module directory. Its consumers (runtimes, env builder, dependency checks, collisions, vendored policy) do not change.
-- The rule cannot fall back to a plain parse of a file in a module directory, whatever spelling, letter case or link the current directory is reached through.
+- The rule cannot fall back to a plain parse of the invowkfile of a module directory, whatever spelling, letter case or link the current directory is reached through.
 
 **Non-Goals:**
 
@@ -67,8 +67,9 @@ A new step-1 helper in discovery (`internal/discovery/discovery_cwd_module.go`) 
 1. **The stored entry.** The helper reads `os.ReadDir(filepath.Dir(absBase))` and looks for the entry that is `os.SameFile` with `info`. It checks the entries whose names equal `filepath.Base(absBase)` ignoring case first, and compares every other entry only when none of those match (Windows short names, Unicode normalisation on macOS). That entry's name is the stored name. A volume root has no stored entry.
 2. **Candidate.** The current directory is a module-directory candidate when any known name ends in `.invowkmod`, compared ignoring case: the logical base name, the stored name, the base name of `filepath.EvalSymlinks(absBase)`, and, for a link entry (step 3), the base name of its resolved target. When there is no stored entry (the parent cannot be listed, or no entry matches; a volume root has none):
    - a candidate by the other names fails closed (D4), since it cannot be classified;
-   - a non-candidate is a plain directory only when `EvalSymlinks` succeeded; if it failed too, the helper fails closed rather than guess.
-3. **Link entry.** The entry is a link when `info` is not a directory and has `ModeSymlink` or `ModeIrregular` (a junction or other name-surrogate reparse point on Windows). Its target is resolved by following `os.Readlink` (which reads junction targets) and `filepath.EvalSymlinks`. A link entry that is a candidate gets `module_symlink_skipped` and loads nothing. A link entry that is not a candidate is a plain directory, unchanged. A link whose target cannot be resolved fails closed (D4).
+   - a non-candidate is a plain directory only when `EvalSymlinks` succeeded; if it failed too, the helper fails closed rather than guess;
+   - a volume root is the exception: it has no stored entry by nature and none of its names can carry the suffix, so a volume root that is not a candidate is a plain directory even when `EvalSymlinks` fails (some Windows volumes).
+3. **Link entry.** The entry is a link when `info` is not a directory and has `ModeSymlink` or `ModeIrregular` (a junction or other name-surrogate reparse point on Windows). Its targets are found by following `os.Readlink` (which reads junction targets) hop by hop along the chain of links, at most 255 hops, each hop also resolved with `filepath.EvalSymlinks`, and by `filepath.EvalSymlinks` of the entry itself. `EvalSymlinks` does not follow junctions on Windows, so a chain through junctions is judged by every name along it. A link entry that is a candidate gets `module_symlink_skipped` and loads nothing. A link entry that is not a candidate is a plain directory, unchanged. A link whose target cannot be resolved, a link along the chain that cannot be read, and a chain longer than the bound fail closed (D4).
 4. **Directory entry.** A candidate directory is classified through `loadModuleEntry` (D2) with its parent and its stored entry, exactly as the parent scan would classify it. A directory that is not a candidate goes to `discoverInDir`, unchanged.
 
 For a candidate, discovery:
@@ -122,7 +123,7 @@ A junction module directory is not loaded in either direction: the parent scan s
 
 ### D4. Failure never falls back
 
-A candidate that does not load contributes no file, and neither does a current directory whose own entry cannot be judged (D2 table). `discoverInDir` is not called on those paths at all, so no code path can parse a file in a module directory as a plain invowkfile.
+A candidate that does not load contributes no file, and neither does a current directory whose own entry cannot be judged (D2 table). `discoverInDir` is not called on those paths at all, so no code path can parse the invowkfile of a module directory as a plain invowkfile.
 
 ### D5. Deduplicate by physical directory
 
