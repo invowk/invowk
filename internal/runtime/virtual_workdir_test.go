@@ -123,7 +123,7 @@ func TestVirtualWorkdir(t *testing.T) {
 			if tc.wantPath != "" && workdir.path != tc.wantPath {
 				t.Fatalf("workdir path = %q, want %q", workdir.path, tc.wantPath)
 			}
-			if got := workdir.moduleRoot != ""; got != tc.declared {
+			if (workdir.moduleRoot != "") != tc.declared {
 				t.Fatalf("moduleRoot = %q, want set=%v", workdir.moduleRoot, tc.declared)
 			}
 			expectWorkdirRoot(t, workdir, tc.inv, tc.root)

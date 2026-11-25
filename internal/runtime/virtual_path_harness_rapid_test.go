@@ -317,7 +317,7 @@ func checkWorkdirProperty(t *testing.T, root string) {
 		workdir := virtualWorkdirFor(inv, cmd, impl, override)
 		describe := fmt.Sprintf("workdir %q (source %s, level %s, placement %s, %d missing)",
 			workdir.path, source, level, placement, missing)
-		if got := workdir.moduleRoot != ""; got != declared {
+		if (workdir.moduleRoot != "") != declared {
 			rt.Fatalf("%s: module root %q, want recorded=%v", describe, workdir.moduleRoot, declared)
 		}
 		isRoot := workdir.isReadRoot()
