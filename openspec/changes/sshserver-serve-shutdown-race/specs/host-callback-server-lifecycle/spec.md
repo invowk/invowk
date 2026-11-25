@@ -49,7 +49,7 @@ When `Start` fails after it has bound a listener, on its startup timeout, a canc
 - **THEN** `Start` SHALL return an error wrapping the context cancellation error, a TCP connection to the bound port SHALL be refused, and a later `Stop` and `Wait` SHALL each return within a bounded time
 
 ### Requirement: Stop during Start leaves nothing running
-A `Stop` that runs at any point of a concurrent `Start` SHALL leave no listener open and no server goroutine running once both calls have returned. Every `Stop` call, including one that loses to a concurrent `Stop`, SHALL return only after every goroutine that `Start` launched has exited. A `Start` that a concurrent `Stop` overtook SHALL return a non-nil error.
+A `Stop` that runs at any point of a concurrent `Start` SHALL leave no listener open and no server goroutine running once both calls have returned. Every `Stop` call, including one that loses to a concurrent `Stop`, SHALL return only after every goroutine that `Start` launched has exited. These guarantees cover a server started at most once; a second `Start` with an already-cancelled context is outside them. A `Start` that a concurrent `Stop` overtook SHALL return a non-nil error.
 
 #### Scenario: Stop before Start has launched its goroutines
 - **WHEN** `Stop` begins its shutdown while `Start` is still configuring the host key, binding the listener or creating the SSH server

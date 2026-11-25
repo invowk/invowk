@@ -69,6 +69,9 @@ type (
 		beforeServe func()
 		// beforeShutdown runs in teardown immediately before the library's Shutdown.
 		beforeShutdown func()
+		// shutdownSkipped runs in teardown when its wait for the serve gate
+		// timed out, after it has decided to skip the library's Shutdown.
+		shutdownSkipped func()
 		// stopEntered runs at the top of Stop, before it takes stopMu.
 		stopEntered func()
 	}
@@ -84,7 +87,9 @@ type (
 //
 // Start returns nil only once it has observed readiness. Every failure after
 // the server left the Created state tears the server down, through the same
-// routine as Stop, before Start returns: no listener stays open.
+// routine as Stop, before Start returns: no listener stays open. That teardown
+// can take up to ShutdownTimeout, so a failed Start can return up to
+// StartupTimeout plus ShutdownTimeout after it was called.
 //
 // After Start() returns nil, use Err() to monitor for runtime errors.
 func (s *Server) Start(ctx context.Context) error {
@@ -168,7 +173,10 @@ func (s *Server) Start(ctx context.Context) error {
 // Stop gracefully stops the SSH server.
 // It blocks until all connections are closed or the shutdown timeout is reached.
 // Safe to call multiple times and concurrently: a Stop that does not perform
-// the shutdown itself returns once the server's goroutines have exited.
+// the shutdown itself returns once the server's goroutines have exited. That
+// holds for a server started at most once: a second Start with an
+// already-cancelled context marks the server Failed without a teardown
+// (serverbase TransitionToStarting), and a Stop then waits on what is left.
 func (s *Server) Stop() error {
 	s.hooks.callStopEntered()
 
@@ -296,6 +304,7 @@ func (s *Server) teardown(parent context.Context) error {
 	defer shutdownCancel()
 
 	if !gate.wait(shutdownCtx) {
+		s.hooks.callShutdownSkipped()
 		s.logger.Error("serve loop did not start before the shutdown timeout; skipping graceful shutdown")
 		return fmt.Errorf("waiting for the SSH serve loop: %w", shutdownCtx.Err())
 	}
@@ -530,6 +539,12 @@ func (h *lifecycleHooks) callBeforeServe() {
 func (h *lifecycleHooks) callBeforeShutdown() {
 	if h != nil && h.beforeShutdown != nil {
 		h.beforeShutdown()
+	}
+}
+
+func (h *lifecycleHooks) callShutdownSkipped() {
+	if h != nil && h.shutdownSkipped != nil {
+		h.shutdownSkipped()
 	}
 }
 

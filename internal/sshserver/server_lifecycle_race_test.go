@@ -377,20 +377,22 @@ func TestServerStopTimesOutBeforeServeLoop(t *testing.T) {
 	hold := newLifecycleHold()
 	capture := &addrCapture{}
 	stoppingSeen := make(chan struct{})
+	skipped := make(chan struct{})
 	var shutdowns atomic.Int32
 	srv.hooks = &lifecycleHooks{
 		beforePublish: capture.record,
 		beforeServe: func() {
 			hold.holdUntil(stateIs(srv, serverbase.StateStopping))
 			close(stoppingSeen)
-			// No hook reports the teardown's timeout: this margin, ten times
-			// the shutdown timeout, is the synchronisation.
+			// Hold until the teardown has timed out on the gate, so the serve
+			// loop cannot open it first however the goroutines are scheduled.
 			select {
-			case <-time.After(10 * shutdownTimeout):
+			case <-skipped:
 			case <-hold.release:
 			}
 		},
-		beforeShutdown: func() { shutdowns.Add(1) },
+		beforeShutdown:  func() { shutdowns.Add(1) },
+		shutdownSkipped: func() { close(skipped) },
 	}
 	stopOnCleanup(t, srv, hold)
 
