@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines when the host-callback SSH server counts as started, how it stops, how a failed start is torn down, and what happens when a stop arrives while a start is still in progress. Start, stop, a failed start and their overlap never leak a listener or a goroutine, and the server never shuts the SSH library down before the library has registered its listener (the listener-registration race of charm.land/ssh v0.4.3, https://github.com/charmbracelet/ssh/issues/61). Races inside the SSH library itself are out of scope: the connection-registration race between a handshake that completes while `Stop` runs and the library's graceful shutdown (https://github.com/gliderlabs/ssh/issues/117) stays a known upstream residual, because closing it would drop the graceful shutdown that keeps authenticated connections open.
+Defines when the host-callback SSH server counts as started, how it stops, how a failed start is torn down, and what happens when a stop arrives while a start is still in progress. Start, stop, a failed start and their overlap never leak a listener or a goroutine, and the server never shuts the SSH library down before the library has registered its listener (the listener-registration race of charm.land/ssh v0.4.3, https://github.com/charmbracelet/ssh/issues/61). `Stop` closes every connection the server accepted, authenticated or not, and waits for their handling with the server's own count instead of the library's graceful shutdown, so the connection-registration race between a handshake that completes while `Stop` runs and that shutdown (https://github.com/gliderlabs/ssh/issues/117) no longer applies; other races inside the SSH library itself are out of scope.
 
 ## Requirements
 

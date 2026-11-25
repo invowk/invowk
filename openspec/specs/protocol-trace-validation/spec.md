@@ -1,7 +1,7 @@
 # protocol-trace-validation Specification
 
 ## Purpose
-Specifies how Invowk checks that real Go code behaves as its TLA+ protocol models describe, by recording projected state traces from test harnesses and validating them with TLC. It covers the trace-validated models (`Serverbase`, `AtomicWrite`, `Watch`, `HostCallbackToken`, `LockIntegrity`), the harness and manifest conventions, the token and lock-integrity harnesses, targeted mutations that the validation must reject, and how open findings F11 and F12 are characterised. Trace validation shows only that the recorded, bounded executions conform to the model; it is not a proof that the code is correct.
+Specifies how Invowk checks that real Go code behaves as its TLA+ protocol models describe, by recording projected state traces from test harnesses and validating them with TLC. It covers the trace-validated models (`Serverbase`, `AtomicWrite`, `Watch`, `HostCallbackToken`, `LockIntegrity`), the harness and manifest conventions, the token and lock-integrity harnesses, targeted mutations that the validation must reject, and how the fixed finding F11 and the open finding F12 are characterised. Trace validation shows only that the recorded, bounded executions conform to the model; it is not a proof that the code is correct.
 
 ## Requirements
 

@@ -170,6 +170,15 @@ can still publish resources or call `AddGoroutine()` while a `Stop` runs:
 `internal/sshserver` (`stopMu`, `publish`, `teardown`, `failStart`) is the
 reference for that variant.
 
+A server that hands connections to a library must close them at `Stop`
+itself when the library's graceful shutdown only waits for them:
+`internal/sshserver` counts every connection its `ConnCallback` admits in a
+server-owned `WaitGroup` (Add under a mutex that refuses once teardown began,
+Done in `ConnectionCloseCallback`), closes them all in `teardown`, calls the
+library's `Close` instead of `Shutdown`, and waits for its own count within
+`ShutdownTimeout` (finding F11; this also avoids gliderlabs/ssh#117, the
+library's connection-WaitGroup race).
+
 ## Goroutines And Errors
 
 - Call `AddGoroutine()` before starting each background goroutine.

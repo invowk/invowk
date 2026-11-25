@@ -32,7 +32,7 @@ type (
 
 	// serveGate opens once the serve goroutine has reached the SSH library's
 	// first Accept, or has returned. teardown waits for it before it calls the
-	// library's Shutdown. A nil *serveGate is valid: open and wait are no-ops.
+	// library's Close. A nil *serveGate is valid: open and wait are no-ops.
 	serveGate struct {
 		once sync.Once
 		ch   chan struct{}
@@ -49,7 +49,7 @@ type (
 	// first Accept in the same goroutine, so readiness signalled from that
 	// Accept orders the Add before any Shutdown that teardown runs. Remove
 	// the wrapper, the serve gate and teardown's wait for it (back to a plain
-	// Shutdown after closing the listener) once upstream fixes the defect;
+	// Close after closing the listener) once upstream fixes the defect;
 	// re-check that ordering whenever charm.land/ssh is upgraded.
 	readyListener struct {
 		serverListener
@@ -67,8 +67,14 @@ type (
 		serveEntered func()
 		// beforeServe runs in serve after it has read srv and listener, before srv.Serve.
 		beforeServe func()
-		// beforeShutdown runs in teardown immediately before the library's Shutdown.
+		// beforeShutdown runs in teardown immediately before the library's Close.
 		beforeShutdown func()
+		// connsClosed runs in teardown once it has closed every accepted
+		// connection, before it waits for their handling to end.
+		connsClosed func()
+		// beforeAdmit runs in the password handler of a tracked connection,
+		// immediately before admitConn.
+		beforeAdmit func()
 		// shutdownSkipped runs in teardown when its wait for the serve gate
 		// timed out, after it has decided to skip the library's Shutdown.
 		shutdownSkipped func()
@@ -171,8 +177,10 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 }
 
-// Stop gracefully stops the SSH server.
-// It blocks until all connections are closed or the shutdown timeout is reached.
+// Stop stops the SSH server. It closes every accepted connection, whether or
+// not it has authenticated, refuses new ones, and returns once the library's
+// handling of each has ended, bounded by ShutdownTimeout: a connection a
+// client keeps open does not make it wait (finding F11).
 // Safe to call multiple times and concurrently: a Stop that does not perform
 // the shutdown itself returns once the server's goroutines have exited. A
 // further Start changes nothing on a server that is not in Created
@@ -269,13 +277,20 @@ func (s *Server) doStop() error {
 
 // teardown closes the published listener and shuts the SSH server down. It is
 // the only code that does either, it runs at most once, and its caller holds
-// stopMu. It calls the library's Shutdown only after the serve goroutine has
+// stopMu. It shuts the library down only after the serve goroutine has
 // reached its first Accept or returned, waiting at most ShutdownTimeout; on a
-// timeout it skips Shutdown (so the library's listener WaitGroup Add cannot
-// race its Wait) and returns an error wrapping context.DeadlineExceeded. The
-// closed listener still ends the serve loop at its first Accept. It neither
-// waits for the server goroutines nor changes the state. parent must not be
-// cancelled by the caller: only its values are used, with ShutdownTimeout.
+// timeout it skips the shutdown (so the library's listener WaitGroup Add
+// cannot race a Wait) and returns an error wrapping context.DeadlineExceeded.
+// The closed listener still ends the serve loop at its first Accept.
+//
+// The shutdown closes every accepted connection (finding F11), calls the
+// library's Close, which waits for nothing, and then waits for the server's
+// own connection count, within the rest of ShutdownTimeout. The library's
+// graceful Shutdown is not used: it closes no connection, and its wait on the
+// library's connection WaitGroup races a handshake that completes meanwhile
+// (gliderlabs/ssh#117). It neither waits for the server goroutines nor
+// changes the state. parent must not be cancelled by the caller: only its
+// values are used, with ShutdownTimeout.
 func (s *Server) teardown(parent context.Context) error {
 	s.srvMu.Lock()
 	if s.tornDown {
@@ -309,13 +324,35 @@ func (s *Server) teardown(parent context.Context) error {
 		return fmt.Errorf("waiting for the SSH serve loop: %w", shutdownCtx.Err())
 	}
 
+	s.closeAcceptedConns()
+	s.hooks.callConnsClosed()
+
 	s.hooks.callBeforeShutdown()
-	shutdownErr := srv.Shutdown(shutdownCtx)
-	if shutdownErr != nil && !isClosedConnError(shutdownErr) {
-		s.logger.Error("shutdown error", "error", shutdownErr)
-		return shutdownErr
+	if closeErr := srv.Close(); closeErr != nil && !isClosedConnError(closeErr) {
+		s.logger.Error("shutdown error", "error", closeErr)
+		return closeErr
 	}
-	return nil
+	return s.waitConns(shutdownCtx)
+}
+
+// waitConns waits until the handling of every accepted connection has ended,
+// or ctx ends; then it returns an error wrapping ctx's error. A closed
+// connection's goroutine ends once its reads fail, so only a goroutine held in
+// invowk's own code, such as a password check that does not return, can make
+// it wait that long.
+func (s *Server) waitConns(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		s.connWg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		s.logger.Error("SSH connections still being handled at the shutdown timeout")
+		return fmt.Errorf("waiting for SSH connections to end: %w", ctx.Err())
+	}
 }
 
 // serve runs the SSH server and handles errors. Readiness (Starting ->
@@ -539,6 +576,18 @@ func (h *lifecycleHooks) callBeforeServe() {
 func (h *lifecycleHooks) callBeforeShutdown() {
 	if h != nil && h.beforeShutdown != nil {
 		h.beforeShutdown()
+	}
+}
+
+func (h *lifecycleHooks) callConnsClosed() {
+	if h != nil && h.connsClosed != nil {
+		h.connsClosed()
+	}
+}
+
+func (h *lifecycleHooks) callBeforeAdmit() {
+	if h != nil && h.beforeAdmit != nil {
+		h.beforeAdmit()
 	}
 }
 

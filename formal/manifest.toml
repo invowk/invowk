@@ -960,10 +960,19 @@ tool = "tla"
 file = "formal/tla/HostCallbackToken.tla"
 budget_seconds = 27  # 1.5 x 18.0s CI max (3 dispatch runs)
 budget_source = "ci"
-calibration = """2026-09-25 (trace validation): TestHostCallbackToken_TraceHarness drives a \
+calibration = """2026-11-25: finding F11 is fixed: Stop closes every accepted connection, \
+authenticated or not, and waits for their handling with the server's own count \
+instead of the library's graceful Shutdown (gliderlabs/ssh#117 no longer applies). \
+The base configuration now mirrors the code (StopClosesSessions = TRUE), the \
+pre-fix behaviour is the regression mutant mutantPreFixF11StopKeepsSessions, the \
+Go replay is inverted (TestHostCallbackToken_StopClosesAuthenticatedConnection), \
+and the token harness requires Stop to return nil and rejects the targeted \
+mutation "a connection stays open after Stop" (36 unique accepted traces, 8 \
+targeted mutations). \
+2026-09-25 (trace validation): TestHostCallbackToken_TraceHarness drives a \
 started Server on a fake clock with real SSH clients: 165 sequences, 37 unique \
 accepted traces, 7 targeted mutations. TLC and a Go replay reproduce finding \
-F11 (open): Stop closes the listener but no connection, and returns \
+F11 (fixed 2026-11-25; then open): Stop closed the listener but no connection, and returned \
 context.DeadlineExceeded while a client is connected; the base configuration \
 mirrors that (StopClosesSessions = FALSE), noSessionAfterStopFixed passes, and \
 mutantListenerLeftOpen now guards the fix configuration. Seeded defects: \
@@ -984,13 +993,13 @@ ignored)."""
 Execs = "{e1, e2}"
 Mutant = "\"none\""
 RevokeClosesSessions = "TRUE"
-StopClosesSessions = "FALSE"
+StopClosesSessions = "TRUE"
 
 [[model.command]]
 name = "noAuthAfterExecution"
 expect = "pass"
 property = "NoAuthAfterExecution"
-distinct_states = 146
+distinct_states = 122
 
 [[model.command]]
 name = "mutantNoRevokeOnSuccess"
@@ -999,17 +1008,16 @@ expect = "counterexample"
 property = "NoAuthAfterExecution"
 mutant_of = "noAuthAfterExecution"
 
-# Finding F11 (open): Stop closes the listener but no open connection.
+# Fixed finding F11: Stop closes every connection.
 [[model.command]]
 name = "noSessionAfterStopFixed"
-constants = { StopClosesSessions = "TRUE" }
 expect = "pass"
 property = "NoSessionAfterStop"
 distinct_states = 122
 
 [[model.command]]
-name = "findingF11StopKeepsSessions"
-finding = "F11"
+name = "mutantPreFixF11StopKeepsSessions"
+constants = { StopClosesSessions = "FALSE" }
 expect = "counterexample"
 property = "NoSessionAfterStop"
 mutant_of = "noSessionAfterStopFixed"
@@ -1026,7 +1034,7 @@ mutant_of = "noSessionAfterStopFixed"
 name = "sessionLifetimeWithRevokeClosing"
 expect = "pass"
 property = "NoSessionAfterExecution"
-distinct_states = 146
+distinct_states = 122
 
 [[model.command]]
 name = "mutantPreFixF7RevokeKeepsSessions"

@@ -88,6 +88,20 @@ type (
 		// hooks is a test-only seam into the lifecycle; nil in production.
 		hooks *lifecycleHooks
 
+		// connMu guards accepted and acceptClosed, and orders every
+		// connWg.Add before teardown's connWg.Wait (finding F11).
+		connMu sync.Mutex
+		// accepted holds every connection the ConnCallback admitted that has
+		// not closed, authenticated or not; teardown closes them all.
+		accepted map[*tokenConn]struct{}
+		// acceptClosed is set by teardown; the ConnCallback then refuses.
+		acceptClosed bool
+		// connWg counts the library's connection goroutines (handleConn) of
+		// accepted connections: Add in the ConnCallback, Done in the
+		// ConnectionCloseCallback. teardown waits for it instead of the
+		// library's own connection WaitGroup (gliderlabs/ssh#117).
+		connWg sync.WaitGroup
+
 		// Token management. conns holds the connections each token
 		// authenticated; revoking the token closes them.
 		tokens  map[TokenValue]*Token
@@ -235,6 +249,7 @@ func newWithDependencies(
 		copyBuffer: copyBuffer,
 		tokens:     make(map[TokenValue]*Token),
 		conns:      make(map[TokenValue]map[*tokenConn]struct{}),
+		accepted:   make(map[*tokenConn]struct{}),
 		logger:     logger,
 	}
 
