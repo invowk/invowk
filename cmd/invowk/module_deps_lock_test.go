@@ -50,12 +50,13 @@ func TestModuleLockLines(t *testing.T) {
 func TestModuleRemoveSummaryLine(t *testing.T) {
 	t.Parallel()
 
-	wrote := mustDeclarationEditResult(t, true, nil)
-	skipped := mustDeclarationEditResult(t, false, nil)
-	// The remove use case joins the edit error with both restore errors.
+	wrote := mustDeclarationEditResult(t, true, nil, modulesync.DeclarationRollbackNone)
+	skipped := mustDeclarationEditResult(t, false, nil, modulesync.DeclarationRollbackNone)
+	// The remove use case reports the rollback outcome with the edit error,
+	// joined with the restore errors when a restore failed.
 	readErr := errors.New("failed to read invowkmod.cue: is a directory")
-	failed := mustDeclarationEditResult(t, false, errors.Join(readErr, nil, nil))
-	restoreFailed := mustDeclarationEditResult(t, false, errors.Join(readErr, nil, errors.New("rollback invowkmod.lock.cue: permission denied")))
+	failed := mustDeclarationEditResult(t, false, readErr, modulesync.DeclarationRollbackComplete)
+	restoreFailed := mustDeclarationEditResult(t, false, errors.Join(readErr, errors.New("rollback invowkmod.lock.cue: permission denied")), modulesync.DeclarationRollbackIncomplete)
 	rollback := moduleInfoIcon + " Lock file changes were rolled back; invowkmod.cue needs manual review"
 	restoreFailedLine := moduleInfoIcon + " Lock file rollback may be incomplete; invowkmod.cue needs manual review"
 
@@ -89,8 +90,8 @@ func TestModuleRemoveSummaryLine(t *testing.T) {
 
 // TestModuleAddDeclarationFailureLine covers "Add without invowkmod.cue",
 // "Add whose invowkmod.cue edit fails otherwise" and "A restore that fails as
-// well" on the error shape the add use case returns: the AddRequirement error
-// joined with both restore errors.
+// well" on what the add use case returns: the rollback outcome, and the
+// AddRequirement error joined with the restore errors that failed.
 func TestModuleAddDeclarationFailureLine(t *testing.T) {
 	t.Parallel()
 
@@ -109,7 +110,7 @@ version: "1.0.0"
 	if err := invowkmod.AddRequirement(types.FilesystemPath(duplicatePath), ref); err != nil {
 		t.Fatalf("AddRequirement() first add error = %v", err)
 	}
-	duplicateErr := errors.Join(invowkmod.AddRequirement(types.FilesystemPath(duplicatePath), ref), nil, nil)
+	duplicateErr := invowkmod.AddRequirement(types.FilesystemPath(duplicatePath), ref)
 	if !errors.Is(duplicateErr, invowkmod.ErrModuleAlreadyExists) {
 		t.Fatalf("second AddRequirement() error = %v, want ErrModuleAlreadyExists", duplicateErr)
 	}
@@ -117,25 +118,27 @@ version: "1.0.0"
 	notFound := moduleInfoIcon + " invowkmod.cue not found — dependency was not persisted"
 	rollbackPrefix := moduleInfoIcon + " Could not auto-edit invowkmod.cue; lock file changes were rolled back: "
 	incompletePrefix := moduleInfoIcon + " Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: "
-	missingRestoreFailed := errors.Join(missingErr, nil, errors.New("rollback invowkmod.lock.cue: permission denied"))
+	missingRestoreFailed := errors.Join(missingErr, errors.New("rollback invowkmod.lock.cue: permission denied"))
 	// A restore that fails with its own not-exist error must not turn a
 	// duplicate-requirement failure into the not-found line.
-	duplicateRestoreNotExist := errors.Join(invowkmod.ErrModuleAlreadyExists, nil, &fs.PathError{Op: "open", Path: "invowkmod.lock.cue", Err: fs.ErrNotExist})
+	duplicateRestoreNotExist := errors.Join(invowkmod.ErrModuleAlreadyExists, &fs.PathError{Op: "open", Path: "invowkmod.lock.cue", Err: fs.ErrNotExist})
 	tests := []struct {
-		name string
-		err  error
-		want string
+		name     string
+		err      error
+		rollback modulesync.DeclarationRollback
+		want     string
 	}{
-		{name: "missing file, restores succeeded", err: errors.Join(missingErr, nil, nil), want: notFound},
-		{name: "missing file, a restore failed", err: missingRestoreFailed, want: incompletePrefix + missingRestoreFailed.Error()},
-		{name: "duplicate requirement", err: duplicateErr, want: rollbackPrefix + duplicateErr.Error()},
-		{name: "duplicate requirement, restore not found", err: duplicateRestoreNotExist, want: incompletePrefix + duplicateRestoreNotExist.Error()},
+		{name: "missing file, restores succeeded", err: missingErr, rollback: modulesync.DeclarationRollbackComplete, want: notFound},
+		{name: "missing file, a restore failed", err: missingRestoreFailed, rollback: modulesync.DeclarationRollbackIncomplete, want: incompletePrefix + missingRestoreFailed.Error()},
+		{name: "duplicate requirement", err: duplicateErr, rollback: modulesync.DeclarationRollbackComplete, want: rollbackPrefix + duplicateErr.Error()},
+		{name: "duplicate requirement, restore not found", err: duplicateRestoreNotExist, rollback: modulesync.DeclarationRollbackIncomplete, want: incompletePrefix + duplicateRestoreNotExist.Error()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := moduleAddDeclarationFailureLine(tt.err); got != tt.want {
+			declaration := mustDeclarationEditResult(t, false, tt.err, tt.rollback)
+			if got := moduleAddDeclarationFailureLine(declaration); got != tt.want {
 				t.Fatalf("moduleAddDeclarationFailureLine() = %q, want %q", got, tt.want)
 			}
 		})
@@ -155,10 +158,10 @@ func TestModuleLockLinesNoModulesToUpdate(t *testing.T) {
 	}
 }
 
-func mustDeclarationEditResult(t *testing.T, updated bool, err error) modulesync.DeclarationEditResult {
+func mustDeclarationEditResult(t *testing.T, updated bool, err error, rollback modulesync.DeclarationRollback) modulesync.DeclarationEditResult {
 	t.Helper()
 
-	result, resultErr := modulesync.NewDeclarationEditResult(updated, err)
+	result, resultErr := modulesync.NewDeclarationEditResult(updated, err, rollback)
 	if resultErr != nil {
 		t.Fatalf("NewDeclarationEditResult() error = %v", resultErr)
 	}

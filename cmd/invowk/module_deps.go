@@ -188,7 +188,7 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	declaration := result.Declaration()
 	if declaration.Err() != nil {
 		fmt.Println()
-		fmt.Println(moduleAddDeclarationFailureLine(declaration.Err()))
+		fmt.Println(moduleAddDeclarationFailureLine(declaration))
 	} else {
 		fmt.Println(moduleAddLockLine(result.LockWritten()))
 		fmt.Printf("%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
@@ -257,20 +257,21 @@ func moduleAddLockLine(lockWritten bool) string {
 }
 
 // moduleAddDeclarationFailureLine returns the line module add prints when its
-// invowkmod.cue edit failed and the use case rolled the lock back. The edit
-// error wraps the read error with %w and is joined with the restore errors, so
-// a missing invowkmod.cue is found through the error chain, not with
-// os.IsNotExist. The not-found line is printed only when every restore
-// succeeded; when one failed, the line says the rollback may be incomplete and
-// carries the whole error, so the restore failure stays visible.
+// invowkmod.cue edit failed and the use case rolled the lock back. The use
+// case reports the rollback outcome (Rollback); when a restore failed, the
+// line says the rollback may be incomplete and carries the whole error, so the
+// restore failure stays visible. Otherwise a missing invowkmod.cue, found
+// through the error chain (the edit error wraps the read error with %w), gets
+// the not-found line.
 //
 //plint:render
-func moduleAddDeclarationFailureLine(err error) string {
-	if errors.Is(err, fs.ErrNotExist) && !moduleDeclarationRestoreFailed(err) {
-		return moduleInfoIcon + " invowkmod.cue not found — dependency was not persisted"
-	}
-	if moduleDeclarationRestoreFailed(err) {
+func moduleAddDeclarationFailureLine(declaration modulesync.DeclarationEditResult) string {
+	err := declaration.Err()
+	if declaration.Rollback() == modulesync.DeclarationRollbackIncomplete {
 		return fmt.Sprintf("%s Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: %v", moduleInfoIcon, err)
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return moduleInfoIcon + " invowkmod.cue not found — dependency was not persisted"
 	}
 	return fmt.Sprintf("%s Could not auto-edit invowkmod.cue; lock file changes were rolled back: %v", moduleInfoIcon, err)
 }
@@ -286,11 +287,12 @@ func moduleAddDeclarationFailureLine(err error) string {
 func moduleRemoveSummaryLine(declarations []modulesync.DeclarationEditResult, lockWritten bool) string {
 	invowkmodWritten := false
 	for i := range declarations {
-		if err := declarations[i].Err(); err != nil {
-			if moduleDeclarationRestoreFailed(err) {
-				return moduleInfoIcon + " Lock file rollback may be incomplete; invowkmod.cue needs manual review"
-			}
+		switch declarations[i].Rollback() {
+		case modulesync.DeclarationRollbackIncomplete:
+			return moduleInfoIcon + " Lock file rollback may be incomplete; invowkmod.cue needs manual review"
+		case modulesync.DeclarationRollbackComplete:
 			return moduleInfoIcon + " Lock file changes were rolled back; invowkmod.cue needs manual review"
+		case modulesync.DeclarationRollbackNone:
 		}
 		invowkmodWritten = invowkmodWritten || declarations[i].Updated()
 	}
@@ -304,17 +306,6 @@ func moduleRemoveSummaryLine(declarations []modulesync.DeclarationEditResult, lo
 	default:
 		return moduleSuccessIcon + " Lock file and invowkmod.cue unchanged"
 	}
-}
-
-// moduleDeclarationRestoreFailed reports whether the rollback after a failed
-// invowkmod.cue edit failed too. The add and remove use cases return
-// errors.Join(editErr, declarationRestoreErr, lockRestoreErr), and errors.Join
-// drops nil errors, so a top-level join with more than one part means a
-// restore failed. Only the top level is checked: a join inside the edit error
-// is not a restore failure.
-func moduleDeclarationRestoreFailed(err error) bool {
-	joined, ok := err.(interface{ Unwrap() []error })
-	return ok && len(joined.Unwrap()) > 1
 }
 
 // moduleNoUpdatesLines returns what module update prints when it had no module

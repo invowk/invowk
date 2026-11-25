@@ -25,6 +25,16 @@ const (
 	snapshotSymlink fileSnapshotKind = "symlink"
 	// snapshotOther: a directory, device or other node; restore leaves it.
 	snapshotOther fileSnapshotKind = "other"
+
+	// DeclarationRollbackNone means no invowkmod.cue edit failed, so nothing
+	// was rolled back.
+	DeclarationRollbackNone DeclarationRollback = "none"
+	// DeclarationRollbackComplete means an invowkmod.cue edit failed and every
+	// restore of the rollback succeeded.
+	DeclarationRollbackComplete DeclarationRollback = "complete"
+	// DeclarationRollbackIncomplete means an invowkmod.cue edit failed and at
+	// least one restore failed too; Err carries the restore errors.
+	DeclarationRollbackIncomplete DeclarationRollback = "incomplete"
 )
 
 type (
@@ -59,11 +69,17 @@ type (
 		createLink restoreLinkCreator
 	}
 
+	// DeclarationRollback is the outcome of the rollback after a failed
+	// invowkmod.cue edit, reported by the use case instead of being inferred
+	// from the shape of its error.
+	DeclarationRollback string
+
 	// DeclarationEditResult describes the invowkmod.cue declaration mutation
 	// paired with a lock-file mutation.
 	DeclarationEditResult struct {
-		updated bool
-		err     error
+		updated  bool
+		err      error
+		rollback DeclarationRollback
 	}
 
 	// AddModuleDependencyResult is the structured result of adding one module
@@ -99,8 +115,10 @@ type (
 )
 
 // NewDeclarationEditResult constructs a structured declaration-edit result.
-func NewDeclarationEditResult(updated bool, err error) (DeclarationEditResult, error) {
-	result := DeclarationEditResult{updated: updated, err: err}
+// rollback is DeclarationRollbackNone when err is nil, and the rollback's
+// outcome when the edit failed.
+func NewDeclarationEditResult(updated bool, err error, rollback DeclarationRollback) (DeclarationEditResult, error) {
+	result := DeclarationEditResult{updated: updated, err: err, rollback: rollback}
 	if validateErr := result.Validate(); validateErr != nil {
 		return DeclarationEditResult{}, validateErr
 	}
@@ -151,12 +169,42 @@ func NewUpdateModuleResult(updated []*ResolvedModule, lockWritten bool) (UpdateM
 // Updated reports whether invowkmod.cue was edited.
 func (r DeclarationEditResult) Updated() bool { return r.updated }
 
-// Err returns the declaration edit error, if any.
+// Err returns the declaration edit error, if any, joined with the errors of
+// the restores that failed.
 func (r DeclarationEditResult) Err() error { return r.err }
 
-// Validate returns nil because declaration edit results contain only scalar
-// status and an optional underlying error.
-func (r DeclarationEditResult) Validate() error { return nil }
+// Rollback reports the rollback outcome: none when the edit succeeded,
+// complete or incomplete after a failed edit.
+func (r DeclarationEditResult) Rollback() DeclarationRollback { return r.rollback }
+
+// Validate returns an error when the rollback outcome is unknown or does not
+// match the error: a failed edit always rolls back, and a rollback always has
+// the edit error.
+func (r DeclarationEditResult) Validate() error {
+	if err := r.rollback.Validate(); err != nil {
+		return err
+	}
+	if r.err != nil && r.rollback == DeclarationRollbackNone {
+		return errors.New("declaration edit failed but reports no rollback")
+	}
+	if r.err == nil && r.rollback != DeclarationRollbackNone {
+		return fmt.Errorf("declaration edit reports rollback %q without an edit error", r.rollback)
+	}
+	return nil
+}
+
+// String returns the rollback outcome name.
+func (r DeclarationRollback) String() string { return string(r) }
+
+// Validate returns an error when r is not one of the rollback outcomes.
+func (r DeclarationRollback) Validate() error {
+	switch r {
+	case DeclarationRollbackNone, DeclarationRollbackComplete, DeclarationRollbackIncomplete:
+		return nil
+	default:
+		return fmt.Errorf("invalid declaration rollback %q", string(r))
+	}
+}
 
 // Resolved returns the added resolved module.
 func (r AddModuleDependencyResult) Resolved() *ResolvedModule { return r.resolved }
@@ -237,10 +285,13 @@ func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.
 		return AddModuleDependencyResult{}, err
 	}
 	editErr := invowkmod.AddRequirement(invowkmodPath, req)
+	rollback := DeclarationRollbackNone
 	if editErr != nil {
-		editErr = errors.Join(editErr, declarationSnapshot.restore(), lockSnapshot.restore())
+		// Built exactly as in Resolver.RemoveModuleDependency's rollback; keep
+		// the two in step (design D9).
+		rollback, editErr = rollBackDeclarationEdit(editErr, declarationSnapshot, lockSnapshot)
 	}
-	declaration, err := NewDeclarationEditResult(editErr == nil, editErr)
+	declaration, err := NewDeclarationEditResult(editErr == nil, editErr, rollback)
 	if err != nil {
 		return AddModuleDependencyResult{}, err
 	}
@@ -279,15 +330,17 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 	for i := range removed {
 		written, editErr := invowkmod.RemoveRequirementIfPresent(invowkmodPath, removed[i].RemovedEntry.GitURL, removed[i].RemovedEntry.Path)
 		if editErr != nil {
-			editErr = errors.Join(editErr, declarationSnapshot.restore(), lockSnapshot.restore())
-			declaration, declarationErr := NewDeclarationEditResult(false, editErr)
+			// Built exactly as in Resolver.AddModuleDependency's rollback; keep
+			// the two in step (design D9).
+			rollback, joinedErr := rollBackDeclarationEdit(editErr, declarationSnapshot, lockSnapshot)
+			declaration, declarationErr := NewDeclarationEditResult(false, joinedErr, rollback)
 			if declarationErr != nil {
 				return RemoveModuleDependencyResult{}, declarationErr
 			}
 			declarations = append(declarations, declaration)
 			return NewRemoveModuleDependencyResult(removed, lockWritten, declarations)
 		}
-		declaration, declarationErr := NewDeclarationEditResult(written, nil)
+		declaration, declarationErr := NewDeclarationEditResult(written, nil, DeclarationRollbackNone)
 		if declarationErr != nil {
 			return RemoveModuleDependencyResult{}, declarationErr
 		}
@@ -295,6 +348,18 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 	}
 
 	return NewRemoveModuleDependencyResult(removed, lockWritten, declarations)
+}
+
+// rollBackDeclarationEdit restores invowkmod.cue and then the lock file after
+// a failed invowkmod.cue edit. The outcome is complete when both restores
+// succeeded and incomplete otherwise; joined is the edit error joined with the
+// restore errors, for display.
+func rollBackDeclarationEdit(editErr error, declarationSnapshot, lockSnapshot fileSnapshot) (rollback DeclarationRollback, joined error) {
+	restoreErr := errors.Join(declarationSnapshot.restore(), lockSnapshot.restore())
+	if restoreErr != nil {
+		return DeclarationRollbackIncomplete, errors.Join(editErr, restoreErr)
+	}
+	return DeclarationRollbackComplete, editErr
 }
 
 // String returns the snapshot kind name.

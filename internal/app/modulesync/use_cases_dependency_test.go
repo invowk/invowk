@@ -197,11 +197,11 @@ func TestAddModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 		t.Fatal("Declaration.Err = nil, want declaration edit error")
 	}
 	// The CLI prints its not-found line from this check; the error is wrapped
-	// with %w and joined with the restore errors, so os.IsNotExist misses it.
+	// with %w, so os.IsNotExist misses it.
 	if !errors.Is(result.Declaration().Err(), fs.ErrNotExist) {
 		t.Fatalf("Declaration.Err = %v, want an error wrapping fs.ErrNotExist", result.Declaration().Err())
 	}
-	assertRestoresSucceeded(t, result.Declaration().Err())
+	assertRollbackComplete(t, result.Declaration())
 
 	lock, err := invowkmod.LoadLockFile(filepath.Join(workDir, LockFileName))
 	if err != nil {
@@ -262,7 +262,7 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	if declarations[0].Err() == nil {
 		t.Fatal("Declaration.Err = nil, want declaration edit error")
 	}
-	assertRestoresSucceeded(t, declarations[0].Err())
+	assertRollbackComplete(t, declarations[0])
 
 	reloaded, err := invowkmod.LoadLockFile(filepath.Join(workDir, LockFileName))
 	if err != nil {
@@ -280,14 +280,13 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	}
 }
 
-// assertRestoresSucceeded checks the error shape the CLI's rollback lines rely
-// on (moduleDeclarationRestoreFailed in cmd/invowk): after a rollback whose
-// restores succeeded, the declaration error is a join of the edit error alone.
-func assertRestoresSucceeded(t *testing.T, err error) {
+// assertRollbackComplete checks the outcome the CLI's rollback lines switch
+// on: after a rollback whose restores succeeded, the use case reports it as
+// complete.
+func assertRollbackComplete(t *testing.T, declaration DeclarationEditResult) {
 	t.Helper()
 
-	joined, ok := err.(interface{ Unwrap() []error })
-	if !ok || len(joined.Unwrap()) != 1 {
-		t.Fatalf("Declaration.Err = %v, want errors.Join of the edit error alone (both restores succeeded)", err)
+	if got := declaration.Rollback(); got != DeclarationRollbackComplete {
+		t.Fatalf("Declaration.Rollback = %s (err %v), want complete (both restores succeeded)", got, declaration.Err())
 	}
 }

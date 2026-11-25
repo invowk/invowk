@@ -164,4 +164,72 @@ func TestAddModuleDependencyRollbackLinkRestoreFails(t *testing.T) {
 	if !errors.Is(declErr, invowkmod.ErrModuleAlreadyExists) || !errors.Is(declErr, injected) {
 		t.Fatalf("Declaration.Err = %v, want the duplicate edit error and the injected restore error", declErr)
 	}
+	if got := result.Declaration().Rollback(); got != DeclarationRollbackIncomplete {
+		t.Fatalf("Declaration.Rollback = %s, want incomplete", got)
+	}
+}
+
+// TestAddModuleDependencyRollbackLockRestoreFails forces a real lock-restore
+// failure through the restore-writer seam: the outcome is incomplete and Err
+// carries the restore error (spec "Rollback outcome is reported by the
+// operation").
+func TestAddModuleDependencyRollbackLockRestoreFails(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	invowkmodPath := filepath.Join(workDir, "invowkmod.cue")
+	writeDuplicateToolsInvowkmod(t, invowkmodPath)
+	lockPath := filepath.Join(workDir, LockFileName)
+	if err := invowkmod.NewLockFile().Save(lockPath); err != nil {
+		t.Fatalf("Save(lock) error = %v", err)
+	}
+
+	injected := errors.New("injected: disk full")
+	resolver := newRollbackResolver(t, workDir)
+	resolver.restoreWriter = func(path string, data []byte, perm os.FileMode) error {
+		if path == lockPath {
+			return injected
+		}
+		return os.WriteFile(path, data, perm)
+	}
+
+	result, err := resolver.AddModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), ModuleRef{GitURL: rollbackToolsURL, Version: "^1.0.0"})
+	if err != nil {
+		t.Fatalf("AddModuleDependency() error = %v", err)
+	}
+	declaration := result.Declaration()
+	if got := declaration.Rollback(); got != DeclarationRollbackIncomplete {
+		t.Fatalf("Declaration.Rollback = %s, want incomplete", got)
+	}
+	if !errors.Is(declaration.Err(), injected) || !errors.Is(declaration.Err(), invowkmod.ErrModuleAlreadyExists) {
+		t.Fatalf("Declaration.Err = %v, want the edit error and the injected restore error", declaration.Err())
+	}
+}
+
+func TestDeclarationEditResultValidate(t *testing.T) {
+	t.Parallel()
+
+	editErr := errors.New("edit failed")
+	tests := []struct {
+		name     string
+		err      error
+		rollback DeclarationRollback
+		wantErr  bool
+	}{
+		{name: "success", rollback: DeclarationRollbackNone},
+		{name: "complete rollback", err: editErr, rollback: DeclarationRollbackComplete},
+		{name: "incomplete rollback", err: editErr, rollback: DeclarationRollbackIncomplete},
+		{name: "error without rollback", err: editErr, rollback: DeclarationRollbackNone, wantErr: true},
+		{name: "rollback without error", rollback: DeclarationRollbackComplete, wantErr: true},
+		{name: "unknown outcome", err: editErr, rollback: "partial", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := NewDeclarationEditResult(false, tt.err, tt.rollback)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewDeclarationEditResult() error = %v, want error %t", err, tt.wantErr)
+			}
+		})
+	}
 }

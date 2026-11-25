@@ -21,9 +21,9 @@ Every `make test`, `make lint`, `make test-scripts`, `make check-baseline`, `mak
 
 ## 3. Typed rollback outcome (brief item 1)
 
-- [ ] 3.1 Add `DeclarationRollback` (`none`, `complete`, `incomplete`, with `Validate()` and `String()`) to `DeclarationEditResult`, taken by `NewDeclarationEditResult`; build it in both use cases from the joined restore errors with reciprocal comments at the add and remove call sites (design D9). Verify `go build ./...` passes and `make check-baseline` reports no new finding for the new type.
-- [ ] 3.2 Delete `moduleDeclarationRestoreFailed` and switch `moduleAddDeclarationFailureLine` and `moduleRemoveSummaryLine` to `Rollback()` (one evaluation each). Update `cmd/invowk/module_deps_lock_test.go` tables to build results with explicit outcomes. Verify `go test -run 'TestModule(AddDeclaration|RemoveSummary|LockLines)' ./cmd/invowk/` passes.
-- [ ] 3.3 Add a use-case test that forces a real lock-restore failure through the restore-writer seam and expects `incomplete` with the restore error in `Err()`, make `TestAddModuleDependencyRollbackLinkRestoreFails` assert `incomplete`, and replace `assertRestoresSucceeded`'s error-shape check with `Rollback() == complete`. Verify `go test -run 'RollsBack|RestoreFail' ./internal/app/modulesync/` passes.
+- [x] 3.1 Add `DeclarationRollback` (`none`, `complete`, `incomplete`, with `Validate()` and `String()`) to `DeclarationEditResult`, taken by `NewDeclarationEditResult`; build it in both use cases from the joined restore errors with reciprocal comments at the add and remove call sites (design D9). Verify `go build ./...` passes and `make check-baseline` reports no new finding for the new type.
+- [x] 3.2 Delete `moduleDeclarationRestoreFailed` and switch `moduleAddDeclarationFailureLine` and `moduleRemoveSummaryLine` to `Rollback()` (one evaluation each). Update `cmd/invowk/module_deps_lock_test.go` tables to build results with explicit outcomes. Verify `go test -run 'TestModule(AddDeclaration|RemoveSummary|LockLines)' ./cmd/invowk/` passes.
+- [x] 3.3 Add a use-case test that forces a real lock-restore failure through the restore-writer seam and expects `incomplete` with the restore error in `Err()`, make `TestAddModuleDependencyRollbackLinkRestoreFails` assert `incomplete`, and replace `assertRestoresSucceeded`'s error-shape check with `Rollback() == complete`. Verify `go test -run 'RollsBack|RestoreFail' ./internal/app/modulesync/` passes.
 
 ## 4. No `Removed` lines after a rollback (brief item 2)
 
