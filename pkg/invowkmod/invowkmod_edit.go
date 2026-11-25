@@ -67,7 +67,7 @@ func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 
 	var out string
 	switch {
-	case hasBlock && strings.TrimSpace(text[lineStart(text, block.close):block.close]) == "":
+	case hasBlock && ownsStart(text, block.close):
 		// The closing "]" starts its line: insert the entry lines before it.
 		at := lineStart(text, block.close)
 		out = text[:at] + strings.Join(entryLines, "\n") + "\n" + text[at:]
@@ -329,10 +329,7 @@ func entryFields(text string, entry entrySpan) (gitURL, path string) {
 //
 //goplint:ignore -- private lexical helper returns raw CUE string text.
 func stringValueAt(text string, from, limit int) string {
-	i := from
-	for i < limit && (text[i] == ' ' || text[i] == '\t') {
-		i++
-	}
+	i := skipBlanks(text, from, limit)
 	if i >= limit || text[i] != '"' {
 		return ""
 	}
@@ -360,9 +357,7 @@ func labelAt(text string, i int, label string) (colon int, ok bool) {
 	if j < len(text) && isIdentByte(text[j]) {
 		return 0, false
 	}
-	for j < len(text) && (text[j] == ' ' || text[j] == '\t') {
-		j++
-	}
+	j = skipBlanks(text, j, len(text))
 	if j >= len(text) || text[j] != ':' {
 		return 0, false
 	}
@@ -413,8 +408,7 @@ func skipNonCode(text string, i int) int {
 			if nl < 0 {
 				return len(text)
 			}
-			i += nl
-			return i
+			return i + nl
 		case strings.HasPrefix(rest, `"""`) || strings.HasPrefix(rest, "'''"):
 			end := strings.Index(rest[3:], rest[:3])
 			if end < 0 {
@@ -470,14 +464,21 @@ func ownsEnd(text string, offset int) bool {
 //
 //goplint:ignore -- private lexical helper operates on raw CUE text.
 func skipComma(text string, offset int) int {
-	j := offset
-	for j < len(text) && (text[j] == ' ' || text[j] == '\t') {
-		j++
-	}
-	if j < len(text) && text[j] == ',' {
+	if j := skipBlanks(text, offset, len(text)); j < len(text) && text[j] == ',' {
 		return j + 1
 	}
 	return offset
+}
+
+// skipBlanks returns the first offset at or after i, and before limit, that
+// is not a space or a tab.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func skipBlanks(text string, i, limit int) int {
+	for i < limit && (text[i] == ' ' || text[i] == '\t') {
+		i++
+	}
+	return i
 }
 
 //goplint:ignore -- private lexical helper operates on raw CUE text.

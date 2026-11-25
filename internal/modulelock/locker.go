@@ -117,13 +117,9 @@ func (l *FileLocker) Validate() error {
 }
 
 func (l *FileLocker) wait(ctx context.Context, f *os.File, path types.FilesystemPath, onBusy func()) error {
+	// The deadline starts at the first busy try. Unreferenced timers are
+	// collected without Stop (Go 1.23+), so time.After needs no cleanup.
 	var deadline <-chan time.Time
-	var timeout *time.Timer
-	defer func() {
-		if timeout != nil {
-			timeout.Stop()
-		}
-	}()
 	for {
 		busy, err := tryLockFile(f)
 		if err != nil {
@@ -132,22 +128,18 @@ func (l *FileLocker) wait(ctx context.Context, f *os.File, path types.Filesystem
 		if !busy {
 			return nil
 		}
-		if timeout == nil {
+		if deadline == nil {
 			if onBusy != nil {
 				onBusy()
 			}
-			timeout = time.NewTimer(l.timeout)
-			deadline = timeout.C
+			deadline = time.After(l.timeout)
 		}
-		retry := time.NewTimer(l.pollInterval)
 		select {
 		case <-ctx.Done():
-			retry.Stop()
 			return fmt.Errorf("waiting for lock file %s: %w", path, ctx.Err())
 		case <-deadline:
-			retry.Stop()
 			return &TimeoutError{Path: path, Timeout: l.timeout}
-		case <-retry.C:
+		case <-time.After(l.pollInterval):
 		}
 	}
 }
