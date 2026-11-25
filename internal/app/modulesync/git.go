@@ -567,8 +567,10 @@ func (f *GitFetcher) getRepoCachePath(gitURL GitURL) types.FilesystemPath {
 // sourceCheckoutKey returns the cache-relative part of gitURL's checkout
 // path, in slash form: "https://github.com/user/repo.git" and
 // "git@github.com:user/repo.git" both give "github.com/user/repo". The
-// checkout path and the source lock (Resolver.lockSource) both derive from
-// it, so every URL spelling that shares a checkout shares its lock.
+// checkout path and the source lock (Resolver.lockSource, through
+// sourceLockKey, which also folds the cleaning and the letter case a
+// filesystem applies to the checkout path) both derive from it, so every URL
+// spelling that shares a checkout shares its lock.
 //
 //goplint:ignore -- internal path part, joined under the cache root or hashed into a lock file name.
 func sourceCheckoutKey(gitURL GitURL) string {

@@ -8,6 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
+
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -51,8 +54,8 @@ func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 	block, hasBlock := scanRequiresBlock(text)
 	if hasBlock {
 		for _, entry := range block.entries {
-			entryGitURL, entryPath := entryFields(text, entry)
-			if entryGitURL == string(req.GitURL) && entryPath == string(req.Path) {
+			entryGitURL, entryPath, readable := entryFields(text, entry)
+			if readable && entryGitURL == string(req.GitURL) && entryPath == string(req.Path) {
 				identifier := string(req.GitURL)
 				if req.Path != "" {
 					identifier += "#" + string(req.Path)
@@ -93,6 +96,9 @@ func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 		out = strings.Join(lines, "\n")
 	}
 
+	if err := checkEditKeepsCUEValid(invowkmodPath, data, []byte(out)); err != nil {
+		return err
+	}
 	return fspath.AtomicWriteFile(string(invowkmodPath), []byte(out), fspath.DefaultFilePerm)
 }
 
@@ -135,8 +141,8 @@ func RemoveRequirementIfPresent(invowkmodPath types.FilesystemPath, gitURL GitUR
 	// Find the matching entry
 	matched := -1
 	for i, entry := range block.entries {
-		entryGitURL, entryPath := entryFields(text, entry)
-		if entryGitURL == string(gitURL) && entryPath == string(subPath) {
+		entryGitURL, entryPath, readable := entryFields(text, entry)
+		if readable && entryGitURL == string(gitURL) && entryPath == string(subPath) {
 			matched = i
 			break
 		}
@@ -152,10 +158,39 @@ func RemoveRequirementIfPresent(invowkmodPath types.FilesystemPath, gitURL GitUR
 		out = removeRequiresEntry(text, block.entries[matched])
 	}
 
+	if err := checkEditKeepsCUEValid(invowkmodPath, data, []byte(out)); err != nil {
+		return false, err
+	}
 	if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); writeErr != nil {
 		return false, writeErr
 	}
 	return true, nil
+}
+
+// checkEditKeepsCUEValid refuses an edit that turns CUE which compiles into
+// CUE which does not: the lexer misreading a layout it does not know (for
+// example a top-level struct embedding) would otherwise leave invowkmod.cue
+// broken, and the caller rolls back only on an error. Input that does not
+// compile is not judged, so such a file is edited as before.
+//
+//goplint:ignore -- private guard over raw CUE bytes before and after an edit.
+func checkEditKeepsCUEValid(invowkmodPath types.FilesystemPath, before, after []byte) error {
+	ctx := cuecontext.New()
+	if !compilesAsCUE(ctx, before) {
+		return nil
+	}
+	if err := ctx.CompileBytes(after).Validate(); err != nil {
+		return fmt.Errorf("editing the requires field of %s would leave invalid CUE, so the file was not changed; edit it by hand: %w", invowkmodPath, err)
+	}
+	return nil
+}
+
+// compilesAsCUE reports whether data compiles and validates as CUE, without
+// requiring concrete values.
+//
+//goplint:ignore -- private helper over raw CUE bytes.
+func compilesAsCUE(ctx *cue.Context, data []byte) bool {
+	return ctx.CompileBytes(data).Validate() == nil
 }
 
 // removeRequiresField removes the whole requires field after its last entry
@@ -299,10 +334,14 @@ func entrySpans(text string, from, to int) []entrySpan {
 
 // entryFields reads the git_url and path string values of one entry: a label
 // at the entry's own depth, outside strings and comments, followed by a
-// string literal.
+// string literal. readable is false when either label is present but its
+// value is not a string literal Go can unquote (a raw #"…"# string, or an
+// escape such as \/ that CUE accepts and Go does not): such an entry never
+// matches, so an unreadable path is never taken for an absent one.
 //
 //goplint:ignore -- private lexical helper returns raw CUE field text.
-func entryFields(text string, entry entrySpan) (gitURL, path string) {
+func entryFields(text string, entry entrySpan) (gitURL, path string, readable bool) {
+	readable = true
 	depth := 0
 	forEachCode(text, entry.start+1, entry.end-1, func(i int) bool {
 		switch text[i] {
@@ -314,34 +353,38 @@ func entryFields(text string, entry entrySpan) (gitURL, path string) {
 			if depth != 0 {
 				return true
 			}
-			if c, ok := labelAt(text, i, "git_url"); ok {
-				gitURL = stringValueAt(text, c+1, entry.end)
-			} else if c, ok := labelAt(text, i, "path"); ok {
-				path = stringValueAt(text, c+1, entry.end)
+			var ok bool
+			if c, isLabel := labelAt(text, i, "git_url"); isLabel {
+				gitURL, ok = stringValueAt(text, c+1, entry.end)
+				readable = readable && ok
+			} else if c, isLabel := labelAt(text, i, "path"); isLabel {
+				path, ok = stringValueAt(text, c+1, entry.end)
+				readable = readable && ok
 			}
 		}
 		return true
 	})
-	return gitURL, path
+	return gitURL, path, readable
 }
 
-// stringValueAt parses the string literal that starts after spaces at from.
+// stringValueAt parses the double-quoted string literal that starts after
+// spaces at from; ok is false when there is none or Go cannot unquote it.
 //
 //goplint:ignore -- private lexical helper returns raw CUE string text.
-func stringValueAt(text string, from, limit int) string {
+func stringValueAt(text string, from, limit int) (value string, ok bool) {
 	i := skipBlanks(text, from, limit)
 	if i >= limit || text[i] != '"' {
-		return ""
+		return "", false
 	}
 	quoted, err := strconv.QuotedPrefix(text[i:limit])
 	if err != nil {
-		return ""
+		return "", false
 	}
-	value, err := strconv.Unquote(quoted)
+	value, err = strconv.Unquote(quoted)
 	if err != nil {
-		return ""
+		return "", false
 	}
-	return value
+	return value, true
 }
 
 // labelAt reports whether a field label starts at i: the identifier, a word
@@ -394,9 +437,9 @@ func nextCode(text string, i int) int {
 }
 
 // skipNonCode returns the first offset at or after i that is not inside a
-// string literal (double- or single-quoted, or the triple-quoted multi-line
-// forms) or a // comment; i must be in code context. A comment ends before
-// its newline.
+// string literal (double- or single-quoted, the triple-quoted multi-line
+// forms, and their #-delimited raw forms such as #"…"#) or a // comment; i
+// must be in code context. A comment ends before its newline.
 //
 //goplint:ignore -- private lexical helper operates on raw CUE text.
 func skipNonCode(text string, i int) int {
@@ -417,11 +460,54 @@ func skipNonCode(text string, i int) int {
 			i += 3 + end + 3
 		case rest[0] == '"' || rest[0] == '\'':
 			i = skipQuoted(text, i)
+		case rest[0] == '#':
+			end, isString := skipRawString(text, i)
+			if !isString {
+				return i
+			}
+			i = end
 		default:
 			return i
 		}
 	}
 	return i
+}
+
+// skipRawString handles a CUE string with extended delimiters: n "#" then a
+// quote (or a triple quote), closed by the same quote followed by n "#".
+// Inside it, a quote not followed by the n "#" is text. It returns the offset
+// just after the closer (for an unterminated one-line form, the offset of its
+// newline; for an unterminated multi-line form, len(text)) and true, or false
+// when the "#" run starts a definition name instead (#Name).
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func skipRawString(text string, i int) (end int, isString bool) {
+	j := i
+	for j < len(text) && text[j] == '#' {
+		j++
+	}
+	if j >= len(text) || (text[j] != '"' && text[j] != '\'') {
+		return i, false
+	}
+	hashes := text[i:j]
+	rest := text[j:]
+	if strings.HasPrefix(rest, `"""`) || strings.HasPrefix(rest, "'''") {
+		closer := rest[:3] + hashes
+		k := strings.Index(rest[3:], closer)
+		if k < 0 {
+			return len(text), true
+		}
+		return j + 3 + k + len(closer), true
+	}
+	closer := rest[:1] + hashes
+	line := rest[1:]
+	if nl := strings.IndexByte(line, '\n'); nl >= 0 {
+		line = line[:nl]
+	}
+	if k := strings.Index(line, closer); k >= 0 {
+		return j + 1 + k + len(closer), true
+	}
+	return j + 1 + len(line), true
 }
 
 // skipQuoted returns the offset just after the one-line string literal that

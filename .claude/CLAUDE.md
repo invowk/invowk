@@ -66,7 +66,7 @@ When a file in `.agents/rules/` is added, renamed or removed, update this index 
   - [`.agents/rules/licensing.md`]: `*.go`
   - [`.agents/rules/package-design.md`]: `cmd/`, `internal/`, `pkg/`
   - [`.agents/rules/testing.md`]: `*_test.go`, `tests/cli/`, testdata, `internal/testutil/`
-  - [`.agents/rules/windows.md`]: path-handling packages (runtime, container, provision, config, app, audit, uroot, watch, testutil, platform, fspath, types, invowkmod, invowkfile), `tests/cli/*.go`, `native_*.txtar`
+  - [`.agents/rules/windows.md`]: path-handling packages (runtime, container, provision, config, app, modulelock, audit, uroot, watch, testutil, platform, fspath, types, invowkmod, invowkfile), `tests/cli/*.go`, `native_*.txtar`
 
 ## Skills index
 

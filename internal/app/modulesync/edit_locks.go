@@ -8,8 +8,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -197,7 +199,7 @@ func (m *Resolver) LockProject(ctx context.Context) (unlock func() error, err er
 	}
 	release, err := l.locks.Locker.Lock(ctx, path, l.onBusy(LockWait{Kind: LockWaitProject, LockPath: path}))
 	if err != nil {
-		return nil, err
+		return nil, lockFileError(err)
 	}
 	var once sync.Once
 	var releaseErr error
@@ -208,7 +210,7 @@ func (m *Resolver) LockProject(ctx context.Context) (unlock func() error, err er
 }
 
 // lockSource takes the source lock of gitURL's Git checkout:
-// `<cache root>/locks/source-<hex SHA-256 of sourceCheckoutKey>.lock`.
+// `<cache root>/locks/source-<hex SHA-256 of sourceLockKey>.lock`.
 // resolveOne takes it right before the fetch and releases it when it returns
 // (design D3), so the clone or fetch, the checkout, the copy into the cache
 // and its verification never interleave with another process's checkout of
@@ -230,13 +232,13 @@ func (m *Resolver) lockSource(ctx context.Context, gitURL GitURL) (unlock func()
 		}
 	}()
 
-	path, err := l.lockPath("source", sourceCheckoutKey(gitURL))
+	path, err := l.lockPath("source", sourceLockKey(gitURL))
 	if err != nil {
 		return nil, err
 	}
 	release, err := l.locks.Locker.Lock(ctx, path, l.onBusy(LockWait{Kind: LockWaitSource, LockPath: path, GitURL: gitURL}))
 	if err != nil {
-		return nil, err
+		return nil, lockFileError(err)
 	}
 	var once sync.Once
 	var releaseErr error
@@ -246,8 +248,21 @@ func (m *Resolver) lockSource(ctx context.Context, gitURL GitURL) (unlock func()
 	}, nil
 }
 
+// sourceLockKey is the key a source lock file is named after: sourceCheckoutKey
+// cleaned as filepath.Join cleans it for the checkout path, in slash form and
+// lower case. Spellings that differ only in a trailing slash, a doubled slash
+// or letter case can share one checkout (filepath.Join cleans the path, and
+// NTFS and APFS ignore case by default), so they share one lock; on a
+// case-sensitive volume two such spellings only wait for each other.
+//
+//goplint:ignore -- internal lock-name part, hashed into the file name.
+func sourceLockKey(gitURL GitURL) string {
+	return strings.ToLower(filepath.ToSlash(filepath.Clean(filepath.FromSlash(sourceCheckoutKey(gitURL)))))
+}
+
 // claim records that kind is being taken, enforcing the lock order: no
-// project lock under a source lock, and one source lock at a time.
+// project lock under a source lock, one project lock at a time, and one
+// source lock at a time.
 func (l *editLocks) claim(kind LockWaitKind) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -255,6 +270,9 @@ func (l *editLocks) claim(kind LockWaitKind) error {
 	case LockWaitProject:
 		if l.source {
 			return fmt.Errorf("%w: project lock requested while a source lock is held", errLockOrder)
+		}
+		if l.project {
+			return fmt.Errorf("%w: a second project lock requested while one is held", errLockOrder)
 		}
 		l.project = true
 	case LockWaitSource:
@@ -301,7 +319,7 @@ func (l *editLocks) onBusy(wait LockWait) func() {
 func (l *editLocks) lockPath(prefix, key string) (types.FilesystemPath, error) {
 	locksDir := filepath.Join(string(l.cacheDir), locksDirName)
 	if err := os.MkdirAll(string(l.cacheDir), 0o755); err != nil {
-		return "", lockDirError(locksDir, err)
+		return "", lockDirError(string(l.cacheDir), err)
 	}
 	if err := os.Mkdir(locksDir, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
 		return "", lockDirError(locksDir, err)
@@ -314,7 +332,21 @@ func (l *editLocks) lockPath(prefix, key string) (types.FilesystemPath, error) {
 	return path, nil
 }
 
+// lockDirError names dir, the cache root or its locks directory, whichever
+// could not be created.
+//
 //goplint:ignore -- private error helper over a raw directory path.
-func lockDirError(locksDir string, cause error) error {
-	return fmt.Errorf("cannot create module lock directory %s: %w; set INVOWK_MODULES_PATH to a writable directory", locksDir, cause)
+func lockDirError(dir string, cause error) error {
+	return fmt.Errorf("cannot create module lock directory %s: %w; set INVOWK_MODULES_PATH to a writable directory", dir, cause)
+}
+
+// lockFileError adds the INVOWK_MODULES_PATH hint to a lock file that could
+// not be created or opened (a *fs.PathError from the adapter's open: no
+// permission on locks/, or a locks path that is not a directory). A busy-lock
+// timeout, a cancelled wait and every other error pass through unchanged.
+func lockFileError(err error) error {
+	if pathErr, ok := errors.AsType[*fs.PathError](err); ok && pathErr != nil {
+		return fmt.Errorf("%w; set INVOWK_MODULES_PATH to a writable directory", err)
+	}
+	return err
 }

@@ -674,14 +674,29 @@ func writeModuleBundle(modulePath, invowkmodCUE, invowkfileCUE string, createScr
 
 // writeModuleFiles writes invowkmod.cue, then invowkfile.cue, each through
 // fspath.AtomicWriteFile, so a reader sees each file's old or new content.
+// A file that already exists keeps its permission bits, as the in-place
+// write it replaced did; a new file gets moduleFilePerm.
 func writeModuleFiles(modulePath, invowkmodCUE, invowkfileCUE string) error {
-	if err := fspath.AtomicWriteFile(filepath.Join(modulePath, invowkmodFileName), []byte(invowkmodCUE), moduleFilePerm); err != nil {
+	invowkmodPath := filepath.Join(modulePath, invowkmodFileName)
+	if err := fspath.AtomicWriteFile(invowkmodPath, []byte(invowkmodCUE), existingFilePerm(invowkmodPath)); err != nil {
 		return fmt.Errorf("write invowkmod.cue: %w", err)
 	}
-	if err := fspath.AtomicWriteFile(filepath.Join(modulePath, invowkfileFileName), []byte(invowkfileCUE), moduleFilePerm); err != nil {
+	invowkfilePath := filepath.Join(modulePath, invowkfileFileName)
+	if err := fspath.AtomicWriteFile(invowkfilePath, []byte(invowkfileCUE), existingFilePerm(invowkfilePath)); err != nil {
 		return fmt.Errorf("write invowkfile.cue: %w", err)
 	}
 	return nil
+}
+
+// existingFilePerm returns the permission bits of the file at path (through a
+// symbolic link, as os.WriteFile wrote through it), or moduleFilePerm when
+// there is none.
+func existingFilePerm(path string) os.FileMode {
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return moduleFilePerm
+	}
+	return info.Mode().Perm()
 }
 
 func verifyModule(modulePath string) error {

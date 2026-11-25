@@ -868,7 +868,7 @@ reason = "dependency value assembled by the composition root; each locking use c
 
 [[exceptions]]
 pattern = "modulesync.LockWait.constructor"
-reason = "event DTO built by editLocks and validated before the callback"
+reason = "event DTO built by editLocks from the lock path lockPath validated and the requirement's Git URL, and passed as is to the OnWait callback"
 
 [[exceptions]]
 pattern = "moduleops.*.constructor"

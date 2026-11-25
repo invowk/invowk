@@ -50,21 +50,21 @@
 \*
 \* | model element | Go symbol | file | binding | abstraction |
 \* |---|---|---|---|---|
-\* | AddProg (add_add_same) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd | project lock (281) before the snapshots (287, 291); rollback on edit error (304); released when the method returns (285) |
+\* | AddProg (add_add_same) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd | project lock (291) before the snapshots (297, 301); rollback on edit error (314); released when the method returns (295) |
 \* | AddProg (sync_add) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd | the concurrent add |
 \* | AddProg (wrapper) | AddModuleDependency | internal/app/modulesync/use_cases.go | TestAddModuleDependencyRejectsDeclarationInvalidVersionBeforeCache, TestModuleEditUseCasesRequireLocker | package-level wrapper: validates, builds the resolver with the edit locks and the real GitFetcher, delegates; shares its leaf with the Resolver method, so go-mutesting's --match needs its own row |
 \* | RemoveProg | Resolver.RemoveModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8UpdateKeepsConcurrentRemove | RemoveRequirement never fails, so no rollback path |
 \* | RemoveProg (wrapper) | RemoveModuleDependency | internal/app/modulesync/use_cases.go | TestRemoveModuleDependencyCreatesOnlyProjectLock, TestModuleEditUseCasesRequireLocker | package-level wrapper: validates, builds the resolver with the edit locks and the real GitFetcher, delegates; shares its leaf with the Resolver method, so go-mutesting's --match needs its own row |
 \* | Restore | fileSnapshot.restore | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F10RestoreReplacesFile | atomic replace (fspath.AtomicWriteFile or link rename); the interleaving is model-only: a rename has no intermediate state |
-\* | SyncProg | Resolver.SyncModule | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd | project lock (643), then LoadRequirements and Sync under it |
+\* | SyncProg | Resolver.SyncModule | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd | project lock (669), then LoadRequirements (675) and Sync under it |
 \* | SyncProg (wrapper) | SyncModule | internal/app/modulesync/use_cases.go | TestSyncModuleWithoutRequirementsReportsNoWrite, TestModuleEditUseCasesRequireLocker | package-level wrapper: builds the resolver with the edit locks and the real GitFetcher, delegates to Resolver.SyncModule; shares its leaf with the Resolver method, so go-mutesting's --match needs its own row |
 \* | UpdateProg | Resolver.UpdateModule | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8UpdateKeepsConcurrentAdd, TestConcurrentEdits_F8UpdateKeepsConcurrentRemove | project lock, then Update under it |
 \* | UpdateProg (wrapper) | UpdateModule | internal/app/modulesync/use_cases.go | TestUpdateModuleWithoutLockWritesEmptyLock, TestModuleEditUseCasesRequireLocker | package-level wrapper: builds the resolver with the edit locks and the real GitFetcher, delegates to Resolver.UpdateModule; shares its leaf with the Resolver method, so go-mutesting's --match needs its own row |
 \* | Acquire project | Resolver.LockProject | internal/app/modulesync/edit_locks.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd, TestConcurrentEdits_F8UpdateKeepsConcurrentRemove, TestConcurrentEdits_VendorFromStaleLock | the project mutex: an OS advisory lock on <cache>/locks/project-<hash of the physical directory>.lock; a busy lock waits (OnWait), up to 5 minutes |
-\* | Acquire source | Resolver.lockSource | internal/app/modulesync/edit_locks.go | TestConcurrentEdits_F9SourceLockRecordsMatchingContent | the source mutex: an OS advisory lock on <cache>/locks/source-<hash of sourceCheckoutKey>.lock, taken after the project lock; a busy lock waits (OnWait), up to 5 minutes |
+\* | Acquire source | Resolver.lockSource | internal/app/modulesync/edit_locks.go | TestConcurrentEdits_F9SourceLockRecordsMatchingContent | the source mutex: an OS advisory lock on <cache>/locks/source-<hash of sourceLockKey, the cleaned lower-case sourceCheckoutKey>.lock, taken after the project lock when one is held (editLocks.claim refuses a project lock under it); a busy lock waits (OnWait), up to 5 minutes |
 \* | Release | editLocks.release | internal/app/modulesync/edit_locks.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd, TestConcurrentEdits_F9SourceLockRecordsMatchingContent | the adapter's unlock: flock(LOCK_UN) or UnlockFileEx, then close |
 \* | ReadProg | - | - | - | read-only consumers (discovery, command runs, validate, audit) take no mutex and rely on atomic replaces |
-\* | AddProg (fetch_v1_v2) | Resolver.Add | internal/app/modulesync/resolver.go | TestConcurrentEdits_F9SourceLockRecordsMatchingContent | lock read (139), resolve (145), re-read and save (152-161) |
+\* | AddProg (fetch_v1_v2) | Resolver.Add | internal/app/modulesync/resolver.go | TestConcurrentEdits_F9SourceLockRecordsMatchingContent | lock read (195), resolve (201), re-read and save (208-217) |
 \* | WriteLock remove | Resolver.Remove | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8UpdateKeepsConcurrentRemove | read (179) and save (206) with no fetch between |
 \* | WriteLock rebuild | Resolver.Sync | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd | a new lock built only from the pre-fetch requires (313-320) |
 \* | WriteLock update (update_add) | Resolver.Update | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8UpdateKeepsConcurrentAdd | the pre-fetch lock with updated entries (225, 273) |
@@ -173,46 +173,46 @@ FetchSteps(p, o, keyMode) ==
     ELSE <<S("Fetch", keyMode, o.key, o.ver)>>
 
 \* One named operator per program kind; Program(p) dispatches on the kind.
-AddProg(p) ==                               \* Resolver.AddModuleDependency (use_cases.go:187)
+AddProg(p) ==                               \* Resolver.AddModuleDependency (use_cases.go:287)
     LET o == Plan(p)
         j == ProjOf(p)
         k == o.kind
-    IN Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:191,195
-       \o <<St("ReadLock")>>                                    \* resolver.go:139
-       \o FetchSteps(p, o, "key")                               \* resolver.go:145
-       \o <<S("WriteLock", "add", o.key, "-")>>                 \* resolver.go:152-161
+    IN Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:297,301
+       \o <<St("ReadLock")>>                                    \* resolver.go:195
+       \o FetchSteps(p, o, "key")                               \* resolver.go:201
+       \o <<S("WriteLock", "add", o.key, "-")>>                 \* resolver.go:208-217
        \o Between(k, j)
-       \o <<St("ReadMod"), S("WriteMod", "add", o.key, "-"),   \* invowkmod_edit.go:29,73
-            S("Restore", "mod", "-", "-"), S("Restore", "lock", "-", "-")>> \* use_cases.go:205
+       \o <<St("ReadMod"), S("WriteMod", "add", o.key, "-"),   \* invowkmod_edit.go:46,101
+            S("Restore", "mod", "-", "-"), S("Restore", "lock", "-", "-")>> \* use_cases.go:314
        \o Final(k, j)
 
-RemoveProg(p) ==                            \* Resolver.RemoveModuleDependency (use_cases.go:228)
+RemoveProg(p) ==                            \* Resolver.RemoveModuleDependency (use_cases.go:342)
     LET o == Plan(p)
         j == ProjOf(p)
         k == o.kind
-    IN Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:229,233
-       \o <<St("ReadLock"), S("WriteLock", "remove", o.key, "-")>> \* resolver.go:179,206
+    IN Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:349,353
+       \o <<St("ReadLock"), S("WriteLock", "remove", o.key, "-")>> \* resolver.go:235,262
        \o Between(k, j)
-       \o <<St("ReadMod"), S("WriteMod", "remove", o.key, "-")>> \* invowkmod_edit.go:98,153
+       \o <<St("ReadMod"), S("WriteMod", "remove", o.key, "-")>> \* invowkmod_edit.go:126,163
        \o Final(k, j)
 
 SyncProg(p) ==                              \* SyncModule -> Resolver.Sync
     LET o == Plan(p)
         j == ProjOf(p)
         k == o.kind
-    IN Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:407
-       \o <<St("ReadLock")>>                                    \* resolver.go:296
-       \o FetchSteps(p, o, "req")                               \* resolver.go:302
-       \o <<S("WriteLock", "rebuild", "-", "-")>>               \* resolver.go:313-320
+    IN Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:675
+       \o <<St("ReadLock")>>                                    \* resolver.go:352
+       \o FetchSteps(p, o, "req")                               \* resolver.go:358
+       \o <<S("WriteLock", "rebuild", "-", "-")>>               \* resolver.go:369-376
        \o Final(k, j)
 
 UpdateProg(p) ==                            \* UpdateModule -> Resolver.Update
     LET o == Plan(p)
         j == ProjOf(p)
         k == o.kind
-    IN Early(k, j) \o <<St("ReadLock")>> \o Late(k, j)          \* resolver.go:225
-       \o FetchSteps(p, o, "lock")                              \* resolver.go:262
-       \o <<S("WriteLock", "update", "-", "-")>>                \* resolver.go:273
+    IN Early(k, j) \o <<St("ReadLock")>> \o Late(k, j)          \* resolver.go:281
+       \o FetchSteps(p, o, "lock")                              \* resolver.go:318
+       \o <<S("WriteLock", "update", "-", "-")>>                \* resolver.go:329
        \o Final(k, j)
 
 \* A read-only consumer (discovery, a command run, validate, audit): plain
@@ -223,8 +223,8 @@ VendorProg(p) ==                            \* vendorDependenciesWithResolver
     LET o == Plan(p)
         j == ProjOf(p)
         k == o.kind
-    IN Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* vendor_dependencies.go:75
-       \o <<St("ReadLock")>>                                    \* vendor_dependencies.go:122,127
+    IN Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* vendor_dependencies.go:114
+       \o <<St("ReadLock")>>                                    \* vendor_dependencies.go:145,150
        \o <<S("VendorRemove", "-", o.key, "-"), S("VendorCopy", "-", o.key, "-")>> \* vendor.go:107,115
        \o Final(k, j)
 
@@ -424,8 +424,8 @@ WriteMod(p) ==
                /\ pc' = [pc EXCEPT ![p] = AfterRestores(p)]
                /\ UNCHANGED <<result, holds, srcVars, localVars, histVars>>
 
-\* fileSnapshot.restore, declaration first and then the lock (use_cases.go:205,
-\* 310-328). A snapshot of a missing file is restored with os.Remove; an existing
+\* fileSnapshot.restore, declaration first and then the lock (use_cases.go:391,
+\* 510-533). A snapshot of a missing file is restored with os.Remove; an existing
 \* one with os.WriteFile, which truncates and then writes.
 RestoreSnap(p) == IF Step(p).arg = "mod" THEN snapMod[p] ELSE snapLock[p]
 \* Only a whole file holds the snapshot's content; the other states are empty.

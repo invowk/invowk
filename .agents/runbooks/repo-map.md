@@ -14,6 +14,7 @@ On-demand orientation. Rules load automatically through their `paths:` frontmatt
   - `llmconfig/`: LLM defaults, environment overrides and CLI flag resolution.
 - `internal/` (other):
   - `config/`: configuration with CUE schema (`config_schema.cue`).
+  - `modulelock/`: OS advisory edit locks for module commands (flock on Unix, LockFileEx on Windows) and physical project paths; the adapter of `modulesync.EditLocker`.
   - `basedir/`: the one resolver for per-user base directories (home, XDG/AppData, runtime dir); every result is absolute. `TestBaseDirGuard` keeps other packages off direct lookups.
   - `container/`: Docker/Podman engine abstraction. `containerplan/`: pure container execution policies. `provision/`: ephemeral image-layer provisioning. `provisionenv/`: environment contract between container provisioning and runtime.
   - `discovery/`: module and command discovery, precedence, collisions, source tracking.
@@ -45,6 +46,7 @@ On-demand orientation. Rules load automatically through their `paths:` frontmatt
 | `internal/app/commandsvc/`, `internal/app/execute/`, `internal/app/commandadapters/` | go, cli, go-hexagonal-ddd |
 | `internal/app/deps/` | go, cli, go-hexagonal-ddd, formal-verification |
 | `internal/app/module{cache,ops,sync}/` | go, go-hexagonal-ddd, module-security, formal-verification |
+| `internal/modulelock/` | go, go-hexagonal-ddd, windows-testing, formal-verification |
 | `internal/container/`, `internal/containerplan/`, `internal/provision/` | go, container, go-hexagonal-ddd, linux-testing |
 | `internal/discovery/` | go, discovery, go-hexagonal-ddd, d2-diagrams |
 | `internal/runtime/` | go, shell (virtual-sh), virtual-lua, go-hexagonal-ddd, d2-diagrams, go-testing |

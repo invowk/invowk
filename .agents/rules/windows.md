@@ -5,6 +5,7 @@ paths:
   - "internal/provision/**"
   - "internal/config/**"
   - "internal/app/**"
+  - "internal/modulelock/**"
   - "internal/audit/**"
   - "internal/uroot/**"
   - "internal/watch/**"

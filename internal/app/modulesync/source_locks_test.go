@@ -39,7 +39,7 @@ func sha256Hex(key string) string {
 
 // TestLockOrderProjectThenSource checks design D4's order for a sync that
 // fetches: project, source, source release, project release, and that the
-// source lock file is named after sourceCheckoutKey.
+// source lock file is named after sourceLockKey.
 func TestLockOrderProjectThenSource(t *testing.T) {
 	t.Parallel()
 
@@ -55,7 +55,7 @@ func TestLockOrderProjectThenSource(t *testing.T) {
 	if !slices.Equal(events, want) {
 		t.Fatalf("lock events = %v, want %v", events, want)
 	}
-	if got, wantName := filepath.Base(string(paths[1])), "source-"+sha256Hex(sourceCheckoutKey(concurrentURLA))+".lock"; got != wantName {
+	if got, wantName := filepath.Base(string(paths[1])), "source-"+sha256Hex(sourceLockKey(concurrentURLA))+".lock"; got != wantName {
 		t.Fatalf("source lock file = %s, want %s", got, wantName)
 	}
 }

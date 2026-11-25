@@ -6,6 +6,7 @@ package modulelock
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"golang.org/x/sys/windows"
@@ -21,7 +22,9 @@ const (
 // physicalDir opens the directory and asks Windows for its final path, which
 // follows junctions and symbolic links (filepath.EvalSymlinks does not follow
 // junctions on Go 1.23+, formal/README.md F18) and gives the on-disk case and
-// long names.
+// long names. It opens through os.Open, which opens a directory with
+// FILE_FLAG_BACKUP_SEMANTICS and adds the \\?\ prefix to a path longer than
+// MAX_PATH, so a deep project directory locks like any other.
 //
 //goplint:ignore -- private helper over raw OS path text.
 func physicalDir(dir string) (string, error) {
@@ -29,15 +32,12 @@ func physicalDir(dir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("absolute path: %w", err)
 	}
-	name, err := windows.UTF16PtrFromString(abs)
+	f, err := os.Open(abs)
 	if err != nil {
 		return "", err
 	}
-	h, err := windows.CreateFile(name, 0, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
-	if err != nil {
-		return "", err
-	}
-	defer windows.CloseHandle(h) //nolint:errcheck // read-only handle; nothing to flush.
+	defer f.Close() //nolint:errcheck // read-only directory handle; nothing to flush.
+	h := windows.Handle(f.Fd())
 
 	buf := make([]uint16, windows.MAX_PATH)
 	for {

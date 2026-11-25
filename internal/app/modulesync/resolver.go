@@ -59,8 +59,8 @@ type (
 //
 // workingDir is the directory containing invowkmod.cue (typically current working directory).
 // cacheDir can be empty to use the default (~/.invowk/modules or $INVOWK_MODULES_PATH),
-// or the CacheDir of the edit locks given with WithEditLocks.
-// With edit locks, the cache root is created by LockProject, under the
+// or the CacheDir of the edit locks given with WithEditLocks; when both are
+// set they must name the same directory, or NewResolver fails. With edit locks, the cache root is created by LockProject, under the
 // project lock's error handling, instead of here.
 func NewResolver(workingDir, cacheDir types.FilesystemPath, opts ...ResolverOption) (*Resolver, error) {
 	return newResolver(workingDir, cacheDir, nil, true, opts...)
@@ -85,6 +85,8 @@ func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetche
 	if cfg.editLocks != nil {
 		if cacheDir == "" {
 			cacheDir = cfg.editLocks.CacheDir
+		} else if err := sameCacheDir(cacheDir, cfg.editLocks.CacheDir); err != nil {
+			return nil, err
 		}
 		// LockProject creates the cache root with the lock directory's
 		// actionable error (design D5).
@@ -150,6 +152,24 @@ func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetche
 		}
 	}
 	return resolver, nil
+}
+
+// sameCacheDir returns an error when the edit locks name a cache root other
+// than cacheDir: the lock files live under the resolver's cache root, so two
+// callers that disagreed would lock one project in two places.
+func sameCacheDir(cacheDir, lockCacheDir types.FilesystemPath) error {
+	if lockCacheDir == "" {
+		return nil
+	}
+	a, errA := filepath.Abs(string(cacheDir))
+	b, errB := filepath.Abs(string(lockCacheDir))
+	if err := errors.Join(errA, errB); err != nil {
+		return fmt.Errorf("failed to resolve cache directory: %w", err)
+	}
+	if a != b {
+		return fmt.Errorf("cache directory %s differs from the edit locks' cache directory %s", cacheDir, lockCacheDir)
+	}
+	return nil
 }
 
 // CacheDir returns the root directory for the module cache.

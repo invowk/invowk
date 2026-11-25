@@ -145,15 +145,13 @@ func withRecordingLocker(r *Resolver, l *recordingLocker) *Resolver {
 // projectLockName is the lock file name LockProject uses for dir.
 func projectLockName(t *testing.T, dir string) string {
 	t.Helper()
-	physical, err := filepath.EvalSymlinks(dir)
+	// The production resolution (GetFinalPathNameByHandle on Windows), so a
+	// junction, subst drive or mapped drive in TEMP names the same file.
+	physical, err := modulelock.NewFileLocker().PhysicalDir(types.FilesystemPath(dir))
 	if err != nil {
-		t.Fatalf("EvalSymlinks(%s) error = %v", dir, err)
+		t.Fatalf("PhysicalDir(%s) error = %v", dir, err)
 	}
-	abs, err := filepath.Abs(physical)
-	if err != nil {
-		t.Fatalf("Abs(%s) error = %v", physical, err)
-	}
-	sum := sha256.Sum256([]byte(abs))
+	sum := sha256.Sum256([]byte(physical))
 	return "project-" + hex.EncodeToString(sum[:]) + ".lock"
 }
 
@@ -653,7 +651,7 @@ func TestModuleEditLockDirectoryNotWritable(t *testing.T) {
 			cacheRoot := filepath.Join(blocker, "modules")
 
 			err := run(t.Context(), EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(cacheRoot)}, types.FilesystemPath(filepath.Join(workDir, "invowkmod.cue")))
-			if err == nil || !strings.Contains(err.Error(), "cannot create module lock directory "+filepath.Join(cacheRoot, locksDirName)) || !strings.Contains(err.Error(), "set INVOWK_MODULES_PATH to a writable directory") {
+			if err == nil || !strings.Contains(err.Error(), "cannot create module lock directory "+cacheRoot+":") || !strings.Contains(err.Error(), "set INVOWK_MODULES_PATH to a writable directory") {
 				t.Fatalf("%s error = %v, want the actionable lock directory error", name, err)
 			}
 			assertLockWindowFiles(t, "files", readLockWindowFiles(t, workDir), before)

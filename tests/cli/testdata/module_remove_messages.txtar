@@ -31,8 +31,8 @@ stderr '(?i)failed to read invowkmod.cue'
 cmp invowkmod.lock.cue lock.before
 
 # Case 3: the requires entry is written on one line, inside a one-line
-# block with another entry. Remove finds it, deletes only that entry, and the
-# file stays valid (validate parses it).
+# block with another entry. Remove finds it and deletes only that entry; the
+# pkg/invowkmod span tests check that such a result parses.
 cd $WORK/oneline
 exec invowk module remove dep
 stdout 'Removed'

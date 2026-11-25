@@ -406,6 +406,46 @@ func TestChangeModuleWritesAtomicallyUnderProjectLock(t *testing.T) {
 	}
 }
 
+// TestChangeModuleKeepsFileModes checks that the atomic replace keeps each
+// existing file's permission bits, as the in-place write it replaced did:
+// a 0600 invowkfile.cue does not become 0644.
+func TestChangeModuleKeepsFileModes(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no Unix permission bits to keep")
+	}
+
+	modulePath := writeModuleFixture(t, t.TempDir(), "io.example.tools")
+	modes := map[string]os.FileMode{
+		filepath.Join(modulePath, invowkmodFileName):  0o640,
+		filepath.Join(modulePath, invowkfileFileName): 0o600,
+	}
+	for path, mode := range modes {
+		if err := os.Chmod(path, mode); err != nil {
+			t.Fatalf("Chmod(%s) error = %v", path, err)
+		}
+	}
+
+	result, err := ChangeModule(t.Context(), ModuleChangeOptions{
+		Target:      modulePath,
+		Description: "change the module",
+		Completer:   fakeCompleter{response: changedModuleResponse("io.example.tools")},
+		EditLocks:   modulesync.EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(t.TempDir())},
+	})
+	if err != nil || !result.Changed {
+		t.Fatalf("ChangeModule() = %+v, %v, want the generated change written", result, err)
+	}
+	for path, mode := range modes {
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			t.Fatalf("Stat(%s) error = %v", path, statErr)
+		}
+		if got := info.Mode().Perm(); got != mode {
+			t.Fatalf("%s mode = %v, want %v kept", path, got, mode)
+		}
+	}
+}
+
 // TestChangeModuleFailsWhenFilesChangedDuringGeneration checks design D15's
 // compare under the lock: invowkmod.cue changes between the generation and
 // the lock grant, so the change fails without writing.

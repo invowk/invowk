@@ -8,8 +8,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -186,15 +188,19 @@ func (r DeclarationEditResult) Rollback() DeclarationRollback {
 // Validate returns an error when the rollback outcome is unknown or does not
 // match the error: a failed edit always rolls back, and a rollback always has
 // the edit error.
+// The zero result validates: its rollback reads as none, as Rollback says.
 func (r DeclarationEditResult) Validate() error {
-	if err := r.rollback.Validate(); err != nil {
-		return err
+	if r.rollback != "" {
+		if err := r.rollback.Validate(); err != nil {
+			return err
+		}
 	}
-	if r.err != nil && r.rollback == DeclarationRollbackNone {
+	rollback := r.Rollback()
+	if r.err != nil && rollback == DeclarationRollbackNone {
 		return errors.New("declaration edit failed but reports no rollback")
 	}
-	if r.err == nil && r.rollback != DeclarationRollbackNone {
-		return fmt.Errorf("declaration edit reports rollback %q without an edit error", r.rollback)
+	if r.err == nil && rollback != DeclarationRollbackNone {
+		return fmt.Errorf("declaration edit reports rollback %q without an edit error", rollback)
 	}
 	return nil
 }
@@ -469,7 +475,7 @@ func readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
 		linkTarget := types.FilesystemPath(target) //goplint:ignore -- os.Readlink result, validated with the snapshot.
 		snapshot.kind = snapshotSymlink
 		snapshot.linkTarget = &linkTarget
-	case info.Mode().IsRegular():
+	case snapshotsBytes(info.Mode(), runtime.GOOS):
 		data, readErr := os.ReadFile(string(path))
 		if readErr != nil {
 			return fileSnapshot{}, fmt.Errorf("read file before dependency edit: %w", readErr)
@@ -480,6 +486,22 @@ func readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
 		snapshot.kind = snapshotOther
 	}
 	return snapshot, nil
+}
+
+// snapshotsBytes reports whether a file of mode is snapshotted by its bytes:
+// a regular file, and on Windows also a non-directory that os.Lstat reports
+// as ModeIrregular. Go 1.23+ gives that mode to every reparse point other
+// than a symbolic link, a Unix socket or a deduplicated file, which includes
+// ordinary data files such as cloud-file placeholders (OneDrive) that
+// os.Stat, the base's snapshot, read as regular; leaving them as
+// snapshotOther would let a rollback report complete without restoring them.
+//
+//goplint:ignore -- goos is runtime.GOOS, a parameter only so tests cover every platform.
+func snapshotsBytes(mode fs.FileMode, goos string) bool {
+	if mode.IsRegular() {
+		return true
+	}
+	return goos == "windows" && mode.Type() == fs.ModeIrregular
 }
 
 // restore puts the snapshot's path back as it was: a missing path is removed,
