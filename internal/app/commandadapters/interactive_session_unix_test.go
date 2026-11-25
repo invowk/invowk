@@ -8,7 +8,9 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,9 +33,14 @@ const (
 	// lastLineRuns is how many adapter runs must show LAST-LINE above the
 	// completion banner.
 	lastLineRuns = 20
+	// hupProbeBound bounds the wait for the hang-up after the viewer ended.
+	hupProbeBound = 5 * time.Second
 )
 
-var bgPIDPattern = regexp.MustCompile(`BG_PID=(\d+)`)
+var (
+	bgPIDPattern  = regexp.MustCompile(`BG_PID=(\d+)`)
+	cmdPIDPattern = regexp.MustCompile(`CMD_PID=(\d+) READY`)
+)
 
 type (
 	// viewProbeMsg is a message the viewer ignores; it lets a test filter
@@ -427,4 +434,101 @@ func runAdapterToCompletion(t *testing.T, script string) string {
 	mu.Lock()
 	defer mu.Unlock()
 	return lastView
+}
+
+// TestInteractiveForceQuitHangsUpNonReadingCommand is the probe of design
+// D8 (spec "Force quit of a command that never reads its input"): the
+// command never reads its input, a resize and a 64 KiB paste fill its
+// terminal's input so the viewer's writer blocks on the master, and Ctrl+\
+// ends the viewer. The command must get SIGHUP within hupProbeBound while
+// this test process keeps running. With a blocking master, the blocked write
+// (and the blocked read of a command that writes nothing) keep the master
+// open after the adapter closes it, so SIGHUP came only when invowk exited.
+func TestInteractiveForceQuitHangsUpNonReadingCommand(t *testing.T) {
+	t.Parallel()
+
+	hupFile := filepath.Join(t.TempDir(), "hup.txt")
+	script := `stty raw -echo; trap 'echo HUP > "$HUP_FILE"; exit 1' HUP; echo "CMD_PID=$$ READY"; while :; do sleep 1; done`
+
+	var (
+		mu       sync.Mutex
+		lastView string
+		program  = make(chan *tea.Program, 1)
+	)
+	filter := func(m tea.Model, msg tea.Msg) tea.Msg {
+		mu.Lock()
+		lastView = m.View().Content
+		mu.Unlock()
+		return msg
+	}
+	view := func() string {
+		mu.Lock()
+		defer mu.Unlock()
+		return lastView
+	}
+	opts := tui.InteractiveOptions{
+		Title:          "hup probe",
+		OnProgramReady: func(p *tea.Program) { program <- p },
+		ProgramOptions: []tea.ProgramOption{
+			tea.WithInput(nil),
+			tea.WithOutput(io.Discard),
+			tea.WithWindowSize(100, 30),
+			tea.WithFilter(filter),
+		},
+	}
+	cmd := exec.CommandContext(t.Context(), "sh", "-c", script)
+	cmd.Env = append(os.Environ(), "HUP_FILE="+hupFile)
+	done := make(chan error, 1)
+	go func() {
+		_, err := runInteractiveCmd(t.Context(), opts, cmd)
+		done <- err
+	}()
+	p := <-program
+
+	var pid int
+	deadline := time.Now().Add(ptyTestTimeout)
+	for pid == 0 {
+		if time.Now().After(deadline) {
+			t.Fatalf("command not ready within %s; view:\n%s", ptyTestTimeout, view())
+		}
+		p.Send(viewProbeMsg{})
+		time.Sleep(ptyTestPollInterval)
+		if m := cmdPIDPattern.FindStringSubmatch(view()); len(m) == 2 {
+			pid, _ = strconv.Atoi(m[1])
+		}
+	}
+	t.Cleanup(func() { _ = syscall.Kill(-pid, syscall.SIGKILL) })
+
+	p.Send(tea.WindowSizeMsg{Width: 90, Height: 28})
+	p.Send(tea.PasteMsg{Content: strings.Repeat("x", 64<<10)})
+	// Let the writer reach the master and block on the full input.
+	time.Sleep(200 * time.Millisecond)
+	p.Send(tea.KeyPressMsg{Code: '\\', Mod: tea.ModCtrl})
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("runInteractiveCmd() error = %v after Ctrl+\\", err)
+		}
+	case <-time.After(ptyTestTimeout):
+		t.Fatalf("session did not return within %s after Ctrl+\\", ptyTestTimeout)
+	}
+	hupDeadline := time.Now().Add(hupProbeBound)
+	for {
+		if data, err := os.ReadFile(hupFile); err == nil && strings.Contains(string(data), "HUP") {
+			break
+		}
+		if time.Now().After(hupDeadline) {
+			t.Fatalf("command got no SIGHUP within %s of the viewer ending (process %d alive: %t)",
+				hupProbeBound, pid, processAlive(pid))
+		}
+		time.Sleep(ptyTestPollInterval)
+	}
+	exitDeadline := time.Now().Add(hupProbeBound)
+	for processAlive(pid) {
+		if time.Now().After(exitDeadline) {
+			t.Fatalf("command %d still running %s after its SIGHUP", pid, hupProbeBound)
+		}
+		time.Sleep(ptyTestPollInterval)
+	}
 }

@@ -58,9 +58,9 @@ All paths are in the worktree `/var/home/danilo/Workspace/github/invowk/invowk-w
 
 ## 8. Unix -i hang-up for a command that never reads (design D8)
 
-- [ ] 8.1 Write the probe test in `internal/app/commandadapters/interactive_session_unix_test.go` (command that never reads, a `Resize` during the session, input filled, session ended, SIGHUP observed within a bound while the test process runs) and see it fail on the base
-- [ ] 8.2 Implement the non-blocking duplicate of the master and the terminal adapter of D8 (no `Fd()` or `*os.File` exposed; `Resize` through xpty's `Control`-based `Resize`; nothing calls `Fd()` on either descriptor after the switch); or, if the probe shows it needs an xpty or creack/pty change, revert the item's code, delete `specs/interactive-mode-terminal/spec.md` from this change, mark 8.2-8.3 with a note, and record the finding for the result
-- [ ] 8.3 Verify: `go test -race -run 'Interactive' ./internal/app/commandadapters/ ./internal/tui/` and `go test -run 'TestInteractiveViewer' ./tests/cli/` pass on Linux; the macOS CI job passes the probe
+- [x] 8.1 Write the probe test in `internal/app/commandadapters/interactive_session_unix_test.go` (command that never reads, a `Resize` during the session, input filled, session ended, SIGHUP observed within a bound while the test process runs) and see it fail on the base (`TestInteractiveForceQuitHangsUpNonReadingCommand`; on the base: "command got no SIGHUP within 5s of the viewer ending")
+- [x] 8.2 Implement the non-blocking duplicate of the master and the terminal adapter of D8 (no `Fd()` or `*os.File` exposed; `Resize` through xpty's `Control`-based `Resize`; nothing calls `Fd()` on either descriptor after the switch); or, if the probe shows it needs an xpty or creack/pty change, revert the item's code, delete `specs/interactive-mode-terminal/spec.md` from this change, mark 8.2-8.3 with a note, and record the finding for the result Shipped without an xpty or creack/pty change: `nonBlockingTerminal` in `interactive_session_unix.go` (duplicate via `F_DUPFD_CLOEXEC` inside `Control`); a failed duplicate falls back to the PTY as before
+- [x] 8.3 Verify: `go test -race -run 'Interactive' ./internal/app/commandadapters/ ./internal/tui/` and `go test -run 'TestInteractiveViewer' ./tests/cli/` pass on Linux; the macOS CI job passes the probe Linux passes (probe -race -count=10); the macOS CI job is for the fix stage to confirm
 
 ## 9. Formal-bindings refresh and integration
 

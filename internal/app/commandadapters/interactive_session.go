@@ -16,21 +16,29 @@ import (
 	"github.com/charmbracelet/x/xpty"
 )
 
+// interactiveTerminal is the viewer's side of the command's terminal, which
+// the adapter closes once the session ends.
+type interactiveTerminal interface {
+	tui.InteractiveTerminal
+	Close() error
+}
+
 func runInteractiveCmd(ctx context.Context, opts tui.InteractiveOptions, cmd *exec.Cmd) (result *tui.InteractiveResult, err error) {
 	width, height := tui.InteractiveTerminalSize()
 	pty, err := startInteractivePty(cmd, width, height)
 	if err != nil {
 		return nil, err
 	}
+	terminal := viewerTerminal(pty)
 	defer func() {
 		// On Unix the slave copy was already closed after start, so the
 		// second close of it reports os.ErrClosed, which is not a failure.
-		if closeErr := pty.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) && err == nil {
+		if closeErr := terminal.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) && err == nil {
 			err = closeErr
 		}
 	}()
 
-	return tui.RunInteractiveSession(ctx, opts, pty, func(waitCtx context.Context) tui.InteractiveResult {
+	return tui.RunInteractiveSession(ctx, opts, terminal, func(waitCtx context.Context) tui.InteractiveResult {
 		startTime := time.Now()
 		waitErr := xpty.WaitProcess(waitCtx, cmd)
 		result := tui.InteractiveResult{Duration: time.Since(startTime)}

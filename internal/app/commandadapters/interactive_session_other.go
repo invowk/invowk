@@ -17,6 +17,12 @@ func prepareInteractiveCmd(*exec.Cmd, xpty.Pty) error {
 	return nil
 }
 
+// viewerTerminal returns the pseudo-console itself outside Unix: the
+// non-blocking master of design D8 is Unix only.
+func viewerTerminal(pty xpty.Pty) interactiveTerminal {
+	return pty
+}
+
 // releaseParentSlave does nothing outside Unix: a ConPTY has no slave
 // descriptor in invowk's process.
 func releaseParentSlave(xpty.Pty) error {
