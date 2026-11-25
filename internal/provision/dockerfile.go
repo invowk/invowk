@@ -26,10 +26,10 @@ func (p *LayerProvisioner) generateDockerfile(baseImage string, binaryPath types
 
 	// Copy invowk binary
 	if binaryPath != "" {
-		binaryPath := string(p.config.BinaryMountPath)
+		mountPath := string(p.config.BinaryMountPath)
 		sb.WriteString("# Install invowk binary\n")
-		fmt.Fprintf(&sb, "COPY invowk %s/invowk\n", binaryPath)
-		fmt.Fprintf(&sb, "RUN chmod +x %s/invowk\n\n", binaryPath)
+		fmt.Fprintf(&sb, "COPY invowk %s/invowk\n", mountPath)
+		fmt.Fprintf(&sb, "RUN chmod +x %s/invowk\n\n", mountPath)
 	}
 
 	// Copy modules

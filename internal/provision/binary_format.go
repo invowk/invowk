@@ -3,7 +3,6 @@
 package provision
 
 import (
-	"bytes"
 	"debug/elf"
 	"encoding/binary"
 	"errors"
@@ -166,7 +165,7 @@ func checkLinuxBinary(path types.FilesystemPath, arch container.ImageArchitectur
 	if err != nil && n == 0 && !errors.Is(err, io.EOF) {
 		return &BinaryRejection{Kind: BinaryRejectionUnreadable, Detail: err.Error()}
 	}
-	if n < len(magic) || !bytes.Equal(magic[:], []byte(elf.ELFMAG)) {
+	if string(magic[:n]) != elf.ELFMAG {
 		return &BinaryRejection{Kind: BinaryRejectionNotELF, Format: nonELFFormat(magic[:n])}
 	}
 
