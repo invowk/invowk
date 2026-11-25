@@ -70,9 +70,22 @@ Use `LastError()` when callers need the recorded failure after the server reache
 ### Start
 
 1. Call `s.base.TransitionToStarting(ctx)` first.
+   Caveat: with an already-cancelled `ctx`, it returns `nil` without any
+   transition on a server that a `Stop` already moved `Created -> Stopped`
+   (`TransitionToFailed` returns the recorded `nil`). Check
+   `s.base.State().IsTerminal()` right after it and fail before binding
+   anything or launching goroutines (`internal/sshserver` `Start`).
 2. Initialize listeners/resources.
 3. Start background goroutines with `AddGoroutine()` and `defer DoneGoroutine()`.
 4. Call `TransitionToRunning()` only when the server is ready.
+   When a library's `Serve` registers the listener itself (charm.land/ssh,
+   wish), readiness means the library has registered it: signal it from the
+   first `Accept` of a listener wrapper passed to `Serve`, never before `Serve`
+   is called. `Stop` must not call the library's `Shutdown` before that point
+   or before the serve goroutine has returned: in charm.land/ssh v0.4.3 a
+   `Shutdown` that runs first returns at once and `Serve` then serves on,
+   racing its listener WaitGroup (charmbracelet/ssh#61; `readyListener` and
+   `serveGate` in `internal/sshserver/server_lifecycle.go`).
 5. Use `WaitForReady(ctx)` or `StartedChannel()` to block startup until ready or failed.
    Caveat: `startedCh` closes only on a successful Starting→Running CAS. If a
    `Stop` or a `Serve` failure wins first, `WaitForReady` blocks until `ctx` ends,
@@ -81,6 +94,11 @@ Use `LastError()` when callers need the recorded failure after the server reache
    call `TransitionToRunning()` before launching the serve goroutines, check
    `IsRunning()`, and return instead of waiting.
 6. On startup or serve errors, call `TransitionToFailed(err)` and return that error.
+   A startup failure after resources are published (startup timeout, cancelled
+   `ctx`, an error from the serve goroutine) tears them down through the same
+   routine as `Stop` before `Start` returns, so a failed `Start` leaves no
+   listener open and a later `Stop` or `Wait` returns (`failStart` and
+   `teardown` in `internal/sshserver`).
    An `http.Server` behind an auth middleware must set
    `DisableGeneralOptionsHandler: true`; otherwise net/http answers `OPTIONS *`
    itself, before the handler, and the request bypasses the token check.
@@ -135,6 +153,22 @@ func (s *Server) Stop() error {
 For stop-before-start, `TransitionToStopping()` moves `Created -> Stopped`,
 closes the error channel, and returns false.
 
+The example above fits servers whose `Start` has launched everything before a
+`Stop` can run (or whose library tolerates `Shutdown` before `Serve`, like
+`net/http`). `TransitionToStopping()` also accepts `Starting`, so when `Start`
+can still publish resources or call `AddGoroutine()` while a `Stop` runs:
+
+- serialise `Stop` and the start-failure teardown with one mutex held for the
+  whole call, so a `Stop` that loses the transition reaches
+  `WaitForShutdown()` only after the winner's teardown, never while `Start`
+  can still add a goroutine;
+- publish the resources and call `AddGoroutine()` in one critical section that
+  refuses once a teardown has begun; the refused `Start` closes what it bound,
+  launches nothing and returns an error.
+
+`internal/sshserver` (`stopMu`, `publish`, `teardown`, `failStart`) is the
+reference for that variant.
+
 ## Goroutines And Errors
 
 - Call `AddGoroutine()` before starting each background goroutine.
@@ -158,6 +192,14 @@ Server tests should cover:
 6. Runtime serve errors transition `Running -> Failed`, close `Err()`, and
    populate `LastError()`.
 7. Terminal states are irreversible.
+8. A `Stop` at each point of a concurrent `Start` (before publish, before the
+   serve loop, during a startup failure) leaves no listener open and no
+   goroutine running, and `Start` returns an error. Hold the window through an
+   unexported hooks field on the server, never a package-level variable
+   (`internal/sshserver/server_lifecycle_race_test.go`). A test that needs a
+   timeout branch to win (for example the teardown skipping `Shutdown`) waits
+   for a hook on that branch (`shutdownSkipped`), never for a multiple of the
+   timeout: the timer starts later than the test's own clock on a loaded runner.
 
 Use focused commands first:
 
