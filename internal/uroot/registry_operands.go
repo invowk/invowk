@@ -3,6 +3,7 @@
 package uroot
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -127,7 +128,9 @@ func (f recordingFlag) IsBoolFlag() bool { return f.isBool }
 // and is not handed on. Each operand is resolved with the hook its command and
 // position select (operandHookFor), tar's -f/-file values are resolved in
 // place, and every other option value is kept as written. For gzip the output
-// path it derives from each operand is validated too (checkGzipOutputPaths).
+// path it derives from each operand is validated too (checkGzipOutputPaths),
+// and so are the paths cp and tar -x derive (checkUrootDerivedPaths), which
+// read ctx for cancellation.
 //
 // The built-in receives the options and their values, then "--", then the
 // resolved operands, encoded so that its own preprocessing gives that list
@@ -136,7 +139,7 @@ func (f recordingFlag) IsBoolFlag() bool { return f.isBool }
 // command is refused (errUrootOperandRebuild). When Go's parser fails on the
 // arguments, the built-in receives only the option that failed, so it reports
 // its own error and no operand reaches it.
-func urootCommandOperands(hc *HandlerContext, cmd Command, args []string) ([]string, error) {
+func urootCommandOperands(ctx context.Context, hc *HandlerContext, cmd Command, args []string) ([]string, error) {
 	name := cmd.Name()
 	preprocess, ok := urootOperandRules[name]
 	if !ok {
@@ -162,6 +165,9 @@ func urootCommandOperands(hc *HandlerContext, cmd Command, args []string) ([]str
 		if err := checkGzipOutputPaths(hc, resolved); err != nil {
 			return nil, err
 		}
+	}
+	if err := checkUrootDerivedPaths(ctx, hc, name, resolved); err != nil {
+		return nil, err
 	}
 	rebuilt := rebuildUrootArgs(preprocess, resolved)
 	if err := checkUrootRebuild(preprocess, flags, rebuilt, resolved); err != nil {

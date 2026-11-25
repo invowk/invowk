@@ -677,6 +677,7 @@ func runVirtualUtility(ctx context.Context, registry *uroot.Registry, req virtua
 		},
 		ValidatePath:         req.pathValidator.validate,
 		ValidateNoFollowPath: req.pathValidator.validateNoFollow,
+		FullAccess:           req.pathValidator.fullAccess(),
 	}
 	err := registry.Run(uroot.WithHandlerContext(ctx, handler), req.args[0], req.args)
 	if err != nil {

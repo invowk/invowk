@@ -121,7 +121,7 @@ func validateUrootCommandPathArgs(ctx context.Context, cmd Command, args []strin
 	if !ok {
 		return args, nil
 	}
-	return urootCommandOperands(hc, cmd, args)
+	return urootCommandOperands(ctx, hc, cmd, args)
 }
 
 // BuildDefaultRegistry creates a new Registry pre-populated with all 28

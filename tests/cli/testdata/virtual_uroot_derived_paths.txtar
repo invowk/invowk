@@ -1,0 +1,131 @@
+# Test: under restricted access, cp and tar -x check the paths they derive
+# from their operands before they run (virtual-runtime-sandbox, "cp checks the
+# destinations it derives before it runs" and "tar -x checks every entry
+# destination before it runs"): a destination that resolves outside the
+# allowed roots refuses the whole command with "virtual path denied", and the
+# same shapes through links inside the roots succeed.
+#
+# u-root built-ins are virtual-runtime commands, so this test has no native
+# mirror (the virtual_uroot_ prefix exemption). Junctions are covered by the
+# Go tests (testscript has no junction command). The archives are created
+# with the host tar, holding only a file entry.
+#
+# The outside directory must lie outside every allowed root. Off Windows /tmp
+# is always a root and $WORK is normally below it, so the test uses a fixed
+# entry below /var/tmp, removed before and after every step.
+
+[!symlink] skip
+
+[!windows] env OUTSIDE=/var/tmp
+[windows] env OUTSIDE=$WORK/outside
+[windows] mkdir $WORK/outside
+env NAME=invowk-virtual-uroot-derived-paths-entry
+env ENTRY=$OUTSIDE/$NAME
+rm $ENTRY
+
+cd $WORK/proj
+
+# cp: a destination entry that is a dangling link out of the roots
+symlink d/f -> $ENTRY
+! exec invowk cmd cp-file
+stderr 'virtual path denied'
+! exists $ENTRY
+
+# cp -r: the top destination is a directory link out of the roots
+rm $ENTRY
+cp $WORK/entry.txt src/$NAME
+symlink dst/src -> $OUTSIDE
+! exec invowk cmd cp-tree
+stderr 'virtual path denied'
+! exists $ENTRY
+
+# tar -x: an entry below a directory link out of the roots
+rm $ENTRY
+[exec:tar] cd $WORK/arch
+[exec:tar] cp $WORK/entry.txt l/$NAME
+# A relative archive path: GNU tar reads "C:..." as a remote host.
+[exec:tar] exec tar -cf ../proj/a.tar l/$NAME
+[exec:tar] cd $WORK/proj
+[exec:tar] symlink ex/l -> $OUTSIDE
+[exec:tar] ! exec invowk cmd tar-extract
+[exec:tar] stderr 'virtual path denied'
+! exists $ENTRY
+
+# The same shapes through links inside the roots succeed
+symlink d2/f -> ../t2
+exec invowk cmd cp-file-in
+exists t2
+symlink dst2/src -> ../in
+exec invowk cmd cp-tree-in
+exists in/$NAME
+[exec:tar] symlink ex2/l -> ../in2
+[exec:tar] exec invowk cmd tar-extract-in
+[exec:tar] exists in2/$NAME
+rm $ENTRY
+! exists $ENTRY
+
+-- entry.txt --
+entry-content
+-- arch/l/.keep --
+-- proj/f --
+f-content
+-- proj/d/.keep --
+-- proj/d2/.keep --
+-- proj/dst/.keep --
+-- proj/dst2/.keep --
+-- proj/in/.keep --
+-- proj/in2/.keep --
+-- proj/ex/.keep --
+-- proj/ex2/.keep --
+-- proj/src/.keep --
+-- proj/invowkfile.cue --
+cmds: [
+	{
+		name: "cp-file"
+		implementations: [{
+			script: {content: "cp f d"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "cp-tree"
+		implementations: [{
+			script: {content: "cp -r src dst"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "tar-extract"
+		implementations: [{
+			script: {content: "tar -x -f a.tar ex"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "cp-file-in"
+		implementations: [{
+			script: {content: "cp f d2"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "cp-tree-in"
+		implementations: [{
+			script: {content: "cp -r src dst2"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "tar-extract-in"
+		implementations: [{
+			script: {content: "tar -x -f a.tar ex2"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
