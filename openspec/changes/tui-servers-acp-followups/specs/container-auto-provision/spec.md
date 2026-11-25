@@ -3,7 +3,19 @@
 ## ADDED Requirements
 
 ### Requirement: The installed binary is the one that was checked
-When a provisioned image is built with the invowk binary, the bytes installed in the image SHALL be bytes that passed the Linux-binary check and whose hash is the one in the image's cache key. If the file at `binary_path`, or at the default binary's path, changes or is replaced while invowk provisions, so that the bytes the build would install fail the check or differ from the hashed ones, the build SHALL fail with an error that names the path, and no image SHALL be tagged for it.
+When a provisioned image is built with the invowk binary, the bytes installed in the image SHALL be bytes that passed the Linux-binary check and whose hash is the one in the image's cache key. Bytes that fail the check or differ from the hashed ones, because the binary's file changed or was replaced while invowk provisions, SHALL NOT be installed.
+
+#### Scenario: Binary unchanged
+- **WHEN** the file at `binary_path` does not change during the run
+- **THEN** the image SHALL be built and tagged as before this change, with the same cache key for the same bytes, base image and modules
+
+#### Scenario: Cached image with an unchanged binary
+- **GIVEN** a provisioned image cached for the current binary
+- **WHEN** a later run finds the binary unchanged
+- **THEN** the run SHALL reuse the cached image without copying the binary into a build context
+
+### Requirement: An explicit binary_path that changes during provisioning fails the build
+When the file at an explicit `binary_path` changes or is replaced while invowk provisions, so that the bytes the build would install fail the check or differ from the hashed ones, the build SHALL fail with an error that names the path and says that the binary changed during provisioning, and no image SHALL be tagged for it.
 
 #### Scenario: Binary replaced after the cache key was computed
 - **GIVEN** `binary_path` names a usable Linux build for the container architecture
@@ -15,11 +27,10 @@ When a provisioned image is built with the invowk binary, the bytes installed in
 - **WHEN** the file at `binary_path` is replaced by a macOS build after invowk checked it and before it computed the cache key
 - **THEN** the run SHALL fail with an error naming `binary_path`, and no provisioned image SHALL contain the macOS build
 
-#### Scenario: Binary unchanged
-- **WHEN** the file at `binary_path` does not change during the run
-- **THEN** the image SHALL be built and tagged as before this change, with the same cache key for the same bytes, base image and modules
+### Requirement: A default binary that changes during provisioning is skipped
+When `binary_path` is not set and the default binary's bytes fail the check or differ from the hashed ones because its file changed during provisioning, the run SHALL skip it as an unusable default binary (requirement "An unusable default binary is skipped with a warning"). The image SHALL be built or reused under the cache key of an image without the binary, and the warning SHALL say that the invowk executable changed during provisioning; `strict` SHALL NOT make this an error.
 
-#### Scenario: Cached image with an unchanged binary
-- **GIVEN** a provisioned image cached for the current binary
-- **WHEN** a later run finds the binary unchanged
-- **THEN** the run SHALL reuse the cached image without copying the binary into a build context
+#### Scenario: Default binary replaced during provisioning
+- **GIVEN** `binary_path` is not set and the running invowk executable is a usable Linux build for the container architecture
+- **WHEN** the executable's file is replaced by a different build after invowk computed the image's cache key and before the image build copies the binary, as an in-place upgrade by a package manager does
+- **THEN** the command SHALL run in a provisioned image without the invowk binary, the replaced bytes SHALL NOT be installed, and a warning SHALL name `container.auto_provision.binary_path` and say that the invowk executable changed during provisioning

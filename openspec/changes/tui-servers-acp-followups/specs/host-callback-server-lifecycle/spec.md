@@ -3,22 +3,30 @@
 ## ADDED Requirements
 
 ### Requirement: Stop closes every connection
-`Stop` SHALL close every connection the server accepted, whether or not it has authenticated, and SHALL accept no new connection once it has begun. When `Stop` returns, no SSH client SHALL still be able to use a connection to the server. A `Stop` that closed every connection SHALL return `nil` and SHALL NOT wait for `ShutdownTimeout` because a connection was open.
+`Stop` SHALL close every connection the server accepted, whether or not it has authenticated, and SHALL accept no new connection once it has begun; a login that completes after `Stop` closed its connection SHALL NOT be admitted. When `Stop` returns, no SSH client SHALL still be able to use a connection to the server.
 
 #### Scenario: Authenticated connection open at Stop
 - **GIVEN** a running server and an SSH client that logged in with a valid token and keeps its connection open
 - **WHEN** `Stop` is called
 - **THEN** `Stop` SHALL return `nil` well inside `ShutdownTimeout`, the client SHALL see its connection closed, and opening a new session on it SHALL fail
 
-#### Scenario: Connection still authenticating at Stop
-- **GIVEN** a running server and an SSH client whose authentication is held inside the server's password check
-- **WHEN** `Stop` runs and the hold is then released
-- **THEN** the client's login SHALL fail or its connection SHALL be closed, `Stop` SHALL return `nil` well inside `ShutdownTimeout`, and `-race` SHALL report no data race
-
 #### Scenario: Revocation and Stop together
 - **GIVEN** a running server and an authenticated client
 - **WHEN** the client's token is revoked and `Stop` runs concurrently
 - **THEN** the connection SHALL be closed exactly once, both calls SHALL return, and `-race` SHALL report no data race
+
+### Requirement: Stop waits for connection handling, bounded by the shutdown timeout
+`Stop` SHALL return only after the server's handling of every accepted connection has ended, bounded by `ShutdownTimeout`. A connection that a client keeps open SHALL NOT make `Stop` wait, since `Stop` closes it; `Stop` SHALL then return `nil`. When the handling of a closed connection has not ended at `ShutdownTimeout`, for example because a login check has not returned, `Stop` SHALL return an error.
+
+#### Scenario: Connection still authenticating at Stop
+- **GIVEN** a running server and an SSH client whose authentication is held inside the server's password check
+- **WHEN** `Stop` runs, and the hold is released while `Stop` is still waiting, after `Stop` has closed the connections
+- **THEN** the client's login SHALL fail, the server SHALL track no connection for it, `Stop` SHALL return `nil` well inside `ShutdownTimeout`, and `-race` SHALL report no data race
+
+#### Scenario: Login check that does not return before the shutdown timeout
+- **GIVEN** a running server and an SSH client whose authentication is held inside the server's password check
+- **WHEN** `Stop` runs and the hold is released only after `ShutdownTimeout`
+- **THEN** `Stop` SHALL return an error at `ShutdownTimeout`, the client's connection SHALL be closed, and after the release the login SHALL fail
 
 ## MODIFIED Requirements
 

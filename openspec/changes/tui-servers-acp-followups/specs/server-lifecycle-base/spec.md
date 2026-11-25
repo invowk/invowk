@@ -24,6 +24,11 @@ A `Start` SHALL change a server's lifecycle state only when the server is in Cre
 - **WHEN** `Start` is called with an already-cancelled context
 - **THEN** `Start` SHALL return a non-nil error, never `nil`, and the server SHALL stay Stopped
 
+#### Scenario: Start with a cancelled context racing a Stop of a never-started server
+- **GIVEN** a server in Created
+- **WHEN** `Start` with an already-cancelled context and `Stop` run concurrently
+- **THEN** the server SHALL end Failed or Stopped and SHALL NOT move from one to the other, `Start` SHALL return a non-nil error either way, and it SHALL bind no listener and launch no server goroutine
+
 #### Scenario: First Start with a cancelled context
 - **GIVEN** a server in Created
 - **WHEN** `Start` is called with an already-cancelled context

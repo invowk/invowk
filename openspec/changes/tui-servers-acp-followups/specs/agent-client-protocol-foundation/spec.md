@@ -21,4 +21,4 @@ Invowk SHALL mediate ACP agent callbacks through explicit internal policy interf
 
 #### Scenario: Elicitation is not offered
 - **WHEN** the ACP foundation initializes a connection, and an ACP agent later sends an elicitation request or an elicitation-complete notification
-- **THEN** the foundation SHALL NOT advertise the elicitation capability, SHALL answer the request with a method-not-found error, SHALL ask the user nothing, and SHALL keep the session usable
+- **THEN** the foundation SHALL NOT advertise the elicitation capability, SHALL answer the elicitation request with a method-not-found error, SHALL send no reply to the notification (a notification has none), SHALL ask the user nothing, and SHALL keep the session usable
