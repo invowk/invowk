@@ -35,7 +35,7 @@ Every locked command (`make lint`, `make test`, `make test-scripts`, `make check
   - the precedence position: the current-directory module is listed before an included module.
 
   Use `fstree.CapSymlink` for links. Check: `go test -run 'TestDiscovery_CurrentDirModule' ./internal/discovery/`.
-- [ ] 2.3 Named platform tests in the same file:
+- [x] 2.3 Named platform tests in the same file:
   - `TestDiscovery_CurrentDirModule_AncestorLinkStillModule`: the base path runs through a linked ancestor directory, and the module still loads. On macOS, `t.TempDir()` under `/var` is also covered.
   - `TestDiscovery_CurrentDirModule_CaseVariantCwd`: the module is stored as `tools.invowkmod` and `WithBaseDir` names `TOOLS.INVOWKMOD`. On a case-insensitive volume (detected by `Lstat` of the variant succeeding: macOS APFS, Windows NTFS) the module loads under its stored name with the parent scan's result. On a case-sensitive volume the variant does not exist and the test asserts that nothing is loaded and a diagnostic is reported.
   - `TestDiscovery_CurrentDirModule_JunctionModuleDir`: `fstree.CapJunction`, so it is required on Windows and skipped elsewhere. A junction `j.invowkmod` to a valid module loads nothing in either direction; from inside, `module_symlink_skipped`.
@@ -98,7 +98,7 @@ Every locked command (`make lint`, `make test`, `make test-scripts`, `make check
 
 - [x] 7.1 Run `python3 scripts/formal_mutation.py plan --out <scratch>` and `symbols --plan <scratch>/formal-plan.json` on every touched function. On the base, only `IsModule` is planned, and it is not edited. A newly planned touched symbol gets a `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=…` plan in the stage result. Reword the ScopeConstruction `RootSrc` row note (design D7) if the check accepts it. Check: `python3 scripts/formal.py correspondence` and `make formal-reach`; `make formal` (locked, backgrounded) when Java is available.
   - Done: only `IsModule` is planned, and it is not edited, so no refresh is needed. The `RootSrc` row note stays as it is: it still holds (a current-directory invowkfile now exists only outside a module directory), and editing `ScopeConstruction.als` would make its golden vectors stale for a comment-only change.
-- [ ] 7.2 Run checklist steps 2 to 10. Every locked command among them runs under the heavy lock in the background with `head=` and `rc=` lines and a Monitor wait (preamble):
+- [x] 7.2 Run checklist steps 2 to 10. Every locked command among them runs under the heavy lock in the background with `head=` and `rc=` lines and a Monitor wait (preamble):
   - `make tidy`, plus `make license-check` for the new Go files;
   - `make lint`;
   - `make test`;
@@ -110,4 +110,4 @@ Every locked command (`make lint`, `make test`, `make test-scripts`, `make check
   - `go run . validate` for each `samples/invowkmods/*.invowkmod`.
 
   Check: every gate log ends with `rc=0` at the final HEAD.
-- [ ] 7.3 Run `/learn` (`.agents/skills/learn/`) last.
+- [x] 7.3 Run `/learn` (`.agents/skills/learn/`) last.
