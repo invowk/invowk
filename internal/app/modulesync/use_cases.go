@@ -4,6 +4,8 @@ package modulesync
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -13,14 +15,31 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const (
+	// snapshotMissing: nothing existed at the path; restore removes it.
+	snapshotMissing fileSnapshotKind = "missing"
+	// snapshotRegular: a regular file; restore writes its bytes back.
+	snapshotRegular fileSnapshotKind = "regular"
+	// snapshotSymlink: a symbolic link; restore recreates the same link.
+	snapshotSymlink fileSnapshotKind = "symlink"
+	// snapshotOther: a directory, device or other node; restore leaves it.
+	snapshotOther fileSnapshotKind = "other"
+)
+
 type (
 	fileSnapshotData []byte
 
+	// fileSnapshotKind is what a rollback snapshot found at its path, judged
+	// without following symbolic links (os.Lstat).
+	fileSnapshotKind string
+
 	fileSnapshot struct {
-		path   *types.FilesystemPath
-		data   fileSnapshotData
-		mode   os.FileMode
-		exists bool
+		path *types.FilesystemPath
+		kind fileSnapshotKind
+		data fileSnapshotData
+		mode os.FileMode
+		// linkTarget is the os.Readlink target of a symbolic-link snapshot.
+		linkTarget *types.FilesystemPath
 	}
 
 	// DeclarationEditResult describes the invowkmod.cue declaration mutation
@@ -261,18 +280,33 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 	return NewRemoveModuleDependencyResult(removed, lockWritten, declarations)
 }
 
-func newFileSnapshot(path types.FilesystemPath, data fileSnapshotData, mode os.FileMode, exists bool) fileSnapshot {
-	return fileSnapshot{
-		path:   &path,
-		data:   data,
-		mode:   mode,
-		exists: exists,
+// String returns the snapshot kind name.
+func (k fileSnapshotKind) String() string { return string(k) }
+
+// Validate returns an error when k is not one of the snapshot kinds.
+func (k fileSnapshotKind) Validate() error {
+	switch k {
+	case snapshotMissing, snapshotRegular, snapshotSymlink, snapshotOther:
+		return nil
+	default:
+		return fmt.Errorf("invalid file snapshot kind %q", string(k))
 	}
 }
 
 func (s fileSnapshot) Validate() error {
 	if s.path == nil {
 		return errors.New("file snapshot path is required")
+	}
+	if err := s.kind.Validate(); err != nil {
+		return err
+	}
+	if s.kind == snapshotSymlink {
+		if s.linkTarget == nil {
+			return errors.New("file snapshot link target is required")
+		}
+		if err := s.linkTarget.Validate(); err != nil {
+			return fmt.Errorf("file snapshot link target: %w", err)
+		}
 	}
 	return s.path.Validate()
 }
@@ -289,40 +323,88 @@ func (m *Resolver) readLockSnapshot() (fileSnapshot, error) {
 	return snapshot, nil
 }
 
+// readFileSnapshot records what is at path without following a symbolic link:
+// a dangling link is a link, not a missing file, and a link to a regular file
+// is restored as that link (design D8).
 func readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
-	info, err := os.Stat(string(path))
+	snapshot := fileSnapshot{path: &path}
+	info, err := os.Lstat(string(path))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return newFileSnapshot(path, nil, 0, false), nil
+			snapshot.kind = snapshotMissing
+			return snapshot, nil
 		}
 		return fileSnapshot{}, fmt.Errorf("stat file before dependency edit: %w", err)
 	}
-	if !info.Mode().IsRegular() {
-		return newFileSnapshot(path, nil, info.Mode(), true), nil
+	snapshot.mode = info.Mode()
+	switch {
+	case info.Mode()&os.ModeSymlink != 0:
+		target, readErr := os.Readlink(string(path))
+		if readErr != nil {
+			return fileSnapshot{}, fmt.Errorf("read link before dependency edit: %w", readErr)
+		}
+		linkTarget := types.FilesystemPath(target) //goplint:ignore -- os.Readlink result, validated with the snapshot.
+		snapshot.kind = snapshotSymlink
+		snapshot.linkTarget = &linkTarget
+	case info.Mode().IsRegular():
+		data, readErr := os.ReadFile(string(path))
+		if readErr != nil {
+			return fileSnapshot{}, fmt.Errorf("read file before dependency edit: %w", readErr)
+		}
+		snapshot.kind = snapshotRegular
+		snapshot.data = fileSnapshotData(data)
+	default:
+		snapshot.kind = snapshotOther
 	}
-	data, err := os.ReadFile(string(path))
-	if err != nil {
-		return fileSnapshot{}, fmt.Errorf("read file before dependency edit: %w", err)
-	}
-	return newFileSnapshot(path, fileSnapshotData(data), info.Mode(), true), nil
+	return snapshot, nil
 }
 
+// restore puts the snapshot's path back as it was: a missing path is removed,
+// a regular file gets its bytes and permission bits back, a symbolic link is
+// recreated with its target, and any other node is left alone.
 func (s fileSnapshot) restore() error {
 	if err := s.Validate(); err != nil {
 		return fmt.Errorf("invalid rollback snapshot: %w", err)
 	}
 	path := string(*s.path)
-	if !s.exists {
+	switch s.kind {
+	case snapshotMissing:
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("rollback remove %s: %w", *s.path, err)
 		}
 		return nil
+	case snapshotRegular:
+		if err := os.WriteFile(path, []byte(s.data), s.mode.Perm()); err != nil {
+			return fmt.Errorf("rollback %s: %w", *s.path, err)
+		}
+		return nil
+	case snapshotSymlink:
+		return s.restoreLink()
+	case snapshotOther:
+		return nil
+	default:
+		return fmt.Errorf("rollback %s: invalid snapshot kind %q", *s.path, string(s.kind))
 	}
-	if !s.mode.IsRegular() {
+}
+
+// restoreLink recreates a symbolic-link snapshot. When the path is still the
+// same link it does nothing; otherwise it creates the link under a random name
+// in the same directory and renames it over the path, one atomic replace.
+func (s fileSnapshot) restoreLink() error {
+	path := string(*s.path)
+	if current, err := os.Readlink(path); err == nil && current == string(*s.linkTarget) {
 		return nil
 	}
-	if err := os.WriteFile(path, []byte(s.data), s.mode.Perm()); err != nil {
-		return fmt.Errorf("rollback %s: %w", *s.path, err)
+	suffix := make([]byte, 8)
+	if _, err := rand.Read(suffix); err != nil {
+		return fmt.Errorf("rollback link %s: %w", *s.path, err)
+	}
+	tmp := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+"."+hex.EncodeToString(suffix)+".link")
+	if err := os.Symlink(string(*s.linkTarget), tmp); err != nil {
+		return fmt.Errorf("rollback link %s: %w", *s.path, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return errors.Join(fmt.Errorf("rollback link %s: %w", *s.path, err), os.Remove(tmp))
 	}
 	return nil
 }
