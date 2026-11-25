@@ -105,7 +105,7 @@ A command whose lock is held by another process SHALL print once on stderr `Wait
 - **THEN** the command SHALL fail (exit non-zero after Ctrl+C, exit status 1 with an error that names the lock file and says another invowk process holds it after the timeout), and `invowkmod.cue` and the project's lock file SHALL be as the command found them: it SHALL NOT have written either file, and `invowk module add` SHALL report no rollback
 
 ### Requirement: Read-only consumers take no lock
-Discovery, command runs, `invowk validate`, `invowk audit` and `invowk module deps` SHALL NOT take a project or source lock. They SHALL rely on every write of `invowkmod.cue` and of the lock file, the rollback included, being an atomic replace.
+Discovery, command runs, `invowk validate`, `invowk audit` and `invowk module deps` SHALL NOT take a project or source lock. They SHALL rely on every write of `invowkmod.cue` and of the lock file by `invowk module add`, `remove`, `sync`, `update`, `tidy` and `vendor`, the rollback included, being an atomic replace. Writers outside these module commands are not covered by this requirement.
 
 #### Scenario: Command run during a module edit
 - **WHEN** `invowk cmd <name>` runs in a project while `invowk module add` holds that project's lock

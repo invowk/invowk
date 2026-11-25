@@ -107,7 +107,7 @@ The model SHALL keep the advisory lock and atomic restore configurations stated 
 - **THEN** each mutant SHALL produce a counterexample for the property it targets
 
 ### Requirement: Findings F8, F9 and F10 are fixed
-The base configuration SHALL mirror the fixed code: `AdvisoryLock = "project_and_source"` and `AtomicRestore = TRUE`. Each former finding command SHALL be kept as a `mutantPreFix…` command with the pre-fix constants, an expected counterexample, no `finding` field and `mutant_of` set to its fixed command. The F8, F9 and F10 rows of `formal/README.md` SHALL read Fixed and name those commands and their Go replays.
+The base configuration SHALL mirror the fixed code: `AdvisoryLock = "project_and_source"` and `AtomicRestore = TRUE`. Each former finding command SHALL be kept as a `mutantPreFix…` command that sets only its own fix's constant back to the pre-fix value (as each scenario below states), with an expected counterexample, no `finding` field and `mutant_of` set to its fixed command. The F8, F9 and F10 rows of `formal/README.md` SHALL read Fixed and name those commands and their Go replays.
 
 #### Scenario: Sync overlaps an add
 - **WHEN** under `sync_add` one process syncs while another completes `module add` of a different key
@@ -115,11 +115,11 @@ The base configuration SHALL mirror the fixed code: `AdvisoryLock = "project_and
 
 #### Scenario: Update overlaps an add or a remove
 - **WHEN** under `update_add` or `update_remove` one process updates while another completes an add or a remove
-- **THEN** `updateAddProjectLock` and `updateRemoveProjectLock`, run under the base constants, SHALL each pass `NoLostUpdate`, the matching `mutantPreFixF8Update…` command SHALL be a counterexample, and `TestConcurrentEdits_F8UpdateKeepsConcurrentAdd` or `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` SHALL show the added key in the lock, or the removed key out of it
+- **THEN** `updateAddProjectLock` and `updateRemoveProjectLock`, run under the base constants, SHALL each pass `NoLostUpdate`, the matching `mutantPreFixF8Update…` command (`AdvisoryLock = "none"`) SHALL be a counterexample, and `TestConcurrentEdits_F8UpdateKeepsConcurrentAdd` or `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` SHALL show the added key in the lock, or the removed key out of it
 
 #### Scenario: Two adds of the same key
 - **WHEN** under `add_add_same` two processes add the same key
-- **THEN** `addAddSameProjectLock`, run under the base constants, SHALL pass `NoLostUpdate`, `mutantPreFixF8DuplicateAddRollsBackOtherAdd` SHALL be a counterexample, and `TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd` SHALL show the key in both files after the second add rolled back
+- **THEN** `addAddSameProjectLock`, run under the base constants, SHALL pass `NoLostUpdate`, `mutantPreFixF8DuplicateAddRollsBackOtherAdd` (`AdvisoryLock = "none"`) SHALL be a counterexample, and `TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd` SHALL show the key in both files after the second add rolled back
 
 #### Scenario: Reader during a rollback
 - **WHEN** under `rollback_read` one process rolls back an add while the read-only consumer reads the lock file or `invowkmod.cue`
@@ -148,15 +148,15 @@ The model's `Acquire` and `Release` elements SHALL each have a correspondence ro
 - **THEN** the `Acquire`, `Release`, `SyncProg` and `UpdateProg` rows SHALL name existing Go symbols and binding tests, and the check SHALL pass
 
 ### Requirement: Use-case wrappers and renamed replays are bound
-The package-level `AddModuleDependency` and `RemoveModuleDependency` use cases SHALL each have a correspondence row of their own, bound to a test that calls them. Every row that names a renamed replay SHALL name it by its new name.
+Whenever a bound correspondence row names a `Resolver` method that shares its name with a package-level function of the same file, that package-level function SHALL have a correspondence row of its own, bound to a killer test that calls it. This applies to the package-level `AddModuleDependency`, `RemoveModuleDependency`, `SyncModule` and `UpdateModule` use cases. Every row that names a renamed replay SHALL name it by its new name.
 
 #### Scenario: Wrapper rows
 - **WHEN** `scripts/formal.py correspondence` runs
-- **THEN** a row SHALL name each package-level wrapper with an existing binding test, no row SHALL name a test that no longer exists, and the check SHALL pass
+- **THEN** a row SHALL name each of the four package-level wrappers with an existing binding test, no row SHALL name a test that no longer exists, and the check SHALL pass
 
 #### Scenario: Lock code is planned for mutation
 - **WHEN** `scripts/formal_mutation.py plan` runs
-- **THEN** `Resolver.LockProject`, `Resolver.lockSource` and `editLocks.release` SHALL be planned, and the plan SHALL NOT fail closed on the package-level `AddModuleDependency` or `RemoveModuleDependency`
+- **THEN** `Resolver.LockProject`, `Resolver.lockSource` and `editLocks.release` SHALL be planned, both the package-level function and the `Resolver` method of `AddModuleDependency`, `RemoveModuleDependency`, `SyncModule` and `UpdateModule` SHALL be planned, and the plan SHALL report no match collision
 
 ## REMOVED Requirements
 
