@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/invowk/invowk/internal/modulelock"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -52,7 +53,7 @@ func TestAddModuleDependencyReportsLockAndDeclarationSeparately(t *testing.T) {
 			invowkmodPath := writeLockWrittenRootInvowkmod(t, f.workDir)
 			lockBefore, lockReadErr := os.ReadFile(filepath.Join(f.workDir, LockFileName))
 
-			result, err := f.resolver.AddModuleDependency(t.Context(), invowkmodPath, ModuleRef{
+			result, err := withEditLocks(f.resolver).AddModuleDependency(t.Context(), invowkmodPath, ModuleRef{
 				GitURL:  integrityTestGitURL,
 				Version: "^1.0.0",
 			})
@@ -99,7 +100,7 @@ requires: [
 		t.Fatalf("WriteFile(invowkmod.cue) error = %v", err)
 	}
 
-	result, err := f.resolver.RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), integrityTestGitURL)
+	result, err := withEditLocks(f.resolver).RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), integrityTestGitURL)
 	if err != nil {
 		t.Fatalf("RemoveModuleDependency() error = %v", err)
 	}
@@ -146,7 +147,7 @@ func TestRemoveModuleDependencyReportsUnchangedInvowkmod(t *testing.T) {
 				invowkmodPath = writeLockWrittenRootInvowkmod(t, f.workDir)
 			}
 
-			result, err := f.resolver.RemoveModuleDependency(t.Context(), invowkmodPath, integrityTestGitURL)
+			result, err := withEditLocks(f.resolver).RemoveModuleDependency(t.Context(), invowkmodPath, integrityTestGitURL)
 			if err != nil {
 				t.Fatalf("RemoveModuleDependency() error = %v", err)
 			}
@@ -177,14 +178,16 @@ func TestRemoveModuleDependencyReportsUnchangedInvowkmod(t *testing.T) {
 }
 
 // TestSyncModuleWithoutRequirementsReportsNoWrite covers "A sync that finds no
-// requirements saves nothing" at the service level.
+// requirements saves nothing" at the service level, and design D5 for an
+// empty sync: the cache root holds only locks/ and the project lock file.
 func TestSyncModuleWithoutRequirementsReportsNoWrite(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
 	invowkmodPath := writeLockWrittenRootInvowkmod(t, dir)
+	cacheRoot := filepath.Join(t.TempDir(), "modules")
 
-	result, err := SyncModule(t.Context(), invowkmodPath)
+	result, err := SyncModule(t.Context(), EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(cacheRoot)}, invowkmodPath)
 	if err != nil {
 		t.Fatalf("SyncModule() error = %v", err)
 	}
@@ -196,6 +199,7 @@ func TestSyncModuleWithoutRequirementsReportsNoWrite(t *testing.T) {
 		t.Fatal("LockWritten() = true, want false: nothing was saved")
 	}
 	assertPathAbsent(t, filepath.Join(dir, LockFileName))
+	assertOnlyProjectLock(t, cacheRoot, dir)
 }
 
 func TestSyncAndUpdateModuleResultsCarryLockWritten(t *testing.T) {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/internal/app/modulesync"
+	"github.com/invowk/invowk/internal/modulelock"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -581,7 +582,8 @@ requires: [
 	}
 	createValidModuleForPackaging(t, vendorDir, "stale.invowkmod", "stale")
 
-	requirements, result, strategy, err := VendorDependencies(t.Context(), types.FilesystemPath(modulePath), false, true)
+	locks := modulesync.EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(cacheRoot)}
+	requirements, result, strategy, err := VendorDependencies(t.Context(), locks, types.FilesystemPath(modulePath), false, true)
 	if err != nil {
 		t.Fatalf("VendorDependencies() error = %v", err)
 	}

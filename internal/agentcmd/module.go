@@ -15,7 +15,9 @@ import (
 
 	cueformat "cuelang.org/go/cue/format"
 
+	"github.com/invowk/invowk/internal/app/modulesync"
 	"github.com/invowk/invowk/internal/llm"
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -26,6 +28,7 @@ const (
 	generatedModuleName      = "generated-module"
 	invowkfileFileName       = "invowkfile.cue"
 	invowkmodFileName        = "invowkmod.cue"
+	moduleFilePerm           = 0o644
 )
 
 type (
@@ -54,6 +57,11 @@ type (
 		Verify         bool
 		Completer      llm.Completer
 		RepairAttempts int
+		// EditLocks are the module commands' edit locks: a change that writes
+		// takes the module directory's project lock before it writes, so it
+		// excludes `invowk module add`, `remove`, `sync`, `update`, `tidy` and
+		// `vendor` on the same project. --dry-run and --print take no lock.
+		EditLocks modulesync.EditLocks
 	}
 
 	// ModuleRemoveOptions configures deterministic module removal.
@@ -194,7 +202,7 @@ func ChangeModule(ctx context.Context, opts ModuleChangeOptions) (*ModuleResult,
 		result.Diff = buildModuleDiff(current.Path, current.InvowkmodCUE, result.InvowkmodCUE, current.InvowkfileCUE, result.InvowkfileCUE, true)
 		return result, nil
 	}
-	if err := writeModuleFiles(current.Path, result.InvowkmodCUE, result.InvowkfileCUE); err != nil {
+	if err := writeChangedModuleFiles(ctx, opts.EditLocks, current, result.InvowkmodCUE, result.InvowkfileCUE); err != nil {
 		return nil, err
 	}
 	result.Changed = current.InvowkmodCUE != result.InvowkmodCUE || current.InvowkfileCUE != result.InvowkfileCUE
@@ -254,13 +262,20 @@ func (opts ModuleCreateOptions) Validate() error {
 	return validateModuleDescriptionInput(opts.Description, opts.FromFile)
 }
 
-// Validate verifies option invariants that cannot be represented by Cobra alone.
+// Validate verifies option invariants that cannot be represented by Cobra
+// alone. A change that writes (neither DryRun nor PrintOnly) requires a
+// locker and fails with modulesync.ErrEditLockerRequired without one.
 func (opts ModuleChangeOptions) Validate() error {
 	if strings.TrimSpace(opts.Target) == "" {
 		return errors.New("module target is required")
 	}
 	if opts.Completer == nil {
 		return errors.New("LLM completer is required")
+	}
+	if !opts.DryRun && !opts.PrintOnly {
+		if err := opts.EditLocks.Validate(); err != nil {
+			return err
+		}
 	}
 	return validateModuleDescriptionInput(opts.Description, opts.FromFile)
 }
@@ -534,30 +549,71 @@ func loadExistingModule(target string) (loadedModule, error) {
 		return loadedModule{}, verifyErr
 	}
 
-	invowkmodPath := filepath.Join(modulePath, invowkmodFileName)
-	invowkmodData, err := os.ReadFile(invowkmodPath)
+	invowkmodData, invowkfileData, err := readModuleFiles(modulePath)
 	if err != nil {
-		return loadedModule{}, fmt.Errorf("read %s: %w", invowkmodPath, err)
+		return loadedModule{}, err
 	}
-	meta, err := invowkmod.ParseInvowkmodBytes(invowkmodData, types.FilesystemPath(invowkmodPath))
+	invowkmodPath := filepath.Join(modulePath, invowkmodFileName)
+	meta, err := invowkmod.ParseInvowkmodBytes([]byte(invowkmodData), types.FilesystemPath(invowkmodPath))
 	if err != nil {
 		return loadedModule{}, fmt.Errorf("parse %s: %w", invowkmodPath, err)
-	}
-
-	invowkfilePath := filepath.Join(modulePath, invowkfileFileName)
-	invowkfileData, err := os.ReadFile(invowkfilePath)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return loadedModule{}, fmt.Errorf("read %s: %w", invowkfilePath, err)
-		}
-		invowkfileData = []byte(defaultInvowkfileContent)
 	}
 	return loadedModule{
 		Path:          modulePath,
 		ModuleID:      meta.Module,
-		InvowkmodCUE:  string(invowkmodData),
-		InvowkfileCUE: string(invowkfileData),
+		InvowkmodCUE:  invowkmodData,
+		InvowkfileCUE: invowkfileData,
 	}, nil
+}
+
+// readModuleFiles reads a module's invowkmod.cue and invowkfile.cue; a
+// missing invowkfile.cue reads as the default content.
+func readModuleFiles(modulePath string) (invowkmodCUE, invowkfileCUE string, err error) {
+	invowkmodPath := filepath.Join(modulePath, invowkmodFileName)
+	invowkmodData, err := os.ReadFile(invowkmodPath)
+	if err != nil {
+		return "", "", fmt.Errorf("read %s: %w", invowkmodPath, err)
+	}
+	invowkfilePath := filepath.Join(modulePath, invowkfileFileName)
+	invowkfileData, err := os.ReadFile(invowkfilePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return "", "", fmt.Errorf("read %s: %w", invowkfilePath, err)
+		}
+		invowkfileData = []byte(defaultInvowkfileContent)
+	}
+	return string(invowkmodData), string(invowkfileData), nil
+}
+
+// writeChangedModuleFiles writes a generated change under the module
+// directory's project lock (design D15 of module-concurrency-rollback): it
+// takes the lock through Resolver.LockProject of a resolver on the module
+// directory (no fetch happens), re-reads both files, fails without writing
+// when either differs from the content the change was generated from, writes
+// both atomically, and releases the lock before the caller verifies.
+func writeChangedModuleFiles(ctx context.Context, locks modulesync.EditLocks, current loadedModule, invowkmodCUE, invowkfileCUE string) (err error) {
+	resolver, err := modulesync.NewResolver(types.FilesystemPath(current.Path), "", modulesync.WithEditLocks(locks)) //goplint:ignore -- module path resolved and checked by loadExistingModule.
+	if err != nil {
+		return fmt.Errorf("prepare the project lock of %s: %w", current.Path, err)
+	}
+	unlock, err := resolver.LockProject(ctx)
+	if err != nil {
+		return fmt.Errorf("take the project lock of %s: %w", current.Path, err)
+	}
+	defer func() {
+		if unlockErr := unlock(); unlockErr != nil {
+			err = errors.Join(err, fmt.Errorf("release the project lock of %s: %w", current.Path, unlockErr))
+		}
+	}()
+
+	invowkmodNow, invowkfileNow, err := readModuleFiles(current.Path)
+	if err != nil {
+		return err
+	}
+	if invowkmodNow != current.InvowkmodCUE || invowkfileNow != current.InvowkfileCUE {
+		return fmt.Errorf("invowkmod.cue or invowkfile.cue in %s changed while the change was generated; nothing was written; run the command again", current.Path)
+	}
+	return writeModuleFiles(current.Path, invowkmodCUE, invowkfileCUE)
 }
 
 func formatCUEFile(content, name string) (string, error) {
@@ -616,11 +672,13 @@ func writeModuleBundle(modulePath, invowkmodCUE, invowkfileCUE string, createScr
 	return nil
 }
 
+// writeModuleFiles writes invowkmod.cue, then invowkfile.cue, each through
+// fspath.AtomicWriteFile, so a reader sees each file's old or new content.
 func writeModuleFiles(modulePath, invowkmodCUE, invowkfileCUE string) error {
-	if err := os.WriteFile(filepath.Join(modulePath, invowkmodFileName), []byte(invowkmodCUE), 0o644); err != nil {
+	if err := fspath.AtomicWriteFile(filepath.Join(modulePath, invowkmodFileName), []byte(invowkmodCUE), moduleFilePerm); err != nil {
 		return fmt.Errorf("write invowkmod.cue: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(modulePath, invowkfileFileName), []byte(invowkfileCUE), 0o644); err != nil {
+	if err := fspath.AtomicWriteFile(filepath.Join(modulePath, invowkfileFileName), []byte(invowkfileCUE), moduleFilePerm); err != nil {
 		return fmt.Errorf("write invowkfile.cue: %w", err)
 	}
 	return nil

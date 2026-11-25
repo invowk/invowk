@@ -187,7 +187,7 @@ func runModuleVendor(ctx context.Context, args []string, vendorUpdate, vendorPru
 	if err := targetPath.Validate(); err != nil {
 		return fmt.Errorf("module path: %w", err)
 	}
-	requirements, result, strategy, err := moduleops.VendorDependencies(ctx, targetPath, vendorUpdate, vendorPrune)
+	requirements, result, strategy, err := moduleops.VendorDependencies(ctx, moduleEditLocks(), targetPath, vendorUpdate, vendorPrune)
 	if err != nil && len(requirements) == 0 {
 		return fmt.Errorf("failed to resolve dependencies: %w", err)
 	}

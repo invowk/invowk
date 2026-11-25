@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/modulecache"
+	"github.com/invowk/invowk/internal/modulelock"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -25,7 +26,7 @@ func TestNewResolverForInvowkmodPathUsesMetadataDirectory(t *testing.T) {
 		t.Fatalf("MkdirAll(moduleDir) error = %v", err)
 	}
 
-	resolver, err := newResolverForInvowkmodPath(types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")))
+	resolver, err := newResolverForInvowkmodPath(types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")), testEditLocks(t))
 	if err != nil {
 		t.Fatalf("newResolverForInvowkmodPath() error = %v", err)
 	}
@@ -99,10 +100,13 @@ func TestListModuleDependenciesDoesNotCreateModuleCache(t *testing.T) {
 	}
 }
 
-func TestRemoveModuleDependencyDoesNotCreateModuleCache(t *testing.T) {
+// TestRemoveModuleDependencyCreatesOnlyProjectLock checks design D5 for
+// remove: from a cache root that does not exist, it creates nothing in the
+// cache but locks/ and the project lock file (no sources/, no module copy).
+func TestRemoveModuleDependencyCreatesOnlyProjectLock(t *testing.T) {
+	t.Parallel()
 	moduleDir := t.TempDir()
 	cacheDir := filepath.Join(t.TempDir(), "modules")
-	t.Setenv(modulecache.ModuleCachePathEnv, cacheDir)
 
 	invowkmodPath := filepath.Join(moduleDir, "invowkmod.cue")
 	if err := os.WriteFile(invowkmodPath, []byte(`module: "io.example.root"
@@ -128,16 +132,15 @@ requires: [
 		t.Fatalf("Save() error = %v", err)
 	}
 
-	result, err := RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), "tools")
+	locks := EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(cacheDir)}
+	result, err := RemoveModuleDependency(t.Context(), locks, types.FilesystemPath(invowkmodPath), "tools")
 	if err != nil {
 		t.Fatalf("RemoveModuleDependency() error = %v", err)
 	}
 	if len(result.Removed()) != 1 {
 		t.Fatalf("Removed = %d, want 1", len(result.Removed()))
 	}
-	if _, err := os.Stat(cacheDir); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("module cache stat error = %v, want not exist", err)
-	}
+	assertOnlyProjectLock(t, cacheDir, moduleDir)
 }
 
 func TestAddModuleDependencyRejectsDeclarationInvalidVersionBeforeCache(t *testing.T) {
@@ -145,7 +148,8 @@ func TestAddModuleDependencyRejectsDeclarationInvalidVersionBeforeCache(t *testi
 	cacheDir := filepath.Join(t.TempDir(), "modules")
 	t.Setenv(modulecache.ModuleCachePathEnv, cacheDir)
 
-	_, err := AddModuleDependency(t.Context(), types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")), ModuleRef{
+	locks := EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(cacheDir)}
+	_, err := AddModuleDependency(t.Context(), locks, types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")), ModuleRef{
 		GitURL:  "https://github.com/user/tools.git",
 		Version: "v1.2.3",
 	})
@@ -180,7 +184,7 @@ func TestAddModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 		t.Fatalf("newResolverWithFetcher() error = %v", err)
 	}
 
-	result, err := resolver.AddModuleDependency(t.Context(), types.FilesystemPath(filepath.Join(workDir, "invowkmod.cue")), ModuleRef{
+	result, err := withEditLocks(resolver).AddModuleDependency(t.Context(), types.FilesystemPath(filepath.Join(workDir, "invowkmod.cue")), ModuleRef{
 		GitURL:  "https://github.com/user/tools.git",
 		Version: "^1.0.0",
 	})
@@ -244,7 +248,7 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile(lock) error = %v", err)
 	}
-	result, err := resolver.RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), "tools")
+	result, err := withEditLocks(resolver).RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), "tools")
 	if err != nil {
 		t.Fatalf("RemoveModuleDependency() error = %v", err)
 	}

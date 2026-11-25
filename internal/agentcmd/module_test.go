@@ -3,14 +3,78 @@
 package agentcmd
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/modulesync"
+	"github.com/invowk/invowk/internal/modulelock"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
+
+type (
+	// agentRecordingLocker delegates to a real modulelock.FileLocker and
+	// records each lock path; beforeGrant runs before the lock is taken and
+	// atUnlock just before it is released.
+	agentRecordingLocker struct {
+		inner       *modulelock.FileLocker
+		beforeGrant func()
+		atUnlock    func()
+
+		mu    sync.Mutex
+		paths []types.FilesystemPath
+	}
+
+	// countingCompleter answers with response and counts its calls.
+	countingCompleter struct {
+		response string
+		calls    int
+	}
+)
+
+func (l *agentRecordingLocker) Lock(ctx context.Context, path types.FilesystemPath, onBusy func()) (func() error, error) {
+	l.mu.Lock()
+	l.paths = append(l.paths, path)
+	l.mu.Unlock()
+	if l.beforeGrant != nil {
+		l.beforeGrant()
+	}
+	unlock, err := l.inner.Lock(ctx, path, onBusy)
+	if err != nil {
+		return nil, err
+	}
+	return func() error {
+		if l.atUnlock != nil {
+			l.atUnlock()
+		}
+		return unlock()
+	}, nil
+}
+
+func (l *agentRecordingLocker) PhysicalDir(dir types.FilesystemPath) (types.FilesystemPath, error) {
+	return l.inner.PhysicalDir(dir)
+}
+
+func (l *agentRecordingLocker) lockPaths() []types.FilesystemPath {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return slices.Clone(l.paths)
+}
+
+func (c *countingCompleter) Complete(context.Context, string, string) (string, error) {
+	c.calls++
+	return c.response, nil
+}
 
 func TestCreateModuleDryRunDoesNotWrite(t *testing.T) { //nolint:paralleltest // t.Chdir mutates process cwd.
 	tmpDir := t.TempDir()
@@ -82,6 +146,7 @@ func TestChangeModuleUpdatesOnlyCueFiles(t *testing.T) { //nolint:paralleltest /
 		Target:      "io.example.tools",
 		Description: "change the module",
 		Completer:   fakeCompleter{response: moduleResponse("io.example.tools", "module changed")},
+		EditLocks:   modulesync.EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(t.TempDir())},
 	})
 	if err != nil {
 		t.Fatalf("ChangeModule() error = %v", err)
@@ -247,4 +312,189 @@ func TestValidateModuleTarget(t *testing.T) {
 			}
 		})
 	}
+}
+
+// changedModuleResponse is a generation response that differs from the
+// fixture in both files.
+func changedModuleResponse(moduleID string) string {
+	invowkmodCUE := "module: \"" + moduleID + "\"\nversion: \"1.1.0\"\ndescription: \"Changed tools\"\n"
+	invowkfileCUE := strings.Replace(moduleInvowkfileCUE(), "echo module", "echo changed", 1)
+	return `{"invowkmod_cue":` + quoteForJSON(invowkmodCUE) +
+		`,"invowkfile_cue":` + quoteForJSON(invowkfileCUE) +
+		`,"summary":"module changed"}`
+}
+
+func readFixtureFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile(%s) error = %v", path, err)
+	}
+	return data
+}
+
+// TestChangeModuleWritesAtomicallyUnderProjectLock checks design D15: a
+// writing `agent mod change` takes exactly one project lock, on the lock file
+// Resolver.LockProject of a resolver on the module directory uses, writes
+// both files before it releases the lock, and replaces each file atomically
+// (a new file, so os.SameFile with the file before is false; the base's
+// os.WriteFile kept the same file).
+func TestChangeModuleWritesAtomicallyUnderProjectLock(t *testing.T) {
+	t.Parallel()
+
+	modulePath := writeModuleFixture(t, t.TempDir(), "io.example.tools")
+	cacheDir := t.TempDir()
+	files := []string{filepath.Join(modulePath, invowkmodFileName), filepath.Join(modulePath, invowkfileFileName)}
+	before := make([]os.FileInfo, len(files))
+	for i, path := range files {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("Stat(%s) error = %v", path, err)
+		}
+		before[i] = info
+	}
+	var atUnlock [][]byte
+	locker := &agentRecordingLocker{inner: modulelock.NewFileLocker()}
+	locker.atUnlock = func() {
+		for _, path := range files {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				panic(err)
+			}
+			atUnlock = append(atUnlock, data)
+		}
+	}
+
+	result, err := ChangeModule(t.Context(), ModuleChangeOptions{
+		Target:      modulePath,
+		Description: "change the module",
+		Completer:   fakeCompleter{response: changedModuleResponse("io.example.tools")},
+		EditLocks:   modulesync.EditLocks{Locker: locker, CacheDir: types.FilesystemPath(cacheDir)},
+	})
+	if err != nil {
+		t.Fatalf("ChangeModule() error = %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("Changed = false, want the generated change written")
+	}
+
+	want := []string{result.InvowkmodCUE, result.InvowkfileCUE}
+	for i, path := range files {
+		if got := string(readFixtureFile(t, path)); got != want[i] {
+			t.Fatalf("%s = %q, want the generated %q", path, got, want[i])
+		}
+		after, statErr := os.Stat(path)
+		if statErr != nil {
+			t.Fatalf("Stat(%s) after error = %v", path, statErr)
+		}
+		if os.SameFile(before[i], after) {
+			t.Fatalf("%s is the same file as before the change, want an atomic replace", path)
+		}
+		if i >= len(atUnlock) || string(atUnlock[i]) != want[i] {
+			t.Fatalf("%s at the lock release did not hold the generated content", path)
+		}
+	}
+
+	physical, err := modulelock.NewFileLocker().PhysicalDir(types.FilesystemPath(modulePath))
+	if err != nil {
+		t.Fatalf("PhysicalDir() error = %v", err)
+	}
+	sum := sha256.Sum256([]byte(physical))
+	wantLock := types.FilesystemPath(filepath.Join(cacheDir, "locks", "project-"+hex.EncodeToString(sum[:])+".lock"))
+	if got := locker.lockPaths(); !slices.Equal(got, []types.FilesystemPath{wantLock}) {
+		t.Fatalf("lock paths = %v, want exactly the project lock %s", got, wantLock)
+	}
+}
+
+// TestChangeModuleFailsWhenFilesChangedDuringGeneration checks design D15's
+// compare under the lock: invowkmod.cue changes between the generation and
+// the lock grant, so the change fails without writing.
+func TestChangeModuleFailsWhenFilesChangedDuringGeneration(t *testing.T) {
+	t.Parallel()
+
+	modulePath := writeModuleFixture(t, t.TempDir(), "io.example.tools")
+	invowkmodPath := filepath.Join(modulePath, invowkmodFileName)
+	invowkfilePath := filepath.Join(modulePath, invowkfileFileName)
+	invowkfileBefore := readFixtureFile(t, invowkfilePath)
+	concurrent := moduleCUE("io.example.tools") + "// edited by another module command\n"
+	locker := &agentRecordingLocker{
+		inner: modulelock.NewFileLocker(),
+		beforeGrant: func() {
+			if err := os.WriteFile(invowkmodPath, []byte(concurrent), 0o644); err != nil {
+				panic(err)
+			}
+		},
+	}
+
+	_, err := ChangeModule(t.Context(), ModuleChangeOptions{
+		Target:      modulePath,
+		Description: "change the module",
+		Completer:   fakeCompleter{response: changedModuleResponse("io.example.tools")},
+		EditLocks:   modulesync.EditLocks{Locker: locker, CacheDir: types.FilesystemPath(t.TempDir())},
+	})
+	if err == nil || !strings.Contains(err.Error(), "changed while the change was generated; nothing was written") {
+		t.Fatalf("ChangeModule() error = %v, want the changed-during-generation error", err)
+	}
+	if got := string(readFixtureFile(t, invowkmodPath)); got != concurrent {
+		t.Fatalf("invowkmod.cue = %q, want the concurrent edit kept", got)
+	}
+	if got := readFixtureFile(t, invowkfilePath); !bytes.Equal(got, invowkfileBefore) {
+		t.Fatalf("invowkfile.cue changed: %q", got)
+	}
+}
+
+// TestChangeModulePreviewTakesNoLock checks design D15: --dry-run and --print
+// take no lock and create no locks directory, and a writing change without a
+// locker fails with ErrEditLockerRequired before the completer is called.
+func TestChangeModulePreviewTakesNoLock(t *testing.T) {
+	t.Parallel()
+
+	for _, preview := range []struct {
+		name             string
+		dryRun, printOut bool
+	}{
+		{name: "dry-run", dryRun: true},
+		{name: "print", printOut: true},
+	} {
+		t.Run(preview.name, func(t *testing.T) {
+			t.Parallel()
+			modulePath := writeModuleFixture(t, t.TempDir(), "io.example.tools")
+			cacheDir := t.TempDir()
+			locker := &agentRecordingLocker{inner: modulelock.NewFileLocker()}
+			_, err := ChangeModule(t.Context(), ModuleChangeOptions{
+				Target:      modulePath,
+				Description: "change the module",
+				DryRun:      preview.dryRun,
+				PrintOnly:   preview.printOut,
+				Completer:   fakeCompleter{response: changedModuleResponse("io.example.tools")},
+				EditLocks:   modulesync.EditLocks{Locker: locker, CacheDir: types.FilesystemPath(cacheDir)},
+			})
+			if err != nil {
+				t.Fatalf("ChangeModule() error = %v", err)
+			}
+			if got := locker.lockPaths(); len(got) != 0 {
+				t.Fatalf("lock paths = %v, want no lock for a preview", got)
+			}
+			if _, statErr := os.Stat(filepath.Join(cacheDir, "locks")); !errors.Is(statErr, os.ErrNotExist) {
+				t.Fatalf("locks directory stat error = %v, want not exist", statErr)
+			}
+		})
+	}
+
+	t.Run("write without a locker", func(t *testing.T) {
+		t.Parallel()
+		modulePath := writeModuleFixture(t, t.TempDir(), "io.example.tools")
+		completer := &countingCompleter{response: changedModuleResponse("io.example.tools")}
+		_, err := ChangeModule(t.Context(), ModuleChangeOptions{
+			Target:      modulePath,
+			Description: "change the module",
+			Completer:   completer,
+		})
+		if !errors.Is(err, modulesync.ErrEditLockerRequired) {
+			t.Fatalf("ChangeModule() error = %v, want ErrEditLockerRequired", err)
+		}
+		if completer.calls != 0 {
+			t.Fatalf("completer calls = %d, want none before the locker check", completer.calls)
+		}
+	})
 }

@@ -27,41 +27,51 @@
         or a wrong snapshot); ReadersSeeWholeFiles already fails at that read.
     A5  Content hashing is abstracted to content equality.
 
-  The base constants mirror the code: AdvisoryLock = "none",
+  The base constants mirror the code: AdvisoryLock = "project",
   AtomicRestore = TRUE, Mutant = "none". Findings:
-    F8   (open) lost updates: sync/update overwrite a concurrent add or
-         remove, and an add's rollback erases another process's add
+    F8   (fixed) every module edit holds the project lock from its first
+         read to its last write, so sync/update no longer overwrite a
+         concurrent add or remove and an add's rollback no longer erases
+         another process's add; the pre-fix code is kept as the four
+         mutantPreFixF8* commands (AdvisoryLock = "none")
     F9   (open) shared Git worktree: the lock records one commit with the hash
          of the other version's content
     F10  (fixed) the rollback restores each file by atomic replace; the
          pre-fix in-place os.WriteFile, which let a concurrent reader see a
          partial file, is kept as mutantPreFixF10NonAtomicRollback
-  A vendor that returns ok from a lock replaced before it returned is a
-  proposed finding without an id (escalated for allocation).
+  The vendor case (a vendor returning ok from a lock replaced before it
+  returned) is fixed by the same project lock; the pre-fix code is kept as
+  mutantPreFixVendorFromStaleLock.
 *)
 \* Correspondence (checked by `scripts/formal.py correspondence`):
 \*
 \* | model element | Go symbol | file | binding | abstraction |
 \* |---|---|---|---|---|
-\* | AddProg (add_add_same) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_FindingF8_DuplicateAddRollsBackOtherAdd | snapshots (191,195); rollback on edit error (205) |
-\* | AddProg (sync_add) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | the concurrent add |
-\* | RemoveProg | Resolver.RemoveModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_FindingF8_UpdateResurrectsConcurrentRemove | RemoveRequirement never fails, so no rollback path |
+\* | AddProg (add_add_same) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd | project lock (281) before the snapshots (287, 291); rollback on edit error (304); released when the method returns (285) |
+\* | AddProg (sync_add) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd | the concurrent add |
+\* | AddProg (wrapper) | AddModuleDependency | internal/app/modulesync/use_cases.go | TestAddModuleDependencyRejectsDeclarationInvalidVersionBeforeCache, TestModuleEditUseCasesRequireLocker | package-level wrapper: validates, builds the resolver with the edit locks and the real GitFetcher, delegates; shares its leaf with the Resolver method, so go-mutesting's --match needs its own row |
+\* | RemoveProg | Resolver.RemoveModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8UpdateKeepsConcurrentRemove | RemoveRequirement never fails, so no rollback path |
+\* | RemoveProg (wrapper) | RemoveModuleDependency | internal/app/modulesync/use_cases.go | TestRemoveModuleDependencyCreatesOnlyProjectLock, TestModuleEditUseCasesRequireLocker | package-level wrapper: validates, builds the resolver with the edit locks and the real GitFetcher, delegates; shares its leaf with the Resolver method, so go-mutesting's --match needs its own row |
 \* | Restore | fileSnapshot.restore | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F10RestoreReplacesFile | atomic replace (fspath.AtomicWriteFile or link rename); the interleaving is model-only: a rename has no intermediate state |
-\* | SyncProg | SyncModule | internal/app/modulesync/use_cases.go | - | wrapper; its LoadRequirements-then-Sync body is transcribed in the sync replay |
-\* | UpdateProg | UpdateModule | internal/app/modulesync/use_cases.go | - | wrapper with the real GitFetcher |
+\* | SyncProg | Resolver.SyncModule | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd | project lock (643), then LoadRequirements and Sync under it |
+\* | SyncProg (wrapper) | SyncModule | internal/app/modulesync/use_cases.go | TestSyncModuleWithoutRequirementsReportsNoWrite, TestModuleEditUseCasesRequireLocker | package-level wrapper: builds the resolver with the edit locks and the real GitFetcher, delegates to Resolver.SyncModule; shares its leaf with the Resolver method, so go-mutesting's --match needs its own row |
+\* | UpdateProg | Resolver.UpdateModule | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8UpdateKeepsConcurrentAdd, TestConcurrentEdits_F8UpdateKeepsConcurrentRemove | project lock, then Update under it |
+\* | UpdateProg (wrapper) | UpdateModule | internal/app/modulesync/use_cases.go | TestUpdateModuleWithoutLockWritesEmptyLock, TestModuleEditUseCasesRequireLocker | package-level wrapper: builds the resolver with the edit locks and the real GitFetcher, delegates to Resolver.UpdateModule; shares its leaf with the Resolver method, so go-mutesting's --match needs its own row |
+\* | Acquire project | Resolver.LockProject | internal/app/modulesync/edit_locks.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd, TestConcurrentEdits_F8UpdateKeepsConcurrentRemove, TestConcurrentEdits_VendorFromStaleLock | the project mutex: an OS advisory lock on <cache>/locks/project-<hash of the physical directory>.lock; a busy lock waits (OnWait), up to 5 minutes |
+\* | Release | editLocks.release | internal/app/modulesync/edit_locks.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd | the adapter's unlock: flock(LOCK_UN) or UnlockFileEx, then close |
 \* | ReadProg | - | - | - | read-only consumers (discovery, command runs, validate, audit) take no mutex and rely on atomic replaces |
 \* | AddProg (fetch_v1_v2) | Resolver.Add | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | lock read (139), resolve (145), re-read and save (152-161) |
-\* | WriteLock remove | Resolver.Remove | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_UpdateResurrectsConcurrentRemove | read (179) and save (206) with no fetch between |
-\* | WriteLock rebuild | Resolver.Sync | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | a new lock built only from the pre-fetch requires (313-320) |
-\* | WriteLock update (update_add) | Resolver.Update | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_UpdateOverwritesConcurrentAdd | the pre-fetch lock with updated entries (225, 273) |
-\* | WriteLock update (update_remove) | Resolver.Update | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_UpdateResurrectsConcurrentRemove | - |
+\* | WriteLock remove | Resolver.Remove | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8UpdateKeepsConcurrentRemove | read (179) and save (206) with no fetch between |
+\* | WriteLock rebuild | Resolver.Sync | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd | a new lock built only from the pre-fetch requires (313-320) |
+\* | WriteLock update (update_add) | Resolver.Update | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8UpdateKeepsConcurrentAdd | the pre-fetch lock with updated entries (225, 273) |
+\* | WriteLock update (update_remove) | Resolver.Update | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8UpdateKeepsConcurrentRemove | - |
 \* | Checkout, CopyToCache | Resolver.resolveOne | internal/app/modulesync/resolver_deps.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | Fetch (130), then copy from the shared worktree (151-170) |
 \* | CopyToCache | Resolver.cacheModule | internal/app/modulesync/cache.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | stat, copy, hash; the fresh-copy branch trusts the worktree |
 \* | Checkout | GitFetcher.checkout | internal/app/modulesync/git.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | one worktree per URL, not per version (94-117, 467) |
 \* | WriteMod add | AddRequirement | pkg/invowkmod/invowkmod_edit.go | - | narrow read (29) to write (73) window with no seam |
 \* | WriteMod remove | RemoveRequirement | pkg/invowkmod/invowkmod_edit.go | - | delegates to RemoveRequirementIfPresent, which holds the narrow read (98) to write (153) window with no seam |
-\* | WriteLock | LockFile.Save | pkg/invowkmod/lockfile.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | atomic replace (A1); skipped when the valid lock on disk has equal content, which equals a replace with identical content at Save's own re-read (InspectLockFile), not at the sync's earlier lock read; Save delegates to SaveIfChanged, which holds the skip-or-replace body and which the resolver calls; its written flag is reporting only |
-\* | VendorProg | vendorDependenciesWithResolver | internal/app/moduleops/vendor_dependencies.go | TestConcurrentEdits_VendorFromStaleLock | characterisation: LoadDeclaredFromLock (127), then VendorModules (104) |
+\* | WriteLock | LockFile.Save | pkg/invowkmod/lockfile.go | TestConcurrentEdits_VendorFromStaleLock | atomic replace (A1); skipped when the valid lock on disk has equal content, which equals a replace with identical content at Save's own re-read (InspectLockFile), not at the sync's earlier lock read; Save delegates to SaveIfChanged, which holds the skip-or-replace body and which the resolver calls; its written flag is reporting only |
+\* | VendorProg | vendorDependenciesWithResolver | internal/app/moduleops/vendor_dependencies.go | TestConcurrentEdits_VendorFromStaleLock | project lock (108), then LoadRequirements (114), the lock-file resolve, and VendorModules (127) under it; released when the function returns |
 \* | VendorRemove, VendorCopy | VendorModules | internal/app/moduleops/vendor.go | - | the RemoveAll (107) to copy (115) window has no seam |
 EXTENDS Naturals, Sequences, FiniteSets
 

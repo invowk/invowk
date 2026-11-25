@@ -234,32 +234,32 @@ Every added or re-pointed row resolves: `AddProg`, `RemoveProg`, `SyncProg`, `Up
 
 | Row | Function | Killer (name at the row's commit) | Base killer name | Base reach | At the row's commit |
 |---|---|---|---|---|---|
-| `AddProg (add_add_same)` | `Resolver.AddModuleDependency` | `TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd` | `…_FindingF8_DuplicateAddRollsBackOtherAdd` | 72.2% | (F8) |
-| `AddProg (sync_add)` | `Resolver.AddModuleDependency` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd` | `…_FindingF8_SyncOverwritesConcurrentAdd` | 66.7% | (F8) |
-| `AddProg (wrapper)` | `AddModuleDependency` | `TestAddModuleDependencyRejectsDeclarationInvalidVersionBeforeCache` | same | 33.3% | (F8) |
-| `AddProg (wrapper)` | `AddModuleDependency` | `TestModuleEditUseCasesRequireLocker` | new | - | (F8) |
-| `RemoveProg (wrapper)` | `RemoveModuleDependency` | `TestRemoveModuleDependencyCreatesOnlyProjectLock` | `TestRemoveModuleDependencyDoesNotCreateModuleCache` | 75.0% | (F8) |
-| `RemoveProg (wrapper)` | `RemoveModuleDependency` | `TestModuleEditUseCasesRequireLocker` | new | - | (F8) |
-| `RemoveProg` | `Resolver.RemoveModuleDependency` | `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` | `…_FindingF8_UpdateResurrectsConcurrentRemove` | 58.3% | (F8) |
+| `AddProg (add_add_same)` | `Resolver.AddModuleDependency` | `TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd` | `…_FindingF8_DuplicateAddRollsBackOtherAdd` | 72.2% | 18/24 (75.0%), F8 commit `make formal-reach` |
+| `AddProg (sync_add)` | `Resolver.AddModuleDependency` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd` | `…_FindingF8_SyncOverwritesConcurrentAdd` | 66.7% | 17/24 (70.8%), F8 commit `make formal-reach` |
+| `AddProg (wrapper)` | `AddModuleDependency` | `TestAddModuleDependencyRejectsDeclarationInvalidVersionBeforeCache` | same | 33.3% | 2/8 (25.0%), F8 commit `make formal-reach` |
+| `AddProg (wrapper)` | `AddModuleDependency` | `TestModuleEditUseCasesRequireLocker` | new | - | 3/8 (37.5%), F8 commit `make formal-reach` |
+| `RemoveProg (wrapper)` | `RemoveModuleDependency` | `TestRemoveModuleDependencyCreatesOnlyProjectLock` | `TestRemoveModuleDependencyDoesNotCreateModuleCache` | 75.0% | 4/6 (66.7%), F8 commit `make formal-reach` |
+| `RemoveProg (wrapper)` | `RemoveModuleDependency` | `TestModuleEditUseCasesRequireLocker` | new | - | 2/6 (33.3%), F8 commit `make formal-reach` |
+| `RemoveProg` | `Resolver.RemoveModuleDependency` | `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` | `…_FindingF8_UpdateResurrectsConcurrentRemove` | 58.3% | 18/29 (62.1%), F8 commit `make formal-reach` |
 | `Restore` | `fileSnapshot.restore` | `TestConcurrentEdits_F10RestoreReplacesFile` | new (for reference, the base duplicate-add replay reaches it at 50.0%) | - | 5/13 (38.5%), F10 commit `make formal-reach` |
-| `SyncProg` | `Resolver.SyncModule` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd` | new function (the base replay transcribes the body: package-level `SyncModule` 0.0%) | - | (F8) |
-| `SyncProg (wrapper)` | `SyncModule` | `TestSyncModuleWithoutRequirementsReportsNoWrite` | same | 33.3% | (F8) |
-| `SyncProg (wrapper)` | `SyncModule` | `TestModuleEditUseCasesRequireLocker` | new | - | (F8) |
-| `UpdateProg` | `Resolver.UpdateModule` | `TestConcurrentEdits_F8UpdateKeepsConcurrentAdd`, `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` | new function | - | (F8) |
-| `UpdateProg (wrapper)` | `UpdateModule` | `TestUpdateModuleWithoutLockWritesEmptyLock`, `TestModuleEditUseCasesRequireLocker` | new | - | (F8) |
+| `SyncProg` | `Resolver.SyncModule` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd` | new function (the base replay transcribes the body: package-level `SyncModule` 0.0%) | - | 10/14 (71.4%), F8 commit `make formal-reach` |
+| `SyncProg (wrapper)` | `SyncModule` | `TestSyncModuleWithoutRequirementsReportsNoWrite` | same | 33.3% | 4/6 (66.7%), F8 commit `make formal-reach` |
+| `SyncProg (wrapper)` | `SyncModule` | `TestModuleEditUseCasesRequireLocker` | new | - | 2/6 (33.3%), F8 commit `make formal-reach` |
+| `UpdateProg` | `Resolver.UpdateModule` | `TestConcurrentEdits_F8UpdateKeepsConcurrentAdd`, `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` | new function | - | F8UpdateKeepsConcurrentAdd 7/9 (77.8%); F8UpdateKeepsConcurrentRemove 7/9 (77.8%), F8 commit `make formal-reach` |
+| `UpdateProg (wrapper)` | `UpdateModule` | `TestUpdateModuleWithoutLockWritesEmptyLock`, `TestModuleEditUseCasesRequireLocker` | new | - | TestUpdateModuleWithoutLockWritesEmptyLock 4/6 (66.7%); TestModuleEditUseCasesRequireLocker 2/6 (33.3%), F8 commit `make formal-reach` |
 | `AddProg (fetch_v1_v2)` | `Resolver.Add` | `TestConcurrentEdits_F9SourceLockRecordsMatchingContent` | `…_FindingF9_SharedWorktreeRecordsWrongContent` | 71.4% | (F9) |
-| `WriteLock remove` | `Resolver.Remove` | `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` | `…_FindingF8_UpdateResurrectsConcurrentRemove` | 80.0% | (F8) |
-| `WriteLock rebuild` | `Resolver.Sync` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd` | `…_FindingF8_SyncOverwritesConcurrentAdd` | 75.0% | (F8) |
-| `WriteLock update (update_add)` | `Resolver.Update` | `TestConcurrentEdits_F8UpdateKeepsConcurrentAdd` | `…_FindingF8_UpdateOverwritesConcurrentAdd` | 75.0% | (F8) |
-| `WriteLock update (update_remove)` | `Resolver.Update` | `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` | `…_FindingF8_UpdateResurrectsConcurrentRemove` | 75.0% | (F8) |
-| `WriteLock` | `LockFile.Save` | `TestConcurrentEdits_VendorFromStaleLock` | same | 100.0% (rejected alternative `…_FindingF8_SyncOverwritesConcurrentAdd`: 0.0%) | (F8) |
+| `WriteLock remove` | `Resolver.Remove` | `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` | `…_FindingF8_UpdateResurrectsConcurrentRemove` | 80.0% | 16/20 (80.0%), F8 commit `make formal-reach` |
+| `WriteLock rebuild` | `Resolver.Sync` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd` | `…_FindingF8_SyncOverwritesConcurrentAdd` | 75.0% | 15/20 (75.0%), F8 commit `make formal-reach` |
+| `WriteLock update (update_add)` | `Resolver.Update` | `TestConcurrentEdits_F8UpdateKeepsConcurrentAdd` | `…_FindingF8_UpdateOverwritesConcurrentAdd` | 75.0% | 21/28 (75.0%), F8 commit `make formal-reach` |
+| `WriteLock update (update_remove)` | `Resolver.Update` | `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` | `…_FindingF8_UpdateResurrectsConcurrentRemove` | 75.0% | 21/28 (75.0%), F8 commit `make formal-reach` |
+| `WriteLock` | `LockFile.Save` | `TestConcurrentEdits_VendorFromStaleLock` | same | 100.0% (rejected alternative `…_FindingF8_SyncOverwritesConcurrentAdd`: 0.0%) | 2/2 (100.0%), F8 commit `make formal-reach` |
 | `Checkout, CopyToCache` | `Resolver.resolveOne` | `TestConcurrentEdits_F9SourceLockRecordsMatchingContent` | `…_FindingF9_SharedWorktreeRecordsWrongContent` | 62.2% | (F9) |
 | `CopyToCache` | `Resolver.cacheModule` | `TestConcurrentEdits_F9SourceLockRecordsMatchingContent` | `…_FindingF9_SharedWorktreeRecordsWrongContent` | 64.3% | (F9) |
 | `Checkout` | `GitFetcher.checkout` | `TestConcurrentEdits_F9SourceLockRecordsMatchingContent` | `…_FindingF9_SharedWorktreeRecordsWrongContent` | 69.2% | (F9) |
-| `VendorProg` | `vendorDependenciesWithResolver` | `TestConcurrentEdits_VendorFromStaleLock` | same | 71.4% | (F8) |
-| `Acquire project` | `Resolver.LockProject` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd`, `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove`, `TestConcurrentEdits_VendorFromStaleLock` | new function | - | (F8) |
+| `VendorProg` | `vendorDependenciesWithResolver` | `TestConcurrentEdits_VendorFromStaleLock` | same | 71.4% | 12/17 (70.6%), F8 commit `make formal-reach` |
+| `Acquire project` | `Resolver.LockProject` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd`, `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove`, `TestConcurrentEdits_VendorFromStaleLock` | new function | - | F8SyncKeepsConcurrentAdd 17/23 (73.9%); F8UpdateKeepsConcurrentRemove 17/23 (73.9%); VendorFromStaleLock 17/23 (73.9%), F8 commit `make formal-reach` |
 | `Acquire source` | `Resolver.lockSource` | `TestConcurrentEdits_F9SourceLockRecordsMatchingContent` | new function | - | (F9) |
-| `Release` | `editLocks.release` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd` (F8), `TestConcurrentEdits_F9SourceLockRecordsMatchingContent` (F9) | new function | - | (F8, F9) |
+| `Release` | `editLocks.release` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd` (F8), `TestConcurrentEdits_F9SourceLockRecordsMatchingContent` (F9) | new function | - | F8SyncKeepsConcurrentAdd 2/2 (100.0%), F8 commit `make formal-reach`; (F9) |
 
 Every base reach above is non-zero, so no other row needs remedy (a). The base reaches are of the pre-inversion tests; the inverted replays call `Resolver.SyncModule` and `Resolver.UpdateModule` instead of transcribing them (D13), so the fix stage re-measures every row rather than carrying the base values over.
 

@@ -863,6 +863,14 @@ pattern = "invowkmod.*.constructor"
 reason = "DTOs and data types; constructed via struct literals"
 
 [[exceptions]]
+pattern = "modulesync.EditLocks.constructor"
+reason = "dependency value assembled by the composition root; each locking use case calls Validate"
+
+[[exceptions]]
+pattern = "modulesync.LockWait.constructor"
+reason = "event DTO built by editLocks and validated before the callback"
+
+[[exceptions]]
 pattern = "moduleops.*.constructor"
 reason = "application adapter DTOs/options; constructed via struct literals at command boundaries"
 
@@ -2930,6 +2938,18 @@ reason = "error struct carries offending value for diagnostic output"
 pattern = "invowkfile.CapabilityError.Capability.nonzero"
 reason = "error struct carries offending capability for diagnostic output"
 
+[[exceptions]]
+pattern = "modulelock.TimeoutError.Path.nonzero"
+reason = "error struct carries the busy lock file path for diagnostic output"
+
+[[exceptions]]
+pattern = "modulelock.NewFileLocker.constructor-validate"
+reason = "constructor sets constant positive defaults; Lock calls Validate to refuse a zero-value FileLocker"
+
+[[exceptions]]
+pattern = "modulelock.NewFileLocker.constructor-return-error"
+reason = "constructor sets constant positive defaults and cannot fail"
+
 # =============================================================================
 # Hexagonal Extraction — commandsvc Package
 # =============================================================================
@@ -3696,6 +3716,22 @@ reason = "display-only: returns formatted CUE text for error messages"
 [[exceptions]]
 pattern = "invowkmod.computeModuleHash.dir"
 reason = "exec/OS boundary: dir comes from OS-resolved filesystem path"
+
+[[exceptions]]
+pattern = "modulesync.LockWait.LockPath.nonzero"
+reason = "required value-field using a nonzero value type"
+
+[[exceptions]]
+pattern = "modulesync.LockWait.GitURL.nonzero"
+reason = "set only for source-lock waits; Validate requires it for them and validates it when set"
+
+[[exceptions]]
+pattern = "modulesync.EditLocks.CacheDir.nonzero"
+reason = "empty means the default module cache root, like NewResolver's cacheDir parameter; Validate checks it when set"
+
+[[exceptions]]
+pattern = "modulesync.editLocks.cacheDir.nonzero"
+reason = "required value-field using a nonzero value type; set from the resolver's validated cache root"
 
 [[exceptions]]
 pattern = "AmbiguousCommandError.CommandName.nonzero"

@@ -31,7 +31,7 @@ func newRollbackResolver(t *testing.T, workDir string) *Resolver {
 	if err != nil {
 		t.Fatalf("newResolverWithFetcher() error = %v", err)
 	}
-	return resolver
+	return withEditLocks(resolver)
 }
 
 // writeDuplicateToolsInvowkmod writes an invowkmod.cue that already requires

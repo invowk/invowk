@@ -3,12 +3,18 @@
 package moduleops
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/invowk/invowk/internal/app/modulesync"
+	"github.com/invowk/invowk/internal/modulelock"
 	"github.com/invowk/invowk/internal/testutil/procgate"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -66,38 +72,62 @@ func staleVendorResolved(version invowkmod.SemVer, commit invowkmod.GitCommit, h
 // load the lock, replace the entry, save (resolver.go:225, 267, 273).
 func saveStaleVendorLock(t *testing.T, lockPath string, mod *invowkmod.ResolvedModule) {
 	t.Helper()
-	lock, err := invowkmod.LoadLockFile(lockPath)
-	if err != nil {
-		t.Fatalf("LoadLockFile() error = %v", err)
-	}
-	lock.AddModule(mod)
-	if err := lock.Save(lockPath); err != nil {
-		t.Fatalf("Save() error = %v", err)
+	if err := writeStaleVendorLock(lockPath, mod); err != nil {
+		t.Fatal(err)
 	}
 }
 
-// TestConcurrentEdits_VendorFromStaleLock replays
-// ConcurrentModuleEdits.proposedVendorFromStaleLock (a proposed finding
-// without an id, escalated for allocation): vendor loads the lock, another
-// process updates the module to a new version, and vendor then copies and
-// verifies the old version against the hash it read, and returns ok. The
-// vendored copy no longer matches the lock; discovery later rejects it, so the
-// outcome fails closed. P1 is the real vendorDependenciesWithResolver with a
-// real Resolver. P2 performs Resolver.Update's lock write directly, because
-// this package cannot inject a fetcher and the real GitFetcher needs the
-// network. That transcribed write takes no lock, so the fix change must route
-// P2 through the real Update (with a test seam for its fetcher) before
-// inverting this test. Asserts current behaviour.
+// writeStaleVendorLock is saveStaleVendorLock for a goroutine: it returns
+// the error instead of failing the test.
+func writeStaleVendorLock(lockPath string, mod *invowkmod.ResolvedModule) error {
+	lock, err := invowkmod.LoadLockFile(lockPath)
+	if err != nil {
+		return fmt.Errorf("LoadLockFile() error = %w", err)
+	}
+	lock.AddModule(mod)
+	if err := lock.Save(lockPath); err != nil {
+		return fmt.Errorf("Save() error = %w", err)
+	}
+	return nil
+}
+
+// TestConcurrentEdits_VendorFromStaleLock replays the vendor case of the
+// concurrent-edit model, fixed by the project lock:
+// ConcurrentModuleEdits.vendorSyncProjectLock passes, and the pre-fix code
+// (vendor loads the lock, another process updates the module, and vendor then
+// copies the old version) is kept as
+// ConcurrentModuleEdits.mutantPreFixVendorFromStaleLock. P1 is the real
+// vendorDependenciesWithResolver on a real Resolver with its own FileLocker,
+// parked after LoadDeclaredFromLock while it holds the project lock. P2 runs
+// in a goroutine: it takes the project lock through LockProject of a second
+// Resolver on the same project and cache root, then performs
+// Resolver.Update's lock write by transcription (saveStaleVendorLock's
+// LockFile.Save), because this package cannot inject a fetcher and the real
+// GitFetcher needs the network; Update's own body is replayed by the
+// F8Update tests in modulesync, so this replay checks vendor's lock window
+// under the real lock Update takes. It asserts the fixed behaviour: P2 waits,
+// its write lands only after the vendor's copies are complete, and the
+// vendored copy matches the lock the vendor read.
 func TestConcurrentEdits_VendorFromStaleLock(t *testing.T) {
 	t.Parallel()
 	workDir, cacheDir := t.TempDir(), t.TempDir()
 	lockPath := filepath.Join(workDir, invowkmod.LockFileName)
-	reqs := []invowkmod.ModuleRef{{GitURL: staleVendorURL, Version: "^1.0.0"}}
-
-	resolver, err := modulesync.NewResolver(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir))
-	if err != nil {
-		t.Fatalf("NewResolver() error = %v", err)
+	invowkmodPath := filepath.Join(workDir, "invowkmod.cue")
+	if err := os.WriteFile(invowkmodPath, []byte("module: \"io.example.root\"\nversion: \"1.0.0\"\nrequires: [\n\t{\n\t\tgit_url: \""+string(staleVendorURL)+"\"\n\t\tversion: \"^1.0.0\"\n\t},\n]\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(invowkmod.cue) error = %v", err)
 	}
+	reqs := []invowkmod.ModuleRef{{GitURL: staleVendorURL, Version: "^1.0.0"}}
+	newResolver := func(onWait func(modulesync.LockWait)) *modulesync.Resolver {
+		t.Helper()
+		locks := modulesync.EditLocks{Locker: modulelock.NewFileLocker(), OnWait: onWait, CacheDir: types.FilesystemPath(cacheDir)}
+		resolver, err := modulesync.NewResolver(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir), modulesync.WithEditLocks(locks))
+		if err != nil {
+			t.Fatalf("NewResolver() error = %v", err)
+		}
+		return resolver
+	}
+
+	resolver := newResolver(nil)
 	// Lock a@1.0.0 and place its content where the resolver looks it up.
 	v1Hash := writeStaleVendorModule(t, t.TempDir(), "cmds: {} // 1.0.0\n")
 	saveStaleVendorLock(t, lockPath, staleVendorResolved("1.0.0", "1111111111111111111111111111111111111111", v1Hash))
@@ -109,36 +139,75 @@ func TestConcurrentEdits_VendorFromStaleLock(t *testing.T) {
 		t.Fatalf("cached hash = %s, want %s", got, v1Hash)
 	}
 	v2Hash := writeStaleVendorModule(t, t.TempDir(), "cmds: {} // 2.0.0\n")
+	vendored := filepath.Join(workDir, VendoredModulesDir, string(staleVendorModuleID)+".invowkmod")
 
 	gate := procgate.New()
+	openGate := sync.OnceFunc(gate.Open)
+	t.Cleanup(openGate)
 	done := procgate.Run(func() (*VendorResult, error) {
-		_, result, _, vendorErr := vendorDependenciesWithResolver(t.Context(), types.FilesystemPath(workDir), reqs,
+		_, result, _, vendorErr := vendorDependenciesWithResolver(t.Context(), types.FilesystemPath(workDir), types.FilesystemPath(invowkmodPath),
 			&lockLoadedGate{Resolver: resolver, gate: gate}, false, false)
 		return result, vendorErr
 	})
 	procgate.AwaitParked(t, gate, done)
 
-	saveStaleVendorLock(t, lockPath, staleVendorResolved("2.0.0", "2222222222222222222222222222222222222222", v2Hash))
-	gate.Open()
+	lockBefore, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatalf("ReadFile(lock) error = %v", err)
+	}
+	waited := make(chan struct{})
+	signal := sync.OnceFunc(func() { close(waited) })
+	p2 := newResolver(func(modulesync.LockWait) { signal() })
+	var copyAtWrite invowkmod.ContentHash
+	p2Done := procgate.Run(func() (struct{}, error) {
+		unlock, lockErr := p2.LockProject(t.Context())
+		if lockErr != nil {
+			return struct{}{}, lockErr
+		}
+		hash, hashErr := invowkmod.ComputeModuleHash(vendored)
+		if hashErr != nil {
+			return struct{}{}, errors.Join(fmt.Errorf("vendored copy when P2 got the lock: %w", hashErr), unlock())
+		}
+		copyAtWrite = hash
+		writeErr := writeStaleVendorLock(lockPath, staleVendorResolved("2.0.0", "2222222222222222222222222222222222222222", v2Hash))
+		return struct{}{}, errors.Join(writeErr, unlock())
+	})
+	deadline := time.NewTimer(30 * time.Second)
+	defer deadline.Stop()
+	select {
+	case <-waited:
+	case o := <-p2Done:
+		t.Fatalf("P2 finished without waiting for the lock (error %v)", o.Err)
+	case <-deadline.C:
+		t.Fatal("P2 did not wait for the lock before the deadline")
+	}
+	if lockNow, readErr := os.ReadFile(lockPath); readErr != nil || !bytes.Equal(lockNow, lockBefore) {
+		t.Fatalf("P2 wrote the lock file while the vendor held the project lock (read error %v)", readErr)
+	}
+	openGate()
 	o := <-done
 	if o.Err != nil {
 		t.Fatalf("vendorDependenciesWithResolver() error = %v", o.Err)
 	}
+	if p2o := <-p2Done; p2o.Err != nil {
+		t.Fatalf("P2 error = %v", p2o.Err)
+	}
 	if len(o.Val.Vendored) != 1 {
 		t.Fatalf("vendored %d modules, want 1", len(o.Val.Vendored))
 	}
+	if copyAtWrite != v1Hash {
+		t.Fatalf("vendored copy when P2 wrote = %s, want the complete 1.0.0 copy %s", copyAtWrite, v1Hash)
+	}
 
-	vendorPath := o.Val.Vendored[0].VendorPath
 	final, err := invowkmod.LoadLockFile(lockPath)
 	if err != nil {
 		t.Fatalf("LoadLockFile() error = %v", err)
 	}
-	entry := final.Modules[invowkmod.ModuleRefKey(staleVendorURL)]
-	if entry.ContentHash != v2Hash {
-		t.Fatalf("final lock hash = %s, want 2.0.0's %s", entry.ContentHash, v2Hash)
+	if entry := final.Modules[invowkmod.ModuleRefKey(staleVendorURL)]; entry.ContentHash != v2Hash {
+		t.Fatalf("final lock hash = %s, want P2's 2.0.0 %s", entry.ContentHash, v2Hash)
 	}
-	eval := invowkmod.EvaluateModuleContentHash(invowkmod.ModuleRefKey(staleVendorURL), staleVendorModuleID, vendorPath, entry.ContentHash)
-	if eval.Status != invowkmod.VendoredHashMismatch || eval.Actual != v1Hash {
-		t.Fatalf("vendored copy against the final lock = %+v, want a mismatch holding 1.0.0's %s", eval, v1Hash)
+	eval := invowkmod.EvaluateModuleContentHash(invowkmod.ModuleRefKey(staleVendorURL), staleVendorModuleID, o.Val.Vendored[0].VendorPath, v1Hash)
+	if eval.Status != invowkmod.VendoredHashMatched {
+		t.Fatalf("vendored copy against the lock the vendor read = %+v, want matched", eval)
 	}
 }

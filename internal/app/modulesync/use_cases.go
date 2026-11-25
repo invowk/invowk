@@ -254,12 +254,16 @@ func LoadRequirements(invowkmodPath types.FilesystemPath) ([]ModuleRef, error) {
 }
 
 // AddModuleDependency resolves req, updates the lock file, and adds the
-// corresponding requires entry to invowkmodPath.
-func AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, req ModuleRef) (AddModuleDependencyResult, error) {
+// corresponding requires entry to invowkmodPath, under the project lock of
+// locks.
+func AddModuleDependency(ctx context.Context, locks EditLocks, invowkmodPath types.FilesystemPath, req ModuleRef) (AddModuleDependencyResult, error) {
 	if err := req.ValidateDeclaration(); err != nil {
 		return AddModuleDependencyResult{}, fmt.Errorf("invalid requirement declaration: %w", err)
 	}
-	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
+	if err := locks.Validate(); err != nil {
+		return AddModuleDependencyResult{}, err
+	}
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath, locks)
 	if err != nil {
 		return AddModuleDependencyResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
@@ -267,11 +271,19 @@ func AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath
 }
 
 // AddModuleDependency resolves req with this resolver, updates the lock file,
-// and adds the corresponding requires entry to invowkmodPath.
-func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, req ModuleRef) (AddModuleDependencyResult, error) {
-	if err := req.ValidateDeclaration(); err != nil {
-		return AddModuleDependencyResult{}, fmt.Errorf("invalid requirement declaration: %w", err)
+// and adds the corresponding requires entry to invowkmodPath. It takes the
+// project lock before it reads either file and releases it after the
+// declaration edit or the last restore.
+func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, req ModuleRef) (result AddModuleDependencyResult, err error) {
+	if declErr := req.ValidateDeclaration(); declErr != nil {
+		return AddModuleDependencyResult{}, fmt.Errorf("invalid requirement declaration: %w", declErr)
 	}
+	unlock, err := m.LockProject(ctx)
+	if err != nil {
+		return AddModuleDependencyResult{}, err
+	}
+	defer func() { err = joinUnlock(err, unlock) }()
+
 	lockSnapshot, snapshotErr := m.readLockSnapshot()
 	if snapshotErr != nil {
 		return AddModuleDependencyResult{}, snapshotErr
@@ -280,9 +292,9 @@ func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.
 	if snapshotErr != nil {
 		return AddModuleDependencyResult{}, snapshotErr
 	}
-	resolved, lockWritten, err := m.Add(ctx, req)
-	if err != nil {
-		return AddModuleDependencyResult{}, err
+	resolved, lockWritten, addErr := m.Add(ctx, req)
+	if addErr != nil {
+		return AddModuleDependencyResult{}, addErr
 	}
 	editErr := invowkmod.AddRequirement(invowkmodPath, req)
 	rollback := DeclarationRollbackNone
@@ -291,9 +303,9 @@ func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.
 		// the two in step (design D9).
 		rollback, editErr = rollBackDeclarationEdit(editErr, declarationSnapshot, lockSnapshot)
 	}
-	declaration, err := NewDeclarationEditResult(editErr == nil, editErr, rollback)
-	if err != nil {
-		return AddModuleDependencyResult{}, err
+	declaration, declarationErr := NewDeclarationEditResult(editErr == nil, editErr, rollback)
+	if declarationErr != nil {
+		return AddModuleDependencyResult{}, declarationErr
 	}
 	return NewAddModuleDependencyResult(resolved, lockWritten, declaration)
 }
@@ -302,8 +314,11 @@ func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.
 // removes their requires entries from invowkmodPath.
 //
 //goplint:ignore -- module remove identifier is a CLI-facing selector: URL, namespace, module name, or lock key.
-func RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (RemoveModuleDependencyResult, error) {
-	resolver, err := newLockOnlyResolverForInvowkmodPath(invowkmodPath)
+func RemoveModuleDependency(ctx context.Context, locks EditLocks, invowkmodPath types.FilesystemPath, identifier string) (RemoveModuleDependencyResult, error) {
+	if err := locks.Validate(); err != nil {
+		return RemoveModuleDependencyResult{}, err
+	}
+	resolver, err := newLockOnlyResolverForInvowkmodPath(invowkmodPath, WithEditLocks(locks))
 	if err != nil {
 		return RemoveModuleDependencyResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
@@ -311,8 +326,16 @@ func RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemP
 }
 
 // RemoveModuleDependency removes matching modules with this resolver and
-// removes their requires entries from invowkmodPath.
-func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (RemoveModuleDependencyResult, error) {
+// removes their requires entries from invowkmodPath. It takes the project
+// lock before it reads either file and releases it after the last edit or the
+// last restore.
+func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (result RemoveModuleDependencyResult, err error) {
+	unlock, err := m.LockProject(ctx)
+	if err != nil {
+		return RemoveModuleDependencyResult{}, err
+	}
+	defer func() { err = joinUnlock(err, unlock) }()
+
 	lockSnapshot, snapshotErr := m.readLockSnapshot()
 	if snapshotErr != nil {
 		return RemoveModuleDependencyResult{}, snapshotErr
@@ -321,9 +344,9 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 	if snapshotErr != nil {
 		return RemoveModuleDependencyResult{}, snapshotErr
 	}
-	removed, lockWritten, err := m.Remove(ctx, identifier)
-	if err != nil {
-		return RemoveModuleDependencyResult{}, err
+	removed, lockWritten, removeErr := m.Remove(ctx, identifier)
+	if removeErr != nil {
+		return RemoveModuleDependencyResult{}, removeErr
 	}
 
 	declarations := make([]DeclarationEditResult, 0, len(removed))
@@ -519,12 +542,18 @@ func (s fileSnapshot) linkCreator() restoreLinkCreator {
 	return os.Symlink
 }
 
-func newResolverForInvowkmodPath(invowkmodPath types.FilesystemPath) (*Resolver, error) {
+func newResolverForInvowkmodPath(invowkmodPath types.FilesystemPath, locks EditLocks) (*Resolver, error) {
 	workingDir := types.FilesystemPath(filepath.Dir(string(invowkmodPath)))
 	if err := workingDir.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid module working directory: %w", err)
 	}
-	return NewResolver(workingDir, "")
+	return NewResolver(workingDir, "", WithEditLocks(locks))
+}
+
+// joinUnlock releases a lock taken by a use case and joins the release error
+// into the use case's error.
+func joinUnlock(err error, unlock func() error) error {
+	return errors.Join(err, unlock())
 }
 
 // Validate returns nil if the add result contains a valid resolved module and
@@ -593,31 +622,68 @@ func validateResolvedModules(modules []*ResolvedModule) error {
 }
 
 // SyncModule resolves the requirements declared in invowkmodPath and updates
-// the module lock file. With no requirements it saves nothing and the result
-// reports LockWritten() == false.
-func SyncModule(ctx context.Context, invowkmodPath types.FilesystemPath) (SyncModuleResult, error) {
-	requirements, err := LoadRequirements(invowkmodPath)
+// the module lock file, under the project lock of locks. With no requirements
+// it saves nothing and the result reports LockWritten() == false.
+func SyncModule(ctx context.Context, locks EditLocks, invowkmodPath types.FilesystemPath) (SyncModuleResult, error) {
+	if err := locks.Validate(); err != nil {
+		return SyncModuleResult{}, err
+	}
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath, locks)
+	if err != nil {
+		return SyncModuleResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
+	}
+	return resolver.SyncModule(ctx, invowkmodPath)
+}
+
+// SyncModule resolves the requirements declared in invowkmodPath and updates
+// the lock file. It takes the project lock before it reads invowkmod.cue and
+// releases it after the lock save, or after finding no requirements (then it
+// saves nothing and reports LockWritten() == false).
+func (m *Resolver) SyncModule(ctx context.Context, invowkmodPath types.FilesystemPath) (result SyncModuleResult, err error) {
+	unlock, err := m.LockProject(ctx)
 	if err != nil {
 		return SyncModuleResult{}, err
+	}
+	defer func() { err = joinUnlock(err, unlock) }()
+
+	requirements, loadErr := LoadRequirements(invowkmodPath)
+	if loadErr != nil {
+		return SyncModuleResult{}, loadErr
 	}
 	if len(requirements) == 0 {
 		return NewSyncModuleResult(requirements, nil, false)
 	}
-
-	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
-	if err != nil {
-		return SyncModuleResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
-	}
-	resolved, lockWritten, err := resolver.Sync(ctx, requirements)
-	if err != nil {
-		return SyncModuleResult{}, err
+	resolved, lockWritten, syncErr := m.Sync(ctx, requirements)
+	if syncErr != nil {
+		return SyncModuleResult{}, syncErr
 	}
 	return NewSyncModuleResult(requirements, resolved, lockWritten)
 }
 
 // TidyModule resolves declared requirements, adds missing transitive
-// requirements to invowkmodPath, and returns the added refs.
-func TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requirements, missing []ModuleRef, err error) {
+// requirements to invowkmodPath, and returns the added refs, under the
+// project lock of locks.
+func TidyModule(ctx context.Context, locks EditLocks, invowkmodPath types.FilesystemPath) (requirements, missing []ModuleRef, err error) {
+	if lockErr := locks.Validate(); lockErr != nil {
+		return nil, nil, lockErr
+	}
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath, locks)
+	if err != nil {
+		return nil, nil, fmt.Errorf(errFmtCreateModuleResolver, err)
+	}
+	return resolver.TidyModule(ctx, invowkmodPath)
+}
+
+// TidyModule resolves the requirements declared in invowkmodPath and adds the
+// missing transitive requirements to it. It takes the project lock before it
+// reads invowkmod.cue and releases it after the last AddRequirement.
+func (m *Resolver) TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requirements, missing []ModuleRef, err error) {
+	unlock, err := m.LockProject(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { err = joinUnlock(err, unlock) }()
+
 	requirements, err = LoadRequirements(invowkmodPath)
 	if err != nil {
 		return nil, nil, err
@@ -625,12 +691,7 @@ func TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requir
 	if len(requirements) == 0 {
 		return requirements, nil, nil
 	}
-
-	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf(errFmtCreateModuleResolver, err)
-	}
-	missing, err = resolver.Tidy(ctx, requirements)
+	missing, err = m.Tidy(ctx, requirements)
 	if err != nil {
 		return requirements, nil, err
 	}
@@ -642,17 +703,36 @@ func TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requir
 	return requirements, missing, nil
 }
 
-// UpdateModule updates resolved module dependencies in the lock file next to invowkmodPath.
+// UpdateModule updates resolved module dependencies in the lock file next to
+// invowkmodPath, under the project lock of locks.
 //
 //goplint:ignore -- module update identifier is a CLI-facing selector: URL, namespace, module name, or lock key.
-func UpdateModule(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (UpdateModuleResult, error) {
-	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
+func UpdateModule(ctx context.Context, locks EditLocks, invowkmodPath types.FilesystemPath, identifier string) (UpdateModuleResult, error) {
+	if err := locks.Validate(); err != nil {
+		return UpdateModuleResult{}, err
+	}
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath, locks)
 	if err != nil {
 		return UpdateModuleResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
-	updated, lockWritten, err := resolver.Update(ctx, identifier)
+	return resolver.UpdateModule(ctx, identifier)
+}
+
+// UpdateModule updates the resolved module dependencies in this resolver's
+// lock file. It takes the project lock before Update reads the lock file and
+// releases it after the lock save.
+//
+//goplint:ignore -- module update identifier is a CLI-facing selector: URL, namespace, module name, or lock key.
+func (m *Resolver) UpdateModule(ctx context.Context, identifier string) (result UpdateModuleResult, err error) {
+	unlock, err := m.LockProject(ctx)
 	if err != nil {
 		return UpdateModuleResult{}, err
+	}
+	defer func() { err = joinUnlock(err, unlock) }()
+
+	updated, lockWritten, updateErr := m.Update(ctx, identifier)
+	if updateErr != nil {
+		return UpdateModuleResult{}, updateErr
 	}
 	return NewUpdateModuleResult(updated, lockWritten)
 }
@@ -667,10 +747,10 @@ func ListModuleDependencies(ctx context.Context, invowkmodPath types.FilesystemP
 	return resolver.List(ctx)
 }
 
-func newLockOnlyResolverForInvowkmodPath(invowkmodPath types.FilesystemPath) (*Resolver, error) {
+func newLockOnlyResolverForInvowkmodPath(invowkmodPath types.FilesystemPath, opts ...ResolverOption) (*Resolver, error) {
 	workingDir := types.FilesystemPath(filepath.Dir(string(invowkmodPath)))
 	if err := workingDir.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid module working directory: %w", err)
 	}
-	return newLockOnlyResolver(workingDir)
+	return newLockOnlyResolver(workingDir, opts...)
 }

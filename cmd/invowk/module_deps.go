@@ -170,7 +170,7 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	fmt.Printf("%s Resolving %s@%s...\n", moduleInfoIcon, gitURL, version)
 
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
-	result, err := modulesync.AddModuleDependency(ctx, types.FilesystemPath(invowkmodPath), req) //goplint:ignore -- relative path from current dir
+	result, err := modulesync.AddModuleDependency(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodPath), req) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		fmt.Printf("%s Failed to add module: %v\n", moduleErrorIcon, err)
 		printLockIntegrityHint(err)
@@ -215,7 +215,7 @@ func runModuleRemove(ctx context.Context, args []string) error {
 
 	fmt.Printf("%s Removing %s...\n", moduleInfoIcon, identifier)
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
-	result, err := modulesync.RemoveModuleDependency(ctx, types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
+	result, err := modulesync.RemoveModuleDependency(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		// Format ambiguous matches nicely
 		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {
@@ -338,7 +338,7 @@ func runModuleSync(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Sync Module Dependencies"))
 
 	invowkmodulePath := filepath.Join(".", invowkmodCueFileName)
-	result, err := modulesync.SyncModule(ctx, types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
+	result, err := modulesync.SyncModule(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		if missingErr, ok := errors.AsType[*modulesync.MissingTransitiveDepError](err); ok {
 			renderMissingTransitiveDeps(missingErr)
@@ -420,7 +420,7 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 	}
 
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
-	result, err := modulesync.UpdateModule(ctx, types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
+	result, err := modulesync.UpdateModule(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		// Format ambiguous matches nicely
 		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {
