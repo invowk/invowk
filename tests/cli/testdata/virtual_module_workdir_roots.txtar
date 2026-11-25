@@ -16,13 +16,15 @@
 #
 # The outside directory must lie outside every allowed root. Off Windows /tmp
 # is always a root and $WORK is normally below it, so the fixture tree lives
-# in a fixed entry below /var/tmp. It is recreated before every step, so that
-# no step depends on what an earlier one left behind, and removed at the end.
+# in an entry below /var/tmp, named with this run's TEST_RUN_SUFFIX so that
+# concurrent runs on one host never share it. It is recreated before every
+# step, so that no step depends on what an earlier one left behind, and
+# removed at the end.
 
 [!windows] env OUTSIDE=/var/tmp
 [windows] env OUTSIDE=$WORK/outside
 [windows] mkdir $WORK/outside
-env FIX=$OUTSIDE/invowk-module-workdir-roots
+env FIX=$OUTSIDE/invowk-module-workdir-roots-$TEST_RUN_SUFFIX
 
 # virtual-sh read: denied, and the script still starts in the outside workdir
 rm $FIX
@@ -33,6 +35,12 @@ cp $WORK/fixture/shared/data.txt $FIX/shared/data.txt
 cp $WORK/fixture/plain/invowkfile.cue $FIX/plain/invowkfile.cue
 cd $FIX
 ! exec invowk cmd sh-read
+stdout 'shared$'
+stderr 'virtual path denied'
+! stdout 'workdir-data'
+
+# the same workdir declared at the implementation level: denied too
+! exec invowk cmd sh-impl-read
 stdout 'shared$'
 stderr 'virtual path denied'
 ! stdout 'workdir-data'
@@ -133,6 +141,19 @@ cmds: [
 		name:    "sh-read"
 		workdir: "../shared"
 		implementations: [{
+			script: {content: """
+				pwd
+				read line < ./data.txt || exit 3
+				echo "$line"
+				"""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "sh-impl-read"
+		implementations: [{
+			workdir: "../shared"
 			script: {content: """
 				pwd
 				read line < ./data.txt || exit 3

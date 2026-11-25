@@ -78,7 +78,7 @@ With `workdir`, that subdirectory becomes the container's working directory:
 
 Under the default `restricted` filesystem access of the `virtual-sh` and `virtual-lua` runtimes, the workdir is also an allowed root for the script's file access, with one exception: a `workdir` that a module's own invowkfile declares (at the root, command or implementation level) and that resolves outside the module directory. Links and junctions are followed, and a workdir that cannot be resolved, or that lies on another drive, counts as outside.
 
-Such a workdir is still the script's working directory, and `@work`, `INVOWK_ANCHOR_WORK` and `invowk.path("@work")` still name it, but reads and writes there are refused with `virtual path denied` unless another allowed root covers them. To keep it readable and writable:
+Such a workdir is still the script's working directory, and `@work`, `INVOWK_ANCHOR_WORK` and `invowk.path("@work")` still name it, but reads and writes there are refused with `virtual path denied` unless another allowed root covers them. The same check covers `cd` and the shell's file tests: `cd` into a directory there fails, and a test such as `[ -f settings.json ]` is false even when the file exists. Host binaries listed in `allowed_binaries` are not checked: they run as native host processes with that directory as their working directory and keep their host access, because the virtual runtimes do not isolate host binaries (use the `container` runtime for isolation). To keep the directory readable and writable for the script itself:
 
 - declare it in the selected platform's `virtual.filesystem.paths`, for example `WORK: "@work"`;
 - or pass `--ivk-workdir` with that directory: a workdir chosen on the command line is always an allowed root.

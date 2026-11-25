@@ -69,7 +69,8 @@ func (s WorkDirSource) Validate() error {
 
 // DeclaredByInvowkfile reports whether the workdir comes from the invowkfile's
 // own CUE: its implementation, command or root workdir. The CLI override and
-// the default are not declared by the invowkfile.
+// the default are not declared by the invowkfile. An unknown source counts as
+// declared, so the workdir-root decision fails closed for it.
 //
 // The name is bound by the VirtualPathHarness correspondence table
 // (formal/alloy/VirtualPathHarness.als); keep it.
@@ -80,7 +81,7 @@ func (s WorkDirSource) DeclaredByInvowkfile() bool {
 	case WorkDirSourceCLIOverride, WorkDirSourceDefault:
 		return false
 	default:
-		return false
+		return true
 	}
 }
 

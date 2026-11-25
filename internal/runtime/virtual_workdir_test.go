@@ -263,7 +263,7 @@ func testVirtualWorkdirWindowsMissingDrive(t *testing.T) {
 		}
 	}
 	if missing == "" {
-		t.Fatal("every drive letter from D to Z exists")
+		t.Skip("every drive letter from D to Z exists on this host")
 	}
 	inv := tree.moduleInvowkfile()
 	workdir := virtualWorkdirFor(inv, nil, workdirImplementation(invowkfile.WorkDir(missing+"work")), "")

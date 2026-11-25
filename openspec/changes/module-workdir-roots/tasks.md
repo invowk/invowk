@@ -2,7 +2,7 @@
 
 ## 1. Characterise on the base tree
 
-- [x] 1.1 Write `tests/cli/testdata/virtual_module_workdir_roots.txtar` (design D5, CLI bullet: the fixture tree in a fixed entry below `OUTSIDE=/var/tmp` off Windows and `$WORK/outside` on Windows, recreated before and removed after each step, never `../shared` next to a module in `$WORK`, which `/tmp` encloses off Windows) and run it against the unchanged tree. Expect the module-outside reads and writes to succeed there (that is F15), and record the result in a comment at the top of the file. Add its exact entry to `tests/cli/runtime_mirror_exemptions.json` ("restricted path denials exist only in the virtual runtimes"). Verify: `go test -run 'TestCLI/virtual_module_workdir_roots' ./tests/cli/` fails only on the module-outside denial steps before the fix.
+- [x] 1.1 Write `tests/cli/testdata/virtual_module_workdir_roots.txtar` (design D5, CLI bullet: the fixture tree in a per-run entry (`TEST_RUN_SUFFIX`) below `OUTSIDE=/var/tmp` off Windows and `$WORK/outside` on Windows, recreated before and removed after each step, never `../shared` next to a module in `$WORK`, which `/tmp` encloses off Windows) and run it against the unchanged tree. Expect the module-outside reads and writes to succeed there (that is F15), and record the result in a comment at the top of the file. Add its exact entry to `tests/cli/runtime_mirror_exemptions.json` ("restricted path denials exist only in the virtual runtimes"). Verify: `go test -run 'TestCLI/virtual_module_workdir_roots' ./tests/cli/` fails only on the module-outside denial steps before the fix.
 
 ## 2. Effective workdir with its source (`pkg/invowkfile`)
 
@@ -17,7 +17,7 @@
 ## 4. Interactive subprocesses
 
 - [x] 4.1 Add `WorkDirModuleRoot` to `ShInteractiveCommandSpec`, `LuaInteractiveCommandSpec`, `ShScriptOptions` and `LuaScriptOptions`. Set it in `virtual_interactive.go` from the parent's `virtualWorkdir`. Pass the hidden `--workdir-module-root` flag in `internal/app/commandadapters/{sh,lua}_interactive.go` only when it is set, and parse it in `cmd/invowk/internal_exec_{sh,lua}.go`. Make `newVirtualPathResolverForInteractiveConfig` build the same `virtualWorkdir` (design D3). The commands stay hidden. Verify: `go test ./internal/runtime/ -run 'TestInteractive|Interactive'` and `go test ./internal/app/commandadapters/ ./cmd/invowk/` pass.
-- [x] 4.2 Tests: the launcher spec carries `WorkDirModuleRoot` for a module-outside workdir and nil otherwise (`internal/runtime/interactive_test.go`). The adapter adds the flag only when it is set, and `RunShScript` and the Lua runner deny the module-outside read when the option is set. Verify: the new tests pass under `go test ./internal/runtime/ ./internal/app/commandadapters/`.
+- [x] 4.2 Tests: the launcher spec carries `WorkDirModuleRoot` for every module-declared workdir, inside the module or outside it (design D3), and nil for a trusted one (`internal/runtime/virtual_workdir_interactive_test.go`). The adapter adds the flag only when it is set, and `RunShScript` and the Lua runner deny the module-outside read when the option is set and allow the read when the workdir is inside the given module root or no module root is given. Verify: the new tests pass under `go test ./internal/runtime/ ./internal/app/commandadapters/`.
 
 ## 5. Formal model and replays
 
@@ -37,7 +37,7 @@
 
 ## 7. Commit, formal lane and platform evidence
 
-- [ ] 7.1 Commit, signed and under the heavy lock: `fix(runtime): module workdirs outside the module are not virtual roots` (70 characters; the git rule caps subjects at 72), with the release note of the proposal in the body and the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Verify: `git log -1 --show-signature` shows a good signature.
+- [x] 7.1 Commit, signed and under the heavy lock: `fix(runtime): module workdirs outside the module are not virtual roots` (70 characters; the git rule caps subjects at 72), with the release note of the proposal in the body and the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Verify: `git log -1 --show-signature` shows a good signature.
 - [ ] 7.2 Formal lane: `python3 scripts/formal.py affected --event pull_request --base origin/main --head HEAD`. When it prints `run=true`, run `python3 scripts/formal.py correspondence`, `make formal-reach`, `make formal` and `make test-scripts`. Run `python3 scripts/formal_mutation.py symbols` and note in the PR body which bound symbols need a refresh (expected: `newVirtualPathResolverForFilesystem`, plus the new bound symbols; not `GetEffectiveWorkDir`). Verify: each passes and no killer is reported as skipped.
 - [ ] 7.3 Push `fix/module-workdir-roots` and open the draft PR. Verify: `gh pr view` shows a draft.
 - [ ] 7.4 From the PR's `Test (windows)` and `Test (macos)` jobs, quote the run id, the job id and the test names that ran and passed: `TestVirtualWorkdir*` (the other-volume and junction cases on Windows, `/private` on macOS), `TestVirtualPathHarness_ModuleWorkdirOutsideNotRoot`, `TestVirtualPathHarness_RootConstruction`, `TestVirtualPathHarness_GoldenVectors`, `TestVirtualPathHarness_Property` and `TestCLI/virtual_module_workdir_roots`. Verify: none of the quoted tests is reported as skipped; a green job alone is not evidence.

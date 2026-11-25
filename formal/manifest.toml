@@ -88,7 +88,7 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 186
+command_count = 190
 
 # Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
 # every killer test of every bound correspondence row must execute at least one
@@ -1663,7 +1663,7 @@ trustedWorkdirReadableFixed with mutantStrictWorkdirNeverRoot keeps the fix \
 from becoming the strict variant. The golden leaves the workdir kind free \
 and allows at most one InWorkdir location (a module-inside instance has \
 none): 8790 instances (3794 TrustedWorkdir, 3794 ModuleOutside, 1202 \
-ModuleInside; the 81 request shapes are unchanged), 6423 bytes, and the \
+ModuleInside; the 81 request shapes are unchanged), 6424 bytes, and the \
 replay takes about 0.4 s on Linux. The golden replay builds a virtualWorkdir \
 per instance kind and adds the workdir to the roots exactly when \
 virtualWorkdir.isReadRoot says so. TestVirtualPathHarness_F15WorkdirWidening \

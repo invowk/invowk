@@ -173,8 +173,8 @@ func TestWorkDirSource_Validate(t *testing.T) {
 			if !errors.As(err, &typed) || typed.Value != invalid {
 				t.Fatalf("Validate() = %v, want *InvalidWorkDirSourceError{%q}", err, invalid)
 			}
-			if invalid.DeclaredByInvowkfile() {
-				t.Fatal("DeclaredByInvowkfile() = true for an invalid source")
+			if !invalid.DeclaredByInvowkfile() {
+				t.Fatal("DeclaredByInvowkfile() = false for an invalid source, want true (fail closed)")
 			}
 		})
 	}

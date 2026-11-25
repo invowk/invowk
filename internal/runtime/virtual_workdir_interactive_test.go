@@ -28,6 +28,7 @@ type workdirInteractiveCase struct {
 func workdirInteractiveCases() []workdirInteractiveCase {
 	return []workdirInteractiveCase{
 		{name: "module workdir outside the module", module: true, workdir: "../shared", moduleRoot: true},
+		{name: "module workdir inside the module", module: true, workdir: "sub", moduleRoot: true},
 		{name: "module default workdir", module: true},
 		{name: "plain invowkfile workdir outside its directory", workdir: "../shared"},
 	}
@@ -39,6 +40,7 @@ func workdirInteractiveContext(t *testing.T, tc workdirInteractiveCase, rt invow
 	t.Helper()
 	base := fstree.TempRoot(t)
 	module = mustMkdir(t, filepath.Join(base, "mod.invowkmod"))
+	mustMkdir(t, filepath.Join(module, "sub"))
 	mustMkdir(t, filepath.Join(base, "shared"))
 	script := invowkfile.ScriptContent("echo")
 	if rt == invowkfile.RuntimeVirtualLua {
@@ -66,8 +68,8 @@ func workdirInteractiveContext(t *testing.T, tc workdirInteractiveCase, rt invow
 }
 
 // TestInteractiveSpecCarriesWorkDirModuleRoot checks that the launcher spec of
-// both virtual runtimes carries the module root for a module-declared workdir
-// and nil for a trusted one (virtual-runtime-sandbox, "Interactive mode makes
+// both virtual runtimes carries the module root for a module-declared workdir,
+// inside the module or outside it, and nil for a trusted one (virtual-runtime-sandbox, "Interactive mode makes
 // the same decision").
 func TestInteractiveSpecCarriesWorkDirModuleRoot(t *testing.T) {
 	t.Parallel()
@@ -119,7 +121,8 @@ func expectSpecModuleRoot(t *testing.T, got *invowkfile.FilesystemPath, want boo
 
 // interactiveWorkdirProbe returns a workdir at the filesystem root and a path
 // below it that no other root encloses: the interactive runners are given
-// that workdir, with and without a module root.
+// that workdir with a module root outside it, with a module root that
+// encloses it (the filesystem root itself), and with no module root.
 func interactiveWorkdirProbe(t *testing.T) (module, workdir, probe string) {
 	t.Helper()
 	base := fstree.TempRoot(t)
@@ -132,13 +135,34 @@ func interactiveWorkdirProbe(t *testing.T) (module, workdir, probe string) {
 	return module, workdir, filepath.ToSlash(probe)
 }
 
+// interactiveModuleRootLegs pairs each module root given to an interactive
+// runner with whether a read below the workdir must be denied: a module root
+// beside the workdir makes it a module-declared workdir outside the module, a
+// module root equal to the workdir makes it one inside the module, and no
+// module root makes it trusted.
+func interactiveModuleRootLegs(module, workdir string) []struct {
+	moduleRoot string
+	denied     bool
+} {
+	return []struct {
+		moduleRoot string
+		denied     bool
+	}{
+		{moduleRoot: module, denied: true},
+		{moduleRoot: workdir, denied: false},
+		{moduleRoot: "", denied: false},
+	}
+}
+
 // TestRunShScriptWorkDirModuleRoot checks that the interactive virtual-sh
 // runner denies a read below a module-declared workdir outside the module
-// when the module root is given, and does not when it is not.
+// when the module root is given, and does not when the workdir is inside the
+// given module root or no module root is given.
 func TestRunShScriptWorkDirModuleRoot(t *testing.T) {
 	t.Parallel()
 	module, workdir, probe := interactiveWorkdirProbe(t)
-	for _, moduleRoot := range []string{module, ""} {
+	for _, leg := range interactiveModuleRootLegs(module, workdir) {
+		moduleRoot := leg.moduleRoot
 		stderr, err := os.CreateTemp(t.TempDir(), "stderr-*")
 		if err != nil {
 			t.Fatalf("create stderr file: %v", err)
@@ -158,11 +182,11 @@ func TestRunShScriptWorkDirModuleRoot(t *testing.T) {
 			t.Fatalf("read stderr: %v", readErr)
 		}
 		denied := strings.Contains(string(output), "virtual path denied")
-		if moduleRoot != "" && (!denied || runErr == nil) {
+		if leg.denied && (!denied || runErr == nil) {
 			t.Fatalf("module root %q: read of %s = %v, stderr %q, want virtual path denied", moduleRoot, probe, runErr, output)
 		}
-		if moduleRoot == "" && denied {
-			t.Fatalf("trusted workdir: read of %s was denied: %s", probe, output)
+		if !leg.denied && denied {
+			t.Fatalf("module root %q: read of %s was denied: %s", moduleRoot, probe, output)
 		}
 	}
 }
@@ -172,7 +196,8 @@ func TestRunShScriptWorkDirModuleRoot(t *testing.T) {
 func TestRunLuaScriptWorkDirModuleRoot(t *testing.T) {
 	t.Parallel()
 	module, workdir, probe := interactiveWorkdirProbe(t)
-	for _, moduleRoot := range []string{module, ""} {
+	for _, leg := range interactiveModuleRootLegs(module, workdir) {
+		moduleRoot := leg.moduleRoot
 		var stdout bytes.Buffer
 		err := RunLuaScript(t.Context(), LuaScriptOptions{
 			Script:            `local f, err = io.open("` + probe + `", "r"); print(tostring(err)); if f ~= nil then f:close() end`,
@@ -188,11 +213,11 @@ func TestRunLuaScriptWorkDirModuleRoot(t *testing.T) {
 			t.Fatalf("module root %q: RunLuaScript() error = %v", moduleRoot, err)
 		}
 		denied := strings.Contains(stdout.String(), "virtual path denied")
-		if moduleRoot != "" && !denied {
+		if leg.denied && !denied {
 			t.Fatalf("module root %q: io.open(%s) printed %q, want virtual path denied", moduleRoot, probe, stdout.String())
 		}
-		if moduleRoot == "" && denied {
-			t.Fatalf("trusted workdir: io.open(%s) was denied: %s", probe, stdout.String())
+		if !leg.denied && denied {
+			t.Fatalf("module root %q: io.open(%s) was denied: %s", moduleRoot, probe, stdout.String())
 		}
 	}
 }
