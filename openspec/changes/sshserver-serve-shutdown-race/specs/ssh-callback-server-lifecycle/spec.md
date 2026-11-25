@@ -32,27 +32,35 @@ Defines when the host-callback SSH server counts as started, how it stops, and w
 - **THEN** `Stop` SHALL stop waiting at `ShutdownTimeout`, SHALL NOT call the graceful shutdown, and SHALL return an error after the serve goroutine has exited
 
 #### Scenario: Serve loop fails before accepting
-- **WHEN** the SSH library's serve call returns an error before it accepts any connection, or the serve goroutine returns early because the server or listener is missing
+- **WHEN** the SSH library's serve call returns an error before it accepts any connection, or the serve goroutine returns early because the server or listener is missing, including when a concurrent `Stop` took them before the serve goroutine read them
 - **THEN** a concurrent or later `Stop` SHALL NOT wait for the shutdown timeout on its account
 
 ### Requirement: Stop during Start leaves nothing running
-A `Stop` that runs at any point of a concurrent `Start` SHALL leave no listener open and no server goroutine running once both calls have returned, and SHALL wait for every goroutine that `Start` launched before it returns.
+A `Stop` that runs at any point of a concurrent `Start` SHALL leave no listener open and no server goroutine running once both calls have returned. Every `Stop` call, including one that loses to a concurrent `Stop`, SHALL return only after every goroutine that `Start` launched has exited.
 
 #### Scenario: Stop before Start has launched its goroutines
-- **WHEN** `Stop` completes its shutdown while `Start` is still configuring the host key, binding the listener or creating the SSH server
+- **WHEN** `Stop` begins its shutdown while `Start` is still configuring the host key, binding the listener or creating the SSH server
 - **THEN** `Start` SHALL launch no server goroutine, SHALL close the listener it bound, and SHALL return a non-nil error
 
 #### Scenario: Stop after Start has launched its goroutines but before readiness
 - **WHEN** `Stop` runs after `Start` has launched the serve goroutine and before readiness is reported
 - **THEN** `Stop` SHALL return only after that goroutine has exited, and `Start` SHALL return a non-nil error
 
+#### Scenario: Two Stop calls during Start
+- **WHEN** two `Stop` calls run concurrently while `Start` is still in progress
+- **THEN** both SHALL return only after every goroutine that `Start` launched has exited, and neither SHALL wait on the server's goroutines while `Start` can still launch one
+
 #### Scenario: Port after Stop
-- **WHEN** `Stop` has returned, whether or not a `Start` overlapped it
+- **WHEN** `Stop` has returned and so has any `Start` that overlapped it
 - **THEN** a TCP connection to the server's bound port SHALL be refused, with no race detector needed to observe it
 
 ### Requirement: Repeated start and stop stays clean
-Short-lived servers that are started and stopped back to back SHALL each stop cleanly, without a data race, a leaked goroutine or a `Stop` that waits for the shutdown timeout.
+Short-lived servers that are started and stopped back to back, or stopped while starting, SHALL each stop cleanly: without a data race, with `Wait` returning once `Stop` has, and without a `Stop` that waits for the shutdown timeout.
 
 #### Scenario: Bounded start/stop loop
 - **WHEN** a test starts and immediately stops a fresh server a bounded number of times under `-race`
 - **THEN** every `Start` SHALL return `nil`, every `Stop` SHALL return `nil` well inside `ShutdownTimeout`, and no data race SHALL be reported
+
+#### Scenario: Bounded loop of Stop racing Start
+- **WHEN** a test starts a fresh server in a goroutine and stops it concurrently, a bounded number of times under `-race`
+- **THEN** every `Start` SHALL return `nil` or the stopped-during-startup error, every `Stop` SHALL return `nil` well inside `ShutdownTimeout`, `Wait` SHALL return, and no data race SHALL be reported
