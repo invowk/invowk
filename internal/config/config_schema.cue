@@ -94,9 +94,13 @@ import "strings"
 	strict: *false | bool
 
 	// binary_path is the invowk binary to provision: a Linux executable for
-	// the image's architecture, or the command fails. If not set, the running
-	// invowk binary is used when it is such an executable; otherwise (macOS
-	// and Windows hosts, other architectures) it is skipped with a warning.
+	// the image's architecture (when the engine reports it, or a Linux host
+	// stands in for it), or the command fails. If not set, the running invowk
+	// binary is used when it is such an executable; otherwise (macOS and
+	// Windows hosts, other architectures) it is skipped with a warning.
+	// [GO-ONLY] The ELF format and machine are checked at provisioning time
+	// (internal/provision) from the file header and the engine-reported image
+	// architecture; CUE cannot read files.
 	binary_path: *"" | (string & !="" & strings.MaxRunes(4096))
 
 	// includes specifies modules to provision into containers.

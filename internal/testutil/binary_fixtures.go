@@ -25,6 +25,9 @@ const (
 	peCharacteristicsAt = 18
 	// pePadding pads the file past the 96-byte DOS header window debug/pe reads.
 	pePadding = 64
+	// elfFixtureEntry is the entry point of executable fixtures; a PIE has
+	// one, a shared library usually has none.
+	elfFixtureEntry = 0x401000
 )
 
 var linuxELFFixtureMachines = map[string]elfFixtureMachine{
@@ -45,6 +48,8 @@ type (
 		OSABI   elf.OSABI
 		Type    elf.Type
 		Machine elf.Machine
+		// Entry is the entry point address; zero means none.
+		Entry uint32
 		// HeaderOnly writes the file header alone, with no program or section
 		// headers, as UPX-compressed binaries have no section table.
 		HeaderOnly bool
@@ -72,7 +77,7 @@ func LinuxELFExecutable(t testing.TB, goarch string) ELFFixture {
 	if !ok {
 		t.Fatalf("LinuxELFExecutable: no fixture machine for architecture %q", goarch)
 	}
-	return ELFFixture{Class: m.class, Data: m.data, OSABI: elf.ELFOSABI_NONE, Type: elf.ET_EXEC, Machine: m.machine}
+	return ELFFixture{Class: m.class, Data: m.data, OSABI: elf.ELFOSABI_NONE, Type: elf.ET_EXEC, Machine: m.machine, Entry: elfFixtureEntry}
 }
 
 // WriteELFFixture writes the ELF fixture f to path and returns path.
@@ -156,7 +161,7 @@ func (f ELFFixture) bytes(t testing.TB) []byte {
 		const ehsize, phentsize, shentsize = 52, 32, 40
 		hdr := elf.Header32{
 			Ident: ident, Type: uint16(f.Type), Machine: uint16(f.Machine), Version: uint32(elf.EV_CURRENT),
-			Ehsize: ehsize,
+			Entry: f.Entry, Ehsize: ehsize,
 		}
 		if !f.HeaderOnly {
 			hdr.Phoff, hdr.Phentsize, hdr.Phnum = ehsize, phentsize, 1
@@ -171,7 +176,7 @@ func (f ELFFixture) bytes(t testing.TB) []byte {
 		const ehsize, phentsize, shentsize = 64, 56, 64
 		hdr := elf.Header64{
 			Ident: ident, Type: uint16(f.Type), Machine: uint16(f.Machine), Version: uint32(elf.EV_CURRENT),
-			Ehsize: ehsize,
+			Entry: uint64(f.Entry), Ehsize: ehsize,
 		}
 		if !f.HeaderOnly {
 			hdr.Phoff, hdr.Phentsize, hdr.Phnum = ehsize, phentsize, 1

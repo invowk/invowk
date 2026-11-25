@@ -24,12 +24,13 @@ import (
 func TestBuildProvisionConfig_BinaryPathOnlyFromConfig(t *testing.T) {
 	t.Parallel()
 
+	binaryPath := filepath.Join(t.TempDir(), "invowk-linux-amd64", "invowk")
 	cfg := config.DefaultConfig()
-	cfg.Container.AutoProvision.BinaryPath = "/opt/invowk-linux-amd64/invowk"
+	cfg.Container.AutoProvision.BinaryPath = config.BinaryFilePath(binaryPath)
 
 	provCfg := buildProvisionConfig(cfg)
 
-	if provCfg.InvowkBinaryPath != "/opt/invowk-linux-amd64/invowk" {
+	if string(provCfg.InvowkBinaryPath) != binaryPath {
 		t.Fatalf("InvowkBinaryPath = %q, want the configured binary_path", provCfg.InvowkBinaryPath)
 	}
 	if provCfg.DefaultInvowkBinaryPath == "" {
@@ -200,6 +201,65 @@ func TestContainerRuntimeExecuteReusedPersistentContainerSkipsBinaryWarning(t *t
 	}
 	if len(engine.CreateCalls) != 1 || len(engine.BuildCalls) != 1 {
 		t.Fatalf("CreateCalls = %d, BuildCalls = %d, want 1 and 1", len(engine.CreateCalls), len(engine.BuildCalls))
+	}
+}
+
+// TestContainerRuntimeExecutePersistentContainerDriftsWhenBinaryDecisionChanges
+// covers a managed persistent container created while the default binary was
+// skipped: once binary_path names a usable binary, the identity changes and
+// the run fails with the managed-container drift error instead of reusing the
+// container under the old identity. The mock engine reports no architecture,
+// so the identity step skips the machine comparison on every host.
+func TestContainerRuntimeExecutePersistentContainerDriftsWhenBinaryDecisionChanges(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	engine := NewMockEngine().WithImageExists(false)
+	ctx := newPersistentExecutionContext(t, &invowkfile.RuntimePersistentConfig{CreateIfMissing: true, Name: "managed-dev"})
+
+	skipped := newBinaryProvisionRuntime(t, engine, false, "", testutil.WriteMachOFixture(t, filepath.Join(dir, "invowk")))
+	if first := skipped.Execute(ctx); first.Error != nil {
+		t.Fatalf("first Execute() error = %v", first.Error)
+	}
+	if len(engine.CreateCalls) != 1 {
+		t.Fatalf("CreateCalls = %d, want 1", len(engine.CreateCalls))
+	}
+	engine.WithInspectInfo(&container.ContainerInfo{
+		ContainerID: "managed-container",
+		Name:        "managed-dev",
+		Running:     true,
+		Labels:      engine.CreateCalls[0].Labels,
+	})
+
+	linuxBinary := testutil.WriteLinuxELFFixture(t, filepath.Join(dir, "invowk-linux-amd64"), "amd64", nil)
+	configured := newBinaryProvisionRuntime(t, engine, false, linuxBinary, "")
+	second := configured.Execute(ctx)
+	if second.Error == nil || !strings.Contains(second.Error.Error(), "different runtime configuration") {
+		t.Fatalf("second Execute() error = %v, want the managed-container drift error", second.Error)
+	}
+	if len(engine.CreateCalls) != 1 || len(engine.BuildCalls) != 1 {
+		t.Fatalf("CreateCalls = %d, BuildCalls = %d, want 1 and 1", len(engine.CreateCalls), len(engine.BuildCalls))
+	}
+}
+
+// TestContainerRuntimeExecuteEphemeralUnusableBinaryIsNotPersistent checks
+// that an ephemeral run with an unusable binary_path fails with the binary
+// error alone, not one that names a persistent container identity.
+func TestContainerRuntimeExecuteEphemeralUnusableBinaryIsNotPersistent(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	engine := NewMockEngine().WithImageExists(false)
+	rt := newBinaryProvisionRuntime(t, engine, false, testutil.WritePEFixture(t, filepath.Join(dir, "invowk.exe")), "")
+	ctx := newPersistentExecutionContext(t, nil)
+
+	result := rt.Execute(ctx)
+	if !errors.Is(result.Error, provision.ErrUnusableInvowkBinary) {
+		t.Fatalf("Execute() error = %v, want ErrUnusableInvowkBinary", result.Error)
+	}
+	if strings.Contains(result.Error.Error(), "persistent") {
+		t.Errorf("Execute() error = %q, want no persistent-container wording for an ephemeral run", result.Error)
+	}
+	if len(engine.BuildCalls) != 0 || len(engine.RunCalls) != 0 {
+		t.Errorf("BuildCalls = %d, RunCalls = %d, want none", len(engine.BuildCalls), len(engine.RunCalls))
 	}
 }
 

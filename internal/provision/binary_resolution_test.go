@@ -280,7 +280,7 @@ func TestProvisionConfiguredBinaryAgainstAssumedArchitecture(t *testing.T) {
 		t.Fatalf("Provision() error = %v, want an assumed-architecture UnusableInvowkBinaryError", err)
 	}
 	for _, part := range []string{
-		arm64, "built for arm64", "does not have image debian:stable-slim yet",
+		arm64, "built for arm64", "did not report the architecture of image debian:stable-slim",
 		"assumed the host architecture amd64", "pull debian:stable-slim", "build its Containerfile", "Linux amd64 build",
 	} {
 		if !strings.Contains(err.Error(), part) {

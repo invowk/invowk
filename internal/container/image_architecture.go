@@ -17,10 +17,12 @@ const (
 	ImageArchitectureUnknown ImageArchitecture = "unknown"
 
 	imageArchitectureFmt = "{{.Architecture}}"
+
+	invalidImageArchitectureErrMsg = "invalid image architecture"
 )
 
 // ErrInvalidImageArchitecture is the sentinel error wrapped by InvalidImageArchitectureError.
-var ErrInvalidImageArchitecture = errors.New("invalid image architecture")
+var ErrInvalidImageArchitecture = errors.New(invalidImageArchitectureErrMsg)
 
 type (
 	// ImageArchitecture is a Go/OCI architecture name as container engines

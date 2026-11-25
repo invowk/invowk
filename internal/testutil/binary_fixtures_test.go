@@ -22,7 +22,8 @@ func TestBinaryFixturesParseAsTheirFormat(t *testing.T) {
 			t.Fatalf("elf.Open(%s fixture) = %v", goarch, err)
 		}
 		if f.Class != want.class || f.Data != want.data || f.Machine != want.machine ||
-			f.OSABI != elf.ELFOSABI_NONE || f.Type != elf.ET_EXEC || len(f.Progs) != 1 || len(f.Sections) != 1 {
+			f.OSABI != elf.ELFOSABI_NONE || f.Type != elf.ET_EXEC || f.Entry != elfFixtureEntry ||
+			len(f.Progs) != 1 || len(f.Sections) != 1 {
 			t.Errorf("%s fixture header = %+v, progs %d, sections %d", goarch, f.FileHeader, len(f.Progs), len(f.Sections))
 		}
 		_ = f.Close()

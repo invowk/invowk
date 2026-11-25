@@ -27,7 +27,8 @@ const (
 	BinaryRejectionMalformedELF BinaryRejectionKind = 3
 	// BinaryRejectionOtherOS: the ELF OS ABI is neither none nor Linux.
 	BinaryRejectionOtherOS BinaryRejectionKind = 4
-	// BinaryRejectionNotExecutable: the ELF is not an executable or PIE.
+	// BinaryRejectionNotExecutable: the ELF is not an executable or PIE (a
+	// relocatable object, a core file, or a shared library with no entry point).
 	BinaryRejectionNotExecutable BinaryRejectionKind = 5
 	// BinaryRejectionMachine: the ELF is for another architecture than the container's.
 	BinaryRejectionMachine BinaryRejectionKind = 6
@@ -178,6 +179,11 @@ func checkLinuxBinary(path types.FilesystemPath, arch container.ImageArchitectur
 	}
 	if f.Type != elf.ET_EXEC && f.Type != elf.ET_DYN {
 		return &BinaryRejection{Kind: BinaryRejectionNotExecutable, Detail: f.Type.String()}
+	}
+	// ET_DYN covers both PIEs and shared libraries; a PIE always has an entry
+	// point, while most shared libraries have none.
+	if f.Type == elf.ET_DYN && f.Entry == 0 {
+		return &BinaryRejection{Kind: BinaryRejectionNotExecutable, Detail: f.Type.String() + " with no entry point"}
 	}
 	want, known := linuxELFMachines[arch]
 	if !known {

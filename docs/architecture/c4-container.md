@@ -49,7 +49,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 |-----------|------------|----------------|
 | **Container Engine Abstraction** | Go | Unified interface for Docker and Podman. Auto-detects available engine with fallback. |
 | **Container Plan Policy** | Go | Pure policy layer (`internal/containerplan/`) that resolves ephemeral vs persistent container targets, stable names, name sources, and create-if-missing behavior for dry-run and container execution. |
-| **Image Provisioner** | Go | Creates ephemeral image layers containing invowk binary and required modules. Enables seamless container execution. |
+| **Image Provisioner** | Go | Creates ephemeral image layers containing required modules and the invowk binary, when it is a Linux executable for the image's architecture. Enables seamless container execution. |
 
 ### Servers
 

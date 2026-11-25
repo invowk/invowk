@@ -46,11 +46,15 @@ func TestCheckLinuxBinary(t *testing.T) {
 	arm64 := testutil.WriteLinuxELFFixture(t, at("arm64"), "arm64", nil)
 	s390x := testutil.WriteLinuxELFFixture(t, at("s390x"), "s390x", nil)
 	i386 := testutil.WriteLinuxELFFixture(t, at("386"), "386", nil)
+	arm := testutil.WriteLinuxELFFixture(t, at("arm"), "arm", nil)
+	ppc64le := testutil.WriteLinuxELFFixture(t, at("ppc64le"), "ppc64le", nil)
+	riscv64 := testutil.WriteLinuxELFFixture(t, at("riscv64"), "riscv64", nil)
 	machO := testutil.WriteMachOFixture(t, at("macho"))
 	peFile := testutil.WritePEFixture(t, at("pe"))
 	freeBSD := elfWith("freebsd", func(f *testutil.ELFFixture) { f.OSABI = elf.ELFOSABI_FREEBSD })
 	linuxABI := elfWith("linux-abi", func(f *testutil.ELFFixture) { f.OSABI = elf.ELFOSABI_LINUX })
 	pie := elfWith("pie", func(f *testutil.ELFFixture) { f.Type = elf.ET_DYN })
+	sharedLibrary := elfWith("shared-library", func(f *testutil.ELFFixture) { f.Type, f.Entry = elf.ET_DYN, 0 })
 	relocatable := elfWith("relocatable", func(f *testutil.ELFFixture) { f.Type = elf.ET_REL })
 	headerOnly := elfWith("header-only", func(f *testutil.ELFFixture) { f.HeaderOnly = true })
 	truncated := elfWith("truncated", func(f *testutil.ELFFixture) { f.TruncateTo = 20 })
@@ -71,6 +75,10 @@ func TestCheckLinuxBinary(t *testing.T) {
 		{name: "ELF amd64 against amd64", path: amd64, arch: "amd64"},
 		{name: "ELF arm64 against arm64", path: arm64, arch: "arm64"},
 		{name: "ELF s390x big-endian against s390x", path: s390x, arch: "s390x"},
+		{name: "ELF 386 against 386", path: i386, arch: "386"},
+		{name: "ELF arm against arm", path: arm, arch: "arm"},
+		{name: "ELF ppc64le against ppc64le", path: ppc64le, arch: "ppc64le"},
+		{name: "ELF riscv64 against riscv64", path: riscv64, arch: "riscv64"},
 		{name: "Linux OS ABI", path: linuxABI, arch: "amd64"},
 		{name: "PIE", path: pie, arch: "amd64"},
 		{name: "header-only ELF without section headers", path: headerOnly, arch: "amd64"},
@@ -111,6 +119,10 @@ func TestCheckLinuxBinary(t *testing.T) {
 		{
 			name: "relocatable object", path: relocatable, arch: "amd64",
 			wantKind: BinaryRejectionNotExecutable, wantReason: "not an executable (ELF type ET_REL)",
+		},
+		{
+			name: "shared library with no entry point", path: sharedLibrary, arch: "amd64",
+			wantKind: BinaryRejectionNotExecutable, wantReason: "not an executable (ELF type ET_DYN with no entry point)",
 		},
 		{
 			name: "truncated ELF", path: truncated, arch: "amd64",

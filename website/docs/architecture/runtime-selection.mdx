@@ -83,7 +83,7 @@ For ephemeral container execution, Invowk prepares an image and creates an ephem
 1. **No image pollution**: Base images stay clean
 2. **Fast iteration**: No full rebuild needed
 3. **Portable**: Commands work with any compatible base image
-4. **Secure**: Invowk binary is injected, not installed in image
+4. **Secure**: Invowk binary is injected, not installed in image (only a Linux build for the image's architecture; otherwise it is skipped with a warning)
 
 ## SSH Server for Callbacks
 

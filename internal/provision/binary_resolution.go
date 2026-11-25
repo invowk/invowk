@@ -22,10 +22,12 @@ const (
 	architectureAssumed architectureSource = 2
 
 	defaultPullEngine = "docker"
+
+	unusableInvowkBinaryErrMsg = "unusable invowk binary"
 )
 
 // ErrUnusableInvowkBinary is the sentinel error wrapped by UnusableInvowkBinaryError.
-var ErrUnusableInvowkBinary = errors.New("unusable invowk binary")
+var ErrUnusableInvowkBinary = errors.New(unusableInvowkBinaryErrMsg)
 
 type (
 	// architectureSource says where a container architecture came from.
@@ -56,7 +58,7 @@ type (
 		Reason BinaryRejection
 		// ArchitectureAssumed is true when the only failure is a machine
 		// mismatch against the host architecture, assumed because the
-		// engine did not have the base image.
+		// engine did not report the base image's architecture.
 		ArchitectureAssumed bool
 		// Image is the base image the binary was checked for.
 		Image container.ImageTag
@@ -120,9 +122,10 @@ func (e *UnusableInvowkBinaryError) Error() string {
 			engine = defaultPullEngine
 		}
 		host := e.Reason.ContainerArchitecture
-		return fmt.Sprintf("container.auto_provision.binary_path %s is built for %s, but the engine does not have image %s yet, "+
-			"so invowk assumed the host architecture %s. If the image is for another platform, make it local first "+
-			"(%s pull %s, or build its Containerfile) and run again; otherwise set binary_path to a Linux %s build",
+		return fmt.Sprintf("container.auto_provision.binary_path %s is built for %s, but the engine did not report the architecture "+
+			"of image %s (the image is not local yet, or the query failed), so invowk assumed the host architecture %s. "+
+			"If the image is for another platform, make it local first (%s pull %s, or build its Containerfile) and run again; "+
+			"otherwise set binary_path to a Linux %s build",
 			e.Path, e.Reason.BinaryArchitecture, e.Image, host, engine, e.Image, host)
 	}
 	return fmt.Sprintf("container.auto_provision.binary_path %s cannot run in the container: %s", e.Path, e.Reason)
