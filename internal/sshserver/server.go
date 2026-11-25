@@ -69,11 +69,24 @@ type (
 		setWinsize setWinsizeFunc
 		copyBuffer copyBufferFunc
 
+		// stopMu serialises Stop calls and the start-failure teardown, so a
+		// Stop that loses the stop transition waits for the server's
+		// goroutines only after the winner's teardown (server_lifecycle.go).
+		stopMu sync.Mutex
+
 		// Initialized during Start() - protected by srvMu for writes
 		srvMu    sync.Mutex
 		srv      *ssh.Server
 		listener serverListener
 		addr     string // Actual bound address (including resolved port)
+		// gate opens once the serve goroutine has reached the SSH library's
+		// first Accept or returned; teardown waits for it before Shutdown.
+		gate *serveGate
+		// tornDown is set by the first teardown; Start publishes nothing after it.
+		tornDown bool
+
+		// hooks is a test-only seam into the lifecycle; nil in production.
+		hooks *lifecycleHooks
 
 		// Token management. conns holds the connections each token
 		// authenticated; revoking the token closes them.

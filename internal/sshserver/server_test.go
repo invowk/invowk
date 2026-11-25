@@ -420,7 +420,7 @@ func TestServerServeFailureTransitionsToFailed(t *testing.T) {
 	}
 
 	srv.base.AddGoroutine()
-	go srv.serve()
+	go srv.serve(nil)
 
 	testutil.RequirePollUntil(t, 5*time.Second, 10*time.Millisecond, "server did not transition to failed after serve error", func() bool {
 		return srv.State() == serverbase.StateFailed
