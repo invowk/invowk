@@ -261,21 +261,24 @@ func moduleAddLockLine(lockWritten bool) string {
 // error wraps the read error with %w and is joined with the restore errors, so
 // a missing invowkmod.cue is found through the error chain, not with
 // os.IsNotExist. The not-found line is printed only when every restore
-// succeeded; when one failed, the line with the whole error keeps the restore
-// failure visible, as before the not-found line was reachable.
+// succeeded; when one failed, the line says the rollback may be incomplete and
+// carries the whole error, so the restore failure stays visible.
 //
 //plint:render
 func moduleAddDeclarationFailureLine(err error) string {
 	if errors.Is(err, fs.ErrNotExist) && !moduleDeclarationRestoreFailed(err) {
 		return moduleInfoIcon + " invowkmod.cue not found — dependency was not persisted"
 	}
+	if moduleDeclarationRestoreFailed(err) {
+		return fmt.Sprintf("%s Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: %v", moduleInfoIcon, err)
+	}
 	return fmt.Sprintf("%s Could not auto-edit invowkmod.cue; lock file changes were rolled back: %v", moduleInfoIcon, err)
 }
 
 // moduleRemoveSummaryLine returns the summary module remove prints. When an
 // invowkmod.cue edit failed and the use case restored the files, the line says
-// the lock changes were rolled back; when a restore failed as well, it keeps
-// the "Lock file updated" line (the restore error is in the error line printed
+// the lock changes were rolled back; when a restore failed as well, it says the
+// rollback may be incomplete (the restore error is in the error line printed
 // above it). Otherwise it reports the lock and invowkmod.cue separately:
 // invowkmod.cue is updated when at least one edit wrote it.
 //
@@ -285,7 +288,7 @@ func moduleRemoveSummaryLine(declarations []modulesync.DeclarationEditResult, lo
 	for i := range declarations {
 		if err := declarations[i].Err(); err != nil {
 			if moduleDeclarationRestoreFailed(err) {
-				return moduleInfoIcon + " Lock file updated; invowkmod.cue needs manual review"
+				return moduleInfoIcon + " Lock file rollback may be incomplete; invowkmod.cue needs manual review"
 			}
 			return moduleInfoIcon + " Lock file changes were rolled back; invowkmod.cue needs manual review"
 		}

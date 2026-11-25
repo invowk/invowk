@@ -24,7 +24,7 @@ See proposal.md (Why). Current state on base `e2011627`:
 - No change to when files are written, to the rollback itself, or to `module add`'s success path, `module sync`, `update`, `tidy` or `vendor`.
 - `module update` with no lock still creates an empty lock (tracker Q4; brief "Not in scope").
 - The `LockFile.Save` formal rows (archived Q3) belong to the formal follow-ups change.
-- The `Removed <namespace>` lines printed before a rollback summary, and rollback lines when a restore itself failed, keep today's behaviour (Open questions OQ1, OQ2).
+- The `Removed <namespace>` lines printed before a rollback summary keep today's behaviour (Open question OQ1). Rollback lines when a restore itself failed were first left as they were; D7 (amended before merge) changes them.
 
 ## Decisions
 
@@ -76,14 +76,16 @@ Alternative: a separate `InvowkmodWritten()` accessor on the remove result (dupl
 - `ConcurrentModuleEdits.tla:60` keeps the symbol `RemoveRequirement` (renaming it to the new function would turn its listed binding gap into an unlisted one, which `triage --check` refuses) and its note becomes "delegates to RemoveRequirementIfPresent, which holds the narrow read (N) to write (M) window with no seam", with the new line numbers. The step comment at `:176` names the new lines. If `Resolver.RemoveModuleDependency`'s lines move, `:46` and `:172-173` follow. No model logic, constants or goldens change.
 - `formal_mutation.py symbols` labels both row-named functions `unplanned` (`-> skip`, Context), and `RemoveRequirementIfPresent` is named by no row, so no `mutation-formal` run and no ledger refresh. The fix stage re-runs `symbols` on the final tree, then `python3 scripts/formal_mutation.py triage --check`, `python3 scripts/formal.py correspondence` and `make formal-reach`.
 
-### D7. A failed restore keeps the base lines (fix stage, 2026-11-25)
+### D7. A failed restore says the rollback may be incomplete (fix stage, amended 2026-11-25)
+
+Amended before merge (2026-11-25, review of #211): a failed restore no longer keeps the base lines, which said "Lock file updated" or "rolled back" for a lock that may be unchanged or not restored. Add prints `Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: <error>` and remove prints `Lock file rollback may be incomplete; invowkmod.cue needs manual review`; the not-found line still needs every restore to have succeeded. The text below records the fix-stage version.
 
 Non-Goals says rollback lines when a restore itself failed keep today's behaviour; the first implementation did not. With `errors.Is` the add not-found branch became reachable and hid a failed lock restore behind "dependency was not persisted", and remove's new rollback line claimed a rollback that had failed (review findings: base lens, supply-chain lens, code-review, all on lines this change adds). Both use cases return `errors.Join(editErr, declarationRestoreErr, lockRestoreErr)`, and `errors.Join` drops nil errors, so a top-level join with more than one part means a restore failed. `moduleDeclarationRestoreFailed` in `cmd/invowk/module_deps.go` tests that; add prints the not-found line only when it is false, and remove prints `Lock file updated; invowkmod.cue needs manual review` (the base line) when it is true. `assertRestoresSucceeded` in `use_cases_dependency_test.go` pins the one-part shape for a successful rollback on both commands. The CLI reading the use case's error shape is the stopgap; OQ2's typed rollback outcome would replace it.
 
 ## Risks / Trade-offs
 
 - [Restore failure behind a not-found line] If `invowkmod.cue` is missing and the lock restore also fails, `errors.Is` alone would still find `fs.ErrNotExist` and add would print "dependency was not persisted" without the restore error; a restore failing with a not-exist error of its own would do the same with `invowkmod.cue` present. → Resolved in the fix stage (D7): the not-found line needs every restore to have succeeded.
-- [Rollback claimed when a restore failed] Remove's new rollback line would claim a rollback that failed. → Resolved in the fix stage (D7): a failed restore keeps the base line. Add's base rollback line (`Could not auto-edit invowkmod.cue; lock file changes were rolled back: <error>`) still says "rolled back" when a restore failed, with the restore error in `<error>`, as on the base; OQ2.
+- [Rollback claimed when a restore failed] Remove's new rollback line would claim a rollback that failed. → Resolved: a failed restore prints the "rollback may be incomplete" lines (D7, amended before merge); a typed rollback outcome stays OQ2.
 - [New public function] `RemoveRequirementIfPresent` is new `pkg/invowkmod` API; goplint may flag it. → Its parameters are already typed; fix any finding in code, with no baseline entry or inline ignore.
 - [Output change for scripts] A script grepping `invowkmod.cue updated` or `Lock file updated; invowkmod.cue needs manual review` sees the new lines. → Intended: the old lines were false. Exit codes are unchanged.
 - [Shared formal files with the F15 run] F15 (`invowk-f15`) may edit `formal/manifest.toml` or `tools/mutation/triage/formal-bindings.toml`. → This change edits only `ConcurrentModuleEdits.tla` comments; on rebase keep both sides' entries.
@@ -100,7 +102,7 @@ None. No file format, flag or exit code changes. Rollback is a revert of the PR.
 ## Open questions
 
 - OQ1. After a failed `invowkmod.cue` edit, `module remove` still prints `✓ Removed <namespace>` for every removed lock entry (`cmd/invowk/module_deps.go:231-233`), although the lock has been restored and nothing was removed. Moving those lines to the success branch is a separate wording change; this change only fixes the summary line (brief item 2).
-- OQ2. The add and remove rollback lines do not distinguish a failed restore from a successful one (Risks). A typed rollback outcome in `DeclarationEditResult` would make them exact; it is a separate change touching both commands.
+- OQ2. The add and remove rollback lines tell a failed restore from a successful one by the shape of the use case's `errors.Join` (D7). A typed rollback outcome in `DeclarationEditResult` would make that check exact and remove the coupling; it is a separate change touching both commands.
 - OQ3. The `RemoveProg` row note "RemoveRequirement never fails, so no rollback path" (`ConcurrentModuleEdits.tla:46`) is not what the code does: remove has a rollback path (`use_cases.go:245-252`), tested by `TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure`. Whether the model should include it, and whether the `WriteMod remove` row should move to `RemoveRequirementIfPresent` (as Q3 asks for `LockFile.Save`), belongs to the formal follow-ups change.
 
 ## Implementation notes (implement stage, 2026-11-25)

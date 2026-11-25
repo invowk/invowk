@@ -70,7 +70,7 @@ A saída se parece com:
 
 Quando o lock file já tinha o módulo com a mesma entrada, o salvamento não o altera e a linha do lock fica `✓ Module lock file unchanged`; a linha de `invowkmod.cue` continua informando a própria edição.
 
-Quando a edição de `invowkmod.cue` falha, o comando restaura o lock file e não imprime nenhuma dessas duas linhas. Se `invowkmod.cue` não existe, a última linha fica `invowkmod.cue not found — dependency was not persisted`; em qualquer outra falha (por exemplo, já existe uma entrada em `requires` para o módulo), ela fica `Could not auto-edit invowkmod.cue; lock file changes were rolled back: <error>`. Se a restauração de um arquivo também falha, a última linha é essa linha `Could not auto-edit` mesmo quando `invowkmod.cue` não existe, e `<error>` informa a restauração que falhou.
+Quando a edição de `invowkmod.cue` falha, o comando restaura o lock file e não imprime nenhuma dessas duas linhas. Se `invowkmod.cue` não existe, a última linha fica `invowkmod.cue not found — dependency was not persisted`; em qualquer outra falha (por exemplo, já existe uma entrada em `requires` para o módulo), ela fica `Could not auto-edit invowkmod.cue; lock file changes were rolled back: <error>`. Se a restauração de um arquivo também falha, a última linha fica `Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: <error>` mesmo quando `invowkmod.cue` não existe, e `<error>` informa a restauração que falhou.
 :::
 
 ## invowk module remove
@@ -104,7 +104,7 @@ A saída termina com `✓ Lock file and invowkmod.cue updated`. O lock no disco 
 
 Quando `invowkmod.cue` não tem entrada em `requires` para o módulo removido, ou não existe, o comando não o altera e a última linha fica `✓ Lock file updated; invowkmod.cue unchanged` (ou `✓ Lock file and invowkmod.cue unchanged`, quando o salvamento do lock também não alterou o arquivo).
 
-Quando a edição de `invowkmod.cue` falha, o comando restaura o lock file. Ele imprime `Could not auto-edit invowkmod.cue: <error>`, e a última linha fica `Lock file changes were rolled back; invowkmod.cue needs manual review`. Se a restauração de um arquivo também falha, `<error>` informa a restauração que falhou e a última linha fica `Lock file updated; invowkmod.cue needs manual review`.
+Quando a edição de `invowkmod.cue` falha, o comando restaura o lock file. Ele imprime `Could not auto-edit invowkmod.cue: <error>`, e a última linha fica `Lock file changes were rolled back; invowkmod.cue needs manual review`. Se a restauração de um arquivo também falha, `<error>` informa a restauração que falhou e a última linha fica `Lock file rollback may be incomplete; invowkmod.cue needs manual review`.
 
 Arquivos de cache não são deletados.
 :::

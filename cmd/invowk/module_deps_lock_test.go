@@ -57,7 +57,7 @@ func TestModuleRemoveSummaryLine(t *testing.T) {
 	failed := mustDeclarationEditResult(t, false, errors.Join(readErr, nil, nil))
 	restoreFailed := mustDeclarationEditResult(t, false, errors.Join(readErr, nil, errors.New("rollback invowkmod.lock.cue: permission denied")))
 	rollback := moduleInfoIcon + " Lock file changes were rolled back; invowkmod.cue needs manual review"
-	restoreFailedLine := moduleInfoIcon + " Lock file updated; invowkmod.cue needs manual review"
+	restoreFailedLine := moduleInfoIcon + " Lock file rollback may be incomplete; invowkmod.cue needs manual review"
 
 	tests := []struct {
 		name         string
@@ -116,6 +116,7 @@ version: "1.0.0"
 
 	notFound := moduleInfoIcon + " invowkmod.cue not found — dependency was not persisted"
 	rollbackPrefix := moduleInfoIcon + " Could not auto-edit invowkmod.cue; lock file changes were rolled back: "
+	incompletePrefix := moduleInfoIcon + " Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: "
 	missingRestoreFailed := errors.Join(missingErr, nil, errors.New("rollback invowkmod.lock.cue: permission denied"))
 	// A restore that fails with its own not-exist error must not turn a
 	// duplicate-requirement failure into the not-found line.
@@ -126,9 +127,9 @@ version: "1.0.0"
 		want string
 	}{
 		{name: "missing file, restores succeeded", err: errors.Join(missingErr, nil, nil), want: notFound},
-		{name: "missing file, a restore failed", err: missingRestoreFailed, want: rollbackPrefix + missingRestoreFailed.Error()},
+		{name: "missing file, a restore failed", err: missingRestoreFailed, want: incompletePrefix + missingRestoreFailed.Error()},
 		{name: "duplicate requirement", err: duplicateErr, want: rollbackPrefix + duplicateErr.Error()},
-		{name: "duplicate requirement, restore not found", err: duplicateRestoreNotExist, want: rollbackPrefix + duplicateRestoreNotExist.Error()},
+		{name: "duplicate requirement, restore not found", err: duplicateRestoreNotExist, want: incompletePrefix + duplicateRestoreNotExist.Error()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
