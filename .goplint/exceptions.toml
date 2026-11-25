@@ -1235,28 +1235,16 @@ reason = "comparison result (-1/0/1)"
 # Internal CUE text parsing/formatting functions that manipulate raw CUE source.
 
 [[exceptions]]
-pattern = "invowkmod.entryBounds.*"
-reason = "CUE text line range struct"
+pattern = "invowkmod.entrySpan.*"
+reason = "CUE text byte-offset span of one requires entry"
 
 [[exceptions]]
-pattern = "invowkmod.findRequiresBlock.*"
-reason = "CUE text block-finding internal"
+pattern = "invowkmod.requiresBlock.*"
+reason = "CUE text byte offsets of the requires field and its list"
 
 [[exceptions]]
-pattern = "invowkmod.findRequiresBlock.return.*"
-reason = "CUE text block-finding return"
-
-[[exceptions]]
-pattern = "invowkmod.findEntryBounds.*"
-reason = "CUE text entry bounds internal"
-
-[[exceptions]]
-pattern = "invowkmod.parseRequiresEntryFields.*"
-reason = "CUE text field-parsing internal"
-
-[[exceptions]]
-pattern = "invowkmod.parseRequiresEntryFields.return.*"
-reason = "CUE text field-parsing return"
+pattern = "invowkmod.isIdentByte.*"
+reason = "CUE text lexical byte classifier"
 
 [[exceptions]]
 pattern = "invowkmod.formatRequiresEntry.return.*"

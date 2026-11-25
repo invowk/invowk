@@ -466,45 +466,6 @@ requires: [
 	}
 }
 
-func TestInvowkmodEditHelperMutationBoundaries(t *testing.T) {
-	t.Parallel()
-
-	t.Run("find requires block skips comments and reports malformed block as absent", func(t *testing.T) {
-		t.Parallel()
-
-		lines := strings.Split(`// requires: [
-module: "mymodule"
-requires: [
-`, "\n")
-
-		startLine, endLine, found := findRequiresBlock(lines)
-		if found {
-			t.Fatalf("findRequiresBlock() found block at (%d, %d), want absent", startLine, endLine)
-		}
-		if startLine != 0 || endLine != 0 {
-			t.Fatalf("findRequiresBlock() = (%d, %d, false), want (0, 0, false)", startLine, endLine)
-		}
-	})
-
-	t.Run("find entry bounds includes entry ending at block end", func(t *testing.T) {
-		t.Parallel()
-
-		lines := []string{
-			"{",
-			`	git_url: "https://github.com/user/tools.git"`,
-			"}",
-		}
-
-		entries := findEntryBounds(lines, 0, 2)
-		if len(entries) != 1 {
-			t.Fatalf("findEntryBounds() returned %d entries, want 1", len(entries))
-		}
-		if entries[0] != (entryBounds{start: 0, end: 2}) {
-			t.Fatalf("findEntryBounds()[0] = %+v, want start=0 end=2", entries[0])
-		}
-	})
-}
-
 func writeInvowkmodEditFixture(t *testing.T, content string) string {
 	t.Helper()
 

@@ -1,4 +1,4 @@
-# Test: invowk module remove summary lines
+# Test: invowk module remove summary lines and one-line requires entries
 # Verifies spec "Add and remove report each file truthfully" (no matching
 # requires entry) and "A failed invowkmod.cue edit reports the rollback".
 # Uses pre-seeded lock files to avoid network access.
@@ -29,6 +29,17 @@ stdout 'Lock file changes were rolled back; invowkmod.cue needs manual review'
 ! stdout 'Lock file unchanged'
 stderr '(?i)failed to read invowkmod.cue'
 cmp invowkmod.lock.cue lock.before
+
+# Case 3: the requires entry is written on one line, inside a one-line
+# block with another entry. Remove finds it, deletes only that entry, and the
+# file stays valid (validate parses it).
+cd $WORK/oneline
+exec invowk module remove dep
+stdout 'Removed'
+stdout 'Lock file and invowkmod.cue updated'
+! grep 'example/dep.invowkmod.git' invowkmod.cue
+grep 'example/other.invowkmod.git' invowkmod.cue
+grep '^requires: \[\{git_url' invowkmod.cue
 
 -- nomatch/invowkmod.cue --
 module:  "mymod"
@@ -67,6 +78,34 @@ modules: {
 cmds: []
 
 -- broken/invowkmod.lock.cue --
+// invowkmod.lock.cue - Auto-generated lock file for module dependencies
+// DO NOT EDIT MANUALLY
+
+version: "2.0"
+generated: "2025-01-01T00:00:00Z"
+
+modules: {
+	"https://github.com/example/dep.invowkmod.git": {
+		git_url:          "https://github.com/example/dep.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "dep@1.0.0"
+		command_source_id: "dep"
+		module_id:        "dep"
+		content_hash:     "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	}
+}
+
+-- oneline/invowkmod.cue --
+module:  "mymod"
+version: "0.1.0"
+requires: [{git_url: "https://github.com/example/dep.invowkmod.git", version: "^1.0.0"}, {git_url: "https://github.com/example/other.invowkmod.git", version: "^1.0.0"}]
+
+-- oneline/invowkfile.cue --
+cmds: []
+
+-- oneline/invowkmod.lock.cue --
 // invowkmod.lock.cue - Auto-generated lock file for module dependencies
 // DO NOT EDIT MANUALLY
 
