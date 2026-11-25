@@ -34,8 +34,11 @@ type (
 		model    *interactiveModel
 		doneSeen chan struct{}
 		rebuilt  chan struct{}
+		// sized is closed when the program delivers its first window size.
+		sized    chan struct{}
 		doneOnce sync.Once
 		rebOnce  sync.Once
+		sizeOnce sync.Once
 		program  *tea.Program
 		ready    chan struct{}
 	}
@@ -59,7 +62,12 @@ func (*scriptedTerminal) Write(p []byte) (int, error) { return len(p), nil }
 func (*scriptedTerminal) Resize(int, int) error { return nil }
 
 func newSessionProbe() *sessionProbe {
-	return &sessionProbe{doneSeen: make(chan struct{}), rebuilt: make(chan struct{}), ready: make(chan struct{})}
+	return &sessionProbe{
+		doneSeen: make(chan struct{}),
+		rebuilt:  make(chan struct{}),
+		sized:    make(chan struct{}),
+		ready:    make(chan struct{}),
+	}
 }
 
 func (p *sessionProbe) filter(m tea.Model, msg tea.Msg) tea.Msg {
@@ -76,6 +84,8 @@ func (p *sessionProbe) filter(m tea.Model, msg tea.Msg) tea.Msg {
 		p.doneOnce.Do(func() { close(p.doneSeen) })
 	case completedRebuildMsg:
 		p.rebOnce.Do(func() { close(p.rebuilt) })
+	case tea.WindowSizeMsg:
+		p.sizeOnce.Do(func() { close(p.sized) })
 	}
 	return msg
 }
@@ -184,12 +194,16 @@ func TestInteractiveSessionLastChunkWithinGrace(t *testing.T) {
 	probe := newSessionProbe()
 	waited := make(chan struct{})
 	finish := probe.run(t, term, func(context.Context) InteractiveResult {
+		// The command ends once the viewer is laid out, so the completed
+		// view is built when the banner arrives.
+		<-probe.sized
 		close(waited)
 		return InteractiveResult{}
 	})
 	go func() {
+		// No sleep: the chunk follows the command's end with the whole
+		// grace period as its margin, so a slow scheduler cannot reorder it.
 		<-waited
-		time.Sleep(interactiveOutputGrace / 5)
 		term.chunks <- "LAST-LINE\r\n"
 		close(term.chunks)
 	}()

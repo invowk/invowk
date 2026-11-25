@@ -78,6 +78,9 @@ func startInteractivePty(cmd *exec.Cmd, width, height tui.TerminalDimension) (xp
 		return nil, fmt.Errorf("failed to start command on PTY: %w", err)
 	}
 	if err := releaseParentSlave(pty); err != nil {
+		// The command already runs: end and reap it before giving up.
+		_ = cmd.Process.Kill() //nolint:errcheck // best effort: the start already failed
+		_ = cmd.Wait()         //nolint:errcheck // reaps the killed process; its status is moot
 		_ = pty.Close()
 		return nil, fmt.Errorf("failed to release the PTY slave: %w", err)
 	}

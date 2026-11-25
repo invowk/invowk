@@ -81,7 +81,13 @@ The viewer SHALL apply the command's output to a terminal screen the size of the
 #### Scenario: A repainting prompt shows one frame
 - **WHEN** the no-server `choose` script of the controlling-terminal requirement runs with `-i` and the user presses Down
 - **THEN** the viewer SHALL show exactly one `Pick one` frame, with `beta` marked as the current choice in place
-- **AND** the component's help line SHALL read exactly `enter submit • esc cancel`
+- **AND** the component's help line `↑/k up • ↓/j down • enter submit • esc cancel` SHALL appear exactly once
+- **AND** the viewer's header and footer SHALL stay intact
+
+#### Scenario: A typed answer shows on the prompt row
+- **WHEN** the no-server `input` script of the controlling-terminal requirement runs with `-i` and the user types `Ana`
+- **THEN** the prompt row SHALL show `> Ana`
+- **AND** the component's help line SHALL read exactly `enter submit • esc cancel`, and no other help line SHALL be shown
 - **AND** the viewer's header and footer SHALL stay intact
 
 #### Scenario: Carriage-return progress
@@ -127,7 +133,7 @@ Answering queries and forwarding keys SHALL never block the viewer. When the com
 - **THEN** the viewer SHALL force quit within a few seconds
 
 ### Requirement: Keys are encoded for the command's terminal modes
-While the command runs, the viewer SHALL forward every key except Ctrl+\, encoded as a terminal in the command's current modes would send it: every Ctrl+letter (with or without Shift) as its control character, Alt as an `ESC` prefix, cursor keys in application form after the command enables application cursor keys. Pasted text SHALL be forwarded, bracketed when the command enabled bracketed paste.
+While the command runs, the viewer SHALL forward every key except Ctrl+\, encoded as a terminal in the command's current modes would send it: every Ctrl+letter (with or without Shift) as its control character, Alt as an `ESC` prefix (Alt+Shift+letter as `ESC` and the uppercase letter), cursor keys in application form after the command enables application cursor keys, keypad keys in application form after the command enables application keypad keys. Pasted text SHALL be forwarded, bracketed when the command enabled bracketed paste, and SHALL be delivered or dropped whole, never in part. Under a server component overlay, pasted text SHALL go to the component.
 
 #### Scenario: Ctrl+letter
 - **WHEN** a command run with `-i` runs `stty raw -echo; od -An -c -N1` and the user presses Ctrl+A

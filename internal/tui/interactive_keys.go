@@ -47,6 +47,17 @@ func encodeInteractiveKey(msg tea.KeyPressMsg) (vt.KeyPressEvent, bool) {
 	code := msg.Code
 	text := msg.Text
 
+	if _, ok := vtEncodedSpecialKeys[code]; ok && code >= vt.KeyExtended {
+		// Keypad keys can carry their digit as text (Kitty protocol); vt
+		// encodes them for the keypad mode only without it.
+		text = ""
+	}
+	if text == "" && !mod.Contains(vt.ModCtrl) && mod.Contains(vt.ModShift) {
+		// Alt+Shift+letter arrives without text (legacy ESC A, Kitty):
+		// send the shifted character, Alt kept as the ESC prefix.
+		text = withShiftedText(msg).Text
+	}
+
 	if mod.Contains(vt.ModCtrl) {
 		text = ""
 		if code >= 'A' && code <= 'Z' {
@@ -76,6 +87,24 @@ func encodeInteractiveKey(msg tea.KeyPressMsg) (vt.KeyPressEvent, bool) {
 		return vt.KeyPressEvent{}, false
 	}
 	return vt.KeyPressEvent{Code: code, Mod: mod &^ interactiveDroppedMods}, true
+}
+
+// withShiftedText returns the key with Text set to the character a
+// Shift-modified printable key types, or to "" for a non-printable key.
+func withShiftedText(msg tea.KeyPressMsg) tea.KeyPressMsg {
+	msg.Text = ""
+	if msg.Code >= vt.KeyExtended {
+		return msg
+	}
+	shifted := msg.ShiftedCode
+	if shifted == 0 && msg.Code >= 'a' && msg.Code <= 'z' {
+		shifted = msg.Code - ('a' - 'A')
+	}
+	if shifted <= ' ' || shifted == 0x7f || shifted >= vt.KeyExtended {
+		return msg
+	}
+	msg.Text = string(shifted)
+	return msg
 }
 
 // isSpecialKey reports whether the key is a non-printing key: one of the

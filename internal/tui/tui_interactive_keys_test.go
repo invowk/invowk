@@ -3,17 +3,28 @@
 package tui
 
 import (
+	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
 
 type (
+	// slowRecordingTerminal records what it receives once gate is closed, as
+	// the input of a command that reads more slowly than a paste is copied.
+	slowRecordingTerminal struct {
+		recordingTerminal
+		gate chan struct{}
+	}
+
 	keyEncodingCase struct {
 		name string
 		key  tea.KeyPressMsg
 		// appCursor enables application cursor keys (DECCKM) first.
 		appCursor bool
+		// appKeypad enables application keypad keys (DECKPAM) first.
+		appKeypad bool
 		want      string
 	}
 )
@@ -69,6 +80,11 @@ func keyEncodingCases() []keyEncodingCase {
 		keyEncodingCase{name: "ctrl+backspace", key: tea.KeyPressMsg{Code: tea.KeyBackspace, Mod: tea.ModCtrl}, want: "\x7f"},
 		keyEncodingCase{name: "alt+ctrl+left", key: tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModAlt | tea.ModCtrl}, want: "\x1b\x1b[D"},
 		keyEncodingCase{name: "super+left", key: tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModSuper}, want: "\x1b[D"},
+		keyEncodingCase{name: "alt+shift+a", key: tea.KeyPressMsg{Code: 'a', ShiftedCode: 'A', Mod: tea.ModShift | tea.ModAlt}, want: "\x1bA"},
+		keyEncodingCase{name: "alt+shift+o no shifted code", key: tea.KeyPressMsg{Code: 'o', Mod: tea.ModShift | tea.ModAlt}, want: "\x1bO"},
+		keyEncodingCase{name: "keypad 5 with text", key: tea.KeyPressMsg{Code: tea.KeyKp5, Text: "5"}, want: "5"},
+		keyEncodingCase{name: "app keypad 5 with text", key: tea.KeyPressMsg{Code: tea.KeyKp5, Text: "5"}, appKeypad: true, want: "\x1bOu"},
+		keyEncodingCase{name: "app keypad shift+5 with text", key: tea.KeyPressMsg{Code: tea.KeyKp5, Text: "5", Mod: tea.ModShift}, appKeypad: true, want: "\x1bOu"},
 		keyEncodingCase{name: "ctrl+1 dropped", key: tea.KeyPressMsg{Code: '1', Mod: tea.ModCtrl}, want: ""},
 		keyEncodingCase{name: "unencoded special dropped", key: tea.KeyPressMsg{Code: tea.KeyMediaPlay}, want: ""},
 		keyEncodingCase{name: "f13 dropped", key: tea.KeyPressMsg{Code: tea.KeyF13}, want: ""},
@@ -87,6 +103,9 @@ func TestInteractiveKeyEncoding(t *testing.T) {
 			model := newSizedInteractiveModel(t, term)
 			if tt.appCursor {
 				model.Update(outputMsg{data: []byte("\x1b[?1h")})
+			}
+			if tt.appKeypad {
+				model.Update(outputMsg{data: []byte("\x1b=")})
 			}
 			_, cmd := model.Update(tt.key)
 			if cmd != nil {
@@ -146,6 +165,31 @@ func TestInteractivePaste(t *testing.T) {
 		}
 	})
 
+	t.Run("large paste reaches a slow reader whole", func(t *testing.T) {
+		t.Parallel()
+		term := &slowRecordingTerminal{gate: make(chan struct{})}
+		model := newSizedInteractiveModel(t, term)
+		model.Update(outputMsg{data: []byte("\x1b[?2004h")})
+		content := strings.Repeat("0123456789abcdef", (4*interactiveInputQueueBytes)/16)
+		model.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
+		model.Update(tea.PasteMsg{Content: content})
+		// The key after the paste is queued while the paste still waits.
+		model.Update(tea.KeyPressMsg{Code: 'b', Text: "b"})
+		close(term.gate)
+		want := "a\x1b[200~" + content + "\x1b[201~b"
+		deadline := time.Now().Add(screenTestTimeout)
+		for len(term.written()) < len(want) && time.Now().Before(deadline) {
+			time.Sleep(5 * time.Millisecond)
+		}
+		if got := term.written(); got != want {
+			head, tail := got[:min(len(got), 16)], got[max(len(got)-16, 0):]
+			t.Fatalf("terminal received %d bytes (%q...%q), want the %d bytes of keys and paste in order", len(got), head, tail, len(want))
+		}
+		if dropped := model.screen.dropped.Load(); dropped != 0 {
+			t.Fatalf("dropped %d bytes, want none for a command that reads", dropped)
+		}
+	})
+
 	t.Run("bracketed", func(t *testing.T) {
 		t.Parallel()
 		term := newRecordingTerminal()
@@ -158,4 +202,36 @@ func TestInteractivePaste(t *testing.T) {
 			t.Fatalf("terminal received %q, want %q", got, want)
 		}
 	})
+}
+
+func (s *slowRecordingTerminal) Write(p []byte) (int, error) {
+	<-s.gate
+	return s.recordingTerminal.Write(p)
+}
+
+// TestInteractivePasteInComponentOverlay: under a server component overlay,
+// a paste goes to the component, never to the command (spec "Components with
+// the TUI server are unchanged").
+func TestInteractivePasteInComponentOverlay(t *testing.T) {
+	t.Parallel()
+
+	term := newRecordingTerminal()
+	model := newSizedInteractiveModel(t, term)
+	responseCh := make(chan ComponentResponse, 1)
+	model.Update(TUIComponentMsg{
+		Component:  ComponentTypeInput,
+		Options:    InputOptions{Title: "Token"},
+		ResponseCh: responseCh,
+	})
+	if model.state != stateTUI {
+		t.Fatalf("state = %v, want stateTUI", model.state)
+	}
+	model.Update(tea.PasteMsg{Content: "s3cret"})
+	if view := stripANSI(model.activeComponent.View().Content); !strings.Contains(view, "s3cret") {
+		t.Fatalf("component view does not show the paste:\n%s", view)
+	}
+	model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if got := term.written(); got != "" {
+		t.Fatalf("the paste reached the command's terminal as %q", got)
+	}
 }

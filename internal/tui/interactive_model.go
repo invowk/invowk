@@ -44,10 +44,12 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyMsg(msg)
 
 	case tea.PasteMsg:
+		// While the command runs the paste is its input; under a server
+		// component overlay it goes to the component below.
 		if m.state == stateExecuting {
-			m.screen.emu.Paste(msg.Content)
+			m.screen.paste(msg)
+			return m, nil
 		}
-		return m, nil
 
 	case tea.WindowSizeMsg:
 		return m.handleWindowSize(msg)
@@ -91,7 +93,7 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// The viewport holds the completed view only; while the command runs,
-	// the mouse and keys belong to the command's screen.
+	// keys go to the command and mouse events are not used.
 	if m.ready && m.state == stateCompleted {
 		var cmd tea.Cmd
 		m.viewport, cmd = m.viewport.Update(msg)

@@ -2157,6 +2157,10 @@ reason = "unexported bubbletea list.Item internals — display text only"
 pattern = "tui.outputMsg.*"
 reason = "unexported bubbletea message — display text only"
 
+[[exceptions]]
+pattern = "tui.queuedInput.data"
+reason = "unexported terminal input chunk — raw bytes the viewer writes to the command's PTY"
+
 # --- TUI Public Options/Result Struct Fields ---
 
 [[exceptions]]

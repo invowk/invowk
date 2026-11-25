@@ -102,6 +102,14 @@ Output that arrives after `doneMsg` is not dropped: a tail that conhost flushes 
 - D8: the completion message follows all output when the reader ends within the grace period. A reader that is still delivering a backlog when the grace period ends (or never ends) gets the banner first; its later chunks are drawn above the banner by the completed-view rebuild, so the banner stays last either way.
 - Tests run the viewer without a terminal through a new `InteractiveOptions.ProgramOptions` field (extra Bubble Tea options: `WithInput(nil)`, `WithOutput`, `WithWindowSize`, `WithFilter`), used by the `internal/tui` session tests and the adapter's `LAST-LINE` test.
 
+## Review fixes (fix-and-gates stage)
+
+- D5, paste: a paste no longer goes through the pump's byte bound in 4 KiB pieces, which dropped the middle and the end marker of a paste larger than 64 KiB even for a command that reads. `emulatedScreen.paste` collects the bytes `Emulator.Paste` writes (bracketed when enabled) and queues them as one chunk, accepted or dropped whole. Empty writes to the input pipe before and after the paste are the barriers: an `io.Pipe` write returns only once the reader called `Read` again, so the pump has handled every earlier byte. Pastes have their own bound (1 MiB waiting; one paste is always accepted when no other one waits), so a waiting paste never makes keys drop.
+- D5, writer: `close()` also stops the writer before its next write, because the adapter closes the terminal right after the session and `conpty`'s `Write` has no guard against a closed handle (a write already in progress is not covered).
+- D6: Alt+Shift+letter (legacy `ESC A`, Kitty), which arrives without text, is sent as `ESC` plus the shifted character; keypad keys reported with text (Kitty) lose the text, so vt encodes them for the keypad mode.
+- Paste under a server component overlay reaches the component again, as on the base.
+- Windows: `getTerminalSizeFromFd` uses the console handle directly; the `os.NewFile` wrapper it built closed the process's standard handle once finalized, which every model construction now reached.
+
 ## Risks / Trade-offs
 
 - [History is capped at 10,000 lines, the old viewer kept everything] -> documented in README and website; the cap matches common terminal defaults; raising it is one constant.
