@@ -10,9 +10,10 @@
 
   Named assumptions:
     A1  Every fspath.AtomicWriteFile call (LockFile.SaveIfChanged, which
-        LockFile.Save wraps; AddRequirement; RemoveRequirement) is one atomic
-        replace; AtomicWrite owns crash durability and is not re-checked
-        here. LockFile.SaveIfChanged skips the write when the valid lock on
+        LockFile.Save wraps; AddRequirement; RemoveRequirementIfPresent,
+        which RemoveRequirement wraps) is one atomic replace; AtomicWrite
+        owns crash durability and is not re-checked here.
+        LockFile.SaveIfChanged skips the write when the valid lock on
         disk already has equal content; the model tracks lock entries, not
         bytes or timestamps, so that skip is the same step as a replace with
         identical content.
@@ -57,7 +58,7 @@
 \* | CopyToCache | Resolver.cacheModule | internal/app/modulesync/cache.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | stat, copy, hash; the fresh-copy branch trusts the worktree |
 \* | Checkout | GitFetcher.checkout | internal/app/modulesync/git.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | one worktree per URL, not per version (94-117, 467) |
 \* | WriteMod add | AddRequirement | pkg/invowkmod/invowkmod_edit.go | - | narrow read (29) to write (73) window with no seam |
-\* | WriteMod remove | RemoveRequirement | pkg/invowkmod/invowkmod_edit.go | - | narrow read (82) to write (137) window with no seam |
+\* | WriteMod remove | RemoveRequirement | pkg/invowkmod/invowkmod_edit.go | - | delegates to RemoveRequirementIfPresent, which holds the narrow read (98) to write (153) window with no seam |
 \* | WriteLock | LockFile.Save | pkg/invowkmod/lockfile.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | atomic replace (A1); skipped when the valid lock on disk has equal content, which equals a replace with identical content at Save's own re-read (InspectLockFile), not at the sync's earlier lock read; Save delegates to SaveIfChanged, which holds the skip-or-replace body and which the resolver calls; its written flag is reporting only |
 \* | VendorProg | vendorDependenciesWithResolver | internal/app/moduleops/vendor_dependencies.go | TestConcurrentEdits_VendorFromStaleLock | characterisation: LoadDeclaredFromLock (127), then VendorModules (104) |
 \* | VendorRemove, VendorCopy | VendorModules | internal/app/moduleops/vendor.go | - | the RemoveAll (107) to copy (115) window has no seam |
@@ -173,7 +174,7 @@ Program(p) ==
                  Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:229,233
                  \o <<St("ReadLock"), S("WriteLock", "remove", o.key, "-")>> \* resolver.go:179,206
                  \o Between(k, j)
-                 \o <<St("ReadMod"), S("WriteMod", "remove", o.key, "-")>> \* invowkmod_edit.go:82,137
+                 \o <<St("ReadMod"), S("WriteMod", "remove", o.key, "-")>> \* invowkmod_edit.go:98,153
                  \o Final(k, j)
             [] k = "sync" ->                \* SyncModule -> Resolver.Sync
                  Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:407
@@ -361,9 +362,10 @@ WriteLock(p) ==
                  /\ SetLock(j, "whole", [k \in DOMAIN rl |-> res[p][k]])
                  /\ Advance(p) /\ UNCHANGED <<srcVars, localVars, histVars>>
 
-\* AddRequirement / RemoveRequirement write from the ReadMod copy. A duplicate
-\* add fails (ErrModuleAlreadyExists) and falls through to the Restore steps
-\* that follow; a successful edit skips them.
+\* AddRequirement / RemoveRequirementIfPresent (which RemoveRequirement wraps)
+\* write from the ReadMod copy. A duplicate add fails (ErrModuleAlreadyExists)
+\* and falls through to the Restore steps that follow; a successful edit skips
+\* them.
 AfterRestores(p) ==
     CHOOSE i \in pc[p] + 1 .. Len(Program(p)) :
         Program(p)[i].op /= "Restore" /\ \A m \in pc[p] + 1 .. i - 1 : Program(p)[m].op = "Restore"

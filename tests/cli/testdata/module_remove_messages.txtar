@@ -1,0 +1,83 @@
+# Test: invowk module remove summary lines
+# Verifies spec "Add and remove report each file truthfully" (no matching
+# requires entry) and "A failed invowkmod.cue edit reports the rollback".
+# Uses pre-seeded lock files to avoid network access.
+
+# Case 1: invowkmod.cue has no requires entry for the removed module. The lock
+# loses the entry; invowkmod.cue stays byte-identical and is reported unchanged.
+cd $WORK/nomatch
+cp invowkmod.cue invowkmod.cue.before
+exec invowk module remove dep
+stdout 'Removed'
+stdout 'Lock file updated; invowkmod.cue unchanged'
+! stdout 'invowkmod.cue updated'
+cmp invowkmod.cue invowkmod.cue.before
+! grep 'example/dep.invowkmod.git' invowkmod.lock.cue
+
+# Case 2: a directory at the invowkmod.cue path makes the edit fail. The lock
+# is restored byte-identical and the summary says so.
+cd $WORK/broken
+mkdir invowkmod.cue
+cp invowkmod.lock.cue lock.before
+exec invowk module remove dep
+stdout 'Could not auto-edit invowkmod.cue'
+stdout 'Lock file changes were rolled back; invowkmod.cue needs manual review'
+! stdout 'Lock file updated'
+! stdout 'Lock file unchanged'
+cmp invowkmod.lock.cue lock.before
+
+-- nomatch/invowkmod.cue --
+module:  "mymod"
+version: "0.1.0"
+requires: [
+	{
+		git_url: "https://github.com/example/other.invowkmod.git"
+		version: "^1.0.0"
+	},
+]
+
+-- nomatch/invowkfile.cue --
+cmds: []
+
+-- nomatch/invowkmod.lock.cue --
+// invowkmod.lock.cue - Auto-generated lock file for module dependencies
+// DO NOT EDIT MANUALLY
+
+version: "2.0"
+generated: "2025-01-01T00:00:00Z"
+
+modules: {
+	"https://github.com/example/dep.invowkmod.git": {
+		git_url:          "https://github.com/example/dep.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "dep@1.0.0"
+		command_source_id: "dep"
+		module_id:        "dep"
+		content_hash:     "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	}
+}
+
+-- broken/invowkfile.cue --
+cmds: []
+
+-- broken/invowkmod.lock.cue --
+// invowkmod.lock.cue - Auto-generated lock file for module dependencies
+// DO NOT EDIT MANUALLY
+
+version: "2.0"
+generated: "2025-01-01T00:00:00Z"
+
+modules: {
+	"https://github.com/example/dep.invowkmod.git": {
+		git_url:          "https://github.com/example/dep.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "dep@1.0.0"
+		command_source_id: "dep"
+		module_id:        "dep"
+		content_hash:     "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	}
+}

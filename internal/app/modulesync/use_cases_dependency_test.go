@@ -3,7 +3,9 @@
 package modulesync
 
 import (
+	"bytes"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -194,6 +196,12 @@ func TestAddModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	if result.Declaration().Err() == nil {
 		t.Fatal("Declaration.Err = nil, want declaration edit error")
 	}
+	// The CLI prints its not-found line from this check; the error is wrapped
+	// with %w and joined with the restore errors, so os.IsNotExist misses it.
+	if !errors.Is(result.Declaration().Err(), fs.ErrNotExist) {
+		t.Fatalf("Declaration.Err = %v, want an error wrapping fs.ErrNotExist", result.Declaration().Err())
+	}
+	assertRestoresSucceeded(t, result.Declaration().Err())
 
 	lock, err := invowkmod.LoadLockFile(filepath.Join(workDir, LockFileName))
 	if err != nil {
@@ -232,6 +240,10 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	if mkdirErr := os.MkdirAll(invowkmodPath, 0o755); mkdirErr != nil {
 		t.Fatalf("MkdirAll(invowkmod path) error = %v", mkdirErr)
 	}
+	lockBefore, err := os.ReadFile(filepath.Join(workDir, LockFileName))
+	if err != nil {
+		t.Fatalf("ReadFile(lock) error = %v", err)
+	}
 	result, err := resolver.RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), "tools")
 	if err != nil {
 		t.Fatalf("RemoveModuleDependency() error = %v", err)
@@ -250,6 +262,7 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	if declarations[0].Err() == nil {
 		t.Fatal("Declaration.Err = nil, want declaration edit error")
 	}
+	assertRestoresSucceeded(t, declarations[0].Err())
 
 	reloaded, err := invowkmod.LoadLockFile(filepath.Join(workDir, LockFileName))
 	if err != nil {
@@ -257,5 +270,24 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	}
 	if len(reloaded.Modules) != 1 {
 		t.Fatalf("lock modules = %d, want 1 after rollback", len(reloaded.Modules))
+	}
+	lockAfter, err := os.ReadFile(filepath.Join(workDir, LockFileName))
+	if err != nil {
+		t.Fatalf("ReadFile(lock) after rollback error = %v", err)
+	}
+	if !bytes.Equal(lockAfter, lockBefore) {
+		t.Fatalf("restored lock differs from the lock before the call:\n got: %s\nwant: %s", lockAfter, lockBefore)
+	}
+}
+
+// assertRestoresSucceeded checks the error shape the CLI's rollback lines rely
+// on (moduleDeclarationRestoreFailed in cmd/invowk): after a rollback whose
+// restores succeeded, the declaration error is a join of the edit error alone.
+func assertRestoresSucceeded(t *testing.T, err error) {
+	t.Helper()
+
+	joined, ok := err.(interface{ Unwrap() []error })
+	if !ok || len(joined.Unwrap()) != 1 {
+		t.Fatalf("Declaration.Err = %v, want errors.Join of the edit error alone (both restores succeeded)", err)
 	}
 }

@@ -12,6 +12,20 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+// removeRequirementCase is one row of the table that TestRemoveRequirement and
+// TestRemoveRequirementIfPresent share. wantWritten says whether the removal
+// replaces the file; a row without a write must leave it byte-identical.
+type removeRequirementCase struct {
+	name            string
+	content         string
+	missingFile     bool
+	gitURL          GitURL
+	path            SubdirectoryPath
+	wantWritten     bool
+	wantContains    []string
+	wantNotContains []string
+}
+
 func TestAddRequirement(t *testing.T) {
 	t.Parallel()
 
@@ -110,18 +124,8 @@ version: "1.0.0"
 	}
 }
 
-func TestRemoveRequirement(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name            string
-		content         string
-		missingFile     bool
-		gitURL          GitURL
-		path            SubdirectoryPath
-		wantContains    []string
-		wantNotContains []string
-	}{
+func removeRequirementCases() []removeRequirementCase {
+	return []removeRequirementCase{
 		{name: "remove single entry from multi-entry requires", content: `module: "mymodule"
 version: "1.0.0"
 
@@ -135,7 +139,7 @@ requires: [
 		version: "^2.0.0"
 	},
 ]
-`, gitURL: "https://github.com/user/tools.git", wantContains: []string{"utils.git", "requires:"}, wantNotContains: []string{"tools.git"}},
+`, gitURL: "https://github.com/user/tools.git", wantWritten: true, wantContains: []string{"utils.git", "requires:"}, wantNotContains: []string{"tools.git"}},
 		{name: "remove the only entry removes entire block", content: `module: "mymodule"
 version: "1.0.0"
 
@@ -145,7 +149,7 @@ requires: [
 		version: "^1.0.0"
 	},
 ]
-`, gitURL: "https://github.com/user/tools.git", wantContains: []string{`module: "mymodule"`}, wantNotContains: []string{"requires"}},
+`, gitURL: "https://github.com/user/tools.git", wantWritten: true, wantContains: []string{`module: "mymodule"`}, wantNotContains: []string{"requires"}},
 		{name: "remove with path matching (monorepo)", content: `module: "mymodule"
 version: "1.0.0"
 
@@ -161,7 +165,7 @@ requires: [
 		path:    "packages/b"
 	},
 ]
-`, gitURL: "https://github.com/user/monorepo.git", path: "packages/a", wantContains: []string{"packages/b"}, wantNotContains: []string{"packages/a"}},
+`, gitURL: "https://github.com/user/monorepo.git", path: "packages/a", wantWritten: true, wantContains: []string{"packages/b"}, wantNotContains: []string{"packages/a"}},
 		{name: "preserve comments before and after requires block", content: `// Header comment
 module: "mymodule"
 version: "1.0.0"
@@ -174,7 +178,7 @@ requires: [
 ]
 
 // Footer comment
-`, gitURL: "https://github.com/user/tools.git", wantContains: []string{"// Header comment", "// Footer comment"}},
+`, gitURL: "https://github.com/user/tools.git", wantWritten: true, wantContains: []string{"// Header comment", "// Footer comment"}},
 		{name: "no match is a no-op", content: `module: "mymodule"
 version: "1.0.0"
 
@@ -185,9 +189,17 @@ requires: [
 	},
 ]
 `, gitURL: "https://github.com/other/repo.git", wantContains: []string{"tools.git"}},
+		{name: "no requires block is a no-op", content: `module: "mymodule"
+version: "1.0.0"
+`, gitURL: "https://github.com/user/tools.git", wantContains: []string{`module: "mymodule"`}},
 		{name: "file does not exist is a no-op", missingFile: true, gitURL: "https://github.com/user/tools.git"},
 	}
-	for _, tt := range tests {
+}
+
+func TestRemoveRequirement(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range removeRequirementCases() {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -203,23 +215,66 @@ requires: [
 			if tt.missingFile {
 				return
 			}
-			result, err := os.ReadFile(path)
+			assertRemoveRequirementContent(t, path, tt)
+		})
+	}
+}
+
+// TestRemoveRequirementIfPresent covers spec "Removing a requires entry
+// reports whether it wrote": a write is reported only when the file was
+// replaced, and a row without a write leaves the file byte-identical (or still
+// absent).
+func TestRemoveRequirementIfPresent(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range removeRequirementCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			path := filepath.Join(t.TempDir(), "invowkmod.cue")
+			if !tt.missingFile {
+				path = writeInvowkmodEditFixture(t, tt.content)
+			}
+			written, err := RemoveRequirementIfPresent(types.FilesystemPath(path), tt.gitURL, tt.path)
 			if err != nil {
-				t.Fatalf("read result: %v", err)
+				t.Fatalf("RemoveRequirementIfPresent() error = %v", err)
 			}
-			got := string(result)
-			for _, want := range tt.wantContains {
-				if !strings.Contains(got, want) {
-					t.Errorf("result does not contain %q:\n%s", want, got)
-				}
+			if written != tt.wantWritten {
+				t.Fatalf("RemoveRequirementIfPresent() written = %t, want %t", written, tt.wantWritten)
 			}
-			for _, unwanted := range tt.wantNotContains {
-				if strings.Contains(got, unwanted) {
-					t.Errorf("result unexpectedly contains %q:\n%s", unwanted, got)
+			switch {
+			case tt.missingFile:
+				if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
+					t.Fatalf("missing invowkmod.cue was created (stat error %v)", statErr)
 				}
+			case !tt.wantWritten:
+				assertInvowkmodEditFile(t, path, tt.content)
+			default:
+				assertRemoveRequirementContent(t, path, tt)
 			}
 		})
 	}
+
+	t.Run("read error is not a write", func(t *testing.T) {
+		t.Parallel()
+
+		// A directory at the invowkmod.cue path fails the read with an error
+		// other than "not exist".
+		path := filepath.Join(t.TempDir(), "invowkmod.cue")
+		if err := os.Mkdir(path, 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		written, err := RemoveRequirementIfPresent(types.FilesystemPath(path), "https://github.com/user/tools.git", "")
+		if err == nil {
+			t.Fatal("RemoveRequirementIfPresent() error = nil, want a read error")
+		}
+		if written {
+			t.Fatal("RemoveRequirementIfPresent() written = true on a read error")
+		}
+		if delegateErr := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/tools.git", ""); delegateErr == nil {
+			t.Fatal("RemoveRequirement() error = nil, want the delegate's read error")
+		}
+	})
 }
 
 func TestAddRequirementMutationBoundaries(t *testing.T) {
@@ -458,6 +513,28 @@ func writeInvowkmodEditFixture(t *testing.T, content string) string {
 		t.Fatalf("write fixture: %v", err)
 	}
 	return path
+}
+
+// assertRemoveRequirementContent checks the file at path against the row's
+// wantContains and wantNotContains.
+func assertRemoveRequirementContent(t *testing.T, path string, tt removeRequirementCase) {
+	t.Helper()
+
+	result, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read result: %v", err)
+	}
+	got := string(result)
+	for _, want := range tt.wantContains {
+		if !strings.Contains(got, want) {
+			t.Errorf("result does not contain %q:\n%s", want, got)
+		}
+	}
+	for _, unwanted := range tt.wantNotContains {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("result unexpectedly contains %q:\n%s", unwanted, got)
+		}
+	}
 }
 
 func assertInvowkmodEditFile(t *testing.T, path, want string) {

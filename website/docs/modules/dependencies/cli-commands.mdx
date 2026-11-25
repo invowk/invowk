@@ -54,7 +54,7 @@ Resolve a dependency, cache it, update the lock file, and auto-edit `invowkmod.c
 `invowk module add` performs three actions automatically:
 1. Resolves and caches the module
 2. Updates the lock file
-3. Auto-edits `invowkmod.cue` to add the `requires` entry (if the file exists)
+3. Auto-edits `invowkmod.cue` to add the `requires` entry
 
 The output looks like:
 ```
@@ -69,6 +69,8 @@ The output looks like:
 ```
 
 When the lock file already held the module with the same entry, the save leaves it untouched and the lock line reads `✓ Module lock file unchanged`; the `invowkmod.cue` line still reports its own edit.
+
+When the `invowkmod.cue` edit fails, the command restores the lock file and prints neither line. If `invowkmod.cue` does not exist, the last line reads `invowkmod.cue not found — dependency was not persisted`; for any other failure (for example, a `requires` entry for the module already exists) it reads `Could not auto-edit invowkmod.cue; lock file changes were rolled back: <error>`. If restoring a file fails as well, the last line reads `Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: <error>` even when `invowkmod.cue` is missing, and `<error>` names the failed restore.
 :::
 
 ## invowk module remove
@@ -108,6 +110,10 @@ Remove Module Dependency
 ```
 
 Only when another process removed the same entries from the lock file between this command's read and its save does the lock on disk already lack them; then the save leaves it untouched and the last line reads `✓ Lock file unchanged; invowkmod.cue updated`.
+
+When `invowkmod.cue` has no `requires` entry for the removed module, or does not exist, the command leaves it untouched and the last line reads `✓ Lock file updated; invowkmod.cue unchanged` (or `✓ Lock file and invowkmod.cue unchanged` when the lock save was skipped as well).
+
+When the `invowkmod.cue` edit fails, the command restores the lock file. It prints `Could not auto-edit invowkmod.cue: <error>`, and the last line reads `Lock file changes were rolled back; invowkmod.cue needs manual review`. If restoring a file fails as well, `<error>` names the failed restore and the last line reads `Lock file rollback may be incomplete; invowkmod.cue needs manual review`.
 
 Cached files are not deleted.
 :::
