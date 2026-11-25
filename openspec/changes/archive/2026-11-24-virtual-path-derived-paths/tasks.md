@@ -43,17 +43,17 @@ Commit boundaries follow design D12. Every locked command (`make test`, `make li
 
 ## 7. Completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 7.1 `make tidy` and `make license-check`. Verify: both exit 0 and `git status --porcelain` shows no change from them.
-- [ ] 7.2 `make lint` (locked). Verify: `rc=0`; fix every issue, pre-existing ones included.
-- [ ] 7.3 `make test` (locked). Verify: `rc=0`.
-- [ ] 7.4 `make check-baseline` (locked), then triage every new goplint finding (Invowk or analyzer; an unclear case goes to `maintainer_asks`). Verify: `rc=0` with no inconclusive finding baselined or ignored.
-- [ ] 7.5 `make check-file-length`. Verify: exit 0.
-- [ ] 7.6 `make sonar-local`: fix real issues; go:S3776 is accepted by policy. Verify: no new fixable issue.
-- [ ] 7.7 Conditional checks: `python3 scripts/formal.py correspondence` (design D11), `make check-agent-docs`, `cd website && npm run build`. Verify: each exits 0.
-- [ ] 7.8 `/learn`. Verify: any durable lesson lands in the right rule, skill or runbook, or none is needed.
+- [x] 7.1 `make tidy` and `make license-check`. Verify: both exit 0 and `git status --porcelain` shows no change from them.
+- [x] 7.2 `make lint` (locked). Verify: `rc=0`; fix every issue, pre-existing ones included.
+- [x] 7.3 `make test` (locked). Verify: `rc=0`.
+- [x] 7.4 `make check-baseline` (locked), then triage every new goplint finding (Invowk or analyzer; an unclear case goes to `maintainer_asks`). Verify: `rc=0` with no inconclusive finding baselined or ignored.
+- [x] 7.5 `make check-file-length`. Verify: exit 0.
+- [x] 7.6 `make sonar-local`: fix real issues; go:S3776 is accepted by policy. Verify: no new fixable issue.
+- [x] 7.7 Conditional checks: `python3 scripts/formal.py correspondence` (design D11), `make check-agent-docs`, `cd website && npm run build`. Verify: each exits 0.
+- [x] 7.8 `/learn`. Verify: any durable lesson lands in the right rule, skill or runbook, or none is needed.
 
 ## 8. Push and platform evidence
 
-- [ ] 8.1 Rebase on `origin/main` before the final gates and record the base SHA. Verify: `git -C <worktree> merge-base --is-ancestor origin/main HEAD` exits 0.
+- [x] 8.1 Rebase on `origin/main` before the final gates and record the base SHA. Verify: `git -C <worktree> merge-base --is-ancestor origin/main HEAD` exits 0.
 - [ ] 8.2 Push `fix/virtual-path-derived-paths` and open or update the draft PR with a hardening-worded body (design D12). Verify: the remote branch SHA equals the local HEAD.
 - [ ] 8.3 Name in the PR the windows-latest and macOS jobs that ran `TestVirtualPathDerivedPathsWindowsJunction` and `TestVirtualPathDerivedPaths` by name. Verify: the job logs show the test names as passed.

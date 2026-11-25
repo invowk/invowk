@@ -199,6 +199,9 @@ add avoidable unbounded heap growth.
 - A u-root bump that changes `pkg/core/cp` or `pkg/tarutil` must keep
   `TestUrootDerivedPathsMatchUpstream` and `TestUrootDerivedPathsMatchUpstreamLinks`
   passing; they compare the predicted paths with what u-root creates and writes.
+- Do not run `cp -r d d/sub` with `d/sub` existing under full access in a test: u-root's
+  walk reads each copy it has just made and stops only at the path length limit, which
+  Windows long paths raise to about 32767 characters. Such a row runs restricted only.
 - The security boundary is normalized allowed-root validation, not symlink
   following by itself: following a symlink can expose its target path, and
   allowed-root validation decides whether that target may be accessed.
