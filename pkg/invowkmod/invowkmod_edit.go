@@ -77,21 +77,37 @@ func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 // from the requires block in invowkmod.cue.
 // If the requires list becomes empty, the entire block is removed.
 // Returns nil if the file doesn't exist or no match is found (idempotent).
+//
+// RemoveRequirement delegates to RemoveRequirementIfPresent and drops its
+// written flag; callers that report whether invowkmod.cue changed call
+// RemoveRequirementIfPresent directly.
 func RemoveRequirement(invowkmodPath types.FilesystemPath, gitURL GitURL, subPath SubdirectoryPath) error {
+	_, err := RemoveRequirementIfPresent(invowkmodPath, gitURL, subPath)
+	return err
+}
+
+// RemoveRequirementIfPresent removes the requirement exactly as
+// RemoveRequirement describes and reports whether it wrote invowkmodPath:
+// written is false when the file does not exist, has no requires block or has
+// no entry matching gitURL and subPath (the file is left untouched), and true
+// only after the atomic write replaced the file with the entry removed. On any
+// error (read, write) written is false. The flag is reporting only; it never
+// changes when the file is written.
+func RemoveRequirementIfPresent(invowkmodPath types.FilesystemPath, gitURL GitURL, subPath SubdirectoryPath) (written bool, err error) {
 	pathStr := string(invowkmodPath)
 	data, err := os.ReadFile(pathStr)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil // Idempotent: file doesn't exist
+			return false, nil // Idempotent: file doesn't exist
 		}
-		return fmt.Errorf("failed to read %s: %w", invowkmodPath, err)
+		return false, fmt.Errorf("failed to read %s: %w", invowkmodPath, err)
 	}
 
 	lines := strings.Split(string(data), "\n")
 
 	startLine, endLine, hasBlock := findRequiresBlock(lines)
 	if !hasBlock {
-		return nil // No requires block, nothing to remove
+		return false, nil // No requires block, nothing to remove
 	}
 
 	// Find entries within the requires block
@@ -108,7 +124,7 @@ func RemoveRequirement(invowkmodPath types.FilesystemPath, gitURL GitURL, subPat
 	}
 
 	if matchedEntry == nil {
-		return nil // No match found, idempotent
+		return false, nil // No match found, idempotent
 	}
 
 	if len(entries) == 1 {
@@ -134,7 +150,10 @@ func RemoveRequirement(invowkmodPath types.FilesystemPath, gitURL GitURL, subPat
 		lines = removeRequiresEntryLines(lines, *matchedEntry)
 	}
 
-	return fspath.AtomicWriteFile(pathStr, []byte(strings.Join(lines, "\n")), fspath.DefaultFilePerm)
+	if writeErr := fspath.AtomicWriteFile(pathStr, []byte(strings.Join(lines, "\n")), fspath.DefaultFilePerm); writeErr != nil {
+		return false, writeErr
+	}
+	return true, nil
 }
 
 // findRequiresBlock locates the requires block boundaries in the file lines.

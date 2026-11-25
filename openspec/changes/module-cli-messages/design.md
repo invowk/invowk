@@ -98,3 +98,15 @@ None. No file format, flag or exit code changes. Rollback is a revert of the PR.
 - OQ1. After a failed `invowkmod.cue` edit, `module remove` still prints `✓ Removed <namespace>` for every removed lock entry (`cmd/invowk/module_deps.go:231-233`), although the lock has been restored and nothing was removed. Moving those lines to the success branch is a separate wording change; this change only fixes the summary line (brief item 2).
 - OQ2. The add and remove rollback lines do not distinguish a failed restore from a successful one (Risks). A typed rollback outcome in `DeclarationEditResult` would make them exact; it is a separate change touching both commands.
 - OQ3. The `RemoveProg` row note "RemoveRequirement never fails, so no rollback path" (`ConcurrentModuleEdits.tla:46`) is not what the code does: remove has a rollback path (`use_cases.go:245-252`), tested by `TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure`. Whether the model should include it, and whether the `WriteMod remove` row should move to `RemoveRequirementIfPresent` (as Q3 asks for `LockFile.Save`), belongs to the formal follow-ups change.
+
+## Implementation notes (implement stage, 2026-11-25)
+
+- The testscript's directory case (D5 case 2) needs no platform guard: it reuses the directory-at-`invowkmod.cue` trick that `TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure` already runs on every CI platform.
+- `TestRemoveModuleDependencyReportsLockWritten` seeded a one-line `requires` entry (`{git_url: "…", version: "…"},`). The requires editor matches `git_url` only on its own line, so that edit never wrote `invowkmod.cue` and the old `Updated() == true` hid it; with the written flag the test failed. The fixture now uses the multi-line layout `module add` writes, and the test also checks the entry is gone. That `RemoveRequirement` leaves one-line entries in place is pre-existing and out of scope (OQ4).
+- The module commands' info icon is `•` (`cmd/invowk/module.go`, `moduleInfoIcon`), not `ℹ` as D2 and the existing `cli-commands.mdx` output block show. The new doc lines quote the info-line texts without an icon; the existing `ℹ` in that block is a pre-existing doc mismatch (OQ5).
+- `formal_mutation.py symbols` on this tree (`Resolver.RemoveModuleDependency`, `RemoveRequirement`, `RemoveRequirementIfPresent` and the four changed `cmd/invowk/module_deps.go` functions): 0 planned, 7 unplanned, `-> skip`. `triage --check`, `formal.py correspondence` and `make formal-reach` pass.
+
+## Open questions (implement stage)
+
+- OQ4. `RemoveRequirement` does not match a `requires` entry written on one line (`{git_url: "…", version: "…"},`), which CUE allows; `module remove` then leaves it in `invowkmod.cue` and now says `invowkmod.cue unchanged`. Matching one-line entries is a separate editor change.
+- OQ5. `website/docs/modules/dependencies/cli-commands.mdx` (en and pt-BR) shows the module info icon as `ℹ` in its output blocks; the CLI prints `•`.

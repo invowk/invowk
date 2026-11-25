@@ -241,7 +241,7 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 
 	declarations := make([]DeclarationEditResult, 0, len(removed))
 	for i := range removed {
-		editErr := invowkmod.RemoveRequirement(invowkmodPath, removed[i].RemovedEntry.GitURL, removed[i].RemovedEntry.Path)
+		written, editErr := invowkmod.RemoveRequirementIfPresent(invowkmodPath, removed[i].RemovedEntry.GitURL, removed[i].RemovedEntry.Path)
 		if editErr != nil {
 			editErr = errors.Join(editErr, declarationSnapshot.restore(), lockSnapshot.restore())
 			declaration, declarationErr := NewDeclarationEditResult(false, editErr)
@@ -251,7 +251,7 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 			declarations = append(declarations, declaration)
 			return NewRemoveModuleDependencyResult(removed, lockWritten, declarations)
 		}
-		declaration, declarationErr := NewDeclarationEditResult(true, nil)
+		declaration, declarationErr := NewDeclarationEditResult(written, nil)
 		if declarationErr != nil {
 			return RemoveModuleDependencyResult{}, declarationErr
 		}

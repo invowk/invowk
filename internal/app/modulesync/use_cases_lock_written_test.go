@@ -86,8 +86,14 @@ func TestRemoveModuleDependencyReportsLockWritten(t *testing.T) {
 	f := newIntegrityFixture(t, t.TempDir(), "1.2.3")
 	f.mustSync(t)
 	invowkmodPath := filepath.Join(f.workDir, "invowkmod.cue")
-	if err := os.WriteFile(invowkmodPath, []byte(lockWrittenRootInvowkmod+`requires: [
-	{git_url: "`+integrityTestGitURL+`", version: "^1.0.0"},
+	// The entry uses the multi-line layout module add writes; the requires
+	// editor matches git_url only on its own line.
+	if err := os.WriteFile(invowkmodPath, []byte(lockWrittenRootInvowkmod+`
+requires: [
+	{
+		git_url: "`+integrityTestGitURL+`"
+		version: "^1.0.0"
+	},
 ]
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile(invowkmod.cue) error = %v", err)
@@ -105,6 +111,68 @@ func TestRemoveModuleDependencyReportsLockWritten(t *testing.T) {
 	}
 	if !moduleDeclarationsUpdated(result.Declarations()) {
 		t.Fatalf("Declarations() = %+v, want every edit updated without error", result.Declarations())
+	}
+	got, err := os.ReadFile(invowkmodPath)
+	if err != nil {
+		t.Fatalf("ReadFile(invowkmod.cue) error = %v", err)
+	}
+	if bytes.Contains(got, []byte(integrityTestGitURL)) {
+		t.Fatalf("invowkmod.cue still holds the removed entry:\n%s", got)
+	}
+}
+
+// TestRemoveModuleDependencyReportsUnchangedInvowkmod covers "Remove with no
+// matching requires entry": the lock is written, but an invowkmod.cue without
+// the removed entry, or no invowkmod.cue at all, is left as it was and the
+// declaration result says it was not updated.
+func TestRemoveModuleDependencyReportsUnchangedInvowkmod(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		writeInvowkmod bool
+	}{
+		{name: "invowkmod.cue without the entry", writeInvowkmod: true},
+		{name: "no invowkmod.cue", writeInvowkmod: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := newIntegrityFixture(t, t.TempDir(), "1.2.3")
+			f.mustSync(t)
+			invowkmodPath := types.FilesystemPath(filepath.Join(f.workDir, "invowkmod.cue"))
+			if tt.writeInvowkmod {
+				invowkmodPath = writeLockWrittenRootInvowkmod(t, f.workDir)
+			}
+
+			result, err := f.resolver.RemoveModuleDependency(t.Context(), invowkmodPath, integrityTestGitURL)
+			if err != nil {
+				t.Fatalf("RemoveModuleDependency() error = %v", err)
+			}
+			if !result.LockWritten() {
+				t.Fatal("LockWritten() = false, want true: the lock lost an entry")
+			}
+			declarations := result.Declarations()
+			if len(declarations) != 1 {
+				t.Fatalf("Declarations() = %d entries, want 1", len(declarations))
+			}
+			if declarations[0].Updated() || declarations[0].Err() != nil {
+				t.Fatalf("Declarations()[0] = updated %t, err %v; want not updated, no error",
+					declarations[0].Updated(), declarations[0].Err())
+			}
+			if !tt.writeInvowkmod {
+				assertPathAbsent(t, string(invowkmodPath))
+				return
+			}
+			got, readErr := os.ReadFile(string(invowkmodPath))
+			if readErr != nil {
+				t.Fatalf("ReadFile(invowkmod.cue) error = %v", readErr)
+			}
+			if string(got) != lockWrittenRootInvowkmod {
+				t.Fatalf("invowkmod.cue changed:\n got: %s\nwant: %s", got, lockWrittenRootInvowkmod)
+			}
+		})
 	}
 }
 
