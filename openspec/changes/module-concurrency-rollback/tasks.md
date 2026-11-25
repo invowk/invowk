@@ -27,7 +27,7 @@ Every `make test`, `make lint`, `make test-scripts`, `make check-baseline`, `mak
 
 ## 4. No `Removed` lines after a rollback (brief item 2)
 
-- [ ] 4.1 In `runModuleRemove`, print `Removed <namespace>` only when no declaration has a rollback (design D10). Extend `tests/cli/testdata/module_remove_messages.txtar` case 2 with `! stdout 'Removed'`. Update the README "Lock File" paragraph and both `cli-commands.mdx` remove notes if they mention the `Removed` lines. Verify `go test -run 'TestCLI/module_remove_messages' ./tests/cli/` passes.
+- [x] 4.1 In `runModuleRemove`, print `Removed <namespace>` only when no declaration has a rollback (design D10). Extend `tests/cli/testdata/module_remove_messages.txtar` case 2 with `! stdout 'Removed'`. Update the README "Lock File" paragraph and both `cli-commands.mdx` remove notes if they mention the `Removed` lines. Verify `go test -run 'TestCLI/module_remove_messages' ./tests/cli/` passes.
 
 ## 5. Exit status 1 after a rollback (brief item 5)
 

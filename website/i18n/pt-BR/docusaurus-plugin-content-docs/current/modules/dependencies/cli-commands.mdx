@@ -104,7 +104,7 @@ A saída termina com `✓ Lock file and invowkmod.cue updated`. O lock no disco 
 
 Quando `invowkmod.cue` não tem entrada em `requires` para o módulo removido, ou não existe, o comando não o altera e a última linha fica `✓ Lock file updated; invowkmod.cue unchanged` (ou `✓ Lock file and invowkmod.cue unchanged`, quando o salvamento do lock também não alterou o arquivo).
 
-Quando a edição de `invowkmod.cue` falha, o comando restaura o lock file. Ele imprime `Could not auto-edit invowkmod.cue: <error>`, e a última linha fica `Lock file changes were rolled back; invowkmod.cue needs manual review`. Se a restauração de um arquivo também falha, `<error>` informa a restauração que falhou e a última linha fica `Lock file rollback may be incomplete; invowkmod.cue needs manual review`.
+Quando a edição de `invowkmod.cue` falha, o comando restaura o lock file. Ele imprime `Could not auto-edit invowkmod.cue: <error>` e nenhuma linha `Removed <namespace>`, já que nada foi removido, e a última linha fica `Lock file changes were rolled back; invowkmod.cue needs manual review`. Se a restauração de um arquivo também falha, `<error>` informa a restauração que falhou e a última linha fica `Lock file rollback may be incomplete; invowkmod.cue needs manual review`.
 
 Arquivos de cache não são deletados.
 :::

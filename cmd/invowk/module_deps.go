@@ -217,14 +217,19 @@ func runModuleRemove(ctx context.Context, args []string) error {
 
 	declarations := result.Declarations()
 	removed := result.Removed()
+	rolledBack := false
 	for i := range declarations {
 		if declarations[i].Err() != nil {
 			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, declarations[i].Err())
 		}
+		rolledBack = rolledBack || declarations[i].Rollback() != modulesync.DeclarationRollbackNone
 	}
 
-	for i := range removed {
-		fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(string(removed[i].RemovedEntry.Namespace)))
+	// After a rollback nothing was removed: print only what persisted.
+	if !rolledBack {
+		for i := range removed {
+			fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(string(removed[i].RemovedEntry.Namespace)))
+		}
 	}
 
 	fmt.Println()
