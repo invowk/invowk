@@ -328,3 +328,14 @@ func compareWithUpstream(t *testing.T, base string, args []string, links bool) {
 		}
 	}
 }
+
+// TestUrootDerivedPathsUnknownUse checks that the cp checker refuses a derived
+// path whose use it does not handle, so a use added later fails closed.
+func TestUrootDerivedPathsUnknownUse(t *testing.T) {
+	t.Parallel()
+	checker := &cpDerivedChecker{insideDirs: make(map[string]bool)}
+	err := checker.visit(derivedPath{path: filepath.Join(t.TempDir(), "x"), use: derivedPathSourceOperand + 1})
+	if !errors.Is(err, errDerivedPathUnknownUse) {
+		t.Fatalf("visit() = %v, want errDerivedPathUnknownUse", err)
+	}
+}

@@ -19,6 +19,7 @@ const (
 	cpIntoSourceErrMsg                = "virtual path denied: cp destination is inside a source tree"
 	cpLinkWithOtherDestinationsErrMsg = "virtual path denied: cp -P would create a link next to other destinations"
 	tarArchiveNotRegularErrMsg        = "virtual path denied: tar archive is not a regular file"
+	derivedPathUnknownUseErrMsg       = "virtual path denied: unknown derived path use"
 
 	// derivedPathFileWrite: the built-in creates or truncates a regular file
 	// at the path, following a link there.
@@ -56,6 +57,9 @@ var (
 	// a regular file: it is read twice, and a second read of a named pipe or
 	// a device would not give the entries that were checked.
 	errTarArchiveNotRegular = errors.New(tarArchiveNotRegularErrMsg)
+	// errDerivedPathUnknownUse refuses a derived path whose use the checker
+	// does not handle, so a use added later fails closed until it is checked.
+	errDerivedPathUnknownUse = errors.New(derivedPathUnknownUseErrMsg)
 )
 
 type (
@@ -435,8 +439,7 @@ func (c *cpDerivedChecker) visit(p derivedPath) error {
 	case derivedPathFileWrite, derivedPathDirCreate, derivedPathLinkCreate:
 		return c.checkDestination(p)
 	default:
-		_, err := c.hc.ResolvePath(p.path)
-		return err
+		return fmt.Errorf("%w: %d: %s", errDerivedPathUnknownUse, p.use, p.path)
 	}
 }
 
