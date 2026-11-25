@@ -15,6 +15,11 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+// symlinkModuleSkippedFormat is the module_symlink_skipped message for a
+// symlinked module directory, found by a parent scan or as the current
+// directory.
+const symlinkModuleSkippedFormat = "skipping symlinked module directory %s — symlink modules are not supported"
+
 // discoverCurrentDirModule decides whether the current directory is a module
 // directory and, when it is, loads it as that module.
 //
@@ -90,7 +95,7 @@ func discoverCurrentDirModule(baseDir types.FilesystemPath) (isModuleDir bool, f
 		return true, nil, []Diagnostic{mustDiagnosticWithPath(
 			SeverityWarning,
 			CodeModuleSymlinkSkipped,
-			fmt.Sprintf("skipping symlinked module directory %s — symlink modules are not supported", absPath),
+			fmt.Sprintf(symlinkModuleSkippedFormat, absPath),
 			absPath,
 		)}
 	}

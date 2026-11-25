@@ -161,23 +161,18 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 		// The invowkfile of a module directory is always loaded as part of that
 		// module: a current directory that is a module directory is loaded as
 		// that module, and nothing in it is read as a plain invowkfile.
-		isModuleDir, cwdModuleFiles, cwdModuleDiags := discoverCurrentDirModule(d.baseDir)
-		if isModuleDir {
-			files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, cwdModuleFiles, cwdModuleDiags, appended)
-			if verifyErr != nil {
-				return nil, diagnostics, verifyErr
-			}
-		} else {
+		isModuleDir, moduleFiles, moduleDiags := discoverCurrentDirModule(d.baseDir)
+		if !isModuleDir {
 			if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
 				files = append(files, cwdFile)
 			}
 
 			// 2. Modules in current directory (+ their vendored dependencies)
-			moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
-			files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags, appended)
-			if verifyErr != nil {
-				return nil, diagnostics, verifyErr
-			}
+			moduleFiles, moduleDiags = d.discoverModulesInDirWithDiagnostics(d.baseDir)
+		}
+		files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags, appended)
+		if verifyErr != nil {
+			return nil, diagnostics, verifyErr
 		}
 	}
 
@@ -394,7 +389,7 @@ func loadModuleEntry(parentDir types.FilesystemPath, entry os.DirEntry) (*Discov
 		if !strings.HasSuffix(entry.Name(), invowkmod.ModuleSuffix) {
 			return nil, nil
 		}
-		message := fmt.Sprintf("skipping symlinked module directory %s — symlink modules are not supported", entry.Name())
+		message := fmt.Sprintf(symlinkModuleSkippedFormat, entry.Name())
 		linkPath, err := validatedDiscoveredEntryPath(parentDir, entry)
 		if err != nil {
 			return nil, []Diagnostic{mustDiagnostic(SeverityWarning, CodeModuleSymlinkSkipped, message)}
