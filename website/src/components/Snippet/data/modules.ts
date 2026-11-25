@@ -1061,7 +1061,8 @@ invowk module update https://github.com/user/tools.git`,
     code: `Update Module Dependencies
 
 • Updating all modules...
-• No modules to update`,
+• No modules to update
+✓ Lock file unchanged: invowkmod.lock.cue`,
   },
 
   'modules/dependencies/cli/vendor-usage': {

@@ -28,7 +28,7 @@ type (
 	VendorResolutionStrategy string
 
 	vendorDependencyResolver interface {
-		Sync(ctx context.Context, requirements []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, error)
+		Sync(ctx context.Context, requirements []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, bool, error)
 		LoadDeclaredFromLock(ctx context.Context, requirements []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, error)
 	}
 )
@@ -114,7 +114,7 @@ func vendorDependenciesWithResolver(
 
 func resolveVendorDependencies(ctx context.Context, resolver vendorDependencyResolver, modulePath types.FilesystemPath, requirements []invowkmod.ModuleRef, update bool) ([]*invowkmod.ResolvedModule, VendorResolutionStrategy, error) {
 	if update {
-		resolved, err := resolver.Sync(ctx, requirements)
+		resolved, _, err := resolver.Sync(ctx, requirements)
 		return resolved, VendorResolutionUpdated, err
 	}
 
@@ -128,6 +128,6 @@ func resolveVendorDependencies(ctx context.Context, resolver vendorDependencyRes
 		return resolved, VendorResolutionLocked, err
 	}
 
-	resolved, err := resolver.Sync(ctx, requirements)
+	resolved, _, err := resolver.Sync(ctx, requirements)
 	return resolved, VendorResolutionSynced, err
 }

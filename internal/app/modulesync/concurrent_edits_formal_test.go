@@ -180,7 +180,7 @@ func TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd(t *testing.T) {
 		t.Fatalf("LoadRequirements() error = %v", err)
 	}
 	err = p.raceFetchWindow(t, concurrentURLA,
-		func(r *Resolver) error { _, syncErr := r.Sync(t.Context(), reqs); return syncErr },
+		func(r *Resolver) error { _, _, syncErr := r.Sync(t.Context(), reqs); return syncErr },
 		func() { p.mustAdd(t, p.resolver(t, p.fetcher(concurrentURLB)), concurrentURLB) })
 	if err != nil {
 		t.Fatalf("Sync() error = %v", err)
@@ -192,7 +192,7 @@ func TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd(t *testing.T) {
 
 func updateAll(t *testing.T) func(*Resolver) error {
 	t.Helper()
-	return func(r *Resolver) error { _, err := r.Update(t.Context(), ""); return err }
+	return func(r *Resolver) error { _, _, err := r.Update(t.Context(), ""); return err }
 }
 
 // TestConcurrentEdits_FindingF8_UpdateOverwritesConcurrentAdd replays
@@ -333,7 +333,7 @@ func TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent(t *testing.
 	// Reference: 1.0.0 alone, in its own cache.
 	refCache := t.TempDir()
 	seedSourceClone(t, repoDir, refCache, concurrentURLR)
-	reference, err := newWorktreeResolver(t, refCache, nil).Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^1.0.0"})
+	reference, _, err := newWorktreeResolver(t, refCache, nil).Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^1.0.0"})
 	if err != nil {
 		t.Fatalf("reference Add() error = %v", err)
 	}
@@ -343,11 +343,12 @@ func TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent(t *testing.
 	gate := procgate.New()
 	p1 := newWorktreeResolver(t, cacheDir, gate)
 	done := procgate.Run(func() (*ResolvedModule, error) {
-		return p1.Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^1.0.0"})
+		resolved, _, addErr := p1.Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^1.0.0"})
+		return resolved, addErr
 	})
 	procgate.AwaitParked(t, gate, done)
 
-	v2, err := newWorktreeResolver(t, cacheDir, nil).Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^2.0.0"})
+	v2, _, err := newWorktreeResolver(t, cacheDir, nil).Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^2.0.0"})
 	if err != nil {
 		t.Fatalf("P2 Add() error = %v", err)
 	}

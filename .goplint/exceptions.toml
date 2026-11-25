@@ -1750,6 +1750,10 @@ pattern = "invowkmod.LockFile.Save.*"
 reason = "filepath boundary"
 
 [[exceptions]]
+pattern = "invowkmod.LockFile.SaveIfChanged.*"
+reason = "filepath boundary"
+
+[[exceptions]]
 pattern = "invowkmod.parseLockFile.*"
 reason = "CUE content parsing boundary"
 

@@ -94,6 +94,13 @@ None. No file format, flag or exit code changes. Rollback is a revert of the PR.
 - 2026-11-24 (brief n22, maintainer decision 47; binding): additive reporting API with `Save` wrapping it; resolver operations return the fact in typed results; the CLI prints "unchanged" on a skip and the existing "updated" line on a write for sync, update, add and remove, reporting each file truthfully; spec delta against `module-lock-persistence`; unit tests for written and skipped per operation; minimal change to bound bodies, accept the mutation run.
 - M1, 2026-11-24 (this stage, default pending spec review): the brief's "testscript that runs `module sync` twice" is replaced by an offline `module update` twice testscript plus the resolver-level sync-twice test, because a `module sync` with requirements needs a reachable Git remote (Context). If the maintainer wants a CLI sync-twice test, it needs a test seam for the fetcher, which is a separate change.
 
+## Implementation notes (implement stage, 2026-11-24)
+
+- D2: the resolver methods name every result, with names that no body statement declares (`added`, `removed`, `synced`, `updatedModules`, `addErr`, `removeErr`, `syncErr`, `updateErr`, plus `lockWritten`), and keep explicit returns. gocritic's `unnamedResult` requires names for the three results, and reusing `resolved`, `updated` or `err` as result names would turn the bodies' `:=` statements into redeclarations or shadows. The save assigns the named `lockWritten` with a new `saveErr` (`lockWritten, saveErr := lock.SaveIfChanged(lockPath)`), so `Update`'s loop-local `err` shadows nothing used after the loop.
+- D3: `SyncModule` now returns `SyncModuleResult{}` with the resolver's error, instead of the requirements with a nil module list; the CLI never read the requirements on that path.
+- D6: `LockIntegrity.tla:32` names `Resolver.Sync` without line references, so it needed no edit. The `vendor_concurrent_formal_test.go` comment that cites `Resolver.Update`'s lines was updated with the `ConcurrentModuleEdits.tla` references.
+- The vendor resolver interface carries no comment for the new flag, so the `vendor_dependencies.go` line references in `ConcurrentModuleEdits.tla` stay valid.
+
 ## Open questions
 
 - Q1. `module remove` prints `Lock file updated; invowkmod.cue needs manual review` after an `invowkmod.cue` edit failure, although the use case has restored the lock snapshot (`use_cases.go:179-180`). This change keeps that line (Non-Goals). Fixing it is a separate wording change.

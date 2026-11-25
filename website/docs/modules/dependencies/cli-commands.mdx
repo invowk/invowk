@@ -67,6 +67,8 @@ The output looks like:
 ✓ Module lock file updated
 ✓ Updated invowkmod.cue with new requires entry
 ```
+
+When the lock file already held the module with the same entry, the save leaves it untouched and the lock line reads `✓ Module lock file unchanged`; the `invowkmod.cue` line still reports its own edit.
 :::
 
 ## invowk module remove
@@ -104,6 +106,8 @@ Remove Module Dependency
 
 ✓ Lock file and invowkmod.cue updated
 ```
+
+If the lock file on disk already lacked the removed entries when it was saved, the save leaves it untouched and the last line reads `✓ Lock file unchanged; invowkmod.cue updated`.
 
 Cached files are not deleted.
 :::

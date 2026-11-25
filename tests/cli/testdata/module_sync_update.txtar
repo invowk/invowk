@@ -8,10 +8,20 @@ cd $WORK
 stdout 'Sync Module Dependencies'
 stderr 'parse invowkmod.cue'
 
-# Test 2: module update with no lock file and no modules reports nothing to update
+# Test 2: module update with no lock file and no modules reports nothing to
+# update and creates an empty lock; a second run leaves it byte-identical and
+# says so (spec module-lock-persistence: Update creates a missing lock)
 exec invowk module update
 stdout 'Update Module Dependencies'
 stdout 'No modules to update'
+stdout 'Lock file updated: invowkmod.lock.cue'
+! stdout 'Lock file unchanged'
+cp invowkmod.lock.cue lock.first
+exec invowk module update
+stdout 'No modules to update'
+stdout 'Lock file unchanged: invowkmod.lock.cue'
+! stdout 'Lock file updated'
+cmp invowkmod.lock.cue lock.first
 
 # Test 3: module sync rejects positional arguments
 ! exec invowk module sync unexpected

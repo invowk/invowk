@@ -34,6 +34,7 @@ type (
 	// dependency to both the lock file and invowkmod.cue.
 	AddModuleDependencyResult struct {
 		resolved    *ResolvedModule
+		lockWritten bool
 		declaration DeclarationEditResult
 	}
 
@@ -41,7 +42,23 @@ type (
 	// module dependencies from the lock file and invowkmod.cue.
 	RemoveModuleDependencyResult struct {
 		removed      []RemoveResult
+		lockWritten  bool
 		declarations []DeclarationEditResult
+	}
+
+	// SyncModuleResult is the structured result of syncing the requirements
+	// declared in invowkmod.cue into the lock file.
+	SyncModuleResult struct {
+		requirements []ModuleRef
+		resolved     []*ResolvedModule
+		lockWritten  bool
+	}
+
+	// UpdateModuleResult is the structured result of updating locked module
+	// dependencies to their latest matching versions.
+	UpdateModuleResult struct {
+		updated     []*ResolvedModule
+		lockWritten bool
 	}
 )
 
@@ -55,8 +72,9 @@ func NewDeclarationEditResult(updated bool, err error) (DeclarationEditResult, e
 }
 
 // NewAddModuleDependencyResult constructs the result for a module add operation.
-func NewAddModuleDependencyResult(resolved *ResolvedModule, declaration DeclarationEditResult) (AddModuleDependencyResult, error) {
-	result := AddModuleDependencyResult{resolved: resolved, declaration: declaration}
+// lockWritten reports whether the lock save wrote the file.
+func NewAddModuleDependencyResult(resolved *ResolvedModule, lockWritten bool, declaration DeclarationEditResult) (AddModuleDependencyResult, error) {
+	result := AddModuleDependencyResult{resolved: resolved, lockWritten: lockWritten, declaration: declaration}
 	if err := result.Validate(); err != nil {
 		return AddModuleDependencyResult{}, err
 	}
@@ -64,10 +82,32 @@ func NewAddModuleDependencyResult(resolved *ResolvedModule, declaration Declarat
 }
 
 // NewRemoveModuleDependencyResult constructs the result for a module remove operation.
-func NewRemoveModuleDependencyResult(removed []RemoveResult, declarations []DeclarationEditResult) (RemoveModuleDependencyResult, error) {
-	result := RemoveModuleDependencyResult{removed: removed, declarations: declarations}
+// lockWritten reports whether the lock save wrote the file.
+func NewRemoveModuleDependencyResult(removed []RemoveResult, lockWritten bool, declarations []DeclarationEditResult) (RemoveModuleDependencyResult, error) {
+	result := RemoveModuleDependencyResult{removed: removed, lockWritten: lockWritten, declarations: declarations}
 	if err := result.Validate(); err != nil {
 		return RemoveModuleDependencyResult{}, err
+	}
+	return result, nil
+}
+
+// NewSyncModuleResult constructs the result for a module sync operation.
+// lockWritten reports whether the lock save wrote the file; it is false when
+// there were no requirements and nothing was saved.
+func NewSyncModuleResult(requirements []ModuleRef, resolved []*ResolvedModule, lockWritten bool) (SyncModuleResult, error) {
+	result := SyncModuleResult{requirements: requirements, resolved: resolved, lockWritten: lockWritten}
+	if err := result.Validate(); err != nil {
+		return SyncModuleResult{}, err
+	}
+	return result, nil
+}
+
+// NewUpdateModuleResult constructs the result for a module update operation.
+// lockWritten reports whether the lock save wrote the file.
+func NewUpdateModuleResult(updated []*ResolvedModule, lockWritten bool) (UpdateModuleResult, error) {
+	result := UpdateModuleResult{updated: updated, lockWritten: lockWritten}
+	if err := result.Validate(); err != nil {
+		return UpdateModuleResult{}, err
 	}
 	return result, nil
 }
@@ -85,14 +125,39 @@ func (r DeclarationEditResult) Validate() error { return nil }
 // Resolved returns the added resolved module.
 func (r AddModuleDependencyResult) Resolved() *ResolvedModule { return r.resolved }
 
+// LockWritten reports whether the lock save wrote the lock file. It reports
+// the save itself, also when a later declaration edit failed and the lock was
+// rolled back.
+func (r AddModuleDependencyResult) LockWritten() bool { return r.lockWritten }
+
 // Declaration returns the paired invowkmod.cue declaration edit result.
 func (r AddModuleDependencyResult) Declaration() DeclarationEditResult { return r.declaration }
 
 // Removed returns the lock-file entries removed by the operation.
 func (r RemoveModuleDependencyResult) Removed() []RemoveResult { return r.removed }
 
+// LockWritten reports whether the lock save wrote the lock file. It reports
+// the save itself, also when a later declaration edit failed and the lock was
+// rolled back.
+func (r RemoveModuleDependencyResult) LockWritten() bool { return r.lockWritten }
+
 // Declarations returns the declaration edit results paired with Removed().
 func (r RemoveModuleDependencyResult) Declarations() []DeclarationEditResult { return r.declarations }
+
+// Requirements returns the requirements declared in invowkmod.cue.
+func (r SyncModuleResult) Requirements() []ModuleRef { return r.requirements }
+
+// Resolved returns the modules the sync resolved and locked.
+func (r SyncModuleResult) Resolved() []*ResolvedModule { return r.resolved }
+
+// LockWritten reports whether the sync wrote the lock file.
+func (r SyncModuleResult) LockWritten() bool { return r.lockWritten }
+
+// Updated returns the modules the update re-resolved.
+func (r UpdateModuleResult) Updated() []*ResolvedModule { return r.updated }
+
+// LockWritten reports whether the update wrote the lock file.
+func (r UpdateModuleResult) LockWritten() bool { return r.lockWritten }
 
 // LoadRequirements parses invowkmod.cue and returns the module dependency
 // requirements used by module sync/tidy/vendor use cases.
@@ -131,7 +196,7 @@ func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.
 	if snapshotErr != nil {
 		return AddModuleDependencyResult{}, snapshotErr
 	}
-	resolved, err := m.Add(ctx, req)
+	resolved, lockWritten, err := m.Add(ctx, req)
 	if err != nil {
 		return AddModuleDependencyResult{}, err
 	}
@@ -143,7 +208,7 @@ func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.
 	if err != nil {
 		return AddModuleDependencyResult{}, err
 	}
-	return NewAddModuleDependencyResult(resolved, declaration)
+	return NewAddModuleDependencyResult(resolved, lockWritten, declaration)
 }
 
 // RemoveModuleDependency removes matching modules from the lock file and
@@ -169,7 +234,7 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 	if snapshotErr != nil {
 		return RemoveModuleDependencyResult{}, snapshotErr
 	}
-	removed, err := m.Remove(ctx, identifier)
+	removed, lockWritten, err := m.Remove(ctx, identifier)
 	if err != nil {
 		return RemoveModuleDependencyResult{}, err
 	}
@@ -184,7 +249,7 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 				return RemoveModuleDependencyResult{}, declarationErr
 			}
 			declarations = append(declarations, declaration)
-			return NewRemoveModuleDependencyResult(removed, declarations)
+			return NewRemoveModuleDependencyResult(removed, lockWritten, declarations)
 		}
 		declaration, declarationErr := NewDeclarationEditResult(true, nil)
 		if declarationErr != nil {
@@ -193,7 +258,7 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 		declarations = append(declarations, declaration)
 	}
 
-	return NewRemoveModuleDependencyResult(removed, declarations)
+	return NewRemoveModuleDependencyResult(removed, lockWritten, declarations)
 }
 
 func newFileSnapshot(path types.FilesystemPath, data fileSnapshotData, mode os.FileMode, exists bool) fileSnapshot {
@@ -302,26 +367,60 @@ func (r RemoveModuleDependencyResult) Validate() error {
 	return errors.Join(errs...)
 }
 
+// Validate returns nil if the sync result contains valid requirements and
+// resolved modules.
+func (r SyncModuleResult) Validate() error {
+	var errs []error
+	for i := range r.requirements {
+		if err := r.requirements[i].Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := validateResolvedModules(r.resolved); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+// Validate returns nil if the update result contains valid resolved modules.
+func (r UpdateModuleResult) Validate() error {
+	return validateResolvedModules(r.updated)
+}
+
+func validateResolvedModules(modules []*ResolvedModule) error {
+	var errs []error
+	for _, mod := range modules {
+		if mod == nil {
+			continue
+		}
+		if err := mod.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // SyncModule resolves the requirements declared in invowkmodPath and updates
-// the module lock file.
-func SyncModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requirements []ModuleRef, resolved []*ResolvedModule, err error) {
-	requirements, err = LoadRequirements(invowkmodPath)
+// the module lock file. With no requirements it saves nothing and the result
+// reports LockWritten() == false.
+func SyncModule(ctx context.Context, invowkmodPath types.FilesystemPath) (SyncModuleResult, error) {
+	requirements, err := LoadRequirements(invowkmodPath)
 	if err != nil {
-		return nil, nil, err
+		return SyncModuleResult{}, err
 	}
 	if len(requirements) == 0 {
-		return requirements, nil, nil
+		return NewSyncModuleResult(requirements, nil, false)
 	}
 
 	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf(errFmtCreateModuleResolver, err)
+		return SyncModuleResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
-	resolved, err = resolver.Sync(ctx, requirements)
+	resolved, lockWritten, err := resolver.Sync(ctx, requirements)
 	if err != nil {
-		return requirements, nil, err
+		return SyncModuleResult{}, err
 	}
-	return requirements, resolved, nil
+	return NewSyncModuleResult(requirements, resolved, lockWritten)
 }
 
 // TidyModule resolves declared requirements, adds missing transitive
@@ -354,12 +453,16 @@ func TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requir
 // UpdateModule updates resolved module dependencies in the lock file next to invowkmodPath.
 //
 //goplint:ignore -- module update identifier is a CLI-facing selector: URL, namespace, module name, or lock key.
-func UpdateModule(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) ([]*ResolvedModule, error) {
+func UpdateModule(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (UpdateModuleResult, error) {
 	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
 	if err != nil {
-		return nil, fmt.Errorf(errFmtCreateModuleResolver, err)
+		return UpdateModuleResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
-	return resolver.Update(ctx, identifier)
+	updated, lockWritten, err := resolver.Update(ctx, identifier)
+	if err != nil {
+		return UpdateModuleResult{}, err
+	}
+	return NewUpdateModuleResult(updated, lockWritten)
 }
 
 // ListModuleDependencies lists resolved module dependencies from the lock file

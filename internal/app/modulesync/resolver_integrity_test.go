@@ -71,7 +71,8 @@ version: "1.2.3"`), 0o644); err != nil {
 }
 
 func (f *integrityFixture) sync(ctx context.Context) ([]*ResolvedModule, error) {
-	return f.resolver.Sync(ctx, []ModuleRef{{GitURL: integrityTestGitURL, Version: "^1.0.0"}})
+	resolved, _, err := f.resolver.Sync(ctx, []ModuleRef{{GitURL: integrityTestGitURL, Version: "^1.0.0"}})
+	return resolved, err
 }
 
 func (f *integrityFixture) mustSync(t *testing.T) *ResolvedModule {
@@ -285,7 +286,7 @@ func TestUpdateWithoutNewerVersionVerifiesBaseline(t *testing.T) {
 	f.mustSync(t)
 
 	f.fetcher.commit = integrityTestRepoedCommit
-	_, err := f.resolver.Update(t.Context(), "")
+	_, _, err := f.resolver.Update(t.Context(), "")
 	if !errors.Is(err, ErrLockedCommitMismatch) {
 		t.Fatalf("Update() error = %v, want ErrLockedCommitMismatch", err)
 	}

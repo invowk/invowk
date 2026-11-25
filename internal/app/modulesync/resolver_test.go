@@ -645,7 +645,7 @@ func TestRemoveByNamespace(t *testing.T) {
 	}
 
 	// Remove by alias namespace
-	results, err := resolver.Remove(t.Context(), "myalias")
+	results, _, err := resolver.Remove(t.Context(), "myalias")
 	if err != nil {
 		t.Fatalf("Remove(myalias) error = %v", err)
 	}
@@ -762,7 +762,7 @@ func TestSyncRejectsInvalidExistingLockBeforeFetching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
-	_, err = resolver.Sync(t.Context(), []ModuleRef{{
+	_, _, err = resolver.Sync(t.Context(), []ModuleRef{{
 		GitURL:  "https://github.com/user/tools.git",
 		Version: "^1.0.0",
 	}})
@@ -796,7 +796,7 @@ version: "1.2.3"`), 0o644); err != nil {
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
-	resolved, err := resolver.Sync(t.Context(), []ModuleRef{{
+	resolved, _, err := resolver.Sync(t.Context(), []ModuleRef{{
 		GitURL:  "https://github.com/user/tools.git",
 		Version: "^1.0.0",
 	}})
@@ -841,7 +841,7 @@ func TestSyncExplicitSubpathPreservesLockKeyAndAlias(t *testing.T) {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
 
-	resolved, err := resolver.Sync(t.Context(), []ModuleRef{{
+	resolved, _, err := resolver.Sync(t.Context(), []ModuleRef{{
 		GitURL:  "https://github.com/user/monorepo.git",
 		Version: "^1.0.0",
 		Alias:   "tools",

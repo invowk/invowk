@@ -40,24 +40,24 @@
 \*
 \* | model element | Go symbol | file | binding | abstraction |
 \* |---|---|---|---|---|
-\* | AddProg (add_add_same) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_FindingF8_DuplicateAddRollsBackOtherAdd | snapshots (126,130); rollback on edit error (140) |
+\* | AddProg (add_add_same) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_FindingF8_DuplicateAddRollsBackOtherAdd | snapshots (191,195); rollback on edit error (205) |
 \* | AddProg (sync_add) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | the concurrent add |
 \* | RemoveProg | Resolver.RemoveModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_FindingF8_UpdateResurrectsConcurrentRemove | RemoveRequirement never fails, so no rollback path |
 \* | Restore | fileSnapshot.restore | internal/app/modulesync/use_cases.go | - | F10 is model-only: os.WriteFile has no seam between its truncate and its write |
 \* | SyncProg | SyncModule | internal/app/modulesync/use_cases.go | - | wrapper; its LoadRequirements-then-Sync body is transcribed in the sync replay |
 \* | UpdateProg | UpdateModule | internal/app/modulesync/use_cases.go | - | wrapper with the real GitFetcher |
 \* | TidyProg | TidyModule | internal/app/modulesync/use_cases.go | - | no fetcher seam; modelled as a reader of requires and the lock |
-\* | AddProg (fetch_v1_v2) | Resolver.Add | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | lock read (136), resolve (142), re-read and save (149-158) |
-\* | WriteLock remove | Resolver.Remove | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_UpdateResurrectsConcurrentRemove | read (173) and save (200) with no fetch between |
-\* | WriteLock rebuild | Resolver.Sync | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | a new lock built only from the pre-fetch requires (300-307) |
-\* | WriteLock update (update_add) | Resolver.Update | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_UpdateOverwritesConcurrentAdd | the pre-fetch lock with updated entries (216, 264) |
+\* | AddProg (fetch_v1_v2) | Resolver.Add | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | lock read (139), resolve (145), re-read and save (152-161) |
+\* | WriteLock remove | Resolver.Remove | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_UpdateResurrectsConcurrentRemove | read (179) and save (206) with no fetch between |
+\* | WriteLock rebuild | Resolver.Sync | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | a new lock built only from the pre-fetch requires (313-320) |
+\* | WriteLock update (update_add) | Resolver.Update | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_UpdateOverwritesConcurrentAdd | the pre-fetch lock with updated entries (225, 273) |
 \* | WriteLock update (update_remove) | Resolver.Update | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_UpdateResurrectsConcurrentRemove | - |
 \* | Checkout, CopyToCache | Resolver.resolveOne | internal/app/modulesync/resolver_deps.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | Fetch (130), then copy from the shared worktree (151-170) |
 \* | CopyToCache | Resolver.cacheModule | internal/app/modulesync/cache.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | stat, copy, hash; the fresh-copy branch trusts the worktree |
 \* | Checkout | GitFetcher.checkout | internal/app/modulesync/git.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | one worktree per URL, not per version (94-117, 467) |
 \* | WriteMod add | AddRequirement | pkg/invowkmod/invowkmod_edit.go | - | narrow read (29) to write (73) window with no seam |
 \* | WriteMod remove | RemoveRequirement | pkg/invowkmod/invowkmod_edit.go | - | narrow read (82) to write (137) window with no seam |
-\* | WriteLock | LockFile.Save | pkg/invowkmod/lockfile.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | atomic replace (A1); skipped when the valid lock on disk has equal content, which equals a replace with identical content at Save's own re-read (InspectLockFile), not at the sync's earlier lock read |
+\* | WriteLock | LockFile.Save | pkg/invowkmod/lockfile.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | atomic replace (A1); skipped when the valid lock on disk has equal content, which equals a replace with identical content at Save's own re-read (InspectLockFile), not at the sync's earlier lock read; Save delegates to SaveIfChanged, which holds the skip-or-replace body and which the resolver calls; its written flag is reporting only |
 \* | VendorProg | vendorDependenciesWithResolver | internal/app/moduleops/vendor_dependencies.go | TestConcurrentEdits_VendorFromStaleLock | characterisation: LoadDeclaredFromLock (127), then VendorModules (104) |
 \* | VendorRemove, VendorCopy | VendorModules | internal/app/moduleops/vendor.go | - | the RemoveAll (107) to copy (115) window has no seam |
 EXTENDS Naturals, Sequences, FiniteSets
@@ -159,34 +159,34 @@ Program(p) ==
         j == ProjOf(p)
         k == o.kind
         body ==
-          CASE k = "add" ->                 \* Resolver.AddModuleDependency (use_cases.go:122)
-                 Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:126,130
-                 \o <<St("ReadLock")>>                                    \* resolver.go:136
-                 \o FetchSteps(p, o, "key")                               \* resolver.go:142
-                 \o <<S("WriteLock", "add", o.key, "-")>>                 \* resolver.go:149-158
+          CASE k = "add" ->                 \* Resolver.AddModuleDependency (use_cases.go:187)
+                 Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:191,195
+                 \o <<St("ReadLock")>>                                    \* resolver.go:139
+                 \o FetchSteps(p, o, "key")                               \* resolver.go:145
+                 \o <<S("WriteLock", "add", o.key, "-")>>                 \* resolver.go:152-161
                  \o Between(k, j)
                  \o <<St("ReadMod"), S("WriteMod", "add", o.key, "-"),   \* invowkmod_edit.go:29,73
-                      S("Restore", "mod", "-", "-"), S("Restore", "lock", "-", "-")>> \* use_cases.go:140
+                      S("Restore", "mod", "-", "-"), S("Restore", "lock", "-", "-")>> \* use_cases.go:205
                  \o Final(k, j)
-            [] k = "remove" ->              \* Resolver.RemoveModuleDependency (use_cases.go:163)
-                 Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:164,168
-                 \o <<St("ReadLock"), S("WriteLock", "remove", o.key, "-")>> \* resolver.go:173,200
+            [] k = "remove" ->              \* Resolver.RemoveModuleDependency (use_cases.go:228)
+                 Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:229,233
+                 \o <<St("ReadLock"), S("WriteLock", "remove", o.key, "-")>> \* resolver.go:179,206
                  \o Between(k, j)
                  \o <<St("ReadMod"), S("WriteMod", "remove", o.key, "-")>> \* invowkmod_edit.go:82,137
                  \o Final(k, j)
             [] k = "sync" ->                \* SyncModule -> Resolver.Sync
-                 Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:308
-                 \o <<St("ReadLock")>>                                    \* resolver.go:283
-                 \o FetchSteps(p, o, "req")                               \* resolver.go:289
-                 \o <<S("WriteLock", "rebuild", "-", "-")>>               \* resolver.go:300-307
+                 Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:407
+                 \o <<St("ReadLock")>>                                    \* resolver.go:296
+                 \o FetchSteps(p, o, "req")                               \* resolver.go:302
+                 \o <<S("WriteLock", "rebuild", "-", "-")>>               \* resolver.go:313-320
                  \o Final(k, j)
             [] k = "update" ->              \* UpdateModule -> Resolver.Update
-                 Early(k, j) \o <<St("ReadLock")>> \o Late(k, j)       \* resolver.go:216
-                 \o FetchSteps(p, o, "lock")                              \* resolver.go:253
-                 \o <<S("WriteLock", "update", "-", "-")>>                \* resolver.go:264
+                 Early(k, j) \o <<St("ReadLock")>> \o Late(k, j)       \* resolver.go:225
+                 \o FetchSteps(p, o, "lock")                              \* resolver.go:262
+                 \o <<S("WriteLock", "update", "-", "-")>>                \* resolver.go:273
                  \o Final(k, j)
             [] k = "tidy" ->                \* TidyModule, as a reader
-                 Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:330
+                 Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:429
                  \o <<St("ReadLock")>>                                    \* resolver_tidy.go:29
                  \o Final(k, j)
             [] k = "vendor" ->              \* vendorDependenciesWithResolver
@@ -379,8 +379,8 @@ WriteMod(p) ==
                /\ pc' = [pc EXCEPT ![p] = AfterRestores(p)]
                /\ UNCHANGED <<result, holds, srcVars, localVars, histVars>>
 
-\* fileSnapshot.restore, declaration first and then the lock (use_cases.go:140,
-\* 245-263). A snapshot of a missing file is restored with os.Remove; an existing
+\* fileSnapshot.restore, declaration first and then the lock (use_cases.go:205,
+\* 310-328). A snapshot of a missing file is restored with os.Remove; an existing
 \* one with os.WriteFile, which truncates and then writes.
 RestoreSnap(p) == IF Step(p).arg = "mod" THEN snapMod[p] ELSE snapLock[p]
 \* Only a whole file holds the snapshot's content; the other states are empty.

@@ -195,7 +195,7 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 			fmt.Printf("%s Could not auto-edit invowkmod.cue; lock file changes were rolled back: %v\n", moduleInfoIcon, declaration.Err())
 		}
 	} else {
-		fmt.Printf("%s Module lock file updated\n", moduleSuccessIcon)
+		fmt.Println(moduleAddLockLine(result.LockWritten()))
 		fmt.Printf("%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
 	}
 
@@ -234,12 +234,55 @@ func runModuleRemove(ctx context.Context, args []string) error {
 
 	fmt.Println()
 	if moduleDeclarationEditsClean(declarations) {
-		fmt.Printf("%s Lock file and invowkmod.cue updated\n", moduleSuccessIcon)
+		fmt.Println(moduleRemoveSummaryLine(result.LockWritten()))
 	} else {
 		fmt.Printf("%s Lock file updated; invowkmod.cue needs manual review\n", moduleInfoIcon)
 	}
 
 	return nil
+}
+
+// moduleLockFileLine returns the line module sync and module update print
+// after saving the lock: "updated" when the save wrote invowkmod.lock.cue and
+// "unchanged" when it skipped the write.
+//
+//plint:render
+func moduleLockFileLine(lockWritten bool) string {
+	if lockWritten {
+		return fmt.Sprintf("%s Lock file updated: %s", moduleSuccessIcon, invowkmod.LockFileName)
+	}
+	return fmt.Sprintf("%s Lock file unchanged: %s", moduleSuccessIcon, invowkmod.LockFileName)
+}
+
+// moduleAddLockLine returns the lock line module add prints after it edited
+// invowkmod.cue without error.
+//
+//plint:render
+func moduleAddLockLine(lockWritten bool) string {
+	if lockWritten {
+		return moduleSuccessIcon + " Module lock file updated"
+	}
+	return moduleSuccessIcon + " Module lock file unchanged"
+}
+
+// moduleRemoveSummaryLine returns the summary module remove prints after every
+// invowkmod.cue edit succeeded, reporting the lock and invowkmod.cue
+// separately.
+//
+//plint:render
+func moduleRemoveSummaryLine(lockWritten bool) string {
+	if lockWritten {
+		return moduleSuccessIcon + " Lock file and invowkmod.cue updated"
+	}
+	return moduleSuccessIcon + " Lock file unchanged; invowkmod.cue updated"
+}
+
+// moduleNoUpdatesLines returns what module update prints when it had no module
+// to update: it still saved the lock, and may have created an empty one.
+//
+//plint:render
+func moduleNoUpdatesLines(lockWritten bool) []string {
+	return []string{moduleInfoIcon + " No modules to update", moduleLockFileLine(lockWritten)}
 }
 
 func moduleDeclarationEditsClean(edits []modulesync.DeclarationEditResult) bool {
@@ -255,7 +298,7 @@ func runModuleSync(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Sync Module Dependencies"))
 
 	invowkmodulePath := filepath.Join(".", invowkmodCueFileName)
-	requirements, resolved, err := modulesync.SyncModule(ctx, types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
+	result, err := modulesync.SyncModule(ctx, types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		if missingErr, ok := errors.AsType[*modulesync.MissingTransitiveDepError](err); ok {
 			renderMissingTransitiveDeps(missingErr)
@@ -266,6 +309,7 @@ func runModuleSync(ctx context.Context) error {
 		return err
 	}
 
+	requirements := result.Requirements()
 	if len(requirements) == 0 {
 		fmt.Printf("%s No requires field found in invowkmod.cue\n", moduleInfoIcon)
 		return nil
@@ -274,14 +318,14 @@ func runModuleSync(ctx context.Context) error {
 	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
 
 	fmt.Println()
-	for _, p := range resolved {
+	for _, p := range result.Resolved() {
 		fmt.Printf("%s %s → %s\n", moduleSuccessIcon,
 			CmdStyle.Render(string(p.Namespace)),
 			moduleDetailStyle.Render(string(p.ResolvedVersion)))
 	}
 
 	fmt.Println()
-	fmt.Printf("%s Lock file updated: %s\n", moduleSuccessIcon, invowkmod.LockFileName)
+	fmt.Println(moduleLockFileLine(result.LockWritten()))
 
 	return nil
 }
@@ -336,7 +380,7 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 	}
 
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
-	updated, err := modulesync.UpdateModule(ctx, types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
+	result, err := modulesync.UpdateModule(ctx, types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		// Format ambiguous matches nicely
 		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {
@@ -348,8 +392,11 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 		return err
 	}
 
+	updated := result.Updated()
 	if len(updated) == 0 {
-		fmt.Printf("%s No modules to update\n", moduleInfoIcon)
+		for _, line := range moduleNoUpdatesLines(result.LockWritten()) {
+			fmt.Println(line)
+		}
 		return nil
 	}
 
@@ -361,7 +408,7 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("%s Lock file updated: %s\n", moduleSuccessIcon, invowkmod.LockFileName)
+	fmt.Println(moduleLockFileLine(result.LockWritten()))
 
 	return nil
 }
