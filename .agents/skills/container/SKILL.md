@@ -81,6 +81,11 @@ Keep pure target selection in `containerplan`, engine state mutation in
   (`os.Executable()`) is skipped with a warning. Tests never rely on the test
   binary being an ELF (macOS and Windows CI legs): use the
   `internal/testutil` binary fixtures.
+- `persistentSpecImage` (`GetProvisionedImageTag`) runs only when an existing
+  managed persistent container is reused (`skipImagePrep`); every other run
+  takes the tag `ensureProvisionedImage` returns. Do not call it for
+  ephemeral runs: it costs an image inspect and mislabels binary errors as
+  persistent-identity errors.
 
 ## Host And Container Paths
 

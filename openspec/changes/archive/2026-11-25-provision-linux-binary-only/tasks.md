@@ -38,13 +38,13 @@ Run every locked command in the worktree under `flock "$(git -C <worktree> rev-p
 
 - [x] 6.1 `make tidy` and `make license-check` (new Go files).
 - [x] 6.2 `make lint`, fixing every finding.
-- [ ] 6.3 `make test` (full suite, including the CLI and container tests).
-- [ ] 6.4 `make check-baseline`, triaging every new goplint finding (no baseline or ignore for protocol inconclusives).
+- [x] 6.3 `make test` (full suite, including the CLI and container tests).
+- [x] 6.4 `make check-baseline`, triaging every new goplint finding (no baseline or ignore for protocol inconclusives).
 - [x] 6.5 `make check-file-length` (`internal/provision/provisioner_test.go` is already at 863 lines: put new tests in new files).
-- [ ] 6.6 `make sonar-local`: no new code-fixable issues (go:S8209, go:S8193, go:S1192 outside tests, go:S107, go:S8239).
-- [ ] 6.7 `python3 scripts/formal.py correspondence` (code next to bound symbols changed).
+- [x] 6.6 `make sonar-local`: no new code-fixable issues (go:S8209, go:S8193, go:S1192 outside tests, go:S107, go:S8239).
+- [x] 6.7 `python3 scripts/formal.py correspondence` (code next to bound symbols changed).
 - [x] 6.8 `make check-agent-docs` if `.agents/` or `AGENTS.md` changed (for example the container skill's provisioning notes).
-- [ ] 6.9 `/learn`.
+- [x] 6.9 `/learn`.
 
 ## Workflow follow-up
 
