@@ -98,11 +98,14 @@ func TestVirtualPathHarness_GoldenVectors(t *testing.T) {
 	// The roots are built directly so t.TempDir's own enclosing roots (/tmp,
 	// HOME) do not make the check vacuous (design D5.4); whether the workdir
 	// joins them is the production decision for the instance's workdir kind.
+	// The workdir input of a kind is the same in every instance, so each kind's
+	// decision and validator are built once.
 	workdirs := harnessWorkdirs(dirFor, mustMkdir(t, filepath.Join(dirFor["InReadRoot"], "work")))
-	expectHarnessResolutionErrors(t, virtualPathValidator{resolver: virtualPathResolver{
-		allowedRoots: normalizedRoots([]string{dirFor["InReadRoot"]}),
-		access:       invowkfile.VirtualFilesystemAccessRestricted,
-	}}, dirFor["InReadRoot"])
+	validators := make(map[string]virtualPathValidator, len(workdirs))
+	for kind, w := range workdirs {
+		validators[kind] = harnessWorkdirValidator(t, w, dirFor["InReadRoot"])
+	}
+	expectHarnessResolutionErrors(t, pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, dirFor["InReadRoot"]), dirFor["InReadRoot"])
 	// Missing components are never created, so one ancestor per (lex, phys,
 	// link kind, dangling) serves every request.
 	ancestors := map[harnessAncestor]harnessBuilt{}
@@ -118,7 +121,10 @@ func TestVirtualPathHarness_GoldenVectors(t *testing.T) {
 		accepts := inst.Targets("dAccepts", inst.Atoms("Decisions")[0])
 		kind := mpctree.Which(inst, inst.Target("workdir", inst.Atoms("H")[0]), harnessWorkdirKindNames...)
 		kinds[kind]++
-		validator := harnessWorkdirValidator(t, workdirs[kind], dirFor["InReadRoot"])
+		validator, ok := validators[kind]
+		if !ok {
+			t.Fatalf("instance %d has no workdir kind among %v", i, harnessWorkdirKindNames)
+		}
 		for n, req := range inst.Atoms("Req") {
 			key := harnessAncestor{
 				lex:      mpctree.Which(inst, inst.Target("lexAnc", req), locs...),
@@ -204,10 +210,7 @@ func harnessWorkdirValidator(t *testing.T, w harnessWorkdir, readRoot string) vi
 	if isRoot {
 		roots = append(roots, w.workdir.path)
 	}
-	return virtualPathValidator{resolver: virtualPathResolver{
-		allowedRoots: normalizedRoots(roots),
-		access:       invowkfile.VirtualFilesystemAccessRestricted,
-	}}
+	return pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, roots...)
 }
 
 // expectHarnessResolutionErrors checks what the model does not hold: a path the

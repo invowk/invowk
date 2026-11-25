@@ -329,10 +329,7 @@ func checkWorkdirProperty(t *testing.T, root string) {
 		if isRoot {
 			roots = append(roots, workdir.path)
 		}
-		validator := virtualPathValidator{resolver: virtualPathResolver{
-			allowedRoots: normalizedRoots(roots),
-			access:       invowkfile.VirtualFilesystemAccessRestricted,
-		}}
+		validator := pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, roots...)
 		request := workdir.path
 		for i := range missing {
 			request = filepath.Join(request, fmt.Sprintf("%s%d", propWorkdirRequestName, i+1))
