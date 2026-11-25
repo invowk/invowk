@@ -207,6 +207,45 @@ func (m *Resolver) LockProject(ctx context.Context) (unlock func() error, err er
 	}, nil
 }
 
+// lockSource takes the source lock of gitURL's Git checkout:
+// `<cache root>/locks/source-<hex SHA-256 of sourceCheckoutKey>.lock`.
+// resolveOne takes it right before the fetch and releases it when it returns
+// (design D3), so the clone or fetch, the checkout, the copy into the cache
+// and its verification never interleave with another process's checkout of
+// the same source. It fails with errLockOrder while this resolver holds
+// another source lock. A resolver without edit locks takes no source lock
+// (unit tests that build a Resolver directly); every production construction
+// sets them.
+func (m *Resolver) lockSource(ctx context.Context, gitURL GitURL) (unlock func() error, err error) {
+	l := m.locks
+	if l == nil {
+		return func() error { return nil }, nil
+	}
+	if orderErr := l.claim(LockWaitSource); orderErr != nil {
+		return nil, orderErr
+	}
+	defer func() {
+		if err != nil {
+			l.unclaim(LockWaitSource)
+		}
+	}()
+
+	path, err := l.lockPath("source", sourceCheckoutKey(gitURL))
+	if err != nil {
+		return nil, err
+	}
+	release, err := l.locks.Locker.Lock(ctx, path, l.onBusy(LockWait{Kind: LockWaitSource, LockPath: path, GitURL: gitURL}))
+	if err != nil {
+		return nil, err
+	}
+	var once sync.Once
+	var releaseErr error
+	return func() error {
+		once.Do(func() { releaseErr = l.release(LockWaitSource, release) })
+		return releaseErr
+	}, nil
+}
+
 // claim records that kind is being taken, enforcing the lock order: no
 // project lock under a source lock, and one source lock at a time.
 func (l *editLocks) claim(kind LockWaitKind) error {

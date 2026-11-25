@@ -109,7 +109,7 @@ func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef, loc
 // prevents an attacker who controls the remote, re-points a tag, or has write
 // access to the module cache from silently replacing module content. Pass nil
 // when no prior lock file exists.
-func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, locked map[ModuleRefKey]LockedModule) (*ResolvedModule, error) {
+func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, locked map[ModuleRefKey]LockedModule) (resolved *ResolvedModule, err error) {
 	// Get available versions from Git
 	versions, err := m.fetcher.ListVersions(ctx, req.GitURL)
 	if err != nil {
@@ -125,6 +125,14 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, locked map[Mod
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve version for %s: %w", req.GitURL, err)
 	}
+
+	// The source lock covers the checkout through the verified, read cache
+	// copy (design D3): it is released when resolveOne returns.
+	unlockSource, err := m.lockSource(ctx, req.GitURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lock module source %s: %w", req.GitURL, err)
+	}
+	defer func() { err = joinUnlock(err, unlockSource) }()
 
 	// Clone/fetch the repository at the resolved version
 	repoPath, commit, err := m.fetcher.Fetch(ctx, req.GitURL, resolvedVersion)

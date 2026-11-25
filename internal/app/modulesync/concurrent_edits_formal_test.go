@@ -27,14 +27,16 @@ import (
 // methods, with one Resolver, one fetcher, one modulelock.FileLocker and one
 // gate per simulated process on one shared cache root; the processes
 // synchronise only through channels, the lock wait callback and the OS lock
-// on a real file. The F8 and F10 replays assert the fixed behaviour and kill
-// mutants of the lock and restore code; the F9 replay is still a
-// characterisation test of the open finding.
+// on a real file. The F8, F9 and F10 replays assert the fixed behaviour and
+// kill mutants of the lock and restore code.
 
 const (
 	concurrentURLA GitURL = "https://github.com/user/a.git"
 	concurrentURLB GitURL = "https://github.com/user/b.git"
 	concurrentURLR GitURL = "https://github.com/user/tools.git"
+
+	// twoTagModulePath is the module's subdirectory in newTwoTagModuleRepo.
+	twoTagModulePath SubdirectoryPath = "io.example.tools.invowkmod"
 )
 
 type (
@@ -343,8 +345,11 @@ func TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd(t *testing.T) {
 }
 
 // newTwoTagModuleRepo builds a local repository whose tags 1.0.0 and 2.0.0
-// hold the same module ID with different content, and returns the commit of
-// each tag.
+// hold the same module ID with different content in the subdirectory
+// twoTagModulePath, and returns the commit of each tag. The module is not
+// the repository root, so its cache copy and content hash leave out the
+// checkout's .git directory, whose index differs between clones: the hash
+// of one version is the same in every cache.
 func newTwoTagModuleRepo(t *testing.T) (dir string, commits map[SemVer]GitCommit) {
 	t.Helper()
 	dir = t.TempDir()
@@ -358,8 +363,12 @@ func newTwoTagModuleRepo(t *testing.T) (dir string, commits map[SemVer]GitCommit
 	}
 	commits = map[SemVer]GitCommit{}
 	when := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	moduleDir := filepath.Join(dir, string(twoTagModulePath))
+	if err := os.Mkdir(moduleDir, 0o755); err != nil {
+		t.Fatalf("mkdir module: %v", err)
+	}
 	for i, tag := range []SemVer{"1.0.0", "2.0.0"} {
-		writeIntegrityModule(t, dir, "cmds: {} // content of "+string(tag))
+		writeIntegrityModule(t, moduleDir, "cmds: {} // content of "+string(tag))
 		if _, err := w.Add("."); err != nil {
 			t.Fatalf("git add: %v", err)
 		}
@@ -387,31 +396,40 @@ func seedSourceClone(t *testing.T, repoDir, cacheDir string, gitURL GitURL) {
 	}
 }
 
-func newWorktreeResolver(t *testing.T, cacheDir string, gate *procgate.Gate) *Resolver {
+// newWorktreeResolver returns a resolver on its own project that fetches
+// through the real GitFetcher on cacheDir, with its own FileLocker on
+// cacheDir; onWait, when set, is called when it finds a lock busy.
+func newWorktreeResolver(t *testing.T, cacheDir string, gate *procgate.Gate, onWait ...func(LockWait)) *Resolver {
 	t.Helper()
 	fetcher := &worktreeGateFetcher{inner: NewGitFetcher(types.FilesystemPath(cacheDir)), versions: []SemVer{"2.0.0", "1.0.0"}, gate: gate}
-	r, err := newResolverWithFetcher(types.FilesystemPath(t.TempDir()), types.FilesystemPath(cacheDir), fetcher)
+	locks := EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(cacheDir)}
+	if len(onWait) > 0 {
+		locks.OnWait = onWait[0]
+	}
+	r, err := newResolverWithFetcher(types.FilesystemPath(t.TempDir()), types.FilesystemPath(cacheDir), fetcher, WithEditLocks(locks))
 	if err != nil {
 		t.Fatalf("newResolverWithFetcher() error = %v", err)
 	}
 	return r
 }
 
-// TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent replays
-// ConcurrentModuleEdits.findingF9SharedWorktreeRecordsWrongContent (open
-// finding F9): two projects sharing one module cache add versions 1.0.0 and
-// 2.0.0 of one repository. The Git source has one worktree per URL, so P1
-// copies the worktree after P2 checked out 2.0.0, and P1's lock records the
-// 1.0.0 commit with 2.0.0's content hash. Asserts current behaviour; invert
-// it with the fix.
-func TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent(t *testing.T) {
+// TestConcurrentEdits_F9SourceLockRecordsMatchingContent replays finding F9,
+// fixed by the source lock: ConcurrentModuleEdits.fetchProjectAndSourceLock
+// passes, and the pre-fix code is kept as
+// ConcurrentModuleEdits.mutantPreFixF9SharedWorktreeRecordsWrongContent. Two
+// projects sharing one module cache add versions 1.0.0 and 2.0.0 of one
+// repository, whose Git source has one worktree per URL. P1 parks after its
+// checkout of 1.0.0, holding the source lock; P2 runs in a goroutine and must
+// report the busy source lock before it checks out 2.0.0. Once P1 finishes,
+// its lock entry records 1.0.0's commit with 1.0.0's content hash.
+func TestConcurrentEdits_F9SourceLockRecordsMatchingContent(t *testing.T) {
 	t.Parallel()
 	repoDir, commits := newTwoTagModuleRepo(t)
 
 	// Reference: 1.0.0 alone, in its own cache.
 	refCache := t.TempDir()
 	seedSourceClone(t, repoDir, refCache, concurrentURLR)
-	reference, _, err := newWorktreeResolver(t, refCache, nil).Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^1.0.0"})
+	reference, _, err := newWorktreeResolver(t, refCache, nil).Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^1.0.0", Path: twoTagModulePath})
 	if err != nil {
 		t.Fatalf("reference Add() error = %v", err)
 	}
@@ -419,29 +437,47 @@ func TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent(t *testing.
 	cacheDir := t.TempDir()
 	seedSourceClone(t, repoDir, cacheDir, concurrentURLR)
 	gate := procgate.New()
+	openGate := sync.OnceFunc(gate.Open)
+	t.Cleanup(openGate)
 	p1 := newWorktreeResolver(t, cacheDir, gate)
 	done := procgate.Run(func() (*ResolvedModule, error) {
-		resolved, _, addErr := p1.Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^1.0.0"})
+		resolved, _, addErr := p1.Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^1.0.0", Path: twoTagModulePath})
 		return resolved, addErr
 	})
 	procgate.AwaitParked(t, gate, done)
 
-	v2, _, err := newWorktreeResolver(t, cacheDir, nil).Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^2.0.0"})
-	if err != nil {
-		t.Fatalf("P2 Add() error = %v", err)
-	}
-	gate.Open()
+	waited := make(chan struct{})
+	signal := sync.OnceFunc(func() { close(waited) })
+	p2 := newWorktreeResolver(t, cacheDir, nil, func(wait LockWait) {
+		if wait.Kind == LockWaitSource && wait.GitURL == concurrentURLR {
+			signal()
+		}
+	})
+	p2Done := procgate.Run(func() (*ResolvedModule, error) {
+		resolved, _, addErr := p2.Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^2.0.0", Path: twoTagModulePath})
+		return resolved, addErr
+	})
+	awaitLockWait(t, waited, p2Done)
+	openGate()
 	o := <-done
 	if o.Err != nil {
 		t.Fatalf("P1 Add() error = %v", o.Err)
 	}
+	o2 := <-p2Done
+	if o2.Err != nil || o2.Val.ResolvedVersion != "2.0.0" {
+		t.Fatalf("P2 Add() = %+v, %v; want 2.0.0", o2.Val, o2.Err)
+	}
+	v2 := o2.Val
+	if v2.ContentHash == reference.ContentHash {
+		t.Fatalf("2.0.0 hash %s equals 1.0.0's; the fixture must give the versions different content", v2.ContentHash)
+	}
 
-	entry := loadLockFileForTest(t, filepath.Join(string(p1.WorkingDir()), LockFileName)).Modules[ModuleRefKey(concurrentURLR)]
+	entry := loadLockFileForTest(t, filepath.Join(string(p1.WorkingDir()), LockFileName)).Modules[ModuleRef{GitURL: concurrentURLR, Path: twoTagModulePath}.Key()]
 	if entry.ResolvedVersion != "1.0.0" || entry.GitCommit != commits["1.0.0"] {
 		t.Fatalf("P1 lock entry = %s@%s, want 1.0.0@%s", entry.ResolvedVersion, entry.GitCommit, commits["1.0.0"])
 	}
-	if entry.ContentHash == reference.ContentHash || entry.ContentHash != v2.ContentHash {
-		t.Fatalf("P1 locked hash %s: want 2.0.0's %s instead of 1.0.0's %s", entry.ContentHash, v2.ContentHash, reference.ContentHash)
+	if entry.ContentHash != reference.ContentHash {
+		t.Fatalf("P1 locked hash %s, want 1.0.0's %s (2.0.0's is %s)", entry.ContentHash, reference.ContentHash, v2.ContentHash)
 	}
 }
 

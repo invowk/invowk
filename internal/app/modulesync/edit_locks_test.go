@@ -385,12 +385,19 @@ func TestModuleEditsHoldProjectLock(t *testing.T) {
 			granted := tt.granted(t, source)
 			var atUnlock lockWindowFiles
 			locker := &recordingLocker{
-				beforeGrant: func(types.FilesystemPath) {
+				beforeGrant: func(path types.FilesystemPath) {
+					if lockKindOf(path) != "project" {
+						return
+					}
 					if err := writeLockWindowFiles(workDir, granted); err != nil {
 						panic(fmt.Sprintf("rewrite files before the grant: %v", err))
 					}
 				},
-				atUnlock: func(types.FilesystemPath) { atUnlock = readLockWindowFiles(t, workDir) },
+				atUnlock: func(path types.FilesystemPath) {
+					if lockKindOf(path) == "project" {
+						atUnlock = readLockWindowFiles(t, workDir)
+					}
+				},
 			}
 			r := newLockWindowResolver(t, workDir, source, locker)
 
@@ -398,8 +405,9 @@ func TestModuleEditsHoldProjectLock(t *testing.T) {
 				t.Fatalf("%s error = %v", tt.name, err)
 			}
 			events, paths := locker.recorded()
-			if !slices.Equal(events, []string{"lock project", "unlock project"}) {
-				t.Fatalf("lock events = %v, want one project lock and its release", events)
+			if len(events) < 2 || events[0] != "lock project" || events[len(events)-1] != "unlock project" ||
+				slices.Contains(events[1:len(events)-1], "lock project") || slices.Contains(events[1:len(events)-1], "unlock project") {
+				t.Fatalf("lock events = %v, want one project lock around everything else (source locks only inside it)", events)
 			}
 			if got := filepath.Base(string(paths[0])); got != projectLockName(t, workDir) {
 				t.Fatalf("project lock file = %s, want %s", got, projectLockName(t, workDir))

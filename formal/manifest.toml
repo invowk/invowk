@@ -1915,13 +1915,29 @@ TestConcurrentEdits_F8UpdateKeepsConcurrentRemove and \
 TestConcurrentEdits_F8DuplicateAddKeepsOtherAdd, and \
 TestConcurrentEdits_VendorFromStaleLock is inverted: each process runs a real \
 modulelock.FileLocker on one cache root, and the second process must report \
-the busy project lock before it writes anything."""
+the busy project lock before it writes anything.
+2026-11-25 (module-concurrency-rollback, F9): the base is AdvisoryLock = \
+"project_and_source", as a fetch now holds the source lock of its Git \
+checkout from right before the fetch until resolveOne returns. \
+findingF9SharedWorktreeRecordsWrongContent became \
+mutantPreFixF9SharedWorktreeRecordsWrongContent (AdvisoryLock = "none", \
+mutant_of fetchProjectAndSourceLock); mutantNoSourceLock and \
+witnessProjectLockAllOk keep AdvisoryLock = "project", now the \
+project-only configuration; fetchProjectAndSourceLock, noCircularWait, \
+mutantReverseOrder, witnessSourceLockAllOk and witnessLockOrderAllOk dropped \
+their AdvisoryLock = "project_and_source" override, which equals the base. \
+Re-measured: the pre-fix F9 command is back at its unlocked space (67 -> 47); \
+every other command is unchanged (the F8 and vendor scenarios fetch no Git \
+source, so the source lock adds no step there). Go: the replay is inverted \
+and renamed TestConcurrentEdits_F9SourceLockRecordsMatchingContent; its \
+fixture keeps the module in a subdirectory so the content hash leaves out \
+the checkout's .git and one version hashes the same in every cache."""
 
 [model.constants]
 Procs = "{p1, p2}"
 Projects = "{pA}"
 Scenario = "\"sync_add\""
-AdvisoryLock = "\"project\""
+AdvisoryLock = "\"project_and_source\""
 AtomicRestore = "TRUE"
 Mutant = "\"none\""
 
@@ -2051,23 +2067,24 @@ property = "ReadersSeeWholeFiles"
 mutant_of = "rollbackReadAtomicRestore"
 distinct_states = 35
 
-# F9 (open): one worktree per URL is shared by concurrent fetches of two versions.
+# F9 (fixed): one worktree per URL was shared by concurrent fetches of two
+# versions; a fetch now holds the source lock, and the pre-fix code is kept as
+# mutantPreFixF9SharedWorktreeRecordsWrongContent.
 [[model.command]]
 name = "fetchProjectAndSourceLock"
-constants = { Scenario = "\"fetch_v1_v2\"", Projects = "{pA, pB}", AdvisoryLock = "\"project_and_source\"" }
+constants = { Scenario = "\"fetch_v1_v2\"", Projects = "{pA, pB}" }
 expect = "pass"
 property = "LockHashMatchesCommit"
 dead_actions = ["Fetch", "RestoreRemove", "RestoreTruncate", "RestoreWrite", "VendorRemove", "VendorCopy"]
 distinct_states = 196
 
 [[model.command]]
-name = "findingF9SharedWorktreeRecordsWrongContent"
-finding = "F9"
-constants = { Scenario = "\"fetch_v1_v2\"", Projects = "{pA, pB}" }
+name = "mutantPreFixF9SharedWorktreeRecordsWrongContent"
+constants = { Scenario = "\"fetch_v1_v2\"", Projects = "{pA, pB}", AdvisoryLock = "\"none\"" }
 expect = "counterexample"
 property = "LockHashMatchesCommit"
 mutant_of = "fetchProjectAndSourceLock"
-distinct_states = 67
+distinct_states = 47
 
 [[model.command]]
 name = "mutantNoSourceLock"
@@ -2107,7 +2124,7 @@ distinct_states = 38
 # Two mutexes: a fixed acquisition order (project, then source) never deadlocks.
 [[model.command]]
 name = "noCircularWait"
-constants = { Scenario = "\"sync_update_same_source\"", AdvisoryLock = "\"project_and_source\"" }
+constants = { Scenario = "\"sync_update_same_source\"" }
 expect = "pass"
 property = "NoCircularWait"
 dead_actions = ["Snapshot", "Fetch", "WriteMod", "RestoreRemove", "RestoreTruncate", "RestoreWrite", "VendorRemove", "VendorCopy"]
@@ -2115,7 +2132,7 @@ distinct_states = 58
 
 [[model.command]]
 name = "mutantReverseOrder"
-constants = { Scenario = "\"sync_update_same_source\"", AdvisoryLock = "\"project_and_source\"", Mutant = "\"reverse_order\"" }
+constants = { Scenario = "\"sync_update_same_source\"", Mutant = "\"reverse_order\"" }
 expect = "counterexample"
 property = "NoCircularWait"
 mutant_of = "noCircularWait"
@@ -2162,7 +2179,7 @@ distinct_states = 48
 
 [[model.command]]
 name = "witnessSourceLockAllOk"
-constants = { Scenario = "\"fetch_v1_v2\"", Projects = "{pA, pB}", AdvisoryLock = "\"project_and_source\"" }
+constants = { Scenario = "\"fetch_v1_v2\"", Projects = "{pA, pB}" }
 expect = "counterexample"
 property = "WitnessNotAllOk"
 witness = true
@@ -2178,7 +2195,7 @@ distinct_states = 61
 
 [[model.command]]
 name = "witnessLockOrderAllOk"
-constants = { Scenario = "\"sync_update_same_source\"", AdvisoryLock = "\"project_and_source\"" }
+constants = { Scenario = "\"sync_update_same_source\"" }
 expect = "counterexample"
 property = "WitnessNotAllOk"
 witness = true

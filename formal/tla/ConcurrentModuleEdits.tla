@@ -27,15 +27,18 @@
         or a wrong snapshot); ReadersSeeWholeFiles already fails at that read.
     A5  Content hashing is abstracted to content equality.
 
-  The base constants mirror the code: AdvisoryLock = "project",
+  The base constants mirror the code: AdvisoryLock = "project_and_source",
   AtomicRestore = TRUE, Mutant = "none". Findings:
     F8   (fixed) every module edit holds the project lock from its first
          read to its last write, so sync/update no longer overwrite a
          concurrent add or remove and an add's rollback no longer erases
          another process's add; the pre-fix code is kept as the four
          mutantPreFixF8* commands (AdvisoryLock = "none")
-    F9   (open) shared Git worktree: the lock records one commit with the hash
-         of the other version's content
+    F9   (fixed) a fetch holds the source lock of its Git checkout from the
+         checkout to the verified cache copy, so two projects sharing the
+         cache no longer record one version's commit with the other
+         version's content; the pre-fix code is kept as
+         mutantPreFixF9SharedWorktreeRecordsWrongContent
     F10  (fixed) the rollback restores each file by atomic replace; the
          pre-fix in-place os.WriteFile, which let a concurrent reader see a
          partial file, is kept as mutantPreFixF10NonAtomicRollback
@@ -58,16 +61,17 @@
 \* | UpdateProg | Resolver.UpdateModule | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F8UpdateKeepsConcurrentAdd, TestConcurrentEdits_F8UpdateKeepsConcurrentRemove | project lock, then Update under it |
 \* | UpdateProg (wrapper) | UpdateModule | internal/app/modulesync/use_cases.go | TestUpdateModuleWithoutLockWritesEmptyLock, TestModuleEditUseCasesRequireLocker | package-level wrapper: builds the resolver with the edit locks and the real GitFetcher, delegates to Resolver.UpdateModule; shares its leaf with the Resolver method, so go-mutesting's --match needs its own row |
 \* | Acquire project | Resolver.LockProject | internal/app/modulesync/edit_locks.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd, TestConcurrentEdits_F8UpdateKeepsConcurrentRemove, TestConcurrentEdits_VendorFromStaleLock | the project mutex: an OS advisory lock on <cache>/locks/project-<hash of the physical directory>.lock; a busy lock waits (OnWait), up to 5 minutes |
-\* | Release | editLocks.release | internal/app/modulesync/edit_locks.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd | the adapter's unlock: flock(LOCK_UN) or UnlockFileEx, then close |
+\* | Acquire source | Resolver.lockSource | internal/app/modulesync/edit_locks.go | TestConcurrentEdits_F9SourceLockRecordsMatchingContent | the source mutex: an OS advisory lock on <cache>/locks/source-<hash of sourceCheckoutKey>.lock, taken after the project lock; a busy lock waits (OnWait), up to 5 minutes |
+\* | Release | editLocks.release | internal/app/modulesync/edit_locks.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd, TestConcurrentEdits_F9SourceLockRecordsMatchingContent | the adapter's unlock: flock(LOCK_UN) or UnlockFileEx, then close |
 \* | ReadProg | - | - | - | read-only consumers (discovery, command runs, validate, audit) take no mutex and rely on atomic replaces |
-\* | AddProg (fetch_v1_v2) | Resolver.Add | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | lock read (139), resolve (145), re-read and save (152-161) |
+\* | AddProg (fetch_v1_v2) | Resolver.Add | internal/app/modulesync/resolver.go | TestConcurrentEdits_F9SourceLockRecordsMatchingContent | lock read (139), resolve (145), re-read and save (152-161) |
 \* | WriteLock remove | Resolver.Remove | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8UpdateKeepsConcurrentRemove | read (179) and save (206) with no fetch between |
 \* | WriteLock rebuild | Resolver.Sync | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8SyncKeepsConcurrentAdd | a new lock built only from the pre-fetch requires (313-320) |
 \* | WriteLock update (update_add) | Resolver.Update | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8UpdateKeepsConcurrentAdd | the pre-fetch lock with updated entries (225, 273) |
 \* | WriteLock update (update_remove) | Resolver.Update | internal/app/modulesync/resolver.go | TestConcurrentEdits_F8UpdateKeepsConcurrentRemove | - |
-\* | Checkout, CopyToCache | Resolver.resolveOne | internal/app/modulesync/resolver_deps.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | Fetch (130), then copy from the shared worktree (151-170) |
-\* | CopyToCache | Resolver.cacheModule | internal/app/modulesync/cache.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | stat, copy, hash; the fresh-copy branch trusts the worktree |
-\* | Checkout | GitFetcher.checkout | internal/app/modulesync/git.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | one worktree per URL, not per version (94-117, 467) |
+\* | Checkout, CopyToCache | Resolver.resolveOne | internal/app/modulesync/resolver_deps.go | TestConcurrentEdits_F9SourceLockRecordsMatchingContent | source lock (131) before the Fetch (138), then copy from the shared worktree and verify (169-186) under it; released when resolveOne returns (135) |
+\* | CopyToCache | Resolver.cacheModule | internal/app/modulesync/cache.go | TestConcurrentEdits_F9SourceLockRecordsMatchingContent | stat, copy, hash; the fresh-copy branch trusts the worktree |
+\* | Checkout | GitFetcher.checkout | internal/app/modulesync/git.go | TestConcurrentEdits_F9SourceLockRecordsMatchingContent | one worktree per URL, not per version (94-117, 467) |
 \* | WriteMod add | AddRequirement | pkg/invowkmod/invowkmod_edit.go | - | narrow read (29) to write (73) window with no seam |
 \* | WriteMod remove | RemoveRequirement | pkg/invowkmod/invowkmod_edit.go | - | delegates to RemoveRequirementIfPresent, which holds the narrow read (98) to write (153) window with no seam |
 \* | WriteLock | LockFile.Save | pkg/invowkmod/lockfile.go | TestConcurrentEdits_VendorFromStaleLock | atomic replace (A1); skipped when the valid lock on disk has equal content, which equals a replace with identical content at Save's own re-read (InspectLockFile), not at the sync's earlier lock read; Save delegates to SaveIfChanged, which holds the skip-or-replace body and which the resolver calls; its written flag is reporting only |

@@ -173,9 +173,15 @@ func (r DeclarationEditResult) Updated() bool { return r.updated }
 // the restores that failed.
 func (r DeclarationEditResult) Err() error { return r.err }
 
-// Rollback reports the rollback outcome: none when the edit succeeded,
-// complete or incomplete after a failed edit.
-func (r DeclarationEditResult) Rollback() DeclarationRollback { return r.rollback }
+// Rollback reports the rollback outcome: none when the edit succeeded or
+// never ran (the zero result an error return carries), complete or
+// incomplete after a failed edit.
+func (r DeclarationEditResult) Rollback() DeclarationRollback {
+	if r.rollback == "" {
+		return DeclarationRollbackNone
+	}
+	return r.rollback
+}
 
 // Validate returns an error when the rollback outcome is unknown or does not
 // match the error: a failed edit always rolls back, and a rollback always has
