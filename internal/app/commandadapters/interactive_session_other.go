@@ -16,3 +16,9 @@ import (
 func prepareInteractiveCmd(*exec.Cmd, xpty.Pty) error {
 	return nil
 }
+
+// releaseParentSlave does nothing outside Unix: a ConPTY has no slave
+// descriptor in invowk's process.
+func releaseParentSlave(xpty.Pty) error {
+	return nil
+}

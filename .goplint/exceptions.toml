@@ -1023,10 +1023,6 @@ pattern = "tui.ParseSpinnerType.*"
 reason = "TUI convenience wrapper — string-to-enum parse"
 
 [[exceptions]]
-pattern = "tui.stripOSCSequences.*"
-reason = "ANSI rendering internal"
-
-[[exceptions]]
 pattern = "tui.getTerminalSize.return.*"
 reason = "terminal size return — OS boundary"
 
@@ -2206,10 +2202,6 @@ reason = "ANSI rendering return — background escape sequence"
 [[exceptions]]
 pattern = "tui.sanitizeModalBackground.return.*"
 reason = "ANSI rendering return — sanitized background string"
-
-[[exceptions]]
-pattern = "tui.stripOSCSequences.return.*"
-reason = "ANSI rendering return — stripped display string"
 
 [[exceptions]]
 pattern = "tui.padLineToWidth.return.*"

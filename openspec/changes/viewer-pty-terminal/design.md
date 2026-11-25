@@ -94,6 +94,14 @@ On Unix the adapter closes its own copy of the slave right after `Start` succeed
 
 Output that arrives after `doneMsg` is not dropped: a tail that conhost flushes after the grace period on Windows, or output of a process the command left running (one that ignores SIGHUP, D2). The model keeps writing such `outputMsg`s to the emulator, marks the completed view stale, and rebuilds its content (history, main screen, banner last; D7) at most once per frame. The rebuild keeps the user's scroll offset, or stays at the bottom when the user was at the bottom. The banner is therefore always the last thing in the completed view, on every platform, and the spec's completion requirement holds on Windows too. The reader keeps draining until it ends or the session ends. `UnixPty.Close` closes the slave again; the adapter ignores `os.ErrClosed` from that second close so the deferred close does not turn a successful run into an error.
 
+## Implementation notes (implement stage)
+
+- D1/D8: the platform hooks are `prepareInteractiveCmd` and `releaseParentSlave` (`interactive_session_unix.go`, `interactive_session_other.go`), called by the one start seam `startInteractivePty(cmd, width, height)`. The nohup scenario needs the main process to outlive nohup's `signal(SIGHUP, SIG_IGN)`: a script that exits right after `nohup … &` can hang the job up before nohup runs (measured; the test pauses 1 s).
+- D2: `tui.InteractiveCommandArea(width, height)` shares the header/footer constants with `handleWindowSize`; the model creates its emulator at the same size the adapter gives the PTY (both from `TerminalSize`, 80x24 when unreadable).
+- D6: the modifiers a special key loses when vt has no form for them are Shift, Ctrl and Meta, and also Hyper and Super, which vt cannot encode either (the spec says such a key is sent as the plain key, never dropped).
+- D8: the completion message follows all output when the reader ends within the grace period. A reader that is still delivering a backlog when the grace period ends (or never ends) gets the banner first; its later chunks are drawn above the banner by the completed-view rebuild, so the banner stays last either way.
+- Tests run the viewer without a terminal through a new `InteractiveOptions.ProgramOptions` field (extra Bubble Tea options: `WithInput(nil)`, `WithOutput`, `WithWindowSize`, `WithFilter`), used by the `internal/tui` session tests and the adapter's `LAST-LINE` test.
+
 ## Risks / Trade-offs
 
 - [History is capped at 10,000 lines, the old viewer kept everything] -> documented in README and website; the cap matches common terminal defaults; raising it is one constant.

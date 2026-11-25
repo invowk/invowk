@@ -7,6 +7,7 @@ package commandadapters
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -16,6 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/invowk/invowk/internal/tui"
+
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/xpty"
 )
 
@@ -24,11 +28,18 @@ const (
 	ptyTestTimeout = 10 * time.Second
 	// ptyTestPollInterval is the poll period of the output and pid waits.
 	ptyTestPollInterval = 20 * time.Millisecond
+	// lastLineRuns is how many adapter runs must show LAST-LINE above the
+	// completion banner.
+	lastLineRuns = 20
 )
 
 var bgPIDPattern = regexp.MustCompile(`BG_PID=(\d+)`)
 
 type (
+	// viewProbeMsg is a message the viewer ignores; it lets a test filter
+	// look at the view.
+	viewProbeMsg struct{}
+
 	// ptyHarness runs one command on the start seam of runInteractiveCmd and
 	// collects everything the command writes to its terminal.
 	ptyHarness struct {
@@ -324,4 +335,96 @@ func TestInteractivePtyCtrlZ(t *testing.T) {
 	if err := h.waitExit(); err != nil {
 		t.Fatalf("command error = %v", err)
 	}
+}
+
+// TestInteractiveSessionLastLineAboveBanner runs `seq 1 50; echo LAST-LINE`
+// through the real adapter (PTY start seam, session, waiter) and checks, on
+// every run, that the completed view shows LAST-LINE above the banner (spec
+// "Trailing output stays above the banner").
+func TestInteractiveSessionLastLineAboveBanner(t *testing.T) {
+	t.Parallel()
+
+	for i := range lastLineRuns {
+		t.Run(strconv.Itoa(i+1), func(t *testing.T) {
+			t.Parallel()
+			view := runAdapterToCompletion(t, `seq 1 50; echo LAST-LINE`)
+			last := strings.LastIndex(view, "LAST-LINE")
+			banner := strings.Index(view, "COMPLETED SUCCESSFULLY")
+			if last < 0 || banner < 0 || last > banner {
+				t.Fatalf("LAST-LINE at %d, banner at %d, want LAST-LINE above the banner; view:\n%s", last, banner, view)
+			}
+		})
+	}
+}
+
+// runAdapterToCompletion runs script through runInteractiveCmd without a
+// real terminal, presses Enter once the completed view is shown, and returns
+// that view's text.
+func runAdapterToCompletion(t *testing.T, script string) string {
+	t.Helper()
+
+	var (
+		mu        sync.Mutex
+		lastView  string
+		completed = make(chan struct{})
+		once      sync.Once
+		program   = make(chan *tea.Program, 1)
+	)
+	filter := func(m tea.Model, msg tea.Msg) tea.Msg {
+		content := m.View().Content
+		mu.Lock()
+		lastView = content
+		mu.Unlock()
+		if strings.Contains(content, "Press Enter to return to terminal") {
+			once.Do(func() { close(completed) })
+		}
+		return msg
+	}
+	opts := tui.InteractiveOptions{
+		Title:          "probe",
+		OnProgramReady: func(p *tea.Program) { program <- p },
+		ProgramOptions: []tea.ProgramOption{
+			tea.WithInput(nil),
+			tea.WithOutput(io.Discard),
+			tea.WithWindowSize(100, 30),
+			tea.WithFilter(filter),
+		},
+	}
+	cmd := exec.CommandContext(t.Context(), "sh", "-c", script)
+	type outcome struct {
+		result *tui.InteractiveResult
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		r, err := runInteractiveCmd(t.Context(), opts, cmd)
+		done <- outcome{r, err}
+	}()
+	p := <-program
+	// The filter sees the model only when a message arrives, so poke it
+	// until the completed view shows.
+	deadline := time.After(ptyTestTimeout)
+	for waiting := true; waiting; {
+		select {
+		case <-completed:
+			waiting = false
+		case <-deadline:
+			t.Fatalf("completed view not shown within %s", ptyTestTimeout)
+		case <-time.After(ptyTestPollInterval):
+			p.Send(viewProbeMsg{})
+		}
+	}
+	p.Send(tea.KeyPressMsg{Code: tea.KeyEnter})
+	var o outcome
+	select {
+	case o = <-done:
+	case <-time.After(ptyTestTimeout):
+		t.Fatalf("session did not return within %s after Enter", ptyTestTimeout)
+	}
+	if o.err != nil || o.result == nil || o.result.ExitCode != 0 {
+		t.Fatalf("runInteractiveCmd() = %+v, %v; want success", o.result, o.err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	return lastView
 }

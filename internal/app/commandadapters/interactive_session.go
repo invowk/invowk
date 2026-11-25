@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 
 func runInteractiveCmd(ctx context.Context, opts tui.InteractiveOptions, cmd *exec.Cmd) (result *tui.InteractiveResult, err error) {
 	width, height := tui.TerminalDimension(80), tui.TerminalDimension(24)
-	if w, h, termErr := tui.TerminalSize(); termErr == nil {
+	if w, h, termErr := tui.TerminalSize(); termErr == nil && w > 0 && h > 0 {
 		width, height = w, h
 	}
 
@@ -26,7 +27,9 @@ func runInteractiveCmd(ctx context.Context, opts tui.InteractiveOptions, cmd *ex
 		return nil, err
 	}
 	defer func() {
-		if closeErr := pty.Close(); closeErr != nil && err == nil {
+		// On Unix the slave copy was already closed after start, so the
+		// second close of it reports os.ErrClosed, which is not a failure.
+		if closeErr := pty.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) && err == nil {
 			err = closeErr
 		}
 	}()
@@ -77,6 +80,10 @@ func startInteractivePty(cmd *exec.Cmd, width, height tui.TerminalDimension) (xp
 	if err := pty.Start(cmd); err != nil {
 		_ = pty.Close()
 		return nil, fmt.Errorf("failed to start command on PTY: %w", err)
+	}
+	if err := releaseParentSlave(pty); err != nil {
+		_ = pty.Close()
+		return nil, fmt.Errorf("failed to release the PTY slave: %w", err)
 	}
 	return pty, nil
 }

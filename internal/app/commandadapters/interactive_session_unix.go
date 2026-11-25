@@ -51,3 +51,17 @@ func prepareInteractiveCmd(cmd *exec.Cmd, pty xpty.Pty) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}
 	return nil
 }
+
+// releaseParentSlave closes invowk's own copy of the slave once the command
+// started on it. The master read then ends (EIO) as soon as every process
+// of the command has closed the slave and its output was read, which is
+// what lets the viewer show the completion banner after the last output
+// (design D8). UnixPty.Close closes the slave again later; the adapter
+// ignores the os.ErrClosed of that second close.
+func releaseParentSlave(pty xpty.Pty) error {
+	unixPty, ok := pty.(*xpty.UnixPty)
+	if !ok {
+		return fmt.Errorf("interactive terminal is %T, want a Unix PTY", pty)
+	}
+	return unixPty.Slave().Close()
+}

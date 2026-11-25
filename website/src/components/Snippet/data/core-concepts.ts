@@ -578,7 +578,9 @@ invowk cmd database-cli --ivk-interactive`,
   'interactive/key-bindings-executing': {
     language: 'text',
     code: `During command execution:
-  All keys      → Forwarded to the command's terminal
+  All keys      → Encoded for the command's terminal and forwarded
+  Ctrl+A…Z      → Sent as control characters (Ctrl+Shift+letter too)
+  Paste         → Forwarded, bracketed when the command enabled it
   Ctrl+C        → Interrupt: SIGINT to the command's foreground job (Unix)
   Ctrl+D        → End of file, as in any terminal
   Ctrl+Z        → Forwarded; does not suspend the command
@@ -587,7 +589,7 @@ invowk cmd database-cli --ivk-interactive`,
 
   'interactive/key-bindings-completed': {
     language: 'text',
-    code: `After command completion:
+    code: `After command completion (history: the last 10,000 lines):
   ↑/k           → Scroll up one line
   ↓/j           → Scroll down one line
   PgUp/b        → Scroll up half page

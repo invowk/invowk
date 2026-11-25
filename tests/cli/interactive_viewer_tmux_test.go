@@ -28,9 +28,24 @@ const (
 	viewerPickRuns = 5
 	// viewerPidGoneTimeout bounds the wait for a hung-up process to end.
 	viewerPidGoneTimeout = 5 * time.Second
+	// viewerFirstRow is the pane line of the command screen's first row,
+	// below the viewer's title and separator.
+	viewerFirstRow = 2
+
+	// viewerChooseHelp is the choose component's help line.
+	viewerChooseHelp = "↑/k up • ↓/j down • enter submit • esc cancel"
+	// viewerInputHelp is the input component's help line.
+	viewerInputHelp = "enter submit • esc cancel"
 )
 
-var viewerPIDPattern = regexp.MustCompile(`SLEEP_PID=(\d+)`)
+var (
+	viewerPIDPattern = regexp.MustCompile(`SLEEP_PID=(\d+)`)
+	// viewerChosenBeta matches the choose row of beta marked as current.
+	viewerChosenBeta  = regexp.MustCompile(`│\s*beta\s*$`)
+	viewerChosenAlpha = regexp.MustCompile(`│\s*alpha\s*$`)
+	// viewerPromptAna matches the input prompt row after typing Ana.
+	viewerPromptAna = regexp.MustCompile(`^\s*> Ana\s*$`)
+)
 
 // viewerPickScript is the diagnosis recipe (program-notes viewer-diagnosis):
 // two value components run from a script inside the viewer.
@@ -116,16 +131,95 @@ func (s *tmuxSession) exitViewer() string {
 	return s.mustWait(viewerExitMarker)
 }
 
-// runPick drives the pick recipe: Down, Enter, "Ana", Enter.
-func runPick(t *testing.T, s *tmuxSession) string {
+// runPick drives the pick recipe: Down, Enter, "Ana", Enter. With checkFrames
+// it also checks, while each prompt is shown, that the viewer draws it as one
+// clean frame inside an intact viewer (spec "A repainting prompt shows one
+// frame"); that applies to the no-server recipe, whose prompts draw on the
+// command's screen.
+func runPick(t *testing.T, s *tmuxSession, checkFrames bool) string {
 	t.Helper()
 	s.mustWait("Pick one")
 	s.key("Down")
+	if checkFrames {
+		s.mustWaitLine(viewerChosenBeta)
+		assertChooseFrame(t, s.capturePlain())
+	}
 	s.key("Enter")
 	s.mustWait("Your name")
 	s.key("Ana")
+	if checkFrames {
+		s.mustWaitLine(viewerPromptAna)
+		assertInputFrame(t, s.capturePlain())
+	}
 	s.key("Enter")
 	return s.mustWait("COMPLETED SUCCESSFULLY")
+}
+
+// mustWaitLine waits until a pane line matches re.
+func (s *tmuxSession) mustWaitLine(re *regexp.Regexp) string {
+	s.t.Helper()
+	deadline := time.Now().Add(tmuxWaitTimeout)
+	for time.Now().Before(deadline) {
+		pane := s.capturePlain()
+		for line := range strings.SplitSeq(pane, "\n") {
+			if re.MatchString(line) {
+				return pane
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	s.t.Fatalf("no pane line matches %s within %s; pane:\n%s", re, tmuxWaitTimeout, s.capturePlain())
+	return ""
+}
+
+// assertViewerChrome checks the viewer's header on the first pane line and
+// its running footer on the last.
+func assertViewerChrome(t *testing.T, pane string) {
+	t.Helper()
+	lines := strings.Split(strings.TrimRight(pane, "\n"), "\n")
+	if len(lines) != 30 {
+		t.Errorf("pane has %d lines, want the 30 rows of the viewer; pane:\n%s", len(lines), pane)
+		return
+	}
+	if !strings.HasPrefix(lines[0], "Running Command probe") || !strings.HasPrefix(lines[1], "-----") {
+		t.Errorf("viewer header is not intact; pane:\n%s", pane)
+	}
+	if !strings.HasPrefix(lines[29], "Running...") {
+		t.Errorf("viewer footer is not intact; pane:\n%s", pane)
+	}
+}
+
+func assertChooseFrame(t *testing.T, pane string) {
+	t.Helper()
+	assertViewerChrome(t, pane)
+	if n := strings.Count(pane, "Pick one"); n != 1 {
+		t.Errorf("pane shows %d Pick one frames, want one; pane:\n%s", n, pane)
+	}
+	if n := strings.Count(pane, viewerChooseHelp); n != 1 {
+		t.Errorf("pane shows the choose help %d times, want once; pane:\n%s", n, pane)
+	}
+	for line := range strings.SplitSeq(pane, "\n") {
+		if viewerChosenAlpha.MatchString(line) {
+			t.Errorf("alpha is still marked after Down; pane:\n%s", pane)
+		}
+	}
+}
+
+func assertInputFrame(t *testing.T, pane string) {
+	t.Helper()
+	assertViewerChrome(t, pane)
+	helpLines := 0
+	for line := range strings.SplitSeq(pane, "\n") {
+		if strings.Contains(line, "esc cancel") {
+			helpLines++
+			if strings.TrimSpace(line) != viewerInputHelp {
+				t.Errorf("input help line = %q, want exactly %q", strings.TrimSpace(line), viewerInputHelp)
+			}
+		}
+	}
+	if helpLines != 1 {
+		t.Errorf("pane shows %d help lines, want one; pane:\n%s", helpLines, pane)
+	}
 }
 
 // TestInteractiveViewerPick: value components that a script runs without the
@@ -140,7 +234,7 @@ func TestInteractiveViewerPick(t *testing.T) {
 		t.Run(fmt.Sprintf("no_server_%d", i+1), func(t *testing.T) {
 			t.Parallel()
 			s := startViewer(t, fmt.Sprintf("pick-%d", i+1), viewerPickScript(true))
-			pane := runPick(t, s)
+			pane := runPick(t, s, true)
 			assertPickResult(t, pane)
 			s.exitViewer()
 		})
@@ -149,7 +243,7 @@ func TestInteractiveViewerPick(t *testing.T) {
 	t.Run("server_control", func(t *testing.T) {
 		t.Parallel()
 		s := startViewer(t, "pick-server", viewerPickScript(false))
-		pane := runPick(t, s)
+		pane := runPick(t, s, false)
 		assertPickResult(t, pane)
 		s.exitViewer()
 	})
@@ -262,4 +356,94 @@ func TestInteractiveViewerSignals(t *testing.T) {
 func viewerProcessAlive(pid int) bool {
 	err := syscall.Kill(pid, 0)
 	return err == nil || errors.Is(err, syscall.EPERM)
+}
+
+// TestInteractiveViewerScreen: the viewer draws a terminal screen (spec
+// "Output is drawn as a terminal screen", "Full-screen programs render",
+// "Output history is kept", "Keys are encoded", "The completion banner
+// follows all of the command's output").
+func TestInteractiveViewerScreen(t *testing.T) {
+	t.Parallel()
+	requireTmux(t)
+
+	t.Run("less", func(t *testing.T) {
+		t.Parallel()
+		if _, err := exec.LookPath("less"); err != nil {
+			t.Skip("less not available")
+		}
+		s := startViewer(t, "less", `echo BEFORE-LESS; seq 1 200 | less -PsLESS-PROMPT; echo AFTER-LESS`)
+		pane := s.mustWait("LESS-PROMPT")
+		lines := strings.Split(pane, "\n")
+		if strings.TrimSpace(lines[viewerFirstRow]) != "1" || strings.Contains(pane, "BEFORE-LESS") {
+			t.Fatalf("less does not show its first page on the command screen; pane:\n%s", pane)
+		}
+		s.key("q")
+		s.mustWait("COMPLETED SUCCESSFULLY")
+		s.key("g")
+		pane = s.mustWait("BEFORE-LESS")
+		lines = strings.Split(pane, "\n")
+		if strings.TrimSpace(lines[viewerFirstRow]) != "BEFORE-LESS" || strings.TrimSpace(lines[viewerFirstRow+1]) != "AFTER-LESS" {
+			t.Fatalf("history after less is not the main screen; pane:\n%s", pane)
+		}
+		s.exitViewer()
+	})
+
+	t.Run("history", func(t *testing.T) {
+		t.Parallel()
+		s := startViewer(t, "history", `seq 1 500`)
+		s.mustWait("COMPLETED SUCCESSFULLY")
+		s.key("g")
+		s.mustWaitLine(regexp.MustCompile(`^1$`))
+		lines := strings.Split(s.capturePlain(), "\n")
+		if strings.TrimSpace(lines[viewerFirstRow]) != "1" || strings.TrimSpace(lines[viewerFirstRow+1]) != "2" {
+			t.Fatalf("top of the history is not line 1; pane:\n%s", strings.Join(lines, "\n"))
+		}
+		s.key("G")
+		pane := s.mustWait("Press Enter to return")
+		if !strings.Contains(pane, "\n500\n") {
+			t.Fatalf("bottom does not show 500 and the banner; pane:\n%s", pane)
+		}
+		s.exitViewer()
+	})
+
+	t.Run("ctrl_a", func(t *testing.T) {
+		t.Parallel()
+		s := startViewer(t, "ctrla", `stty raw -echo; echo OD_READY; od -An -c -N1; stty sane; echo OD_DONE`)
+		s.mustWait("OD_READY")
+		s.key("C-a")
+		pane := s.mustWait("OD_DONE")
+		if !strings.Contains(pane, "001") {
+			t.Fatalf("od did not read Ctrl+A as 001; pane:\n%s", pane)
+		}
+		s.mustWait("COMPLETED SUCCESSFULLY")
+		s.exitViewer()
+	})
+
+	for i := range viewerPickRuns {
+		t.Run(fmt.Sprintf("last_line_%d", i+1), func(t *testing.T) {
+			t.Parallel()
+			s := startViewer(t, fmt.Sprintf("lastline-%d", i+1), `seq 1 50; echo LAST-LINE`)
+			pane := s.mustWait("Press Enter to return")
+			last, banner := strings.LastIndex(pane, "LAST-LINE"), strings.Index(pane, "COMPLETED SUCCESSFULLY")
+			if last < 0 || last > banner {
+				t.Fatalf("LAST-LINE is not above the banner; pane:\n%s", pane)
+			}
+			s.exitViewer()
+		})
+	}
+
+	t.Run("query_flood_force_quit", func(t *testing.T) {
+		t.Parallel()
+		s := startViewer(t, "flood", `stty raw -echo; echo FLOOD_START; while :; do printf '\033[c'; done`)
+		s.mustWait("FLOOD_START")
+		time.Sleep(2 * time.Second)
+		start := time.Now()
+		s.key("C-\\")
+		if !s.waitFor(viewerExitMarker, viewerPidGoneTimeout) {
+			t.Fatalf("viewer did not force quit within %s; pane:\n%s", viewerPidGoneTimeout, s.capturePlain())
+		}
+		if elapsed := time.Since(start); elapsed > viewerPidGoneTimeout+viewerKeySettle {
+			t.Fatalf("force quit took %s", elapsed)
+		}
+	})
 }

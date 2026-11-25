@@ -15,6 +15,7 @@ require (
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/charmbracelet/keygen v0.5.4
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
+	github.com/charmbracelet/x/vt v0.1.0
 	github.com/charmbracelet/x/xpty v0.1.4
 	github.com/coder/acp-go-sdk v0.13.5
 	github.com/creack/pty v1.1.24
@@ -94,6 +95,7 @@ require (
 	github.com/charmbracelet/x/conpty v0.2.0 // indirect
 	github.com/charmbracelet/x/exp/charmtone v0.0.0-20260519012233-798e623c8447 // indirect
 	github.com/charmbracelet/x/exp/golden v0.0.0-20260519012233-798e623c8447 // indirect
+	github.com/charmbracelet/x/exp/ordered v0.1.0 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20260519012233-798e623c8447 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
