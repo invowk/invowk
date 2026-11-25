@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Module commands that write a project's `invowkmod.cue` or lock file, or that fetch a Git source into the shared module cache, serialise through exclusive operating-system locks, so concurrent invowk processes never lose or mix each other's results.
+Module commands that write a project's `invowkmod.cue` or lock file (including `invowk agent mod change`), or that fetch a Git source into the shared module cache, serialise through exclusive operating-system locks, so concurrent invowk processes never lose or mix each other's results.
 
 ## ADDED Requirements
 
@@ -29,8 +29,34 @@ Module commands that write a project's `invowkmod.cue` or lock file, or that fet
 - **WHEN** `invowk module add`, `remove`, `sync`, `update`, `tidy` or `vendor` runs and `invowkmod.cue` or the lock file changes between the command's start and the moment it acquires the project lock
 - **THEN** the command SHALL act on the files as they are once it holds the lock
 
+### Requirement: Agent module change writes under the project lock
+When `invowk agent mod change` writes a module, it SHALL take that module directory's project lock (the lock file `invowk module add` run in that directory uses) before it re-reads `invowkmod.cue` and `invowkfile.cue` for its write, SHALL write each file with an atomic replace, and SHALL release the lock after its last write. If either file differs from the content the change was generated from, it SHALL write neither file and SHALL fail with exit status 1.
+
+#### Scenario: Agent change writes atomically under the lock
+- **WHEN** `invowk agent mod change` writes a module while another process reads its `invowkmod.cue`
+- **THEN** the command SHALL hold the module's project lock across both writes, and the reader SHALL see the old or the new file, never a partial one
+
+#### Scenario: Agent change waits for a module command
+- **WHEN** `invowk agent mod change` is ready to write while `invowk module add` holds that module's project lock
+- **THEN** it SHALL print the project waiting line once and wait as "A waiting command reports and bounds its wait" states
+
+#### Scenario: Module files changed while the change was generated
+- **WHEN** `invowkmod.cue` or `invowkfile.cue` of the module changes after `invowk agent mod change` read them and before it holds the project lock
+- **THEN** the command SHALL write neither file, SHALL exit with status 1, and its error SHALL say that the files changed and to run the command again
+
+#### Scenario: Agent preview takes no lock
+- **WHEN** `invowk agent mod change` runs with `--dry-run` or `--print`
+- **THEN** it SHALL take no lock and write nothing
+
+### Requirement: Agent module create writes atomically
+`invowk agent mod create` SHALL write the new module's `invowkmod.cue` and `invowkfile.cue` with an atomic replace. It SHALL take no project lock, since the module directory does not exist before it runs.
+
+#### Scenario: Reader during an agent create
+- **WHEN** discovery reads a module directory while `invowk agent mod create` writes it
+- **THEN** it SHALL see each file missing or whole, never partial
+
 ### Requirement: When the project lock excludes another command
-Two commands that hold the project lock SHALL NOT overlap inside the span "Module edits hold the project lock" states when they run on one machine against the same module cache root and their project directory resolves to the same project lock file.
+Two commands that hold the project lock SHALL NOT overlap inside the spans that "Module edits hold the project lock" and "Agent module change writes under the project lock" state when they run on one machine against the same module cache root and their project directory resolves to the same project lock file.
 
 #### Scenario: Same project, same cache root
 - **WHEN** two such commands run at the same time on one machine, on one project directory, with the same module cache root
@@ -105,7 +131,7 @@ A command whose lock is held by another process SHALL print once on stderr `Wait
 - **THEN** the command SHALL fail (exit non-zero after Ctrl+C, exit status 1 with an error that names the lock file and says another invowk process holds it after the timeout), and `invowkmod.cue` and the project's lock file SHALL be as the command found them: it SHALL NOT have written either file, and `invowk module add` SHALL report no rollback
 
 ### Requirement: Read-only consumers take no lock
-Discovery, command runs, `invowk validate`, `invowk audit` and `invowk module deps` SHALL NOT take a project or source lock. They SHALL rely on every write of `invowkmod.cue` and of the lock file by `invowk module add`, `remove`, `sync`, `update`, `tidy` and `vendor`, the rollback included, being an atomic replace. Writers outside these module commands are not covered by this requirement.
+Discovery, command runs, `invowk validate`, `invowk audit` and `invowk module deps` SHALL NOT take a project or source lock. They SHALL rely on every write of `invowkmod.cue` and of the lock file by `invowk module add`, `remove`, `sync`, `update`, `tidy` and `vendor`, the rollback included, and by `invowk agent mod change` and `agent mod create`, being an atomic replace. Writers outside these commands are not covered by this requirement.
 
 #### Scenario: Command run during a module edit
 - **WHEN** `invowk cmd <name>` runs in a project while `invowk module add` holds that project's lock
@@ -117,3 +143,10 @@ The README and the module commands reference (English and pt-BR) SHALL state whi
 #### Scenario: Reader looks up why a command waits
 - **WHEN** a reader opens the module commands reference
 - **THEN** it SHALL find the waiting lines, the commands that take the project lock, the 5-minute limit, the `locks` directory of the module cache and the known limits
+
+### Requirement: Agent module locking is documented
+The LLM-assisted authoring page (English and pt-BR) SHALL state that `invowk agent mod change` takes the same project lock as the module commands before it writes, may print the waiting line, and fails without writing when the module's files changed while the change was generated.
+
+#### Scenario: Reader looks up why an agent change waited or failed
+- **WHEN** a reader opens the LLM-assisted authoring page
+- **THEN** it SHALL find that `agent mod change` takes the project lock, may wait, and fails without writing when the module changed during generation

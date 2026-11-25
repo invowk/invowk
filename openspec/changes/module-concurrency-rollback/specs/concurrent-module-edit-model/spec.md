@@ -51,7 +51,7 @@ The model SHALL define process results `ok`, `rolled_back`, and `err`, matching 
 - **THEN** at least one seeded mutant that is not a pre-fix configuration SHALL produce a counterexample through the same property
 
 ### Requirement: Characterisation tests replay counterexamples against the real code
-Each fixed finding's counterexample that a seam can reproduce SHALL have a deterministic Go test that replays the same interleaving against the real code and asserts the fixed outcome. The test SHALL call the real use-case entry points or `Resolver` methods, or `vendorDependenciesWithResolver`, with one `Resolver` per simulated process and the real file lock on real files. Each process SHALL have its own fetcher and gate, and the processes SHALL synchronise only through channels and the lock. Each test SHALL also meet "Characterisation test constraints". Because each test now asserts the fixed behaviour, it SHALL NOT match the characterisation name pattern of `scripts/formal.py` (`_FindingF<n>`, `_Characterisation`), and no correspondence row that tables it SHALL carry a note beginning `characterisation:`, so the reach run and `mutation-formal` use it as a killer.
+Each fixed finding's counterexample that a seam can reproduce SHALL have a deterministic Go test that replays the same interleaving against the real code and asserts the fixed outcome. The test SHALL call the real use-case entry points or `Resolver` methods, or `vendorDependenciesWithResolver`, with one `Resolver` per simulated process and the real file lock on real files. A process whose real entry point cannot run offline in the test's package (the concurrent update of the vendor replay in `internal/app/moduleops`, which cannot inject a fetcher) MAY transcribe that entry point's file write, provided it takes the real project lock through `Resolver.LockProject` first and its doc comment says so. Each process SHALL have its own fetcher and gate, and the processes SHALL synchronise only through channels and the lock. Each test SHALL also meet "Characterisation test constraints". Because each test now asserts the fixed behaviour, it SHALL NOT match the characterisation name pattern of `scripts/formal.py` (`_FindingF<n>`, `_Characterisation`), and no correspondence row that tables it SHALL carry a note beginning `characterisation:`, so the reach run and `mutation-formal` use it as a killer.
 
 #### Scenario: Inverted replays are killers
 - **WHEN** the formal tooling (`is_characterisation_test` in `scripts/formal.py`) classifies the binding tests of the `ConcurrentModuleEdits` rows
@@ -107,7 +107,7 @@ The model SHALL keep the advisory lock and atomic restore configurations stated 
 - **THEN** each mutant SHALL produce a counterexample for the property it targets
 
 ### Requirement: Findings F8, F9 and F10 are fixed
-The base configuration SHALL mirror the fixed code: `AdvisoryLock = "project_and_source"` and `AtomicRestore = TRUE`. Each former finding command SHALL be kept as a `mutantPreFix…` command that sets only its own fix's constant back to the pre-fix value (as each scenario below states), with an expected counterexample, no `finding` field and `mutant_of` set to its fixed command. The F8, F9 and F10 rows of `formal/README.md` SHALL read Fixed and name those commands and their Go replays.
+The base configuration SHALL mirror the fixed code: `AdvisoryLock = "project_and_source"` and `AtomicRestore = TRUE`. Each former finding command SHALL be kept as a `mutantPreFix…` command with its own fix's constant set back to the pre-fix value (as each scenario below states), with an expected counterexample, no `finding` field and `mutant_of` set to its fixed command. The F8, F9 and F10 rows of `formal/README.md` SHALL read Fixed and name those commands and their Go replays.
 
 #### Scenario: Sync overlaps an add
 - **WHEN** under `sync_add` one process syncs while another completes `module add` of a different key
@@ -157,6 +157,13 @@ Whenever a bound correspondence row names a `Resolver` method that shares its na
 #### Scenario: Lock code is planned for mutation
 - **WHEN** `scripts/formal_mutation.py plan` runs
 - **THEN** `Resolver.LockProject`, `Resolver.lockSource` and `editLocks.release` SHALL be planned, both the package-level function and the `Resolver` method of `AddModuleDependency`, `RemoveModuleDependency`, `SyncModule` and `UpdateModule` SHALL be planned, and the plan SHALL report no match collision
+
+### Requirement: Bound rows' killers reach their functions
+Every binding test of a `ConcurrentModuleEdits` row that this change adds, re-points or re-binds SHALL execute that row's Go function. The `WriteLock` row for `LockFile.Save` SHALL therefore bind `TestConcurrentEdits_VendorFromStaleLock`, whose concurrent update writes through `LockFile.Save`, and not a resolver replay: the resolver calls only `LockFile.SaveIfChanged`.
+
+#### Scenario: Killers reach their functions
+- **WHEN** `make formal-reach` runs at any commit of this change
+- **THEN** every binding test of every added, re-pointed or re-bound `ConcurrentModuleEdits` row SHALL cover at least one statement of the row's function, and the check SHALL pass
 
 ## REMOVED Requirements
 
