@@ -36,10 +36,10 @@ When `invowk module add` or `invowk module remove` edits `invowkmod.cue` without
 ## ADDED Requirements
 
 ### Requirement: A failed invowkmod.cue edit reports the rollback
-When `invowk module add` or `invowk module remove` fails to edit `invowkmod.cue`, it restores the lock file it saved and SHALL say so, whether or not the save had written the lock. It SHALL NOT print a line saying that the lock file was updated or unchanged, and it SHALL NOT print a success summary. A missing `invowkmod.cue` SHALL be recognised as missing even when the edit error wraps it.
+When `invowk module add` or `invowk module remove` fails to edit `invowkmod.cue`, it restores the lock file it saved and SHALL say so, whether or not the save had written the lock. It SHALL NOT print a line saying that the lock file was updated or unchanged, and it SHALL NOT print a success summary. A missing `invowkmod.cue` SHALL be recognised as missing even when the edit error wraps it. When restoring a file fails as well, the command SHALL NOT say that the changes were not persisted or were rolled back without showing the restore error.
 
 #### Scenario: Add without invowkmod.cue
-- **WHEN** `invowk module add` resolves a module in a directory that has no `invowkmod.cue`
+- **WHEN** `invowk module add` resolves a module in a directory that has no `invowkmod.cue`, and restoring the lock file succeeds
 - **THEN** it SHALL print `invowkmod.cue not found — dependency was not persisted`, SHALL NOT print `Could not auto-edit invowkmod.cue`, and the lock file SHALL be as it was before the command
 
 #### Scenario: Add whose invowkmod.cue edit fails otherwise
@@ -47,8 +47,12 @@ When `invowk module add` or `invowk module remove` fails to edit `invowkmod.cue`
 - **THEN** it SHALL print `Could not auto-edit invowkmod.cue; lock file changes were rolled back:` followed by the error, and SHALL NOT print `Module lock file updated` or `Module lock file unchanged`
 
 #### Scenario: Remove whose invowkmod.cue edit fails
-- **WHEN** `invowk module remove` deletes lock entries but cannot edit `invowkmod.cue`, for example because it cannot be read
+- **WHEN** `invowk module remove` deletes lock entries but cannot edit `invowkmod.cue`, for example because it cannot be read, and restoring the files succeeds
 - **THEN** it SHALL print `Could not auto-edit invowkmod.cue:` followed by the error and the summary `Lock file changes were rolled back; invowkmod.cue needs manual review`, SHALL NOT print `Lock file updated`, `Lock file unchanged` or `Lock file and invowkmod.cue updated`, and the lock file SHALL be byte-identical to the lock before the command
+
+#### Scenario: A restore that fails as well
+- **WHEN** the `invowkmod.cue` edit of `invowk module add` or `invowk module remove` fails and restoring the lock file or `invowkmod.cue` fails too
+- **THEN** `invowk module add` SHALL print `Could not auto-edit invowkmod.cue; lock file changes were rolled back:` followed by the error, which includes the restore error, even when `invowkmod.cue` is missing, and SHALL NOT print `invowkmod.cue not found — dependency was not persisted`; `invowk module remove` SHALL print `Could not auto-edit invowkmod.cue:` followed by the error, which includes the restore error, and the summary `Lock file updated; invowkmod.cue needs manual review`, and SHALL NOT print `Lock file changes were rolled back`
 
 ### Requirement: Removing a requires entry reports whether it wrote
 Removing a `requires` entry from `invowkmod.cue` SHALL tell its caller whether it wrote the file. It SHALL report a write only when it replaced the file with the entry removed. When the file does not exist, has no `requires` block or has no matching entry, it SHALL leave the file untouched and report no write. A failed removal SHALL return its error and SHALL NOT report a write. The existing way to remove a requirement SHALL keep working for callers that do not need the report.

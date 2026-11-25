@@ -12,6 +12,7 @@ stdout 'Removed'
 stdout 'Lock file updated; invowkmod.cue unchanged'
 ! stdout 'invowkmod.cue updated'
 cmp invowkmod.cue invowkmod.cue.before
+! grep 'example/dep.invowkmod.git' invowkmod.lock.cue
 
 # Case 2: a directory at the invowkmod.cue path makes the edit fail. The lock
 # is restored byte-identical and the summary says so.

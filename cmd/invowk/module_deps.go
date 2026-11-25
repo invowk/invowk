@@ -257,28 +257,36 @@ func moduleAddLockLine(lockWritten bool) string {
 }
 
 // moduleAddDeclarationFailureLine returns the line module add prints when its
-// invowkmod.cue edit failed and the lock was rolled back. The edit error wraps
-// the read error with %w and is joined with the restore errors, so a missing
-// invowkmod.cue is found through the error chain, not with os.IsNotExist.
+// invowkmod.cue edit failed and the use case rolled the lock back. The edit
+// error wraps the read error with %w and is joined with the restore errors, so
+// a missing invowkmod.cue is found through the error chain, not with
+// os.IsNotExist. The not-found line is printed only when every restore
+// succeeded; when one failed, the line with the whole error keeps the restore
+// failure visible, as before the not-found line was reachable.
 //
 //plint:render
 func moduleAddDeclarationFailureLine(err error) string {
-	if errors.Is(err, fs.ErrNotExist) {
+	if errors.Is(err, fs.ErrNotExist) && !moduleDeclarationRestoreFailed(err) {
 		return moduleInfoIcon + " invowkmod.cue not found — dependency was not persisted"
 	}
 	return fmt.Sprintf("%s Could not auto-edit invowkmod.cue; lock file changes were rolled back: %v", moduleInfoIcon, err)
 }
 
 // moduleRemoveSummaryLine returns the summary module remove prints. When an
-// invowkmod.cue edit failed the use case restored the lock, and the line says
-// so. Otherwise it reports the lock and invowkmod.cue separately:
+// invowkmod.cue edit failed and the use case restored the files, the line says
+// the lock changes were rolled back; when a restore failed as well, it keeps
+// the "Lock file updated" line (the restore error is in the error line printed
+// above it). Otherwise it reports the lock and invowkmod.cue separately:
 // invowkmod.cue is updated when at least one edit wrote it.
 //
 //plint:render
 func moduleRemoveSummaryLine(declarations []modulesync.DeclarationEditResult, lockWritten bool) string {
 	invowkmodWritten := false
 	for i := range declarations {
-		if declarations[i].Err() != nil {
+		if err := declarations[i].Err(); err != nil {
+			if moduleDeclarationRestoreFailed(err) {
+				return moduleInfoIcon + " Lock file updated; invowkmod.cue needs manual review"
+			}
 			return moduleInfoIcon + " Lock file changes were rolled back; invowkmod.cue needs manual review"
 		}
 		invowkmodWritten = invowkmodWritten || declarations[i].Updated()
@@ -293,6 +301,17 @@ func moduleRemoveSummaryLine(declarations []modulesync.DeclarationEditResult, lo
 	default:
 		return moduleSuccessIcon + " Lock file and invowkmod.cue unchanged"
 	}
+}
+
+// moduleDeclarationRestoreFailed reports whether the rollback after a failed
+// invowkmod.cue edit failed too. The add and remove use cases return
+// errors.Join(editErr, declarationRestoreErr, lockRestoreErr), and errors.Join
+// drops nil errors, so a top-level join with more than one part means a
+// restore failed. Only the top level is checked: a join inside the edit error
+// is not a restore failure.
+func moduleDeclarationRestoreFailed(err error) bool {
+	joined, ok := err.(interface{ Unwrap() []error })
+	return ok && len(joined.Unwrap()) > 1
 }
 
 // moduleNoUpdatesLines returns what module update prints when it had no module

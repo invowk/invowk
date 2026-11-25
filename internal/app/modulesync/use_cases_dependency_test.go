@@ -201,6 +201,7 @@ func TestAddModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	if !errors.Is(result.Declaration().Err(), fs.ErrNotExist) {
 		t.Fatalf("Declaration.Err = %v, want an error wrapping fs.ErrNotExist", result.Declaration().Err())
 	}
+	assertRestoresSucceeded(t, result.Declaration().Err())
 
 	lock, err := invowkmod.LoadLockFile(filepath.Join(workDir, LockFileName))
 	if err != nil {
@@ -261,6 +262,7 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	if declarations[0].Err() == nil {
 		t.Fatal("Declaration.Err = nil, want declaration edit error")
 	}
+	assertRestoresSucceeded(t, declarations[0].Err())
 
 	reloaded, err := invowkmod.LoadLockFile(filepath.Join(workDir, LockFileName))
 	if err != nil {
@@ -275,5 +277,17 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	}
 	if !bytes.Equal(lockAfter, lockBefore) {
 		t.Fatalf("restored lock differs from the lock before the call:\n got: %s\nwant: %s", lockAfter, lockBefore)
+	}
+}
+
+// assertRestoresSucceeded checks the error shape the CLI's rollback lines rely
+// on (moduleDeclarationRestoreFailed in cmd/invowk): after a rollback whose
+// restores succeeded, the declaration error is a join of the edit error alone.
+func assertRestoresSucceeded(t *testing.T, err error) {
+	t.Helper()
+
+	joined, ok := err.(interface{ Unwrap() []error })
+	if !ok || len(joined.Unwrap()) != 1 {
+		t.Fatalf("Declaration.Err = %v, want errors.Join of the edit error alone (both restores succeeded)", err)
 	}
 }

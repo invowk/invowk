@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -43,16 +44,20 @@ func TestModuleLockLines(t *testing.T) {
 	}
 }
 
-// TestModuleRemoveSummaryLine covers the five summary rows of module remove
-// (spec "Add and remove report each file truthfully" and "A failed
-// invowkmod.cue edit reports the rollback").
+// TestModuleRemoveSummaryLine covers the summary rows of module remove (spec
+// "Add and remove report each file truthfully" and "A failed invowkmod.cue
+// edit reports the rollback"), including a restore that failed as well.
 func TestModuleRemoveSummaryLine(t *testing.T) {
 	t.Parallel()
 
 	wrote := mustDeclarationEditResult(t, true, nil)
 	skipped := mustDeclarationEditResult(t, false, nil)
-	failed := mustDeclarationEditResult(t, false, errors.New("failed to read invowkmod.cue: is a directory"))
+	// The remove use case joins the edit error with both restore errors.
+	readErr := errors.New("failed to read invowkmod.cue: is a directory")
+	failed := mustDeclarationEditResult(t, false, errors.Join(readErr, nil, nil))
+	restoreFailed := mustDeclarationEditResult(t, false, errors.Join(readErr, nil, errors.New("rollback invowkmod.lock.cue: permission denied")))
 	rollback := moduleInfoIcon + " Lock file changes were rolled back; invowkmod.cue needs manual review"
+	restoreFailedLine := moduleInfoIcon + " Lock file updated; invowkmod.cue needs manual review"
 
 	tests := []struct {
 		name         string
@@ -69,6 +74,7 @@ func TestModuleRemoveSummaryLine(t *testing.T) {
 		{name: "edit failed, lock written", declarations: []modulesync.DeclarationEditResult{failed}, lockWritten: true, want: rollback},
 		{name: "edit failed, lock skipped", declarations: []modulesync.DeclarationEditResult{failed}, lockWritten: false, want: rollback},
 		{name: "edit failed after one wrote", declarations: []modulesync.DeclarationEditResult{wrote, failed}, lockWritten: true, want: rollback},
+		{name: "edit failed, a restore failed", declarations: []modulesync.DeclarationEditResult{restoreFailed}, lockWritten: true, want: restoreFailedLine},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -81,9 +87,10 @@ func TestModuleRemoveSummaryLine(t *testing.T) {
 	}
 }
 
-// TestModuleAddDeclarationFailureLine covers "Add without invowkmod.cue" and
-// "Add whose invowkmod.cue edit fails otherwise" on the error shape the add
-// use case returns: the AddRequirement error joined with both restore errors.
+// TestModuleAddDeclarationFailureLine covers "Add without invowkmod.cue",
+// "Add whose invowkmod.cue edit fails otherwise" and "A restore that fails as
+// well" on the error shape the add use case returns: the AddRequirement error
+// joined with both restore errors.
 func TestModuleAddDeclarationFailureLine(t *testing.T) {
 	t.Parallel()
 
@@ -108,14 +115,20 @@ version: "1.0.0"
 	}
 
 	notFound := moduleInfoIcon + " invowkmod.cue not found — dependency was not persisted"
+	rollbackPrefix := moduleInfoIcon + " Could not auto-edit invowkmod.cue; lock file changes were rolled back: "
+	missingRestoreFailed := errors.Join(missingErr, nil, errors.New("rollback invowkmod.lock.cue: permission denied"))
+	// A restore that fails with its own not-exist error must not turn a
+	// duplicate-requirement failure into the not-found line.
+	duplicateRestoreNotExist := errors.Join(invowkmod.ErrModuleAlreadyExists, nil, &fs.PathError{Op: "open", Path: "invowkmod.lock.cue", Err: fs.ErrNotExist})
 	tests := []struct {
 		name string
 		err  error
 		want string
 	}{
 		{name: "missing file, restores succeeded", err: errors.Join(missingErr, nil, nil), want: notFound},
-		{name: "missing file, a restore failed", err: errors.Join(missingErr, nil, errors.New("restore lock: permission denied")), want: notFound},
-		{name: "duplicate requirement", err: duplicateErr, want: moduleInfoIcon + " Could not auto-edit invowkmod.cue; lock file changes were rolled back: " + duplicateErr.Error()},
+		{name: "missing file, a restore failed", err: missingRestoreFailed, want: rollbackPrefix + missingRestoreFailed.Error()},
+		{name: "duplicate requirement", err: duplicateErr, want: rollbackPrefix + duplicateErr.Error()},
+		{name: "duplicate requirement, restore not found", err: duplicateRestoreNotExist, want: rollbackPrefix + duplicateRestoreNotExist.Error()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

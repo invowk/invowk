@@ -10,9 +10,10 @@
 
   Named assumptions:
     A1  Every fspath.AtomicWriteFile call (LockFile.SaveIfChanged, which
-        LockFile.Save wraps; AddRequirement; RemoveRequirement) is one atomic
-        replace; AtomicWrite owns crash durability and is not re-checked
-        here. LockFile.SaveIfChanged skips the write when the valid lock on
+        LockFile.Save wraps; AddRequirement; RemoveRequirementIfPresent,
+        which RemoveRequirement wraps) is one atomic replace; AtomicWrite
+        owns crash durability and is not re-checked here.
+        LockFile.SaveIfChanged skips the write when the valid lock on
         disk already has equal content; the model tracks lock entries, not
         bytes or timestamps, so that skip is the same step as a replace with
         identical content.
@@ -361,9 +362,10 @@ WriteLock(p) ==
                  /\ SetLock(j, "whole", [k \in DOMAIN rl |-> res[p][k]])
                  /\ Advance(p) /\ UNCHANGED <<srcVars, localVars, histVars>>
 
-\* AddRequirement / RemoveRequirement write from the ReadMod copy. A duplicate
-\* add fails (ErrModuleAlreadyExists) and falls through to the Restore steps
-\* that follow; a successful edit skips them.
+\* AddRequirement / RemoveRequirementIfPresent (which RemoveRequirement wraps)
+\* write from the ReadMod copy. A duplicate add fails (ErrModuleAlreadyExists)
+\* and falls through to the Restore steps that follow; a successful edit skips
+\* them.
 AfterRestores(p) ==
     CHOOSE i \in pc[p] + 1 .. Len(Program(p)) :
         Program(p)[i].op /= "Restore" /\ \A m \in pc[p] + 1 .. i - 1 : Program(p)[m].op = "Restore"
