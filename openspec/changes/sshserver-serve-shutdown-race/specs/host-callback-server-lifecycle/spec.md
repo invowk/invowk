@@ -63,6 +63,11 @@ A `Stop` that runs at any point of a concurrent `Start` SHALL leave no listener 
 - **WHEN** two `Stop` calls run concurrently while `Start` is still in progress
 - **THEN** both SHALL return only after every goroutine that `Start` launched has exited, and neither SHALL wait on the server's goroutines while `Start` can still launch one
 
+#### Scenario: Start with a cancelled context on a server a Stop already stopped
+- **GIVEN** `Stop` runs on a server that was never started, before or concurrently with a `Start` whose context is already cancelled
+- **WHEN** `Start` finds the server already stopped
+- **THEN** `Start` SHALL bind no listener and launch no server goroutine, SHALL return a non-nil error, and `Stop` and a later `Wait` SHALL each return within a bounded time
+
 #### Scenario: Port after Stop
 - **WHEN** `Stop` has returned and so has any `Start` that overlapped it
 - **THEN** a TCP connection to the server's bound port SHALL be refused, with no race detector needed to observe it
