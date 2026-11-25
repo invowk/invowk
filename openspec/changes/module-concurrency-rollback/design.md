@@ -241,7 +241,7 @@ Every added or re-pointed row resolves: `AddProg`, `RemoveProg`, `SyncProg`, `Up
 | `RemoveProg (wrapper)` | `RemoveModuleDependency` | `TestRemoveModuleDependencyCreatesOnlyProjectLock` | `TestRemoveModuleDependencyDoesNotCreateModuleCache` | 75.0% | (F8) |
 | `RemoveProg (wrapper)` | `RemoveModuleDependency` | `TestModuleEditUseCasesRequireLocker` | new | - | (F8) |
 | `RemoveProg` | `Resolver.RemoveModuleDependency` | `TestConcurrentEdits_F8UpdateKeepsConcurrentRemove` | `…_FindingF8_UpdateResurrectsConcurrentRemove` | 58.3% | (F8) |
-| `Restore` | `fileSnapshot.restore` | `TestConcurrentEdits_F10RestoreReplacesFile` | new (for reference, the base duplicate-add replay reaches it at 50.0%) | - | (F10) |
+| `Restore` | `fileSnapshot.restore` | `TestConcurrentEdits_F10RestoreReplacesFile` | new (for reference, the base duplicate-add replay reaches it at 50.0%) | - | 5/13 (38.5%), F10 commit `make formal-reach` |
 | `SyncProg` | `Resolver.SyncModule` | `TestConcurrentEdits_F8SyncKeepsConcurrentAdd` | new function (the base replay transcribes the body: package-level `SyncModule` 0.0%) | - | (F8) |
 | `SyncProg (wrapper)` | `SyncModule` | `TestSyncModuleWithoutRequirementsReportsNoWrite` | same | 33.3% | (F8) |
 | `SyncProg (wrapper)` | `SyncModule` | `TestModuleEditUseCasesRequireLocker` | new | - | (F8) |

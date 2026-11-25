@@ -3,6 +3,7 @@
 package modulesync
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -364,5 +365,55 @@ func TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent(t *testing.
 	}
 	if entry.ContentHash == reference.ContentHash || entry.ContentHash != v2.ContentHash {
 		t.Fatalf("P1 locked hash %s: want 2.0.0's %s instead of 1.0.0's %s", entry.ContentHash, v2.ContentHash, reference.ContentHash)
+	}
+}
+
+// TestConcurrentEdits_F10RestoreReplacesFile is the Go side of finding F10,
+// fixed by an atomic restore (ConcurrentModuleEdits.rollbackReadAtomicRestore
+// passes; the pre-fix in-place os.WriteFile is kept as
+// ConcurrentModuleEdits.mutantPreFixF10NonAtomicRollback). The interleaving
+// itself is model-only, since a rename has no intermediate state to replay;
+// this test checks that the restore replaces the lock file instead of
+// rewriting it in place. The lock already holds the exact entry the add
+// resolves, so the add's save is skipped, its invowkmod.cue edit fails as a
+// duplicate, and only the rollback can replace the file: a new file means a
+// rename, and an in-place write keeps the same file.
+func TestConcurrentEdits_F10RestoreReplacesFile(t *testing.T) {
+	t.Parallel()
+	p := newConcurrentProject(t)
+	lockPath := filepath.Join(p.workDir, LockFileName)
+	before, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatalf("ReadFile(lock) error = %v", err)
+	}
+	beforeInfo, err := os.Stat(lockPath)
+	if err != nil {
+		t.Fatalf("Stat(lock) error = %v", err)
+	}
+
+	result, err := p.resolver(t, p.fetcher(concurrentURLA)).AddModuleDependency(t.Context(), p.invowkmodPath, ModuleRef{GitURL: concurrentURLA, Version: "^1.0.0"})
+	if err != nil {
+		t.Fatalf("AddModuleDependency() error = %v", err)
+	}
+	if result.LockWritten() {
+		t.Fatal("LockWritten = true, want the save skipped so only the restore can replace the lock")
+	}
+	if !errors.Is(result.Declaration().Err(), invowkmod.ErrModuleAlreadyExists) {
+		t.Fatalf("Declaration.Err = %v, want ErrModuleAlreadyExists", result.Declaration().Err())
+	}
+
+	after, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatalf("ReadFile(lock) after rollback error = %v", err)
+	}
+	if !bytes.Equal(after, before) {
+		t.Fatalf("restored lock differs from the snapshot:\n got: %s\nwant: %s", after, before)
+	}
+	afterInfo, err := os.Stat(lockPath)
+	if err != nil {
+		t.Fatalf("Stat(lock) after rollback error = %v", err)
+	}
+	if os.SameFile(beforeInfo, afterInfo) {
+		t.Fatal("the restore rewrote the lock file in place; want an atomic replace (a new file renamed over the path)")
 	}
 }

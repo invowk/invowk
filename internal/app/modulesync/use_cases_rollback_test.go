@@ -132,3 +132,36 @@ func TestAddModuleDependencyRollbackRestoresLinkedLock(t *testing.T) {
 		t.Fatalf("link target changed:\n got: %s\nwant: %s", after, before)
 	}
 }
+
+// TestAddModuleDependencyRollbackLinkRestoreFails checks that a link that
+// cannot be recreated is a restore error, never a silent skip (spec "Restore of
+// a link fails"): the lock path is a link, the add's save replaces it, and the
+// injected link creator fails.
+func TestAddModuleDependencyRollbackLinkRestoreFails(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+
+	workDir := t.TempDir()
+	invowkmodPath := filepath.Join(workDir, "invowkmod.cue")
+	writeDuplicateToolsInvowkmod(t, invowkmodPath)
+	if err := invowkmod.NewLockFile().Save(filepath.Join(workDir, "real-lock.cue")); err != nil {
+		t.Fatalf("Save(real lock) error = %v", err)
+	}
+	fstree.MustSymlink(t, "real-lock.cue", filepath.Join(workDir, LockFileName))
+
+	injected := errors.New("injected: symbolic links unavailable")
+	resolver := newRollbackResolver(t, workDir)
+	resolver.restoreLinker = func(string, string) error { return injected }
+
+	result, err := resolver.AddModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), ModuleRef{GitURL: rollbackToolsURL, Version: "^1.0.0"})
+	if err != nil {
+		t.Fatalf("AddModuleDependency() error = %v", err)
+	}
+	if !result.LockWritten() {
+		t.Fatal("LockWritten = false, want the save to have replaced the link")
+	}
+	declErr := result.Declaration().Err()
+	if !errors.Is(declErr, invowkmod.ErrModuleAlreadyExists) || !errors.Is(declErr, injected) {
+		t.Fatalf("Declaration.Err = %v, want the duplicate edit error and the injected restore error", declErr)
+	}
+}

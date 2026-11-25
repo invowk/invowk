@@ -39,6 +39,12 @@ type (
 		// semver handles version constraint resolution.
 		semver *SemverResolver
 
+		// restoreWriter and restoreLinker are the rollback's restore seams,
+		// carried into each snapshot; nil means fspath.AtomicWriteFile and
+		// os.Symlink (design D8).
+		restoreWriter restoreFileWriter
+		restoreLinker restoreLinkCreator
+
 		// mu protects concurrent access to the resolver.
 		mu sync.Mutex
 	}

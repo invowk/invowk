@@ -27,14 +27,15 @@
         or a wrong snapshot); ReadersSeeWholeFiles already fails at that read.
     A5  Content hashing is abstracted to content equality.
 
-  Findings on today's code (base constants AdvisoryLock = "none",
-  AtomicRestore = FALSE, Mutant = "none"):
-    F8   lost updates: sync/update overwrite a concurrent add or remove, and an
-         add's rollback erases another process's add
-    F9   shared Git worktree: the lock records one commit with the hash of the
-         other version's content
-    F10  the rollback's os.WriteFile truncates in place, so a concurrent reader
-         sees a partial file
+  The base constants mirror the code: AdvisoryLock = "none",
+  AtomicRestore = TRUE, Mutant = "none". Findings:
+    F8   (open) lost updates: sync/update overwrite a concurrent add or
+         remove, and an add's rollback erases another process's add
+    F9   (open) shared Git worktree: the lock records one commit with the hash
+         of the other version's content
+    F10  (fixed) the rollback restores each file by atomic replace; the
+         pre-fix in-place os.WriteFile, which let a concurrent reader see a
+         partial file, is kept as mutantPreFixF10NonAtomicRollback
   A vendor that returns ok from a lock replaced before it returned is a
   proposed finding without an id (escalated for allocation).
 *)
@@ -45,10 +46,10 @@
 \* | AddProg (add_add_same) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_FindingF8_DuplicateAddRollsBackOtherAdd | snapshots (191,195); rollback on edit error (205) |
 \* | AddProg (sync_add) | Resolver.AddModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | the concurrent add |
 \* | RemoveProg | Resolver.RemoveModuleDependency | internal/app/modulesync/use_cases.go | TestConcurrentEdits_FindingF8_UpdateResurrectsConcurrentRemove | RemoveRequirement never fails, so no rollback path |
-\* | Restore | fileSnapshot.restore | internal/app/modulesync/use_cases.go | - | F10 is model-only: os.WriteFile has no seam between its truncate and its write |
+\* | Restore | fileSnapshot.restore | internal/app/modulesync/use_cases.go | TestConcurrentEdits_F10RestoreReplacesFile | atomic replace (fspath.AtomicWriteFile or link rename); the interleaving is model-only: a rename has no intermediate state |
 \* | SyncProg | SyncModule | internal/app/modulesync/use_cases.go | - | wrapper; its LoadRequirements-then-Sync body is transcribed in the sync replay |
 \* | UpdateProg | UpdateModule | internal/app/modulesync/use_cases.go | - | wrapper with the real GitFetcher |
-\* | TidyProg | TidyModule | internal/app/modulesync/use_cases.go | - | no fetcher seam; modelled as a reader of requires and the lock |
+\* | ReadProg | - | - | - | read-only consumers (discovery, command runs, validate, audit) take no mutex and rely on atomic replaces |
 \* | AddProg (fetch_v1_v2) | Resolver.Add | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent | lock read (139), resolve (145), re-read and save (152-161) |
 \* | WriteLock remove | Resolver.Remove | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_UpdateResurrectsConcurrentRemove | read (179) and save (206) with no fetch between |
 \* | WriteLock rebuild | Resolver.Sync | internal/app/modulesync/resolver.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | a new lock built only from the pre-fetch requires (313-320) |
@@ -115,7 +116,7 @@ Plan(p) ==
             IF p = P1 THEN Op("update", "-", "v2", FALSE) ELSE Op("remove", "a", "-", FALSE)
       [] Scenario = "add_add_same" -> Op("add", "x", "v1", FALSE)
       [] Scenario = "rollback_read" ->
-            IF p = P1 THEN Op("add", "x", "v1", FALSE) ELSE Op("tidy", "-", "-", FALSE)
+            IF p = P1 THEN Op("add", "x", "v1", FALSE) ELSE Op("read", "-", "-", FALSE)
       [] Scenario = "fetch_v1_v2" ->
             IF p = P1 THEN Op("add", "r", "v1", TRUE) ELSE Op("add", "r", "v2", TRUE)
       [] Scenario = "vendor_sync" ->
@@ -135,7 +136,8 @@ Rel(l) == [St("Release") EXCEPT !.lk = l]
 Opt(c, s) == IF c THEN <<s>> ELSE <<>>
 
 \* Project mutex (fix): held from before the first read of either file until
-\* after the last write or rollback, by every operation including the reader.
+\* after the last write or rollback, by every module command. The read-only
+\* reader (ReadProg) holds no mutex in any configuration.
 UseProj(kind) == AdvisoryLock /= "none" /\ ~(Mutant = "vendor_outside_lock" /\ kind = "vendor")
 UseSrc == AdvisoryLock = "project_and_source"
 TwoWrites(kind) == kind \in {"add", "remove"}
@@ -199,13 +201,9 @@ UpdateProg(p) ==                            \* UpdateModule -> Resolver.Update
        \o <<S("WriteLock", "update", "-", "-")>>                \* resolver.go:273
        \o Final(k, j)
 
-TidyProg(p) ==                              \* TidyModule, as a reader
-    LET o == Plan(p)
-        j == ProjOf(p)
-        k == o.kind
-    IN Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:429
-       \o <<St("ReadLock")>>                                    \* resolver_tidy.go:29
-       \o Final(k, j)
+\* A read-only consumer (discovery, a command run, validate, audit): plain
+\* reads of both files, never a mutex.
+ReadProg == <<St("ReadMod"), St("ReadLock")>>
 
 VendorProg(p) ==                            \* vendorDependenciesWithResolver
     LET o == Plan(p)
@@ -224,7 +222,7 @@ Program(p) ==
             [] k = "remove" -> RemoveProg(p)
             [] k = "sync" -> SyncProg(p)
             [] k = "update" -> UpdateProg(p)
-            [] k = "tidy" -> TidyProg(p)
+            [] k = "read" -> ReadProg
             [] k = "vendor" -> VendorProg(p)
     IN Opt(Reversed(p) /\ o.src, Acq(SrcL(o.key))) \o body \o <<St("Return")>>
 

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -33,6 +34,18 @@ type (
 	// without following symbolic links (os.Lstat).
 	fileSnapshotKind string
 
+	// restoreFileWriter replaces a regular file during a rollback; the default
+	// is fspath.AtomicWriteFile (design D8).
+	//
+	//goplint:ignore -- seam mirrors the os.WriteFile-style primitive it replaces.
+	restoreFileWriter func(path string, data []byte, perm os.FileMode) error
+
+	// restoreLinkCreator creates a symbolic link during a rollback; the
+	// default is os.Symlink (design D8).
+	//
+	//goplint:ignore -- seam mirrors the os.Symlink primitive it replaces.
+	restoreLinkCreator func(target, link string) error
+
 	fileSnapshot struct {
 		path *types.FilesystemPath
 		kind fileSnapshotKind
@@ -40,6 +53,10 @@ type (
 		mode os.FileMode
 		// linkTarget is the os.Readlink target of a symbolic-link snapshot.
 		linkTarget *types.FilesystemPath
+		// writeFile and createLink are the Resolver's restore seams, carried
+		// into the snapshot when it is taken.
+		writeFile  restoreFileWriter
+		createLink restoreLinkCreator
 	}
 
 	// DeclarationEditResult describes the invowkmod.cue declaration mutation
@@ -211,7 +228,7 @@ func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.
 	if snapshotErr != nil {
 		return AddModuleDependencyResult{}, snapshotErr
 	}
-	declarationSnapshot, snapshotErr := readFileSnapshot(invowkmodPath)
+	declarationSnapshot, snapshotErr := m.readFileSnapshot(invowkmodPath)
 	if snapshotErr != nil {
 		return AddModuleDependencyResult{}, snapshotErr
 	}
@@ -249,7 +266,7 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 	if snapshotErr != nil {
 		return RemoveModuleDependencyResult{}, snapshotErr
 	}
-	declarationSnapshot, snapshotErr := readFileSnapshot(invowkmodPath)
+	declarationSnapshot, snapshotErr := m.readFileSnapshot(invowkmodPath)
 	if snapshotErr != nil {
 		return RemoveModuleDependencyResult{}, snapshotErr
 	}
@@ -316,10 +333,22 @@ func (m *Resolver) readLockSnapshot() (fileSnapshot, error) {
 	if err := lockPath.Validate(); err != nil {
 		return fileSnapshot{}, fmt.Errorf("validate lock file path: %w", err)
 	}
-	snapshot, err := readFileSnapshot(lockPath)
+	snapshot, err := m.readFileSnapshot(lockPath)
 	if err != nil {
 		return fileSnapshot{}, fmt.Errorf("snapshot lock file before dependency edit: %w", err)
 	}
+	return snapshot, nil
+}
+
+// readFileSnapshot takes the snapshot of path and carries the resolver's
+// restore seams into it.
+func (m *Resolver) readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
+	snapshot, err := readFileSnapshot(path)
+	if err != nil {
+		return fileSnapshot{}, err
+	}
+	snapshot.writeFile = m.restoreWriter
+	snapshot.createLink = m.restoreLinker
 	return snapshot, nil
 }
 
@@ -360,7 +389,9 @@ func readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
 }
 
 // restore puts the snapshot's path back as it was: a missing path is removed,
-// a regular file gets its bytes and permission bits back, a symbolic link is
+// a regular file is replaced atomically (temporary file and rename) with its
+// bytes and permission bits, so a concurrent reader sees the whole old or the
+// whole new file and never a truncated one (finding F10), a symbolic link is
 // recreated with its target, and any other node is left alone.
 func (s fileSnapshot) restore() error {
 	if err := s.Validate(); err != nil {
@@ -374,7 +405,7 @@ func (s fileSnapshot) restore() error {
 		}
 		return nil
 	case snapshotRegular:
-		if err := os.WriteFile(path, []byte(s.data), s.mode.Perm()); err != nil {
+		if err := s.fileWriter()(path, []byte(s.data), s.mode.Perm()); err != nil {
 			return fmt.Errorf("rollback %s: %w", *s.path, err)
 		}
 		return nil
@@ -400,13 +431,27 @@ func (s fileSnapshot) restoreLink() error {
 		return fmt.Errorf("rollback link %s: %w", *s.path, err)
 	}
 	tmp := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+"."+hex.EncodeToString(suffix)+".link")
-	if err := os.Symlink(string(*s.linkTarget), tmp); err != nil {
+	if err := s.linkCreator()(string(*s.linkTarget), tmp); err != nil {
 		return fmt.Errorf("rollback link %s: %w", *s.path, err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		return errors.Join(fmt.Errorf("rollback link %s: %w", *s.path, err), os.Remove(tmp))
 	}
 	return nil
+}
+
+func (s fileSnapshot) fileWriter() restoreFileWriter {
+	if s.writeFile != nil {
+		return s.writeFile
+	}
+	return fspath.AtomicWriteFile
+}
+
+func (s fileSnapshot) linkCreator() restoreLinkCreator {
+	if s.createLink != nil {
+		return s.createLink
+	}
+	return os.Symlink
 }
 
 func newResolverForInvowkmodPath(invowkmodPath types.FilesystemPath) (*Resolver, error) {

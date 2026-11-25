@@ -189,9 +189,7 @@ unresolved_elements = [
 [triage]
 binding_gaps = [
     { model = "AtomicWrite", element = "caller", symbol = "LockFile.Save" },
-    { model = "ConcurrentModuleEdits", element = "Restore", symbol = "fileSnapshot.restore" },
     { model = "ConcurrentModuleEdits", element = "SyncProg", symbol = "SyncModule" },
-    { model = "ConcurrentModuleEdits", element = "TidyProg", symbol = "TidyModule" },
     { model = "ConcurrentModuleEdits", element = "UpdateProg", symbol = "UpdateModule" },
     { model = "ConcurrentModuleEdits", element = "VendorRemove, VendorCopy", symbol = "VendorModules" },
     { model = "ConcurrentModuleEdits", element = "WriteMod add", symbol = "AddRequirement" },
@@ -1875,14 +1873,29 @@ re-reading the lock before saving, sync keeping the current lock's entries, one 
 worktree per version, a duplicate add skipping the rollback, and vendor rejecting \
 a lock changed while it copied. Total: 31 commands, 2585 distinct states; `scripts/formal.py \
 tla ConcurrentModuleEdits` takes 18 s wall time on 16 cores (218 s CPU, dominated \
-by JVM start-up), the input to promote-formal-ci-gate's budget_seconds."""
+by JVM start-up), the input to promote-formal-ci-gate's budget_seconds.
+2026-11-25 (module-concurrency-rollback, C0): Program(p) dispatches to named \
+operators AddProg, RemoveProg, SyncProg, UpdateProg, TidyProg and VendorProg; \
+every command kept its verdict and distinct_states.
+2026-11-25 (module-concurrency-rollback, F10): the base is AtomicRestore = TRUE, \
+as the code now restores by atomic replace; findingF10NonAtomicRollback became \
+mutantPreFixF10NonAtomicRollback (AtomicRestore = FALSE) and witnessPartialFile \
+keeps the pre-fix restore it witnesses. rollback_read's second process is the \
+read-only ReadProg, which takes no mutex in any configuration (TidyProg is \
+deleted; tidy is a module command that takes the project lock). Re-measured: \
+the add_add_same commands lose the truncating restore's states \
+(addAddSameProjectLock 71 -> 63, RestoreTruncate dead; \
+findingF8DuplicateAddRollsBackOtherAdd 342 -> 294; \
+mutantAddAddLockAfterSnapshot 192 -> 168; witnessRollback 318 -> 270); every \
+other command is unchanged. Go: TestConcurrentEdits_F10RestoreReplacesFile \
+checks that the restore replaces the lock file (os.SameFile false)."""
 
 [model.constants]
 Procs = "{p1, p2}"
 Projects = "{pA}"
 Scenario = "\"sync_add\""
 AdvisoryLock = "\"none\""
-AtomicRestore = "FALSE"
+AtomicRestore = "TRUE"
 Mutant = "\"none\""
 
 # F8 (open): sync rebuilds the lock from requires read before its fetch.
@@ -1967,8 +1980,8 @@ name = "addAddSameProjectLock"
 constants = { Scenario = "\"add_add_same\"", AdvisoryLock = "\"project\"" }
 expect = "pass"
 property = "NoLostUpdate"
-dead_actions = ["Checkout", "CopyToCache", "RestoreRemove", "VendorRemove", "VendorCopy"]
-distinct_states = 71
+dead_actions = ["Checkout", "CopyToCache", "RestoreRemove", "RestoreTruncate", "VendorRemove", "VendorCopy"]
+distinct_states = 63
 
 [[model.command]]
 name = "findingF8DuplicateAddRollsBackOtherAdd"
@@ -1977,7 +1990,7 @@ constants = { Scenario = "\"add_add_same\"" }
 expect = "counterexample"
 property = "NoLostUpdate"
 mutant_of = "addAddSameProjectLock"
-distinct_states = 342
+distinct_states = 294
 
 [[model.command]]
 name = "mutantAddAddLockAfterSnapshot"
@@ -1985,21 +1998,21 @@ constants = { Scenario = "\"add_add_same\"", AdvisoryLock = "\"project\"", Mutan
 expect = "counterexample"
 property = "NoLostUpdate"
 mutant_of = "addAddSameProjectLock"
-distinct_states = 192
+distinct_states = 168
 
-# F10 (open): the rollback's os.WriteFile truncates in place.
+# F10 (fixed): the rollback restores by atomic replace; the pre-fix in-place
+# os.WriteFile is kept as mutantPreFixF10NonAtomicRollback.
 [[model.command]]
 name = "rollbackReadAtomicRestore"
-constants = { Scenario = "\"rollback_read\"", AtomicRestore = "TRUE" }
+constants = { Scenario = "\"rollback_read\"" }
 expect = "pass"
 property = "ReadersSeeWholeFiles"
 dead_actions = ["Checkout", "CopyToCache", "RestoreRemove", "RestoreTruncate", "VendorRemove", "VendorCopy", "Acquire", "Release"]
 distinct_states = 52
 
 [[model.command]]
-name = "findingF10NonAtomicRollback"
-finding = "F10"
-constants = { Scenario = "\"rollback_read\"" }
+name = "mutantPreFixF10NonAtomicRollback"
+constants = { Scenario = "\"rollback_read\"", AtomicRestore = "FALSE" }
 expect = "counterexample"
 property = "ReadersSeeWholeFiles"
 mutant_of = "rollbackReadAtomicRestore"
@@ -2007,7 +2020,7 @@ distinct_states = 31
 
 [[model.command]]
 name = "mutantRestoreRemoveThenWrite"
-constants = { Scenario = "\"rollback_read\"", AtomicRestore = "TRUE", Mutant = "\"restore_remove_then_write\"" }
+constants = { Scenario = "\"rollback_read\"", Mutant = "\"restore_remove_then_write\"" }
 expect = "counterexample"
 property = "ReadersSeeWholeFiles"
 mutant_of = "rollbackReadAtomicRestore"
@@ -2094,11 +2107,11 @@ constants = { Scenario = "\"add_add_same\"" }
 expect = "counterexample"
 property = "WitnessNoRollback"
 witness = true
-distinct_states = 318
+distinct_states = 270
 
 [[model.command]]
 name = "witnessPartialFile"
-constants = { Scenario = "\"rollback_read\"" }
+constants = { Scenario = "\"rollback_read\"", AtomicRestore = "FALSE" }
 expect = "counterexample"
 property = "WitnessNoPartialFile"
 witness = true
@@ -2130,7 +2143,7 @@ distinct_states = 195
 
 [[model.command]]
 name = "witnessAtomicRestoreAllOk"
-constants = { Scenario = "\"rollback_read\"", AtomicRestore = "TRUE" }
+constants = { Scenario = "\"rollback_read\"" }
 expect = "counterexample"
 property = "WitnessNotAllOk"
 witness = true
