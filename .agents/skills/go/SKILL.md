@@ -77,6 +77,10 @@ var ErrNotFound = errors.New(notFoundErrMsg)
   test files are exempt).
 - Use `errors.New` instead of `fmt.Errorf` when there is no formatting or
   wrapping (`perfsprint`).
+- Test a wrapped error with `errors.Is(err, fs.ErrNotExist)`, never
+  `os.IsNotExist(err)`: `os.Is*` sees through `*PathError` only, not `%w` or
+  `errors.Join`, so a not-found branch on a wrapped error never runs (the
+  `module add` not-found line, fixed in module-cli-messages).
 - Never return nil error after checking a non-nil error.
 - Do not discard errors unless the function is allowlisted or the discard is
   deliberate, commented, and accepted by lint.

@@ -20,20 +20,25 @@
 ## 4. Formal correspondence
 
 - [x] 4.1 In `formal/tla/ConcurrentModuleEdits.tla`, keep the `WriteMod remove` row's symbol `RemoveRequirement` and change its note to say it delegates to `RemoveRequirementIfPresent`, with the new read and write line numbers; update the step comment (`invowkmod_edit.go:82,137`, near `:176`) and, if `Resolver.RemoveModuleDependency`'s lines moved, the `RemoveProg` row and the `use_cases.go` step comments near `:172-173`. Touch neither model logic nor `formal/manifest.toml` (design D6). Verify `python3 scripts/formal.py correspondence` and `make formal-reach` pass.
-- [ ] 4.2 Fix stage, on the final tree: `python3 scripts/formal_mutation.py plan --out <scratch>`, then `symbols --plan <scratch>/formal-plan.json internal/app/modulesync/use_cases.go:Resolver.RemoveModuleDependency pkg/invowkmod/invowkmod_edit.go:RemoveRequirement` plus any other row-named function whose body changed; expect `-> skip` (both `unplanned`), so no mutation run; on `-> refresh`, follow `.agents/runbooks/change-flow.md` (Formal lane). Verify `python3 scripts/formal_mutation.py triage --check` passes. Because `formal/` changed, run `make test-scripts` under the heavy-command lock (backgrounded with an `rc=` log) and verify it passes; run `make formal` when Java is available, otherwise say so in the result.
+- [x] 4.2 Fix stage, on the final tree: `python3 scripts/formal_mutation.py plan --out <scratch>`, then `symbols --plan <scratch>/formal-plan.json internal/app/modulesync/use_cases.go:Resolver.RemoveModuleDependency pkg/invowkmod/invowkmod_edit.go:RemoveRequirement` plus any other row-named function whose body changed; expect `-> skip` (both `unplanned`), so no mutation run; on `-> refresh`, follow `.agents/runbooks/change-flow.md` (Formal lane). Verify `python3 scripts/formal_mutation.py triage --check` passes. Because `formal/` changed, run `make test-scripts` under the heavy-command lock (backgrounded with an `rc=` log) and verify it passes; run `make formal` when Java is available, otherwise say so in the result.
 
 ## 5. Completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 5.1 `make tidy`; `make license-check` for any new Go file.
-- [ ] 5.2 `make lint` passes with no issues (under the heavy-command lock).
-- [ ] 5.3 `make test` passes (full suite, under the heavy-command lock, backgrounded with an `rc=` log).
-- [ ] 5.4 `make check-baseline` passes; triage any new goplint finding (for `RemoveRequirementIfPresent`, fix it in code; no baseline entry, exception or inline ignore without a maintainer decision).
-- [ ] 5.5 `make check-file-length` passes.
-- [ ] 5.6 `make sonar-local`: no new fixable issues (go:S1192 outside tests, go:S8193, go:S8209, go:S107, go:S1871; go:S3776 is accepted).
-- [ ] 5.7 Conditional checks: `python3 scripts/formal.py correspondence` (formal comments changed), `cd website && npm run build` (website changed), `make check-agent-docs` only if `.agents/` changed.
-- [ ] 5.8 `/learn` (`.agents/skills/learn/`) last; it does not edit the change-flow tooling inside this PR.
+- [x] 5.1 `make tidy`; `make license-check` for any new Go file.
+- [x] 5.2 `make lint` passes with no issues (under the heavy-command lock).
+- [x] 5.3 `make test` passes (full suite, under the heavy-command lock, backgrounded with an `rc=` log).
+- [x] 5.4 `make check-baseline` passes; triage any new goplint finding (for `RemoveRequirementIfPresent`, fix it in code; no baseline entry, exception or inline ignore without a maintainer decision).
+- [x] 5.5 `make check-file-length` passes.
+- [x] 5.6 `make sonar-local`: no new fixable issues (go:S1192 outside tests, go:S8193, go:S8209, go:S107, go:S1871; go:S3776 is accepted).
+- [x] 5.7 Conditional checks: `python3 scripts/formal.py correspondence` (formal comments changed), `cd website && npm run build` (website changed), `make check-agent-docs` only if `.agents/` changed.
+- [x] 5.8 `/learn` (`.agents/skills/learn/`) last; it does not edit the change-flow tooling inside this PR.
 
 ## Workflow follow-up
 
 - Archive the change (`openspec-archive-change`) in the fix stage, after the review.
 - Report OQ1-OQ3 from design.md in the result's `maintainer_asks`; do not edit `.claude/issues/cst-adoption-gaps.md`.
+
+## Fix-stage record (2026-11-25)
+
+- Gates on `4a85f732` (base `origin/main` e2011627): `make tidy`, `make lint`, `make check-baseline`, `make test`, `make test-scripts`, `make formal` (Java present), `make check-file-length`, `make sonar-local`, `make formal-reach`, `python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check`, `cd website && npm run build` and `go run . validate` on every sample module all passed. No new Go file, so no `license-check`.
+- `formal_mutation.py symbols` on `Resolver.RemoveModuleDependency`, `RemoveRequirement`, `RemoveRequirementIfPresent`, `runModuleAdd`, `runModuleRemove`, `moduleAddDeclarationFailureLine`, `moduleRemoveSummaryLine` and `moduleDeclarationRestoreFailed`: 0 planned, 0 removal-only, 8 unplanned, `-> skip`; no `mutation-formal` run and no ledger refresh. The deleted `moduleDeclarationEditsClean` has no ledger entry and no planned row (`unknown`), so it needs no removal-only refresh.
