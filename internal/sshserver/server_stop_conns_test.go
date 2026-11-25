@@ -47,7 +47,7 @@ func dialAsyncToken(srv *Server, token TokenValue) <-chan error {
 
 func requireNoIndexedConns(t *testing.T, srv *Server) {
 	t.Helper()
-	testutil.PollUntil(t, waitTimeout, 5*time.Millisecond, func() bool {
+	testutil.RequirePollUntil(t, waitTimeout, 5*time.Millisecond, "connections still indexed by token after Stop", func() bool {
 		srv.tokenMu.RLock()
 		defer srv.tokenMu.RUnlock()
 		return len(srv.conns) == 0

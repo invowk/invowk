@@ -108,6 +108,14 @@ func TestTransitionToStarting_CancelledOnCreatedFails(t *testing.T) {
 	if !errors.Is(b.LastError(), context.Canceled) {
 		t.Errorf("LastError() = %v, want context.Canceled", b.LastError())
 	}
+	select {
+	case got, open := <-b.Err():
+		if !open || !errors.Is(got, context.Canceled) {
+			t.Errorf("first Err() receive = %v (open %t), want the context.Canceled failure", got, open)
+		}
+	default:
+		t.Error("Err() delivered nothing after a cancelled first start")
+	}
 	if !errChannelClosed(b) {
 		t.Error("Err() still open after a cancelled first start")
 	}
