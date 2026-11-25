@@ -468,11 +468,10 @@ func TestTUI_Table(t *testing.T) {
 		s.sendKeys("Down")
 		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("Enter")
-		if !s.waitFor("INVOWK_ROW:", tmuxWaitTimeout) {
-			t.Fatalf("selectable table did not exit within timeout, pane:\n%s", s.capturePlain())
-		}
-		if pane := s.capturePlain(); !strings.Contains(pane, "INVOWK_EXIT:0 INVOWK_ROW:Bob,25,LA") {
-			t.Fatalf("expected the selected row Bob,25,LA, pane:\n%s", pane)
+		// Wait for the printed result itself: the typed command line already
+		// holds "INVOWK_ROW:", so waiting for that marker alone raced the exit.
+		if !s.waitFor("INVOWK_EXIT:0 INVOWK_ROW:Bob,25,LA", tmuxWaitTimeout) {
+			t.Fatalf("expected the selected row Bob,25,LA within timeout, pane:\n%s", s.capturePlain())
 		}
 	})
 
