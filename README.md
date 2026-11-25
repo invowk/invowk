@@ -2812,7 +2812,7 @@ Invowk uses four exit-code classes, so wrappers, CI jobs and service managers ca
 | `2` | Invowk rejected the command line before running any user command code: an unknown flag or command (including a typo under a command group, whose subcommands are listed on stderr), a bad flag value, a missing required flag or a wrong argument count, an unknown or ambiguous command name or source, a malformed source name such as a path (`@./m.invowkmod`), failed declared-argument or flag validation, an invalid reserved `--ivk-*` value (for example `--ivk-env-var` without `KEY=`), an `invowk agent` error detected from the command line alone, or a conflict decided by flags and environment variables alone (an invalid `INVOWK_NO_CWD`, `--ivk-watch` with `--ivk-dry-run`, `config set` while an explicit config source is active, `agent … --verify` under `--ivk-no-cwd`). |
 | `1` | Invowk itself failed for any other reason, including a missing or invalid config file named by `--ivk-config` or `INVOWK_CONFIG`, discovery and invowkfile errors (including a command that is not found while an invowkfile or module was skipped because it failed to parse or load; the error names the skipped sources, and a miss inside an `@source` that loaded still exits `2`), unsatisfied `depends_on` checks, an unavailable container engine, timeouts, and `invowk agent` failures that need files, the config or an LLM. |
 
-Per-command exceptions: `invowk audit` exits `0` clean, `1` for findings and `2` for scan, configuration or command-line errors ([details](#exit-codes-1)); `invowk tui confirm` exits `1` when the user declines; `invowk tui spin` exits with the wrapped command's code; `invowk validate` exits `1` when validation finds errors.
+Per-command exceptions: `invowk audit` exits `0` clean, `1` for findings and `2` for scan, configuration or command-line errors ([details](#exit-codes-1)); `invowk tui confirm` exits `1` when the user declines; `invowk tui spin` exits with the wrapped command's code, and `1` when cancelled with Ctrl+C, when a signal ended the command, or when it was still running 15 seconds after it was stopped; `invowk validate` exits `1` when validation finds errors.
 
 A user command can also exit with `1` or `2` itself, so a wrapper that must tell these cases apart reads stderr. Container-engine codes `125` and `126` are retried as transient and then forwarded as the command's own code.
 
@@ -2820,7 +2820,7 @@ A user command can also exit with `1` or `2` itself, so a wrapper that must tell
 
 invowk includes a set of interactive terminal UI components inspired by [gum](https://github.com/charmbracelet/gum). These can be used in shell scripts to create interactive prompts, selections, and styled output.
 
-The components draw on your terminal (`/dev/tty` on Unix, the console on Windows) and read keys from it, so stdout carries only the result: `NAME=$(invowk tui input)` captures exactly the answer, and the UI stays visible when stdout or stderr is redirected. `format` and `style` write their styled text to stdout, since that is their result. When the controlling terminal cannot be opened, the components use stdin and stderr if both are terminals. With no terminal at all (a CI job, for example), `input`, `write`, `choose`, `confirm`, `filter`, `file` and `table` exit with status 1 and an error saying they need a terminal, with empty stdout; `spin` runs its command once without the spinner, and `pager` writes the content unchanged to stdout.
+The components draw on your terminal (`/dev/tty` on Unix, the console on Windows) and read keys from it, so stdout carries only the result: `NAME=$(invowk tui input)` captures exactly the answer, and the UI stays visible when stdout or stderr is redirected. `format` and `style` write their styled text to stdout, since that is their result. `pager` and a `table` without `--selectable` only display content: when their stdout is not a terminal, they write it to stdout without opening the terminal, `pager` unchanged (like `less` in a pipe) and the table as aligned plain-text rows. When the controlling terminal cannot be opened, the components use stdin and stderr if both are terminals. With no terminal at all (a CI job, for example), `input`, `write`, `choose`, `confirm`, `filter`, `file` and `table --selectable` exit with status 1 and an error saying they need a terminal, with empty stdout; `spin` runs its command once without the spinner, and `pager` and a non-selectable `table` write their content to stdout.
 
 ### Input
 
@@ -2971,6 +2971,8 @@ invowk tui spin --type globe --title "Downloading..." -- curl -O https://example
 
 # Available types: line, dot, minidot, jump, pulse, points, globe, moon, monkey, meter, hamburger, ellipsis
 ```
+
+spin exits with the wrapped command's status. Ctrl+C stops the command, prints what it wrote so far and exits `1`; a command killed by a signal also makes spin exit `1`.
 
 ### Pager
 

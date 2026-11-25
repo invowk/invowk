@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 type statReader interface {
@@ -27,6 +29,14 @@ func isInputPiped(input io.Reader) bool {
 		return false
 	}
 	return (stat.Mode() & os.ModeCharDevice) == 0
+}
+
+// stdoutIsTerminal reports whether w, a command's stdout, is a terminal: only
+// an *os.File that x/term accepts is one. An injected writer, such as a test
+// buffer, is not.
+func stdoutIsTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	return ok && term.IsTerminal(int(f.Fd()))
 }
 
 // readInputAll reads all provided input content into a string.

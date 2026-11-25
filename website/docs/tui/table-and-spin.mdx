@@ -31,6 +31,19 @@ Display and optionally select from tabular data.
 
 <Snippet id="tui/table-examples" />
 
+### Redirected Output
+
+When stdout is not a terminal, a table without `--selectable` does not open. It prints the rows as plain text and exits 0, with or without a terminal:
+
+```bash
+$ printf 'name|age|city\nAlice|30|NYC\nBob|25|LA\n' | invowk tui table --separator '|' | cat
+name   age  city
+Alice  30   NYC
+Bob    25   LA
+```
+
+The first line holds the column titles (the header row or `--columns`), then one line per row. Cells are left-aligned and padded to the widest cell of their column, columns are separated by two spaces, and there is no border and no color. A newline, tab or other control character in a cell is printed as a space, so each row stays on one line. Every row is printed: `--height` and `--widths` do not apply. A selectable table still draws on the terminal, so `row=$(invowk tui table --selectable ...)` works as before.
+
 ### Selectable Tables
 
 <Snippet id="tui/table-selectable" />
@@ -100,6 +113,13 @@ Available spinner animations:
 The spin command returns the exit code of the wrapped command:
 
 <Snippet id="tui/spin-exit-code" />
+
+Other outcomes:
+
+- **Ctrl+C.** Pressing Ctrl+C while the spinner shows stops the wrapped command, prints the output it produced so far, and exits with status `1`, the status any cancelled invowk command gives. Only the command spin started is stopped: processes that it started itself can keep running. On Windows, a command that is a `.cmd` or `.bat` script, such as `npm`, runs under `cmd.exe`, so only `cmd.exe` is stopped and the tool it started can keep running.
+- **A command that does not stop.** If the command has not ended 15 seconds after it was stopped, spin exits with status `1`, prints nothing from it, and says on stderr that it may still be running.
+- **A command killed by a signal.** A command that ends without an exit status, because a signal killed it, makes spin print its output and exit with status `1`.
+- **A spinner failure.** If the spinner cannot draw after the command started, the command keeps running. spin then prints its output and exits with its status, and the spinner error goes to stderr as a warning.
 
 ### In Scripts
 

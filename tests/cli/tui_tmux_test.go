@@ -406,6 +406,58 @@ func TestTUI_Table(t *testing.T) {
 			t.Fatal("table command did not exit within timeout")
 		}
 	})
+
+	// With stdout on the terminal, a non-selectable table still draws there
+	// and waits for a key (tui-clean-terminal-path, N15).
+	t.Run("display_on_terminal", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		csvPath := filepath.Join(tmpDir, "rows.csv")
+		if err := os.WriteFile(csvPath, []byte("name,age\nAlice,30\nBob,25\n"), 0o644); err != nil {
+			t.Fatalf("failed to create csv file: %v", err)
+		}
+
+		s := newTmuxSession(t, "table-display")
+		command := fmt.Sprintf("%s tui table --file %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(csvPath))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("name", tmuxWaitTimeout) {
+			t.Fatalf("table did not render within timeout, pane:\n%s", s.capturePlain())
+		}
+		time.Sleep(tuiInputSettleDelay)
+		if pane := s.capturePlain(); strings.Contains(pane, "INVOWK_EXIT:0") {
+			t.Fatalf("table exited before a key press, pane:\n%s", pane)
+		}
+		s.sendKeys("Escape")
+
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
+			t.Fatalf("table command did not exit within timeout, pane:\n%s", s.capturePlain())
+		}
+	})
+
+	// With a terminal present and stdout piped, a non-selectable table prints
+	// plain-text rows and exits without a key press (tui-clean-terminal-path,
+	// N15).
+	t.Run("stdout_piped", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		csvPath := filepath.Join(tmpDir, "rows.csv")
+		outPath := filepath.Join(tmpDir, "out")
+		if err := os.WriteFile(csvPath, []byte("name,age,city\nAlice,30,NYC\nBob,25,LA\n"), 0o644); err != nil {
+			t.Fatalf("failed to create csv file: %v", err)
+		}
+
+		s := newTmuxSession(t, "table-piped")
+		command := fmt.Sprintf("%s tui table --file %s | cat > %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(csvPath), shellQuote(outPath))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
+			t.Fatalf("piped table did not exit without a key press, pane:\n%s", s.capturePlain())
+		}
+		assertFileContent(t, outPath, "name   age  city\nAlice  30   NYC\nBob    25   LA\n")
+	})
 }
 
 // TestTUI_Spin exercises `invowk tui spin` end-to-end via tmux.
@@ -430,6 +482,73 @@ func TestTUI_Spin(t *testing.T) {
 			t.Errorf("expected spin command output in pane, got:\n%s", output)
 		}
 	})
+
+	// Ctrl+C stops the wrapped command, keeps its output and exits 1
+	// (tui-clean-terminal-path, N14). `exec sleep` makes the sleeper the
+	// direct child, so the kill reaches it. The pid file is written after the
+	// output line, so once it exists the line is already in spin's pipe.
+	// Markers are assembled by the shell so the typed command line cannot
+	// match them.
+	t.Run("ctrl_c_cancels_command", func(t *testing.T) {
+		t.Parallel()
+
+		pidPath := filepath.Join(t.TempDir(), "pid")
+		s := newTmuxSession(t, "spin-ctrl-c")
+		s.sendKeys("export INVOWK_T1=Spin INVOWK_T2=Wait INVOWK_S1=sta INVOWK_S2=rted", "Enter")
+		command := fmt.Sprintf(`%s tui spin --title "$INVOWK_T1$INVOWK_T2" -- sh -c 'echo "$INVOWK_S1$INVOWK_S2"; echo $$ > %s; exec sleep 30'; echo INVOWK_EXIT:$?`,
+			binaryPath, shellQuote(pidPath))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("SpinWait", tmuxWaitTimeout) {
+			t.Fatalf("spinner did not render within timeout, pane:\n%s", s.capturePlain())
+		}
+		if !waitForPath(pidPath, tmuxWaitTimeout) {
+			t.Fatal("wrapped command did not start within timeout")
+		}
+		time.Sleep(tuiInputSettleDelay)
+		start := time.Now()
+		s.sendKeys("C-c")
+
+		// Well before the 30 s sleep: the command was stopped, not awaited.
+		if !s.waitFor("INVOWK_EXIT:1", 20*time.Second) {
+			t.Fatalf("spin did not exit 1 after Ctrl+C, pane:\n%s", s.capturePlain())
+		}
+		if elapsed := time.Since(start); elapsed > 20*time.Second {
+			t.Fatalf("spin exited %v after Ctrl+C, want well before the 30 s sleep", elapsed)
+		}
+		if output := s.capturePlain(); !paneHasLine(output, "started") {
+			t.Errorf("expected the command output line 'started' in the pane, got:\n%s", output)
+		}
+
+		s.sendKeys(fmt.Sprintf("echo INVOWK_PID_$(kill -0 $(cat %s) 2>/dev/null && echo ALIVE || echo GONE)", shellQuote(pidPath)), "Enter")
+		if !s.waitFor("INVOWK_PID_GONE", 5*time.Second) {
+			t.Errorf("the wrapped command is still running after Ctrl+C, pane:\n%s", s.capturePlain())
+		}
+	})
+}
+
+// waitForPath polls until path exists and reports whether it appeared within
+// timeout.
+func waitForPath(path string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for _, err := os.Stat(path); err != nil; _, err = os.Stat(path) {
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return true
+}
+
+// paneHasLine reports whether a line of the captured pane, without trailing
+// spaces, equals want.
+func paneHasLine(pane, want string) bool {
+	for line := range strings.SplitSeq(pane, "\n") {
+		if strings.TrimRight(line, " ") == want {
+			return true
+		}
+	}
+	return false
 }
 
 // TestTUI_Pager exercises `invowk tui pager` dismissal flow via tmux.
@@ -468,4 +587,41 @@ func TestTUI_Pager(t *testing.T) {
 			t.Errorf("expected zero exit marker in output, got:\n%s", output)
 		}
 	})
+
+	// With a terminal present and stdout redirected, the pager passes the
+	// content through like less and exits without a key press
+	// (tui-clean-terminal-path, N15).
+	t.Run("stdout_redirected", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		pagerPath := filepath.Join(tmpDir, "pager.txt")
+		outPath := filepath.Join(tmpDir, "out")
+		content := "Line 01\nLine 02\n"
+		if err := os.WriteFile(pagerPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to create pager file: %v", err)
+		}
+
+		s := newTmuxSession(t, "pager-redirected")
+		command := fmt.Sprintf("%s tui pager --title Notes --line-numbers %s > %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(pagerPath), shellQuote(outPath))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
+			t.Fatalf("redirected pager did not exit without a key press, pane:\n%s", s.capturePlain())
+		}
+		assertFileContent(t, outPath, content)
+	})
+}
+
+// assertFileContent fails unless the file at path holds exactly want.
+func assertFileContent(t *testing.T, path, want string) {
+	t.Helper()
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if string(got) != want {
+		t.Fatalf("%s = %q, want %q", filepath.Base(path), got, want)
+	}
 }

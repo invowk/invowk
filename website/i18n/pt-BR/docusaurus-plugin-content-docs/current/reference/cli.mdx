@@ -763,7 +763,7 @@ Exceções por comando:
 |---------|---------|
 | `invowk audit` | `0` limpo, `1` achados detectados, `2` erro de scan ou de configuração; rejeições da linha de comando também saem com `2` |
 | `invowk tui confirm` | `1` quando o usuário recusa |
-| `invowk tui spin` | o código de saída do comando executado |
+| `invowk tui spin` | o código de saída do comando executado; `1` quando cancelado com Ctrl+C, quando um sinal encerrou o comando, ou quando ele ainda rodava 15 segundos depois de ser parado |
 | `invowk validate` | `1` quando a validação encontra erros |
 
 :::note

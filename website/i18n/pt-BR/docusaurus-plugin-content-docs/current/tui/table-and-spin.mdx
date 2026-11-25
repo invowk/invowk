@@ -31,6 +31,19 @@ Exibir e opcionalmente selecionar de dados tabulares.
 
 <Snippet id="tui/table-examples" />
 
+### Saída Redirecionada
+
+Quando stdout não é um terminal, uma tabela sem `--selectable` não abre. Ela mostra as linhas como texto simples e sai com 0, com ou sem terminal:
+
+```bash
+$ printf 'name|age|city\nAlice|30|NYC\nBob|25|LA\n' | invowk tui table --separator '|' | cat
+name   age  city
+Alice  30   NYC
+Bob    25   LA
+```
+
+A primeira linha traz os títulos das colunas (a linha de cabeçalho ou `--columns`), depois uma linha por registro. As células ficam alinhadas à esquerda e preenchidas até a célula mais larga da coluna, as colunas são separadas por dois espaços, e não há borda nem cor. Uma quebra de linha, tabulação ou outro caractere de controle numa célula sai como espaço, então cada registro fica numa linha só. Todas as linhas são mostradas: `--height` e `--widths` não se aplicam. Uma tabela selecionável continua desenhando no terminal, então `row=$(invowk tui table --selectable ...)` funciona como antes.
+
 ### Tabelas Selecionáveis
 
 <Snippet id="tui/table-selectable" />
@@ -100,6 +113,13 @@ Animações de spinner disponíveis:
 O comando spin retorna o código de saída do comando encapsulado:
 
 <Snippet id="tui/spin-exit-code" />
+
+Outros resultados:
+
+- **Ctrl+C.** Pressionar Ctrl+C enquanto o spinner aparece para o comando encapsulado, mostra a saída que ele produziu até ali e sai com status `1`, o status que qualquer comando invowk cancelado dá. Só o comando que o spin iniciou é parado: processos que ele mesmo iniciou podem continuar rodando. No Windows, um comando que é um script `.cmd` ou `.bat`, como o `npm`, roda sob o `cmd.exe`: só o `cmd.exe` é parado, e a ferramenta que ele iniciou pode continuar rodando.
+- **Um comando que não para.** Se o comando não terminou 15 segundos depois de ser parado, o spin sai com status `1`, não mostra nada dele e avisa em stderr que ele pode continuar rodando.
+- **Um comando morto por um sinal.** Um comando que termina sem status de saída, porque um sinal o matou, faz o spin mostrar a saída dele e sair com status `1`.
+- **Uma falha do spinner.** Se o spinner não consegue desenhar depois que o comando começou, o comando continua rodando. O spin então mostra a saída e sai com o status dele, e o erro do spinner vai para stderr como aviso.
 
 ### Em Scripts
 

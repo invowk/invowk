@@ -336,7 +336,7 @@ When a user-defined command runs and exits with a non-zero status `N` in the ran
 - **THEN** invowk SHALL exit with status 42
 
 ### Requirement: Per-command exit-code exceptions are documented and preserved
-These built-in codes SHALL keep their meanings and SHALL be listed in the exit-code documentation: `invowk audit` exits 0 when clean, 1 for findings and 2 for a scan or configuration error, and its command-line rejections also exit 2; `invowk tui confirm` exits 1 when the user declines; `invowk tui spin` exits with the wrapped command's code; `invowk validate` exits 1 when validation finds errors.
+These built-in codes SHALL keep their meanings and SHALL be listed in the exit-code documentation: `invowk audit` exits 0 when clean, 1 for findings and 2 for a scan or configuration error, and its command-line rejections also exit 2; `invowk tui confirm` exits 1 when the user declines; `invowk tui spin` exits with the wrapped command's code, or 1 in the cases its scenarios list; `invowk validate` exits 1 when validation finds errors.
 
 #### Scenario: Audit findings keep status 1
 - **WHEN** `invowk audit` detects confirmed findings at or above the severity threshold
@@ -353,6 +353,14 @@ These built-in codes SHALL keep their meanings and SHALL be listed in the exit-c
 #### Scenario: tui spin forwards the wrapped command's code
 - **WHEN** the command wrapped by `invowk tui spin` exits with status 42
 - **THEN** invowk SHALL exit with status 42
+
+#### Scenario: tui spin cancelled or ended by a signal exits 1
+- **WHEN** `invowk tui spin` is cancelled with Ctrl+C, or its wrapped command is ended by a signal
+- **THEN** invowk SHALL exit with status 1, as a native `invowk cmd` does
+
+#### Scenario: tui spin whose command outlives the cancellation exits 1
+- **WHEN** the command wrapped by `invowk tui spin` is still running when the bounded wait that follows a cancellation ends
+- **THEN** invowk SHALL exit with status 1 and report that the command did not stop and may still be running
 
 #### Scenario: validate finds errors
 - **WHEN** the user runs `invowk validate` and the invowkfile does not pass validation

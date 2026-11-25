@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/invowk/invowk/internal/tui"
@@ -23,6 +24,9 @@ func newTUIPagerCommand() *cobra.Command {
 Content can be provided via:
 - A file path as an argument
 - Piped via stdin
+
+When stdout is not a terminal, the pager does not open: like less in a
+pipe, it writes the content unchanged to stdout.
 
 Examples:
   # View a file
@@ -70,6 +74,14 @@ func runTuiPager(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// A display-only component whose stdout is not a terminal passes its
+	// content through unchanged, like less in a pipe, without opening the
+	// terminal or delegating to a TUI server.
+	if stdout := cmd.OutOrStdout(); !stdoutIsTerminal(stdout) {
+		_, err := io.WriteString(stdout, content)
+		return err
 	}
 
 	// Check if we should delegate to parent TUI server

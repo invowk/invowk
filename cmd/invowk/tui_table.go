@@ -57,6 +57,9 @@ Data can be provided via:
 - A file with --file
 - Piped via stdin (CSV or custom separator)
 
+When stdout is not a terminal, a table without --selectable does not open:
+it prints the rows as aligned plain text.
+
 Examples:
   # Display a CSV file
   invowk tui table --file data.csv
@@ -96,6 +99,14 @@ func runTuiTable(cmd *cobra.Command, _ []string) error {
 	}
 
 	headers, rows := splitHeadersAndData(rows, cfg.columns)
+	// A non-selectable table is display-only: when its stdout is not a
+	// terminal it prints the rows as plain text, without opening the terminal
+	// or delegating to a TUI server.
+	if !cfg.selectable {
+		if stdout := cmd.OutOrStdout(); !stdoutIsTerminal(stdout) {
+			return tui.WriteTableText(stdout, headers, rows)
+		}
+	}
 	selectedIdx, selectedRow, err := renderTableSelection(cmd.Context(), cfg, headers, rows)
 	if err != nil {
 		return err
