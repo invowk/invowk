@@ -196,7 +196,10 @@ Server tests should cover:
    serve loop, during a startup failure) leaves no listener open and no
    goroutine running, and `Start` returns an error. Hold the window through an
    unexported hooks field on the server, never a package-level variable
-   (`internal/sshserver/server_lifecycle_race_test.go`).
+   (`internal/sshserver/server_lifecycle_race_test.go`). A test that needs a
+   timeout branch to win (for example the teardown skipping `Shutdown`) waits
+   for a hook on that branch (`shutdownSkipped`), never for a multiple of the
+   timeout: the timer starts later than the test's own clock on a loaded runner.
 
 Use focused commands first:
 

@@ -55,7 +55,8 @@ Dial assertions ("the port refuses a dial") dial once per test, after `Stop` and
 
 ## 7. Completion gates
 
-- [ ] 7.1 Run the gates of `.agents/rules/checklist.md` on the final tree (the fix stage runs them from step 2 after the rebase): `make tidy`, `make license-check` (new Go file), `make lint`, `make test`, `make check-baseline` with every new goplint finding triaged, `make check-file-length`, `make sonar-local`, `make check-agent-docs`, `make formal` (code named by a correspondence row changed), and `make test-scripts` only if `scripts/` changed. Done when every gate passes on one HEAD and that HEAD is recorded.
+- [x] 7.1 Run the gates of `.agents/rules/checklist.md` on the final tree (the fix stage runs them from step 2 after the rebase): `make tidy`, `make license-check` (new Go file), `make lint`, `make test`, `make check-baseline` with every new goplint finding triaged, `make check-file-length`, `make sonar-local`, `make check-agent-docs`, `make formal` (code named by a correspondence row changed), and `make test-scripts` only if `scripts/` changed. Done when every gate passes on one HEAD and that HEAD is recorded.
+  - Record (2026-11-25, fix stage, HEAD 6edf3c08 on base 36f85fd6): `make tidy`, `make license-check`, `make lint`, `make test`, `make check-baseline` (no new finding), `make check-file-length`, `make sonar-local`, `make check-agent-docs`, `python3 scripts/formal.py correspondence`, `make formal-reach`, `make formal` and `triage --check` passed; `symbols` for `Server.Stop` printed `-> skip`. `scripts/` unchanged, so no `make test-scripts`.
 
 ## Workflow follow-up
 
