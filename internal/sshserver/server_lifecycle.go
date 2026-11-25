@@ -94,12 +94,13 @@ type (
 // After Start() returns nil, use Err() to monitor for runtime errors.
 func (s *Server) Start(ctx context.Context) error {
 	// This handles the cancelled context check and Created -> Starting transition.
-	// Its errors mean this call bound nothing and owns nothing to tear down.
+	// Its errors mean this call bound nothing and owns nothing to tear down:
+	// on any state but Created it returns an error and changes nothing.
 	if err := s.base.TransitionToStarting(ctx); err != nil {
 		return err
 	}
-	// With an already-cancelled ctx, TransitionToStarting returns nil without
-	// a transition on a server a Stop already moved Created -> Stopped. Such a
+	// Defence in depth: TransitionToStarting returned nil, so this call moved
+	// Created -> Starting; a terminal state here would mean that broke. Such a
 	// server must not bind a listener or launch goroutines.
 	if s.base.State().IsTerminal() {
 		return s.failStart(ctx, errStoppedDuringStartup)
@@ -173,10 +174,9 @@ func (s *Server) Start(ctx context.Context) error {
 // Stop gracefully stops the SSH server.
 // It blocks until all connections are closed or the shutdown timeout is reached.
 // Safe to call multiple times and concurrently: a Stop that does not perform
-// the shutdown itself returns once the server's goroutines have exited. That
-// holds for a server started at most once: a second Start with an
-// already-cancelled context marks the server Failed without a teardown
-// (serverbase TransitionToStarting), and a Stop then waits on what is left.
+// the shutdown itself returns once the server's goroutines have exited. A
+// further Start changes nothing on a server that is not in Created
+// (serverbase TransitionToStarting), so it cannot weaken this.
 func (s *Server) Stop() error {
 	s.hooks.callStopEntered()
 

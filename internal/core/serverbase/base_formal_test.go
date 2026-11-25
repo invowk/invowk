@@ -56,7 +56,13 @@ func sequentialStep(from State, op serverbaseOp) (next State, stopWon bool) {
 			return StateStarting, false
 		}
 		return from, false
-	case opStartCancelled, opFail:
+	case opStartCancelled:
+		// A cancelled Start changes only a Created server (decision 120).
+		if from == StateCreated {
+			return StateFailed, false
+		}
+		return from, false
+	case opFail:
 		if from.IsTerminal() {
 			return from, false
 		}

@@ -553,7 +553,11 @@ tool = "tla"
 file = "formal/tla/Serverbase.tla"
 budget_seconds = 58  # 1.5 x 38.3s CI max (3 dispatch runs)
 budget_source = "ci"
-calibration = """2026-09-25: findings F1 and F2 are fixed; the base configuration now mirrors \\
+calibration = """2026-11-25: the cancelled-start guard (decision 120) is fixed: a Start whose \\
+context is already cancelled changes only a Created server (FixStartGuard, property \\
+CancelledStartChangesOnlyCreated); the pre-fix code, which failed any non-terminal \\
+state, is kept as mutantPreFixCancelledStartFailsAny. \\
+2026-09-25: findings F1 and F2 are fixed; the base configuration now mirrors \\
 the fixed code, and the pre-fix code is kept as two regression mutants. \\
 2026-09-24: TLC reproduced findings F1 and F2 with exactly the interleavings \\
 predicted by reading internal/core/serverbase/base.go (F1: Start CAS, Stop CAS, \\
@@ -568,13 +572,14 @@ Procs = "{p1, p2}"
 Mutant = "\"none\""
 FixStartOrdering = "TRUE"
 FixTerminalCAS = "TRUE"
+FixStartGuard = "TRUE"
 
 [[model.command]]
 name = "errClosedOnce"
 expect = "pass"
 property = "ErrClosedAtMostOnce"
 dead_actions = ["RunCloseLoser", "StartStore"]
-distinct_states = 585
+distinct_states = 629
 
 [[model.command]]
 name = "mutantCloseTwice"
@@ -588,7 +593,7 @@ name = "noSendAfterClose"
 expect = "pass"
 property = "NoSendAfterClose"
 dead_actions = ["RunCloseLoser", "StartStore"]
-distinct_states = 585
+distinct_states = 629
 
 [[model.command]]
 name = "mutantSendWithoutCheck"
@@ -602,7 +607,7 @@ name = "startedByWinner"
 expect = "pass"
 property = "StartedClosedByWinner"
 dead_actions = ["RunCloseLoser", "StartStore"]
-distinct_states = 585
+distinct_states = 629
 
 [[model.command]]
 name = "mutantCloseStartedUnconditionally"
@@ -618,7 +623,7 @@ constants = { FixTerminalCAS = "TRUE" }
 expect = "pass"
 property = "TerminalAbsorbing"
 dead_actions = ["RunCloseLoser", "StartStore"]
-distinct_states = 585
+distinct_states = 629
 
 [[model.command]]
 name = "mutantPreFixF2BlindStore"
@@ -642,7 +647,7 @@ constants = { FixStartOrdering = "TRUE" }
 expect = "pass"
 property = "StopCancelsContext"
 dead_actions = ["RunCloseLoser", "StartStore"]
-distinct_states = 585
+distinct_states = 629
 
 [[model.command]]
 name = "mutantPreFixF1UnlockedStart"
@@ -658,6 +663,23 @@ constants = { FixStartOrdering = "TRUE", Mutant = "\"stop_skips_cancel\"" }
 expect = "counterexample"
 property = "StopCancelsContext"
 mutant_of = "stopCancelsContextFixed"
+
+# Decision 120 (fixed): the pre-fix cancelled start failed any non-terminal
+# state, so a second Start with a cancelled context failed a server another
+# Start owned. No finding number is assigned (design D3).
+[[model.command]]
+name = "cancelledStartGuardFixed"
+expect = "pass"
+property = "CancelledStartChangesOnlyCreated"
+dead_actions = ["RunCloseLoser", "StartStore"]
+distinct_states = 629
+
+[[model.command]]
+name = "mutantPreFixCancelledStartFailsAny"
+constants = { FixStartGuard = "FALSE" }
+expect = "counterexample"
+property = "CancelledStartChangesOnlyCreated"
+mutant_of = "cancelledStartGuardFixed"
 
 [[model.command]]
 name = "witnessConcurrentStop"

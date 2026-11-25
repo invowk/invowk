@@ -15,7 +15,7 @@
 \*
 \* | model element | Go symbol | file | binding | abstraction |
 \* |---|---|---|---|---|
-\* | Starting steps | Base.TransitionToStarting | internal/core/serverbase/base.go | TestServerbase_SequentialMatchesModel | parent-context cancellation is a nondeterministic boolean |
+\* | Starting steps | Base.TransitionToStarting | internal/core/serverbase/base.go | TestServerbase_SequentialMatchesModel | parent-context cancellation is a nondeterministic boolean; the state check precedes the context check |
 \* | Running steps | Base.TransitionToRunning | internal/core/serverbase/base.go | TestServerbase_SequentialMatchesModel | - |
 \* | Failed steps | Base.TransitionToFailed | internal/core/serverbase/base.go | TestServerbase_SequentialMatchesModel | error values abstracted |
 \* | Stopping steps | Base.TransitionToStopping | internal/core/serverbase/base.go | TestServerbase_SequentialMatchesModel | CAS retry loop modelled as a back edge |
@@ -25,7 +25,7 @@
 \* | State | State | internal/core/serverbase/state.go | - | - |
 EXTENDS Naturals, FiniteSets
 
-CONSTANTS Procs, Mutant, FixStartOrdering, FixTerminalCAS
+CONSTANTS Procs, Mutant, FixStartOrdering, FixTerminalCAS, FixStartGuard
 
 States == {"Created", "Starting", "Running", "Stopping", "Stopped", "Failed"}
 Terminal == {"Stopped", "Failed"}
@@ -43,17 +43,18 @@ VARIABLES
     startedByWinner,\* every close(startedCh) followed a winning Starting->Running CAS
     stopWon,        \* TransitionToStopping calls that returned true
     firstTerminal,  \* first terminal state reached, or "none"
-    op, pc, seen, cancelRead
+    cancelledChangedOther, \* history: a cancelled Start changed a state other than Created
+    op, pc, seen, cancelRead, cancelledStart
 
 \* Variable groups for the UNCHANGED frames. Together with mu, stopWon, and
 \* pc they partition the variables; scripts/formal.py checks that statically.
 \* A group must never be listed as UNCHANGED by an action that assigns one of
 \* its members: the frame would become a guard and silently disable the step.
-lifeVars == <<state, firstTerminal>>
+lifeVars == <<state, firstTerminal, cancelledChangedOther>>
 ctxVars == <<ctxCreated, ctxCancelled>>
 errVars == <<errClosed, errCloseCount, sentAfterClose>>
 startedVars == <<startedCloses, startedByWinner>>
-callerVars == <<op, seen, cancelRead>>
+callerVars == <<op, seen, cancelRead, cancelledStart>>
 
 vars == <<lifeVars, ctxVars, errVars, startedVars, callerVars, mu, stopWon, pc>>
 
@@ -68,10 +69,12 @@ Init ==
     /\ startedCloses = 0 /\ startedByWinner = TRUE
     /\ stopWon = 0
     /\ firstTerminal = "none"
+    /\ cancelledChangedOther = FALSE
     /\ op \in [Procs -> Ops]
     /\ pc = [p \in Procs |-> "begin"]
     /\ seen = [p \in Procs |-> "none"]
     /\ cancelRead = [p \in Procs |-> FALSE]
+    /\ cancelledStart = [p \in Procs |-> FALSE]
 
 Goto(p, l) == pc' = [pc EXCEPT ![p] = l]
 Lock(p) == mu = "none" /\ mu' = p
@@ -83,20 +86,39 @@ CloseErrLocked == \* closeErrChannelLocked: sync.Once + errClosed
 
 (* --- TransitionToStarting --- *)
 StartBegin(p) == op[p] = "Start" /\ pc[p] = "begin" /\
-    \/ /\ Goto(p, "fail_lock")   \* ctx already cancelled: TransitionToFailed
+    \/ /\ ~FixStartGuard         \* pre-fix: ctx already cancelled -> TransitionToFailed in any state
+       /\ Goto(p, "fail_lock")
        /\ op' = [op EXCEPT ![p] = "Fail"]
+       /\ cancelledStart' = [cancelledStart EXCEPT ![p] = TRUE]
        /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, seen, cancelRead>>
+    \/ /\ FixStartGuard          \* fix: ctx already cancelled -> lock, then one CAS from Created
+       /\ Lock(p)
+       /\ Goto(p, "start_cancel_cas")
+       /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, callerVars>>
     \/ /\ ~FixStartOrdering
        /\ IF state = "Created"
           THEN state' = "Starting" /\ Goto(p, "start_store")
           ELSE UNCHANGED state /\ Goto(p, "done")
-       /\ UNCHANGED <<firstTerminal, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
+       /\ UNCHANGED <<firstTerminal, cancelledChangedOther, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
     \/ /\ FixStartOrdering        \* fix: CAS and ctx store in one critical section
        /\ Lock(p)
        /\ IF state = "Created"
           THEN state' = "Starting" /\ ctxCreated' = TRUE /\ Goto(p, "start_unlock")
           ELSE UNCHANGED <<state, ctxCreated>> /\ Goto(p, "start_unlock")
-       /\ UNCHANGED <<firstTerminal, ctxCancelled, errVars, startedVars, stopWon, callerVars>>
+       /\ UNCHANGED <<firstTerminal, cancelledChangedOther, ctxCancelled, errVars, startedVars, stopWon, callerVars>>
+
+\* The cancelled branch's single CompareAndSwap(Created, Failed), still under
+\* stateMu. The lock step before it lets a lock-free Stop move Created ->
+\* Stopped in between; the CAS then loses and nothing changes. The Failed
+\* bookkeeping (lastErr, sendErrorLocked, closeErrChannelLocked) follows in the
+\* same critical section; no server context exists yet, so nothing is cancelled.
+StartCancelCAS(p) == pc[p] = "start_cancel_cas" /\
+    IF state = "Created"
+    THEN /\ state' = "Failed" /\ firstTerminal' = Mark("Failed") /\ CloseErrLocked
+         /\ Goto(p, "start_unlock")
+         /\ UNCHANGED <<cancelledChangedOther, mu, ctxVars, sentAfterClose, startedVars, stopWon, callerVars>>
+    ELSE /\ Goto(p, "start_unlock")
+         /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
 
 StartStore(p) == pc[p] = "start_store" /\ Lock(p) /\ ctxCreated' = TRUE /\ Goto(p, "start_unlock")
     /\ UNCHANGED <<lifeVars, ctxCancelled, errVars, startedVars, stopWon, callerVars>>
@@ -107,7 +129,7 @@ StartUnlock(p) == pc[p] = "start_unlock" /\ Unlock(p) /\ Goto(p, "done")
 RunCAS(p) == op[p] = "Run" /\ pc[p] = "begin" /\
     IF state = "Starting"
     THEN state' = "Running" /\ Goto(p, "run_close")
-         /\ UNCHANGED <<firstTerminal, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
+         /\ UNCHANGED <<firstTerminal, cancelledChangedOther, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
     ELSE IF Mutant = "close_started_unconditionally"
          THEN Goto(p, "run_close_loser")
               /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
@@ -126,7 +148,7 @@ TermBegin(p) == op[p] \in {"Fail", "Stopped"} /\ pc[p] \in {"begin", "fail_lock"
 TermRead(p) == pc[p] = "term_read" /\ seen' = [seen EXCEPT ![p] = state]
     /\ cancelRead' = [cancelRead EXCEPT ![p] = ctxCreated]
     /\ Goto(p, IF state \in Terminal /\ Mutant /= "no_terminal_check" THEN "term_unlock" ELSE "term_store")
-    /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, op>>
+    /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, op, cancelledStart>>
 TermStore(p) == pc[p] = "term_store" /\
     LET target == IF op[p] = "Fail" THEN "Failed" ELSE "Stopped" IN
     \* Without the fix, the Go code Stores unconditionally. The fix
@@ -136,6 +158,7 @@ TermStore(p) == pc[p] = "term_store" /\
     THEN Goto(p, "term_read")
          /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
     ELSE /\ state' = target /\ firstTerminal' = Mark(target) /\ CloseErrLocked
+         /\ cancelledChangedOther' = (cancelledChangedOther \/ (cancelledStart[p] /\ seen[p] /= "Created"))
          /\ Goto(p, "term_unlock")
          /\ UNCHANGED <<mu, ctxVars, sentAfterClose, startedVars, stopWon, callerVars>>
 TermUnlock(p) == pc[p] = "term_unlock" /\ Unlock(p)
@@ -151,11 +174,11 @@ StopRead(p) == op[p] = "Stop" /\ pc[p] = "begin"
     /\ Goto(p, CASE state = "Created" -> "stop_cas_created"
                  [] state \in {"Starting", "Running"} -> "stop_cas"
                  [] OTHER -> "done")
-    /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, op, cancelRead>>
+    /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, op, cancelRead, cancelledStart>>
 StopCASCreated(p) == pc[p] = "stop_cas_created" /\
     IF state = seen[p]
     THEN state' = "Stopped" /\ firstTerminal' = Mark("Stopped") /\ Goto(p, "stop_close_lock")
-         /\ UNCHANGED <<mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
+         /\ UNCHANGED <<cancelledChangedOther, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
     ELSE Goto(p, "begin")
          /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
 \* With F2 fixed only one caller wins a terminal transition, so sync.Once is
@@ -171,12 +194,12 @@ StopCloseUnlock(p) == pc[p] = "stop_close_unlock" /\ Unlock(p) /\ Goto(p, "done"
 StopCAS(p) == pc[p] = "stop_cas" /\
     IF state = seen[p]
     THEN state' = "Stopping" /\ stopWon' = stopWon + 1 /\ Goto(p, "stop_read_cancel")
-         /\ UNCHANGED <<firstTerminal, mu, ctxVars, errVars, startedVars, callerVars>>
+         /\ UNCHANGED <<firstTerminal, cancelledChangedOther, mu, ctxVars, errVars, startedVars, callerVars>>
     ELSE Goto(p, "begin")
          /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
 StopReadCancel(p) == pc[p] = "stop_read_cancel" /\ Lock(p)
     /\ cancelRead' = [cancelRead EXCEPT ![p] = ctxCreated] /\ Goto(p, "stop_unlock")
-    /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, op, seen>>
+    /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, op, seen, cancelledStart>>
 StopUnlock(p) == pc[p] = "stop_unlock" /\ Unlock(p) /\ Goto(p, "stop_cancel")
     /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, callerVars>>
 StopCancel(p) == pc[p] = "stop_cancel"
@@ -198,7 +221,7 @@ Finished == Quiescent /\ UNCHANGED vars
 
 Next ==
     \/ \E p \in Procs :
-        \/ StartBegin(p) \/ StartStore(p) \/ StartUnlock(p)
+        \/ StartBegin(p) \/ StartCancelCAS(p) \/ StartStore(p) \/ StartUnlock(p)
         \/ RunCAS(p) \/ RunClose(p) \/ RunCloseLoser(p)
         \/ TermBegin(p) \/ TermRead(p) \/ TermStore(p) \/ TermUnlock(p) \/ TermCancel(p)
         \/ StopRead(p) \/ StopCASCreated(p) \/ StopCloseLock(p) \/ StopCloseUnlock(p)
@@ -217,6 +240,9 @@ StartedClosedByWinner == startedCloses <= 1 /\ startedByWinner
 TerminalAbsorbing == firstTerminal /= "none" => state = firstTerminal
 \* F1: after every caller returned and a stopper won, the server context is cancelled.
 StopCancelsContext == (Quiescent /\ stopWon > 0 /\ ctxCreated) => ctxCancelled
+\* Decision 120: a Start whose context is already cancelled changes only a
+\* Created server; on any other state it returns an error and changes nothing.
+CancelledStartChangesOnlyCreated == ~cancelledChangedOther
 
 (* --- Witnesses: each must be violated, proving the situation is reachable --- *)
 WitnessNoConcurrentStop == ~(\A p \in Procs : op[p] = "Stop" /\ pc[p] /= "begin")

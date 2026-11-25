@@ -69,12 +69,13 @@ Use `LastError()` when callers need the recorded failure after the server reache
 
 ### Start
 
-1. Call `s.base.TransitionToStarting(ctx)` first.
-   Caveat: with an already-cancelled `ctx`, it returns `nil` without any
-   transition on a server that a `Stop` already moved `Created -> Stopped`
-   (`TransitionToFailed` returns the recorded `nil`). Check
-   `s.base.State().IsTerminal()` right after it and fail before binding
-   anything or launching goroutines (`internal/sshserver` `Start`).
+1. Call `s.base.TransitionToStarting(ctx)` first and return its error.
+   It returns an error in any state but `Created` (matching
+   `serverbase.ErrStartNotCreated`) and then changes nothing, whatever `ctx`
+   says; only on `Created` does an already-cancelled `ctx` move the server to
+   `Failed`. So a second `Start`, cancelled or not, never fails, binds or tears
+   down a server another `Start` owns, and a `nil` return always means this
+   call moved `Created -> Starting`.
 2. Initialize listeners/resources.
 3. Start background goroutines with `AddGoroutine()` and `defer DoneGoroutine()`.
 4. Call `TransitionToRunning()` only when the server is ready.
@@ -183,9 +184,11 @@ reference for that variant.
 Server tests should cover:
 
 1. `Created -> Running -> Stopped`.
-2. Double `Start()` returns the plain `cannot start server in state <state>`
-   error from `TransitionToStarting` (not `serverbase.InvalidStateError`, which
-   is only for unrecognized `State` values).
+2. Double `Start()` returns the `cannot start server in state <state>` error
+   from `TransitionToStarting`, matching `serverbase.ErrStartNotCreated` (not
+   `serverbase.InvalidStateError`, which is only for unrecognized `State`
+   values), also with an already-cancelled context, and leaves the state,
+   `LastError()` and the serving server unchanged.
 3. Double `Stop()` is a no-op.
 4. Stop before start transitions `Created -> Stopped`.
 5. Cancelled startup transitions to `Failed`.
