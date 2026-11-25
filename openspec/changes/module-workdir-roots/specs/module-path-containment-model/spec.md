@@ -2,6 +2,37 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Allowed-location predicate set
+The set of allowed-location predicates SHALL contain:
+- `allowedWorkspace`: the invowkfile directory mounted as the container workspace;
+- `allowedVendoredSelf`: a vendored child's own root, for the child's own operations;
+- `allowedVirtualRoot`: the virtual runtime's standard anchors, temporary roots, and declared `filesystem.paths`;
+- `allowedTrustedWorkdir` (`VirtualPathHarness` only): a trusted workdir, that is the `--ivk-workdir` override, a workdir of an invowkfile outside a module, or a module's default workdir, as a virtual allowed root under `restricted` access. Justification: the user chose the directory, or it is the module directory, so no module widens its own roots through it;
+- `allowedWorkdirCwd`: a module-declared `workdir` that lies outside the module, as the execution working directory only, never as a read, copy, hash, or virtual allowed-root target.
+
+#### Scenario: Workdir admitted only as working directory
+- **WHEN** an operation uses a module-declared `workdir` outside the module root
+- **THEN** `allowedWorkdirCwd` SHALL admit it only as the execution working directory, and never as a read, copy, hash, or virtual allowed-root target
+
+#### Scenario: Trusted workdir admitted as a virtual root
+- **WHEN** a request under `restricted` access resolves physically inside a trusted workdir
+- **THEN** `allowedTrustedWorkdir` SHALL admit it, and the predicate SHALL appear in the `VirtualPathHarness` correspondence table with its justification
+
+### Requirement: Harness no-follow requests are a recorded abstraction
+The `VirtualPathHarness` model SHALL keep one request kind, the path whose last component is followed. The no-follow form SHALL get its own correspondence row, whose abstraction cell says that the parent is resolved as a model request and the final name is joined without being read. A binding test SHALL compare its verdicts with the containment of the parent's physical location. The no-follow form SHALL add no request kind, model dimension, or golden field; the model and golden change only for other requirements, such as the workdir kind of "Virtual-runtime path harness model".
+
+#### Scenario: No-follow binding test
+- **WHEN** the binding test validates no-follow requests over a materialised tree (a live link, a dangling link, a link inside the root whose target is outside, a path whose parent crosses an escaping link, a final name equal to an allowed root's own path, and on Windows a junction, in a subtest so that its capability skip elsewhere does not skip the killer)
+- **THEN** each verdict SHALL equal containment of the parent's physical location joined with the final name, as computed by the test from how it built the tree, and the test SHALL pass on Linux, macOS and Windows
+
+#### Scenario: Golden unchanged
+- **WHEN** `make formal-golden` runs
+- **THEN** the no-follow form SHALL leave the committed `VirtualPathHarness` golden unchanged: it SHALL hold no no-follow request kind or field, and any other change to it SHALL come from another requirement, such as the workdir kind
+
+#### Scenario: No-follow seed
+- **WHEN** the no-follow resolver is seeded to resolve the final name too
+- **THEN** the binding test SHALL fail, and the result SHALL be recorded in `VirtualPathHarness`'s calibration text
+
 ### Requirement: Virtual-runtime path harness model
 Invowk SHALL maintain a second Alloy model, `formal/alloy/VirtualPathHarness.als`, of the virtual runtime's path policy. The model SHALL cover:
 - the allowed-root list built by `newVirtualPathResolverForFilesystem` from the effective workdir, the script base path, `standardVirtualAnchorsForOS` anchors, the temporary roots, and the declared paths;
@@ -145,6 +176,10 @@ The harness golden SHALL vary the workdir kind and record the fixed root rule's 
 #### Scenario: Trusted workdir in the golden
 - **WHEN** a golden instance has a trusted workdir and a request that resolves inside the workdir only
 - **THEN** the model's decision and the real validator SHALL both accept it
+
+#### Scenario: Module-inside workdir in the golden
+- **WHEN** a golden instance has a module-inside workdir
+- **THEN** the replay SHALL build its workdir input with the workdir below the instance's read root and the module root at that read root, and the production decision SHALL report the workdir as an allowed root
 
 ### Requirement: Harness rapid property covers workdir placement
 `TestVirtualPathHarness_Property` SHALL also generate a module directory, a workdir source and a workdir placement, and compare the production workdir-root decision, and the validator's verdict on a request below the workdir, with an oracle computed from how the test built the tree.

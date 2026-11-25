@@ -36,10 +36,14 @@ All `virtual-*` runtimes SHALL enforce shared path sanitization for VM-controlle
 ## ADDED Requirements
 
 ### Requirement: The work directory is an allowed root unless a module declares it outside the module
-Under `restricted` access the effective work directory SHALL be an allowed root, except when the invowkfile belongs to a module, the work directory comes from that invowkfile's root, command or implementation `workdir`, and it resolves physically outside the module directory. That work directory SHALL NOT be an allowed root, and SHALL still be the process's working directory.
+Under `restricted` access the effective work directory SHALL be an allowed root, except when the invowkfile belongs to a module, the work directory comes from that invowkfile's root, command or implementation `workdir`, and it resolves physically outside the module directory. That work directory SHALL NOT be an allowed root by being the work directory, and SHALL still be the process's working directory.
+
+#### Scenario: Other roots may still enclose an outside workdir
+- **WHEN** a module-declared work directory outside the module lies below a `virtual.filesystem.paths` entry or another implicit root (the script base, a standard anchor, the temporary roots)
+- **THEN** that root SHALL still admit reads and writes below it; only the root that the work directory itself would add is removed
 
 #### Scenario: Module workdir outside the module by a relative path
-- **WHEN** a module command run with a virtual runtime under `restricted` access declares `workdir: "../shared"`, and its script reads `./data.txt` or writes `./out.txt` in that directory
+- **WHEN** a module command run with a virtual runtime under `restricted` access declares `workdir: "../shared"`, its script reads `./data.txt` or writes `./out.txt` in that directory, and no other allowed root encloses that directory
 - **THEN** Invowk SHALL refuse both operations with `virtual path denied`, the script SHALL start with that directory as its working directory, and no file SHALL be created there
 
 #### Scenario: Module workdir outside the module by an absolute path
@@ -48,7 +52,7 @@ Under `restricted` access the effective work directory SHALL be an allowed root,
 
 #### Scenario: Module workdir that reaches outside through a link
 - **WHEN** a module declares a `workdir` inside the module directory whose path crosses a symbolic link, or on Windows a junction, to a directory outside the module
-- **THEN** Invowk SHALL treat the work directory as outside the module, and SHALL refuse reads and writes below it under `restricted` access
+- **THEN** Invowk SHALL treat the work directory as outside the module, and SHALL refuse reads and writes below it under `restricted` access unless another allowed root encloses them
 
 #### Scenario: Module workdir inside the module
 - **WHEN** a module declares a `workdir` that resolves physically inside the module directory, through links or not
@@ -87,7 +91,7 @@ Whether a module-declared work directory lies inside the module SHALL be decided
 
 #### Scenario: Unresolvable workdir counts as outside
 - **WHEN** a module-declared `workdir` crosses a link cycle, or another error stops its resolution
-- **THEN** the work directory SHALL NOT be an allowed root under `restricted` access
+- **THEN** the work directory SHALL NOT be an allowed root by being the work directory under `restricted` access
 
 #### Scenario: Missing workdir below the module
 - **WHEN** a module-declared `workdir` names a directory below the module directory that does not exist yet
