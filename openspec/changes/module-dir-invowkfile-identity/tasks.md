@@ -6,11 +6,11 @@ Every locked command (`make lint`, `make test`, `make test-scripts`, `make check
 
 ## 1. Shared module-entry classifier (design D2)
 
-- [ ] 1.1 Extract the per-entry body of `discoverModulesInDirWithDiagnostics` (`internal/discovery/discovery_files.go:356-420`) into `loadModuleEntry(parentDir, entry fs.DirEntry)`, keeping the order and the diagnostic codes: symbolic-link skip, `IsModule` gate, reserved name, `Load`. Keep its semantic comments. No behaviour change: `go test ./internal/discovery/` passes unchanged.
+- [x] 1.1 Extract the per-entry body of `discoverModulesInDirWithDiagnostics` (`internal/discovery/discovery_files.go:356-420`) into `loadModuleEntry(parentDir, entry fs.DirEntry)`, keeping the order and the diagnostic codes: symbolic-link skip, `IsModule` gate, reserved name, `Load`. Keep its semantic comments. No behaviour change: `go test ./internal/discovery/` passes unchanged.
 
 ## 2. The current directory as a module directory (design D1, D2, D3, D4)
 
-- [ ] 2.1 Add `internal/discovery/discovery_cwd_module.go`, following design D1 step by step:
+- [x] 2.1 Add `internal/discovery/discovery_cwd_module.go`, following design D1 step by step:
   - `Lstat` of `absBase`; the stored entry from the parent's `ReadDir`, matched with `os.SameFile` (names equal ignoring case first, every entry only when none matches);
   - the candidate test: the logical, stored, `EvalSymlinks` and (for a link entry) resolved-target base names, suffix compared ignoring case;
   - a link entry (not a directory, `ModeSymlink` or `ModeIrregular`) resolved through `os.Readlink` and `EvalSymlinks`; a candidate link gets `module_symlink_skipped`;
@@ -18,7 +18,7 @@ Every locked command (`make lint`, `make test`, `make test-scripts`, `make check
   - every fail-closed case and code in the design D2 table.
 
   Wire it into step 1 of `discoverAllWithDiagnostics`: for a candidate, call neither `discoverInDir` nor step 2, and route the result through `appendModulesWithVendored`. Update the `DiscoverAll` doc comment (`discovery_files.go:87-95`): step 1 is "the current directory: its `invowkfile.cue`, or the module it is", and step 2 does not run for a module directory. Verify with `go build ./...`.
-- [ ] 2.2 Unit tests in a new `internal/discovery/discovery_cwd_module_test.go`, each a pair: `WithBaseDir(parent)` versus `WithBaseDir(parent/x.invowkmod)`, asserting the same outcome. Cover:
+- [x] 2.2 Unit tests in a new `internal/discovery/discovery_cwd_module_test.go`, each a pair: `WithBaseDir(parent)` versus `WithBaseDir(parent/x.invowkmod)`, asserting the same outcome. Cover:
   - module identity attached: `Module` set; the parsed invowkfile's `ModulePath` is the module directory; `Metadata` is set; `IsFromModule()` is true;
   - commands under the module source, not `invowkfile`;
   - `Load` failures: an inner symbolic link, a nested module (and it is not loaded as a sibling), an id mismatch, a missing `invowkmod.cue`, each giving `module_load_skipped`;
@@ -46,8 +46,8 @@ Every locked command (`make lint`, `make test`, `make test-scripts`, `make check
 
 ## 3. One module directory, one module (design D5)
 
-- [ ] 3.1 In `appendModulesWithVendored`, keep the `os.Stat` result of each appended top-level module directory for the discovery run. Drop an `os.SameFile` duplicate before its vendored scan. Merge `IsGlobalModule` into the kept entry and its vendored children. Adopt the first explicit namespace of a dropped duplicate when the kept entry has none. Do not deduplicate a directory that cannot be `Stat`ed. Verify with `go build ./...`.
-- [ ] 3.2 Unit tests in `internal/discovery/discovery_dedupe_test.go`:
+- [x] 3.1 In `appendModulesWithVendored`, keep the `os.Stat` result of each appended top-level module directory for the discovery run. Drop an `os.SameFile` duplicate before its vendored scan. Merge `IsGlobalModule` into the kept entry and its vendored children. Adopt the first explicit namespace of a dropped duplicate when the kept entry has none. Do not deduplicate a directory that cannot be `Stat`ed. Verify with `go build ./...`.
+- [x] 3.2 Unit tests in `internal/discovery/discovery_dedupe_test.go`:
   - current module plus the same path in `includes`;
   - current module entered in another letter case plus the same path in `includes` (case-insensitive volumes; skipped elsewhere);
   - sibling module plus the same path in `includes`;
@@ -60,11 +60,11 @@ Every locked command (`make lint`, `make test`, `make test-scripts`, `make check
 
 ## 4. Authoring verification (design D6)
 
-- [ ] 4.1 `verifyGeneratedCommand` (`cmd/invowk/agent.go:715`) takes `FromSource` from the discovered command whose `FilePath` is the written target and whose `SimpleName` is the written name, and falls back to `invowkfile`. Add a test with the existing fake LLM fixture that runs `agent cmd create --verify` inside a module directory and one in a plain directory. Check: `go test -run 'Verify' ./cmd/invowk/`.
+- [x] 4.1 `verifyGeneratedCommand` (`cmd/invowk/agent.go:715`) takes `FromSource` from the discovered command whose `FilePath` is the written target and whose `SimpleName` is the written name, and falls back to `invowkfile`. Add a test with the existing fake LLM fixture that runs `agent cmd create --verify` inside a module directory and one in a plain directory. Check: `go test -run 'Verify' ./cmd/invowk/`.
 
 ## 5. CLI behaviour pairs (specs: module-directory-identity, cwd-discovery-scope, agent-authoring-crud)
 
-- [ ] 5.1 Add `tests/cli/testdata/module_dir_identity.txtar`. Its commands use the native runtime with a platform split (`sh` on linux and macos, PowerShell on windows; invowk-schema skill), so it needs no mirror; steps that create symbolic links run under `[!windows]`. The CLI test step runs it on ubuntu and, in short mode, in `Test (windows)` and `Test (macos)`. Each step runs once in the module's parent directory and once inside the module directory, and asserts the same result. Cover:
+- [x] 5.1 Add `tests/cli/testdata/module_dir_identity.txtar`. Its commands use the native runtime with a platform split (`sh` on linux and macos, PowerShell on windows; invowk-schema skill), so it needs no mirror; steps that create symbolic links run under `[!windows]`. The CLI test step runs it on ubuntu and, in short mode, in `Test (windows)` and `Test (macos)`. Each step runs once in the module's parent directory and once inside the module directory, and asserts the same result. Cover:
   - listing under `<module>.invowkmod`;
   - a unique bare name;
   - `<module> <cmd>` and `@<module> <cmd>`;
@@ -85,17 +85,18 @@ Every locked command (`make lint`, `make test`, `make test-scripts`, `make check
   - a plain directory with `invowkfile.cue` and `invowkmod.cue` (control: source `invowkfile`).
 
   Check: `go test -run 'TestCLI/module_dir_identity' ./tests/cli/`.
-- [ ] 5.2 Add an inside-the-module leg to `tests/cli/testdata/virtual_module_workdir_roots.txtar`, for both the virtual-sh read and the virtual-lua read: a module-declared workdir outside the module is denied when invowk runs in the module directory too. Check: `go test -run 'TestCLI/virtual_module_workdir_roots' ./tests/cli/`.
-- [ ] 5.3 Negative control: build origin/main 693f0e17 in a throwaway worktree under this stage's scratch dir. Run 5.1 and 5.2 against that binary and record each module-directory leg's result. Expected to pass on the base (regression guards): the unique bare name, `--ivk-no-cwd` inside the module, the plain-directory control, the audit pair, and the vendored command-run leg. Expected to fail on the base: every other module-directory leg. A leg that deviates is investigated before the stage returns. Map each leg to its row in the maintainer's probe report (its path is in the stage brief, outside the repository). Report the result and the mapping in the stage result only, then remove the throwaway worktree.
+- [x] 5.2 Add an inside-the-module leg to `tests/cli/testdata/virtual_module_workdir_roots.txtar`, for both the virtual-sh read and the virtual-lua read: a module-declared workdir outside the module is denied when invowk runs in the module directory too. Check: `go test -run 'TestCLI/virtual_module_workdir_roots' ./tests/cli/`.
+- [x] 5.3 Negative control: build origin/main 693f0e17 in a throwaway worktree under this stage's scratch dir. Run 5.1 and 5.2 against that binary and record each module-directory leg's result. Expected to pass on the base (regression guards): the unique bare name, `--ivk-no-cwd` inside the module, the plain-directory control, the audit pair, and the vendored command-run leg. Expected to fail on the base: every other module-directory leg. A leg that deviates is investigated before the stage returns. Map each leg to its row in the maintainer's probe report (its path is in the stage brief, outside the repository). Report the result and the mapping in the stage result only, then remove the throwaway worktree.
 
 ## 6. Docs (checklist step 9; sync map in `.agents/skills/docs/SKILL.md`)
 
-- [ ] 6.1 Update the discovery sections of `README.md` (precedence lists near the "Current directory `invowkfile.cue`" lines) with hardening wording: the invowkfile of a module directory is always loaded as part of that module; a directory whose name ends in `.invowkmod` is only ever loaded as a module; the same module directory found through several sources is one module. Touch no README hunk that the open module-CLI PR changes (`git diff origin/main` before and after the rebase). Check: `make check-agent-docs` stays green and the README diff touches only discovery text.
-- [ ] 6.2 Update `website/docs/architecture/discovery.mdx`, `website/docs/core-concepts/commands-and-namespaces.mdx` and `website/docs/modules/overview.mdx`, with the pt-BR copies under `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`. Cover: namespace in a module directory, bare names when unique, precedence of the current-directory module, deduplication, `--ivk-no-cwd`. Do not edit `modules/dependencies/cli-commands.mdx`. Re-check `docs/architecture/` for discovery flow text. Check: `cd website && npm run build`.
+- [x] 6.1 Update the discovery sections of `README.md` (precedence lists near the "Current directory `invowkfile.cue`" lines) with hardening wording: the invowkfile of a module directory is always loaded as part of that module; a directory whose name ends in `.invowkmod` is only ever loaded as a module; the same module directory found through several sources is one module. Touch no README hunk that the open module-CLI PR changes (`git diff origin/main` before and after the rebase). Check: `make check-agent-docs` stays green and the README diff touches only discovery text.
+- [x] 6.2 Update `website/docs/architecture/discovery.mdx`, `website/docs/core-concepts/commands-and-namespaces.mdx` and `website/docs/modules/overview.mdx`, with the pt-BR copies under `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`. Cover: namespace in a module directory, bare names when unique, precedence of the current-directory module, deduplication, `--ivk-no-cwd`. Do not edit `modules/dependencies/cli-commands.mdx`. Re-check `docs/architecture/` for discovery flow text. Check: `cd website && npm run build`.
 
 ## 7. Formal and completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 7.1 Run `python3 scripts/formal_mutation.py plan --out <scratch>` and `symbols --plan <scratch>/formal-plan.json` on every touched function. On the base, only `IsModule` is planned, and it is not edited. A newly planned touched symbol gets a `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=…` plan in the stage result. Reword the ScopeConstruction `RootSrc` row note (design D7) if the check accepts it. Check: `python3 scripts/formal.py correspondence` and `make formal-reach`; `make formal` (locked, backgrounded) when Java is available.
+- [x] 7.1 Run `python3 scripts/formal_mutation.py plan --out <scratch>` and `symbols --plan <scratch>/formal-plan.json` on every touched function. On the base, only `IsModule` is planned, and it is not edited. A newly planned touched symbol gets a `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=…` plan in the stage result. Reword the ScopeConstruction `RootSrc` row note (design D7) if the check accepts it. Check: `python3 scripts/formal.py correspondence` and `make formal-reach`; `make formal` (locked, backgrounded) when Java is available.
+  - Done: only `IsModule` is planned, and it is not edited, so no refresh is needed. The `RootSrc` row note stays as it is: it still holds (a current-directory invowkfile now exists only outside a module directory), and editing `ScopeConstruction.als` would make its golden vectors stale for a comment-only change.
 - [ ] 7.2 Run checklist steps 2 to 10. Every locked command among them runs under the heavy lock in the background with `head=` and `rc=` lines and a Monitor wait (preamble):
   - `make tidy`, plus `make license-check` for the new Go files;
   - `make lint`;

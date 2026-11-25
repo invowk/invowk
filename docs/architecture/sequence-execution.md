@@ -51,6 +51,8 @@ The virtual-sh runtime uses the embedded mvdan/sh interpreter:
 
 Vendored modules are scanned one level deep per discovered module. Nested vendored modules are ignored with diagnostics.
 
+When the current directory is itself a `*.invowkmod` directory, it is loaded as that module in place of level 1, and level 2 is not scanned. One module directory reached through several levels is loaded once.
+
 ### 3. Resolution Phase
 
 | Step | Component | Action |

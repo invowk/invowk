@@ -85,15 +85,18 @@ func (s Source) Validate() error {
 }
 
 // DiscoverAll finds all invowkfiles from all sources in 6-level precedence order:
-//  1. Current directory (highest precedence — the local invowkfile.cue)
-//  2. Modules in the current directory (*.invowkmod directories)
+//  1. Current directory (highest precedence — its invowkfile.cue, or the module
+//     it is when the current directory is a module directory)
+//  2. Modules in the current directory (*.invowkmod directories); this level
+//     does not run when the current directory is itself a module directory
 //  3. Configured includes from config (module paths)
 //  4. Provisioned module entries supplied by the command adapter
 //  5. Provisioned global module entries supplied by the command adapter
 //  6. User commands directory (~/.invowk/cmds — modules only, non-recursive)
 //
 // Earlier sources take precedence for disambiguation when the same SimpleName
-// appears in multiple sources.
+// appears in multiple sources. One module directory reached through several
+// of these sources is loaded once, at the highest-precedence source.
 func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 	files, _, err := d.discoverAllWithDiagnostics()
 	return files, err
@@ -147,27 +150,40 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	diagnostics = append(diagnostics, d.initDiagnostics...)
 
 	var verifyErr error
+	// One module directory reached through several sources is one module.
+	appended := &appendedModuleDirs{}
 
 	// 1. Current directory (highest precedence)
 	// Skip current-dir discovery when baseDir is empty (e.g., os.Getwd() failed
 	// because the working directory was deleted). This prevents filepath.Abs("")
 	// from silently resolving to the process working directory, which may not exist.
 	if d.baseDir != "" {
-		if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
-			files = append(files, cwdFile)
-		}
+		// The invowkfile of a module directory is always loaded as part of that
+		// module: a current directory that is a module directory is loaded as
+		// that module, and nothing in it is read as a plain invowkfile.
+		isModuleDir, cwdModuleFiles, cwdModuleDiags := discoverCurrentDirModule(d.baseDir)
+		if isModuleDir {
+			files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, cwdModuleFiles, cwdModuleDiags, appended)
+			if verifyErr != nil {
+				return nil, diagnostics, verifyErr
+			}
+		} else {
+			if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
+				files = append(files, cwdFile)
+			}
 
-		// 2. Modules in current directory (+ their vendored dependencies)
-		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
-		files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags)
-		if verifyErr != nil {
-			return nil, diagnostics, verifyErr
+			// 2. Modules in current directory (+ their vendored dependencies)
+			moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
+			files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags, appended)
+			if verifyErr != nil {
+				return nil, diagnostics, verifyErr
+			}
 		}
 	}
 
 	// 3. Configured includes (explicit module paths from config) (+ their vendored dependencies)
 	includeFiles, includeDiags := d.loadIncludesWithDiagnostics()
-	files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, includeFiles, includeDiags)
+	files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, includeFiles, includeDiags, appended)
 	if verifyErr != nil {
 		return nil, diagnostics, verifyErr
 	}
@@ -175,12 +191,12 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	// Provisioned container images pass module entries through the command
 	// adapter so copied modules keep their original command namespace metadata.
 	provisionedFiles, provisionedDiags := d.loadProvisionedModulesWithDiagnostics(d.provisionedModules, false)
-	files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, provisionedFiles, provisionedDiags)
+	files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, provisionedFiles, provisionedDiags, appended)
 	if verifyErr != nil {
 		return nil, diagnostics, verifyErr
 	}
 	provisionedGlobalFiles, provisionedGlobalDiags := d.loadProvisionedModulesWithDiagnostics(d.provisionedGlobalModules, true)
-	files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, provisionedGlobalFiles, provisionedGlobalDiags)
+	files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, provisionedGlobalFiles, provisionedGlobalDiags, appended)
 	if verifyErr != nil {
 		return nil, diagnostics, verifyErr
 	}
@@ -193,7 +209,7 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 		for i := range userModuleFiles {
 			userModuleFiles[i].IsGlobalModule = true
 		}
-		files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags)
+		files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags, appended)
 		if verifyErr != nil {
 			return nil, diagnostics, verifyErr
 		}
@@ -354,73 +370,84 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 	}
 
 	for _, entry := range entries {
-		// Skip symlinks to prevent boundary escape attacks. Defense-in-depth:
-		// IsModule also rejects symlinks via os.Lstat, but filtering here
-		// avoids unnecessary Lstat calls and provides diagnostic visibility.
-		if entry.Type()&os.ModeSymlink != 0 {
-			if strings.HasSuffix(entry.Name(), invowkmod.ModuleSuffix) {
-				diagnostics = append(diagnostics, mustDiagnosticWithPath(
-					SeverityWarning,
-					CodeModuleSymlinkSkipped,
-					fmt.Sprintf("skipping symlinked module directory %s — symlink modules are not supported", entry.Name()),
-					types.FilesystemPath(filepath.Join(absDir, entry.Name())),
-				))
-			}
-			continue
+		file, entryDiags := loadModuleEntry(absDirPath, entry)
+		diagnostics = append(diagnostics, entryDiags...)
+		if file != nil {
+			files = append(files, file)
 		}
-		if !entry.IsDir() {
-			continue
-		}
-
-		// Check if it's a module
-		modPath, err := validatedDiscoveredEntryPath(absDirPath, entry)
-		if err != nil {
-			diagnostics = append(diagnostics, mustDiagnostic(
-				SeverityWarning,
-				CodeModuleLoadSkipped,
-				fmt.Sprintf("skipping module with invalid path: %v", err),
-			))
-			continue
-		}
-		if !invowkmod.IsModule(modPath) {
-			continue
-		}
-
-		// Skip reserved module name "invowkfile" (FR-015)
-		// The name "invowkfile" is reserved for the canonical namespace system
-		// where @invowkfile refers to the root invowkfile.cue source
-		moduleName := strings.TrimSuffix(entry.Name(), invowkmod.ModuleSuffix)
-		if SourceID(moduleName) == SourceIDInvowkfile {
-			diagnostics = append(diagnostics, mustDiagnosticWithPath(
-				SeverityWarning,
-				CodeReservedModuleNameSkipped,
-				fmt.Sprintf("skipping reserved module name '%s'", moduleName),
-				modPath,
-			))
-			continue
-		}
-
-		// Load the module
-		m, err := invowkmod.Load(modPath)
-		if err != nil {
-			diagnostics = append(diagnostics, mustDiagnosticWithCause(
-				SeverityWarning,
-				CodeModuleLoadSkipped,
-				fmt.Sprintf("skipping invalid module at %s: %v", modPath, err),
-				modPath,
-				err,
-			))
-			continue
-		}
-
-		files = append(files, &DiscoveredFile{
-			Path:   m.InvowkfilePath(),
-			Source: SourceModule,
-			Module: m,
-		})
 	}
 
 	return files, diagnostics
+}
+
+// loadModuleEntry classifies one directory entry of parentDir as a module and
+// loads it. It is the single entry classifier shared by the scan of a
+// directory's children and by the current-directory module check, so a module
+// directory is judged the same way whichever directory invowk runs from.
+// It returns the module file, or the diagnostics explaining a skip; an entry
+// that is not a module candidate returns neither.
+func loadModuleEntry(parentDir types.FilesystemPath, entry os.DirEntry) (*DiscoveredFile, []Diagnostic) {
+	// Skip symlinks to prevent boundary escape attacks. Defense-in-depth:
+	// IsModule also rejects symlinks via os.Lstat, but filtering here
+	// avoids unnecessary Lstat calls and provides diagnostic visibility.
+	if entry.Type()&os.ModeSymlink != 0 {
+		if !strings.HasSuffix(entry.Name(), invowkmod.ModuleSuffix) {
+			return nil, nil
+		}
+		message := fmt.Sprintf("skipping symlinked module directory %s — symlink modules are not supported", entry.Name())
+		linkPath, err := validatedDiscoveredEntryPath(parentDir, entry)
+		if err != nil {
+			return nil, []Diagnostic{mustDiagnostic(SeverityWarning, CodeModuleSymlinkSkipped, message)}
+		}
+		return nil, []Diagnostic{mustDiagnosticWithPath(SeverityWarning, CodeModuleSymlinkSkipped, message, linkPath)}
+	}
+	if !entry.IsDir() {
+		return nil, nil
+	}
+
+	// Check if it's a module
+	modPath, err := validatedDiscoveredEntryPath(parentDir, entry)
+	if err != nil {
+		return nil, []Diagnostic{mustDiagnostic(
+			SeverityWarning,
+			CodeModuleLoadSkipped,
+			fmt.Sprintf("skipping module with invalid path: %v", err),
+		)}
+	}
+	if !invowkmod.IsModule(modPath) {
+		return nil, nil
+	}
+
+	// Skip reserved module name "invowkfile" (FR-015)
+	// The name "invowkfile" is reserved for the canonical namespace system
+	// where @invowkfile refers to the root invowkfile.cue source
+	moduleName := strings.TrimSuffix(entry.Name(), invowkmod.ModuleSuffix)
+	if SourceID(moduleName) == SourceIDInvowkfile {
+		return nil, []Diagnostic{mustDiagnosticWithPath(
+			SeverityWarning,
+			CodeReservedModuleNameSkipped,
+			fmt.Sprintf("skipping reserved module name '%s'", moduleName),
+			modPath,
+		)}
+	}
+
+	// Load the module
+	m, err := invowkmod.Load(modPath)
+	if err != nil {
+		return nil, []Diagnostic{mustDiagnosticWithCause(
+			SeverityWarning,
+			CodeModuleLoadSkipped,
+			fmt.Sprintf("skipping invalid module at %s: %v", modPath, err),
+			modPath,
+			err,
+		)}
+	}
+
+	return &DiscoveredFile{
+		Path:   m.InvowkfilePath(),
+		Source: SourceModule,
+		Module: m,
+	}, nil
 }
 
 func validatedDiscoveredEntryPath(baseDir types.FilesystemPath, entry os.DirEntry) (types.FilesystemPath, error) {
@@ -704,15 +731,28 @@ func joinModuleRefKeys(keys []invowkmod.ModuleRefKey) string {
 // Vendored children inherit IsGlobalModule from their parent so that scope
 // enforcement treats globally-installed vendored commands identically to their
 // parent module's commands.
+//
+// A module directory that is the same physical directory as one appended earlier
+// in this discovery run (appended) is merged into that entry instead of being
+// appended again, before its vendored modules are scanned.
 func (d *Discovery) appendModulesWithVendored(
 	files []*DiscoveredFile,
 	diagnostics []Diagnostic,
 	moduleFiles []*DiscoveredFile,
 	moduleDiags []Diagnostic,
+	appended *appendedModuleDirs,
 ) ([]*DiscoveredFile, []Diagnostic, error) {
 	diagnostics = append(diagnostics, moduleDiags...)
 
 	for _, mf := range moduleFiles {
+		dirInfo, hasDirInfo := topLevelModuleDirInfo(mf)
+		if hasDirInfo {
+			if kept := appended.find(dirInfo); kept != nil {
+				d.mergeDuplicateModule(kept, mf)
+				continue
+			}
+		}
+
 		files = append(files, mf)
 
 		if mf.Module != nil {
@@ -728,6 +768,9 @@ func (d *Discovery) appendModulesWithVendored(
 			}
 			files = append(files, vendoredFiles...)
 			diagnostics = append(diagnostics, vendoredDiags...)
+			if hasDirInfo {
+				appended.add(dirInfo, mf, vendoredFiles)
+			}
 		}
 	}
 

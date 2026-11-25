@@ -1,0 +1,425 @@
+# Test: the invowkfile of a module directory is always loaded as part of that
+# module (module-directory-identity). Each behaviour runs once in the module's
+# parent directory and once in the module directory, and asserts the same
+# result. Commands use the native runtime with a platform split, so this test
+# needs no runtime mirror; steps that create symbolic links run off Windows.
+
+env INVOWK_CONFIG=
+
+# Configs whose includes name a module by absolute path. A CUE raw string keeps
+# Windows backslashes literal.
+mkdir $WORK/cfg
+cd $WORK/gen
+env INC=$WORK/ext/other.invowkmod
+exec invowk cmd genconfig
+cp stdout $WORK/cfg/other.cue
+env INC=$WORK/ws/tools.invowkmod
+exec invowk cmd genconfig
+cp stdout $WORK/cfg/self.cue
+env INC=
+
+# --- listing and namespace ---------------------------------------------------
+cd $WORK/ws
+exec invowk cmd
+stdout 'From tools.invowkmod'
+! stdout 'From invowkfile'
+cd $WORK/ws/tools.invowkmod
+exec invowk cmd
+stdout 'From tools.invowkmod'
+! stdout 'From invowkfile'
+
+# --- a unique bare name runs -------------------------------------------------
+cd $WORK/ws
+exec invowk cmd uniq
+stdout 'TOOLS-UNIQ'
+cd $WORK/ws/tools.invowkmod
+exec invowk cmd uniq
+stdout 'TOOLS-UNIQ'
+
+# --- the namespaced forms run ------------------------------------------------
+cd $WORK/ws
+exec invowk cmd tools hello
+stdout 'TOOLS-HELLO'
+exec invowk cmd @tools hello
+stdout 'TOOLS-HELLO'
+cd $WORK/ws/tools.invowkmod
+exec invowk cmd tools hello
+stdout 'TOOLS-HELLO'
+exec invowk cmd @tools hello
+stdout 'TOOLS-HELLO'
+
+# --- a bare name that an included module also defines is ambiguous -----------
+env INVOWK_CONFIG=$WORK/cfg/other.cue
+cd $WORK/ws
+exitcode 2 invowk cmd hello
+stderr '@tools'
+stderr '@other'
+! stdout 'TOOLS-HELLO'
+cd $WORK/ws/tools.invowkmod
+exitcode 2 invowk cmd hello
+stderr '@tools'
+stderr '@other'
+! stdout 'TOOLS-HELLO'
+env INVOWK_CONFIG=
+
+# --- the invowkfile source does not name module commands ---------------------
+cd $WORK/ws
+exitcode 2 invowk cmd @invowkfile hello
+! stdout 'TOOLS-HELLO'
+cd $WORK/ws/tools.invowkmod
+exitcode 2 invowk cmd @invowkfile hello
+! stdout 'TOOLS-HELLO'
+
+# --- command scope: a module that tools does not require ---------------------
+env INVOWK_CONFIG=$WORK/cfg/other.cue
+cd $WORK/ws
+! exec invowk cmd tools scopecall
+stderr 'not accessible'
+! stdout 'SCOPECALL-RAN'
+cd $WORK/ws/tools.invowkmod
+! exec invowk cmd tools scopecall
+stderr 'not accessible'
+! stdout 'SCOPECALL-RAN'
+env INVOWK_CONFIG=
+
+# --- script.file sources run -------------------------------------------------
+cd $WORK/wsu
+exec invowk cmd tools filescript
+stdout 'FILE-SCRIPT-RAN'
+cd $WORK/wsu/tools.invowkmod
+exec invowk cmd tools filescript
+stdout 'FILE-SCRIPT-RAN'
+
+# --- a symbolic link inside the module ---------------------------------------
+[!windows] symlink $WORK/wsl/tools.invowkmod/link.env -> $WORK/outside/secret.env
+[!windows] cd $WORK/wsl
+[!windows] exitcode 1 invowk validate
+[!windows] stderr 'module_load_skipped'
+[!windows] ! exec invowk cmd tools envlink
+[!windows] ! stdout 'OUTSIDE-SECRET'
+[!windows] ! stderr 'OUTSIDE-SECRET'
+[!windows] cd $WORK/wsl/tools.invowkmod
+[!windows] exitcode 1 invowk validate
+[!windows] stderr 'module_load_skipped'
+[!windows] ! exec invowk cmd tools envlink
+[!windows] ! stdout 'OUTSIDE-SECRET'
+[!windows] ! stderr 'OUTSIDE-SECRET'
+[!windows] ! exec invowk cmd envlink
+[!windows] ! stdout 'OUTSIDE-SECRET'
+[!windows] ! stderr 'OUTSIDE-SECRET'
+
+# --- a nested module ---------------------------------------------------------
+cd $WORK/wsn
+exitcode 1 invowk validate
+stderr 'module_load_skipped'
+cd $WORK/wsn/tools.invowkmod
+exitcode 1 invowk validate
+stderr 'module_load_skipped'
+env INVOWK_CONFIG=$WORK/cfg/other.cue
+cd $WORK/wsn
+exec invowk cmd
+! stdout 'nhello'
+! stdout 'From tools.invowkmod'
+! exec invowk cmd inner nhello
+stderr 'not found'
+! stdout 'NESTED-HELLO'
+cd $WORK/wsn/tools.invowkmod
+exec invowk cmd
+! stdout 'nhello'
+! stdout 'From tools.invowkmod'
+! exec invowk cmd inner nhello
+stderr 'not found'
+! stdout 'NESTED-HELLO'
+env INVOWK_CONFIG=
+
+# --- a module id that does not match the directory ---------------------------
+cd $WORK/wsm
+exitcode 1 invowk validate
+stderr 'module_load_skipped'
+cd $WORK/wsm/tools.invowkmod
+exitcode 1 invowk validate
+stderr 'module_load_skipped'
+env INVOWK_CONFIG=$WORK/cfg/other.cue
+cd $WORK/wsm
+exec invowk cmd
+! stdout 'idhello'
+cd $WORK/wsm/tools.invowkmod
+exec invowk cmd
+! stdout 'idhello'
+env INVOWK_CONFIG=
+
+# --- an undeclared vendored module -------------------------------------------
+cd $WORK/wsv
+! exec invowk validate
+stderr 'vendored_undeclared_skipped'
+! exec invowk cmd callvend
+stderr 'vend vhello'
+! stdout 'CALLVEND-RAN'
+cd $WORK/wsv/tools.invowkmod
+! exec invowk validate
+stderr 'vendored_undeclared_skipped'
+! exec invowk cmd callvend
+stderr 'vend vhello'
+! stdout 'CALLVEND-RAN'
+
+# --- a different global module with the same id collides ---------------------
+env HOME=$WORK/home2
+env USERPROFILE=$WORK/home2
+cd $WORK/ws
+exitcode 1 invowk cmd
+stderr 'Module name collision'
+cd $WORK/ws/tools.invowkmod
+exitcode 1 invowk cmd
+stderr 'Module name collision'
+env HOME=$WORK
+env USERPROFILE=$WORK
+
+# --- the same module directory in includes is one module ---------------------
+env INVOWK_CONFIG=$WORK/cfg/self.cue
+cd $WORK/ws
+exec invowk cmd
+stdout 'From tools.invowkmod'
+! stderr 'collision'
+exec invowk cmd uniq
+stdout 'TOOLS-UNIQ'
+cd $WORK/ws/tools.invowkmod
+exec invowk cmd
+stdout 'From tools.invowkmod'
+! stderr 'collision'
+exec invowk cmd uniq
+stdout 'TOOLS-UNIQ'
+env INVOWK_CONFIG=
+
+# --- module list ---------------------------------------------------------------
+cd $WORK/ws
+exec invowk module list
+stdout 'Found 1 module'
+stdout 'tools'
+cd $WORK/ws/tools.invowkmod
+exec invowk module list
+stdout 'Found 1 module'
+stdout 'tools'
+
+# --- audit scans the module as a module ---------------------------------------
+cd $WORK/ws
+exec invowk audit --format json
+stdout '"modules_scanned": 1'
+stdout '"invowkfiles_scanned": 0'
+cd $WORK/ws/tools.invowkmod
+exec invowk audit --format json
+stdout '"modules_scanned": 1'
+stdout '"invowkfiles_scanned": 0'
+
+# --- --ivk-no-cwd skips the module directory too --------------------------------
+cd $WORK/ws
+! exec invowk --ivk-no-cwd cmd tools uniq
+stderr 'not found'
+! stdout 'TOOLS-UNIQ'
+cd $WORK/ws/tools.invowkmod
+! exec invowk --ivk-no-cwd cmd tools uniq
+stderr 'not found'
+! stdout 'TOOLS-UNIQ'
+
+# --- a symbolic-link module directory --------------------------------------------
+[!windows] mkdir $WORK/wss
+[!windows] symlink $WORK/wss/link.invowkmod -> $WORK/ws/tools.invowkmod
+[!windows] cd $WORK/wss
+[!windows] ! exec invowk validate
+[!windows] stderr 'module_symlink_skipped'
+[!windows] ! exec invowk cmd tools uniq
+[!windows] ! stdout 'TOOLS-UNIQ'
+[!windows] cd $WORK/wss/link.invowkmod
+[!windows] ! exec invowk validate
+[!windows] stderr 'module_symlink_skipped'
+[!windows] ! exec invowk cmd uniq
+[!windows] ! stdout 'TOOLS-UNIQ'
+
+# --- control: a plain directory with invowkfile.cue and invowkmod.cue -----------
+cd $WORK/wsp/project
+exec invowk cmd
+stdout 'From invowkfile'
+exec invowk cmd build
+stdout 'PROJECT-BUILD'
+exec invowk cmd @invowkfile build
+stdout 'PROJECT-BUILD'
+
+-- gen/invowkfile.cue --
+cmds: [{
+	name: "genconfig"
+	implementations: [{
+		script: {content: ##"echo "includes: [{path: #\"$INC\"#}]""##}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- ext/other.invowkmod/invowkmod.cue --
+module: "other"
+version: "1.0.0"
+
+-- ext/other.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "hello"
+	implementations: [
+		{script: {content: "echo OTHER-HELLO"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {content: "Write-Output 'OTHER-HELLO'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
+
+-- ws/tools.invowkmod/invowkmod.cue --
+module: "tools"
+version: "1.0.0"
+
+-- ws/tools.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name: "hello"
+		implementations: [
+			{script: {content: "echo TOOLS-HELLO"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output 'TOOLS-HELLO'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+	{
+		name: "uniq"
+		implementations: [
+			{script: {content: "echo TOOLS-UNIQ"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output 'TOOLS-UNIQ'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+	{
+		name: "scopecall"
+		depends_on: {cmds: [{alternatives: ["@other hello"]}]}
+		implementations: [
+			{script: {content: "echo SCOPECALL-RAN"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output 'SCOPECALL-RAN'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+]
+
+-- wsu/tools.invowkmod/invowkmod.cue --
+module: "tools"
+version: "1.0.0"
+
+-- wsu/tools.invowkmod/run.sh --
+echo FILE-SCRIPT-RAN
+
+-- wsu/tools.invowkmod/run.ps1 --
+Write-Output 'FILE-SCRIPT-RAN'
+
+-- wsu/tools.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "filescript"
+	implementations: [
+		{script: {file: "run.sh"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {file: "run.ps1"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
+
+-- outside/secret.env --
+SECRET_KEY=OUTSIDE-SECRET
+
+-- wsl/tools.invowkmod/invowkmod.cue --
+module: "tools"
+version: "1.0.0"
+
+-- wsl/tools.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "envlink"
+	env: {files: ["link.env"]}
+	implementations: [
+		{script: {content: "echo KEY=$SECRET_KEY"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {content: "Write-Output ('KEY=' + $env:SECRET_KEY)"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
+
+-- wsn/tools.invowkmod/invowkmod.cue --
+module: "tools"
+version: "1.0.0"
+
+-- wsn/tools.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "hello"
+	implementations: [
+		{script: {content: "echo TOOLS-HELLO"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {content: "Write-Output 'TOOLS-HELLO'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
+
+-- wsn/tools.invowkmod/inner.invowkmod/invowkmod.cue --
+module: "inner"
+version: "1.0.0"
+
+-- wsn/tools.invowkmod/inner.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "nhello"
+	implementations: [
+		{script: {content: "echo NESTED-HELLO"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {content: "Write-Output 'NESTED-HELLO'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
+
+-- wsm/tools.invowkmod/invowkmod.cue --
+module: "com.example.other"
+version: "1.0.0"
+
+-- wsm/tools.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "idhello"
+	implementations: [
+		{script: {content: "echo MISMATCH-HELLO"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {content: "Write-Output 'MISMATCH-HELLO'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
+
+-- wsv/tools.invowkmod/invowkmod.cue --
+module: "tools"
+version: "1.0.0"
+
+-- wsv/tools.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "callvend"
+	depends_on: {cmds: [{alternatives: ["vend vhello"]}]}
+	implementations: [
+		{script: {content: "echo CALLVEND-RAN"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {content: "Write-Output 'CALLVEND-RAN'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
+
+-- wsv/tools.invowkmod/invowk_modules/vend.invowkmod/invowkmod.cue --
+module: "vend"
+version: "1.0.0"
+
+-- wsv/tools.invowkmod/invowk_modules/vend.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "vhello"
+	implementations: [
+		{script: {content: "echo VEND-HELLO"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {content: "Write-Output 'VEND-HELLO'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
+
+-- home2/.invowk/cmds/tools.invowkmod/invowkmod.cue --
+module: "tools"
+version: "1.0.0"
+
+-- home2/.invowk/cmds/tools.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "ghello"
+	implementations: [
+		{script: {content: "echo GLOBAL-HELLO"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {content: "Write-Output 'GLOBAL-HELLO'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
+
+-- wsp/project/invowkmod.cue --
+module: "project"
+version: "1.0.0"
+
+-- wsp/project/invowkfile.cue --
+cmds: [{
+	name: "build"
+	implementations: [
+		{script: {content: "echo PROJECT-BUILD"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {content: "Write-Output 'PROJECT-BUILD'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
