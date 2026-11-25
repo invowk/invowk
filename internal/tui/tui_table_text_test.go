@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 func TestWriteTableText(t *testing.T) {
@@ -68,6 +69,18 @@ func TestWriteTableText(t *testing.T) {
 			want:    "name   notes\nAlice  line1 line2\nBob    a b [31mc\n",
 		},
 		{
+			name:    "format and separator characters become spaces",
+			headers: []string{"cell"},
+			rows:    [][]string{{"a\u202eb\u200bc\u2028d"}, {"x\u2029y\u200dz"}},
+			want:    "cell\na b c d\nx y z\n",
+		},
+		{
+			name:    "invalid UTF-8 becomes U+FFFD",
+			headers: []string{"cell"},
+			rows:    [][]string{{"a\xffb"}},
+			want:    "cell\na\ufffdb\n",
+		},
+		{
 			name:    "headers only",
 			headers: []string{"name", "age"},
 			want:    "name  age\n",
@@ -88,6 +101,11 @@ func TestWriteTableText(t *testing.T) {
 			}
 			if strings.Contains(got, "\x1b") {
 				t.Fatalf("WriteTableText() output holds a control sequence: %q", got)
+			}
+			if i := strings.IndexFunc(got, func(r rune) bool {
+				return r != '\n' && (unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || r == '\u2028' || r == '\u2029')
+			}); i >= 0 {
+				t.Fatalf("WriteTableText() output holds a character it must write as a space at byte %d: %q", i, got)
 			}
 		})
 	}

@@ -42,7 +42,7 @@ Alice  30   NYC
 Bob    25   LA
 ```
 
-The first line holds the column titles (the header row or `--columns`), then one line per row. Cells are left-aligned and padded to the widest cell of their column, columns are separated by two spaces, and there is no border and no color. A newline, tab or other control character in a cell is printed as a space, so each row stays on one line. Every row is printed: `--height` and `--widths` do not apply. A selectable table still draws on the terminal, so `row=$(invowk tui table --selectable ...)` works as before.
+The first line holds the column titles (the header row or `--columns`), then one line per row. Cells are left-aligned and padded to the widest cell of their column, columns are separated by two spaces, and there is no border and no color. A newline, tab or other control character in a cell is printed as a space, and so is a format character (such as a bidirectional override or a zero-width space) and the line or paragraph separator U+2028 or U+2029, so each row stays on one line and reads in the order it is stored. A byte sequence that is not valid UTF-8 is printed as U+FFFD (�). Every row is printed: `--height` and `--widths` do not apply. A selectable table still draws on the terminal, so `row=$(invowk tui table --selectable ...)` works as before.
 
 ### Selectable Tables
 

@@ -11,11 +11,11 @@ All paths are in the worktree `/var/home/danilo/Workspace/github/invowk/invowk-w
 
 ## 2. Plain-text table cell text (design D2)
 
-- [ ] 2.1 In `internal/tui/table_text.go`, write Cf runes, U+2028 and U+2029 as a space and document in the `WriteTableText` godoc that invalid UTF-8 becomes U+FFFD; add table rows to `internal/tui/tui_table_text_test.go` for U+202E, U+200B, U+2028, U+2029, U+200D and an invalid byte
-- [ ] 2.2 Rename `errTUISpinNotRunMsg` to `tuiSpinNotRunErrMsg` in `cmd/invowk/tui_spin.go` and check with `rg errTUISpinNotRunMsg` that no reference is left
-- [ ] 2.3 Add to `tests/cli/testdata/tui_no_terminal.txtar` a `--file` case with the quoted field `Alice,"line1` / `line2"` and a `--file` case whose cell holds `a`, U+202E, `b`, U+200B, `c`, U+2028, `d` (expected `a b c d`), each compared with an exact expected file; add to `cmd/invowk/cmd_tui_table_test.go` an in-process case with a non-terminal stdout and stdin `name` / `a\xffb` whose stdout is `name` / `a\uFFFDb` (spec "Invalid UTF-8 in a cell"; a txtar cannot carry the byte portably)
-- [ ] 2.4 Update `website/docs/tui/table-and-spin.mdx` and `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/tui/table-and-spin.mdx` (format and separator characters become spaces; invalid UTF-8 becomes U+FFFD)
-- [ ] 2.5 Verify: `go test -run 'TestWriteTableText' ./internal/tui/`, `go test -run 'TestCLI/tui_no_terminal' ./tests/cli/` and `cd website && npm run build` pass
+- [x] 2.1 In `internal/tui/table_text.go`, write Cf runes, U+2028 and U+2029 as a space and document in the `WriteTableText` godoc that invalid UTF-8 becomes U+FFFD; add table rows to `internal/tui/tui_table_text_test.go` for U+202E, U+200B, U+2028, U+2029, U+200D and an invalid byte
+- [x] 2.2 Rename `errTUISpinNotRunMsg` to `tuiSpinNotRunErrMsg` in `cmd/invowk/tui_spin.go` and check with `rg errTUISpinNotRunMsg` that no reference is left
+- [x] 2.3 Add to `tests/cli/testdata/tui_no_terminal.txtar` a `--file` case with the quoted field `Alice,"line1` / `line2"` and a `--file` case whose cell holds `a`, U+202E, `b`, U+200B, `c`, U+2028, `d` (expected `a b c d`), each compared with an exact expected file; add to `cmd/invowk/cmd_tui_table_test.go` an in-process case with a non-terminal stdout and stdin `name` / `a\xffb` whose stdout is `name` / `a\uFFFDb` (spec "Invalid UTF-8 in a cell"; a txtar cannot carry the byte portably)
+- [x] 2.4 Update `website/docs/tui/table-and-spin.mdx` and `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/tui/table-and-spin.mdx` (format and separator characters become spaces; invalid UTF-8 becomes U+FFFD)
+- [x] 2.5 Verify: `go test -run 'TestWriteTableText' ./internal/tui/`, `go test -run 'TestCLI/tui_no_terminal' ./tests/cli/` and `cd website && npm run build` pass
 
 ## 3. A Start on a server that is not Created changes nothing (design D3)
 
