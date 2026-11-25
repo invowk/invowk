@@ -98,7 +98,7 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### Resolver.Sync
 
-`internal/app/modulesync/resolver.go`, 12 survivors. TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors and the mutex are unasserted.
+`internal/app/modulesync/resolver.go`, 13 survivors. TestSyncFreshCacheRejectsChangedContent covers one rejection; empty requirements, transitive diagnostics, lock-save errors, the mutex and the `lockWritten` result (reporting only; asserted by the unbound `TestResolverSyncWithoutRequirementsReportsNoWrite` and `TestResolverRepeatedSyncReportsWriteThenSkip`) are unasserted.
 
 ### tidyToFixedPoint
 
