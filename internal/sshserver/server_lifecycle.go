@@ -76,7 +76,7 @@ type (
 		// immediately before admitConn.
 		beforeAdmit func()
 		// shutdownSkipped runs in teardown when its wait for the serve gate
-		// timed out, after it has decided to skip the library's Shutdown.
+		// timed out, after it has decided to skip the shutdown.
 		shutdownSkipped func()
 		// stopEntered runs at the top of Stop, before it takes stopMu.
 		stopEntered func()

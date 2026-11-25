@@ -567,8 +567,8 @@ func lineNumberFromPtr(line *int64) (OptionalLineNumber, error) {
 	if line == nil {
 		return OptionalLineNumber{}, nil
 	}
-	// Clamped into int's range first; a value below 1 fails Validate.
-	value := LineNumber(max(min(*line, int64(math.MaxInt)), 0))
+	// A value below 1 fails Validate.
+	value := LineNumber(clampToInt(*line))
 	if err := value.Validate(); err != nil {
 		return OptionalLineNumber{}, err
 	}
@@ -580,8 +580,8 @@ func lineLimitFromPtr(limit *int64) (OptionalLineLimit, error) {
 	if limit == nil {
 		return OptionalLineLimit{}, nil
 	}
-	// Clamped into int's range first; a value below 1 fails Validate.
-	value := LineLimit(max(min(*limit, int64(math.MaxInt)), 0))
+	// A value below 1 fails Validate.
+	value := LineLimit(clampToInt(*limit))
 	if err := value.Validate(); err != nil {
 		return OptionalLineLimit{}, err
 	}
@@ -632,9 +632,15 @@ func terminalOutputLimitFromPtr(limit *int64) *TerminalOutputLimit {
 	if limit == nil {
 		return nil
 	}
-	// Clamped to a non-negative int.
-	value := TerminalOutputLimit(max(min(*limit, int64(math.MaxInt)), 0))
+	value := TerminalOutputLimit(clampToInt(*limit))
 	return &value
+}
+
+// clampToInt clamps an ACP int64 field to a non-negative int.
+//
+//goplint:ignore -- ACP generated protocol uses primitive int64 fields; callers wrap the result.
+func clampToInt(v int64) int {
+	return int(max(min(v, math.MaxInt), 0))
 }
 
 //goplint:ignore -- ACP generated protocol uses primitive int64 pointers for optional exit codes.

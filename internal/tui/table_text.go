@@ -77,14 +77,18 @@ func WriteTableText(w io.Writer, headers []string, rows [][]string) error {
 func tableTextCells(cells []string) []string {
 	out := make([]string, len(cells))
 	for i, cell := range cells {
-		out[i] = strings.Map(func(r rune) rune {
-			// U+2028 LINE SEPARATOR (Zl) and U+2029 PARAGRAPH SEPARATOR
-			// (Zp) are the only members of their categories.
-			if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || r == '\u2028' || r == '\u2029' {
-				return ' '
-			}
-			return r
-		}, cell)
+		out[i] = strings.Map(tableTextRune, cell)
 	}
 	return out
+}
+
+// tableTextRune maps a control character, a format character (Cf) and the
+// line and paragraph separators U+2028 (Zl) and U+2029 (Zp) to a space.
+//
+//goplint:ignore -- strings.Map takes a plain rune mapping.
+func tableTextRune(r rune) rune {
+	if unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp) {
+		return ' '
+	}
+	return r
 }
