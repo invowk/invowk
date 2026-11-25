@@ -69,6 +69,24 @@ cd $FIX
 stderr 'virtual path denied'
 ! stdout 'workdir-data'
 
+# the module directory as the current directory: the module's invowkfile is
+# loaded as part of the module, so the virtual-sh and virtual-lua reads are
+# denied there too
+rm $FIX
+mkdir $FIX/mod.invowkmod $FIX/shared $FIX/plain
+cp $WORK/fixture/mod.invowkmod/invowkmod.cue $FIX/mod.invowkmod/invowkmod.cue
+cp $WORK/fixture/mod.invowkmod/invowkfile.cue $FIX/mod.invowkmod/invowkfile.cue
+cp $WORK/fixture/shared/data.txt $FIX/shared/data.txt
+cp $WORK/fixture/plain/invowkfile.cue $FIX/plain/invowkfile.cue
+cd $FIX/mod.invowkmod
+! exec invowk cmd sh-read
+stdout 'shared$'
+stderr 'virtual path denied'
+! stdout 'workdir-data'
+! exec invowk cmd mod lua-read
+stderr 'virtual path denied'
+! stdout 'workdir-data'
+
 # declared path: virtual.filesystem.paths {WORK: "@work"} keeps it readable and writable
 rm $FIX
 mkdir $FIX/mod.invowkmod $FIX/shared $FIX/plain

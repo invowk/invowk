@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -720,9 +721,21 @@ func verifyGeneratedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVal
 		return err
 	}
 
+	// The written command is verified under the source discovery publishes it
+	// under: in a module directory, that is the module's namespace.
+	target := types.FilesystemPath(result.TargetPath)
+	if err := target.Validate(); err != nil {
+		return fmt.Errorf("verify generated command: %w", err)
+	}
+	source := discovery.SourceIDInvowkfile
+	lookupCtx := contextWithDiscoveryScope(cmd.Context(), rootFlags.configPath, noCwdFromContext(cmd.Context()))
+	if discovered, err := app.Discovery.DiscoverCommandSet(lookupCtx); err == nil {
+		source = verifySourceForWrittenCommand(discovered.Set, target, result.CommandName)
+	}
+
 	req := ExecuteRequest{
 		Name:       result.CommandName.String(),
-		FromSource: discovery.SourceIDInvowkfile,
+		FromSource: source,
 		ConfigPath: types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- root flag value is validated by config provider.
 		DryRun:     true,
 	}
@@ -730,6 +743,30 @@ func verifyGeneratedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVal
 		return fmt.Errorf("verify generated command: %w", err)
 	}
 	return nil
+}
+
+// verifySourceForWrittenCommand returns the command source of the discovered
+// command whose invowkfile is the written target and whose simple name is the
+// written name. Without a match it returns the invowkfile source, whose lookup
+// then fails with the not-found error.
+func verifySourceForWrittenCommand(set *discovery.DiscoveredCommandSet, targetPath types.FilesystemPath, name invowkfile.CommandName) discovery.SourceID {
+	if set == nil {
+		return discovery.SourceIDInvowkfile
+	}
+	targetInfo, err := os.Stat(string(targetPath))
+	if err != nil {
+		return discovery.SourceIDInvowkfile
+	}
+	for _, info := range set.Commands {
+		if info == nil || info.SimpleName != name {
+			continue
+		}
+		fileInfo, statErr := os.Stat(string(info.FilePath))
+		if statErr == nil && os.SameFile(fileInfo, targetInfo) {
+			return info.SourceID
+		}
+	}
+	return discovery.SourceIDInvowkfile
 }
 
 func ensureCurrentInvowkfileTarget(targetPath string) error {

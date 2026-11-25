@@ -12,12 +12,17 @@
 //
 // File organization:
 //   - discovery.go: Core types (Discovery, ModuleCollisionError) and loading methods
-//   - discovery_files.go: File discovery (DiscoverAll, discoverInDir, vendored scanning, etc.)
+//   - discovery_files.go: File discovery (DiscoverAll, discoverInDir, loadModuleEntry, vendored scanning, etc.)
+//   - discovery_cwd_module.go: The current directory as a module directory (discoverCurrentDirModule)
+//   - discovery_module_dedupe.go: One module directory reached through several sources is one module
 //   - discovery_commands.go: Command aggregation (DiscoverCommands, CommandInfo, etc.)
 //
 // Discovery follows a precedence order:
-//  1. Current directory invowkfile.cue (highest)
-//  2. Modules in current directory (*.invowkmod) and their vendored dependencies
+//  1. Current directory invowkfile.cue (highest), or the module the current
+//     directory is: the invowkfile of a module directory is always loaded as
+//     part of that module
+//  2. Modules in current directory (*.invowkmod) and their vendored dependencies;
+//     not scanned when the current directory is itself a module directory
 //  3. Configured includes (module paths from config) and their vendored dependencies
 //  4. Provisioned module entries supplied by the command adapter and their vendored dependencies
 //  5. Provisioned global module entries supplied by the command adapter and their vendored dependencies

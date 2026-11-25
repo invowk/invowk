@@ -43,7 +43,9 @@ Módulos são descobertos automaticamente de:
 2. Entradas de `includes` configuradas
 3. `~/.invowk/cmds/` (módulos do usuário — apenas `*.invowkmod`, não recursivo)
 
-Com `--ivk-no-cwd` (ou `INVOWK_NO_CWD=1`), a fonte 1 é ignorada; veja [Ignorando os Comandos do Diretório Atual](../configuration/overview#ignorando-os-comandos-do-diretório-atual).
+Quando o diretório atual é o próprio diretório do módulo, ele é carregado como esse módulo, sob seu namespace e com suas verificações: o invowkfile de um diretório de módulo é sempre carregado como parte desse módulo.
+
+Com `--ivk-no-cwd` (ou `INVOWK_NO_CWD=1`), a fonte 1 é ignorada, inclusive um diretório atual que seja ele próprio um diretório de módulo; veja [Ignorando os Comandos do Diretório Atual](../configuration/overview#ignorando-os-comandos-do-diretório-atual).
 
 <Snippet id="modules/quick-use" />
 
@@ -120,6 +122,8 @@ Módulos são descobertos dessas localizações:
 2. **Módulos locais** (`*.invowkmod` no diretório atual)
 3. **Includes configurados** (caminhos de módulos da configuração)
 4. **Diretório de comandos do usuário** (`~/.invowk/cmds/` — apenas `*.invowkmod`, não recursivo)
+
+O invowkfile de um diretório de módulo é sempre carregado como parte desse módulo. Executado a partir de um diretório `*.invowkmod`, o invowk carrega esse módulo no lugar da fonte 1, com a mesma validação, escopo de comandos e política de dependências vendorizadas que a partir do diretório pai, e não escaneia a fonte 2. Um diretório cujo nome termina em `.invowkmod` só é carregado como módulo; se ele não carregar, `invowk validate` o relata. O mesmo diretório de módulo encontrado por várias fontes é carregado uma vez, na fonte de maior precedência.
 
 Com `--ivk-no-cwd` (ou `INVOWK_NO_CWD=1`), as fontes 1 e 2 são ignoradas; veja [Ignorando os Comandos do Diretório Atual](../configuration/overview#ignorando-os-comandos-do-diretório-atual).
 

@@ -3,12 +3,17 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestValidateAgentCmdCreateModes(t *testing.T) {
@@ -92,4 +97,57 @@ func hasCommandPath(cmd *cobra.Command, path []string) bool {
 		}
 	}
 	return false
+}
+
+func TestVerifySourceForWrittenCommand(t *testing.T) {
+	t.Parallel()
+
+	const cmdCUE = `cmds: [{name: "lint", implementations: [{script: {content: "echo lint"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]`
+	writeFile := func(t *testing.T, path, content string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+	commandSet := func(t *testing.T, base string) *discovery.DiscoveredCommandSet {
+		t.Helper()
+		d := discovery.New(config.DefaultConfig(), discovery.WithBaseDir(types.FilesystemPath(base)), discovery.WithCommandsDir(""))
+		result, err := d.DiscoverCommandSet(t.Context())
+		if err != nil {
+			t.Fatalf("DiscoverCommandSet() error: %v", err)
+		}
+		return result.Set
+	}
+
+	moduleDir := filepath.Join(t.TempDir(), "tools.invowkmod")
+	writeFile(t, filepath.Join(moduleDir, "invowkmod.cue"), "module: \"tools\"\nversion: \"1.0.0\"\n")
+	writeFile(t, filepath.Join(moduleDir, agentInvowkfileName), cmdCUE)
+	plainDir := filepath.Join(t.TempDir(), "project")
+	writeFile(t, filepath.Join(plainDir, agentInvowkfileName), cmdCUE)
+
+	tests := []struct {
+		name string
+		base string
+		cmd  invowkfile.CommandName
+		want discovery.SourceID
+	}{
+		{name: "module directory", base: moduleDir, cmd: "lint", want: "tools"},
+		{name: "plain directory", base: plainDir, cmd: "lint", want: discovery.SourceIDInvowkfile},
+		{name: "name not written", base: moduleDir, cmd: "missing", want: discovery.SourceIDInvowkfile},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			target := types.FilesystemPath(filepath.Join(tt.base, agentInvowkfileName))
+			if got := verifySourceForWrittenCommand(commandSet(t, tt.base), target, tt.cmd); got != tt.want {
+				t.Fatalf("verifySourceForWrittenCommand() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+	if got := verifySourceForWrittenCommand(nil, types.FilesystemPath(filepath.Join(moduleDir, agentInvowkfileName)), "lint"); got != discovery.SourceIDInvowkfile {
+		t.Fatalf("nil set: got %q, want %q", got, discovery.SourceIDInvowkfile)
+	}
 }

@@ -59,7 +59,7 @@ One follow-up change owns all of this:
 - empty `[triage] orphaned_survivors` (decision 9) and bind the 19 `[triage] binding_gaps` (decision 15).
 - re-point the type-symbol rows whose claim a function implements (decision 18). They are by design today, so the `[triage]` lists do not carry them:
   - `Watch` `backend` (`watcherBackend`, `formal/tla/Watch.tla:22`): "closed channels modelled as fatal errors" is implemented by `Watcher.Run` (`internal/watch/watcher.go:432-433`, `:471-472`), which the `loop` row already binds;
-  - `ScopeConstruction` `globalChildren` (`IsGlobalModule`, `formal/alloy/ScopeConstruction.als:25`): vendored children inherit the global flag in `Discovery.appendModulesWithVendored` (`internal/discovery/discovery_files.go:723-728`);
+  - `ScopeConstruction` `globalChildren` (`IsGlobalModule`, `formal/alloy/ScopeConstruction.als:25`): vendored children inherit the global flag in `Discovery.appendModulesWithVendored` (`internal/discovery/discovery_files.go:760-765`), and `Discovery.mergeDuplicateModule` (`internal/discovery/discovery_module_dedupe.go:93-98`) keeps the claim when a global duplicate of an appended module directory is merged into it: a re-pointed row binds both;
   - `ScopeConstruction` `RootSrc` (`SourceID`, `formal/alloy/ScopeConstruction.als:26`): the cwd invowkfile gets `SourceIDInvowkfile` and no `ModuleID` in `Discovery.DiscoverCommandSet` (`internal/discovery/discovery_commands.go:260-262`).
 
 ## Per-function gaps

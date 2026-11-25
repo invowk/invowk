@@ -36,6 +36,10 @@ When names collide, Invowk handles two different cases:
 
 Vendored modules (`invowk_modules/`) are scanned one level deep for each discovered module source.
 
+The invowkfile of a module directory is always loaded as part of that module. When the current directory is itself a `*.invowkmod` directory, discovery loads it as that module at level 1, through the same checks as a local module, and skips level 2. A directory whose name ends in `.invowkmod` is only ever loaded as a module: one that does not load contributes nothing and is reported as a diagnostic. The name is judged as the parent directory stores it, and only the directory's own entry counts: a symbolic link or junction to a module directory is skipped, while a link in an ancestor directory does not matter.
+
+One module directory reached through several sources (the current directory, a local module, an `includes` entry, a provisioned entry or the user commands directory) is one module. It is loaded once, at the highest-precedence source; it is global when one of its sources is the user commands directory, and it publishes under an `includes` alias that names it. Two different directories with the same module id still collide.
+
 ## Module Discovery Details
 
 <Diagram id="architecture/discovery-module-structure" />

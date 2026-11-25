@@ -230,7 +230,10 @@ Windows has two types of filesystem links:
   `errors.Is(err, fs.ErrNotExist)` reports as true (windows-latest, CI run
   44523520503). Never build containment on it. Resolve junctions with
   `os.Lstat` plus `os.Readlink` per component (`walkVirtualPath` in
-  `internal/runtime/virtual_policy.go`), or read through `os.Root`.
+  `internal/runtime/virtual_policy.go`), or read through `os.Root`. A
+  classifier that judges a link by its target's name follows `os.Readlink`
+  hop by hop with a bound, since a junction can point to another junction
+  (`linkChainTargets` in `internal/discovery/discovery_cwd_module.go`).
 
 ### Mitigation
 
