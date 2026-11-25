@@ -43,11 +43,11 @@ All paths are in the worktree `/var/home/danilo/Workspace/github/invowk/invowk-w
 
 ## 6. acp-go-sdk 0.20.0 (design D6)
 
-- [ ] 6.1 Under the heavy lock, `go get github.com/coder/acp-go-sdk@v0.20.0` and `go mod tidy`; check with `git diff go.mod` that only that line moved and that the version is exact
-- [ ] 6.2 Migrate `internal/acpclient` per D6 (elicitation methods with method-not-found, `Patch` reads, `int64` fields with clamping, `TerminalId`); grep the guide's silent-change list and record the result in the commit body
-- [ ] 6.3 Add a test that an elicitation request from a fake agent gets method-not-found, the capability is not advertised, and the session still completes a prompt turn; existing acpclient tests pass
-- [ ] 6.4 Dep-audit: `make vulncheck`, licence check of v0.20.0 (Apache-2.0), changelog review 0.13.5 -> 0.20.0 noted in the commit body
-- [ ] 6.5 Verify: `go test -race ./internal/acpclient/` and `go build ./...` pass
+- [x] 6.1 Under the heavy lock, `go get github.com/coder/acp-go-sdk@v0.20.0` and `go mod tidy`; check with `git diff go.mod` that only that line moved and that the version is exact Done: only the acp-go-sdk line moved in go.mod (exact v0.20.0); go.sum swaps its two lines
+- [x] 6.2 Migrate `internal/acpclient` per D6 (elicitation methods with method-not-found, `Patch` reads, `int64` fields with clamping, `TerminalId`); grep the guide's silent-change list and record the result in the commit body Silent-change grep: only typed `Content` and `Env` uses, none through `any`
+- [x] 6.3 Add a test that an elicitation request from a fake agent gets method-not-found, the capability is not advertised, and the session still completes a prompt turn; existing acpclient tests pass (`TestRunPromptDeclinesElicitation`, plus clamping and null-patch tests)
+- [x] 6.4 Dep-audit: `make vulncheck`, licence check of v0.20.0 (Apache-2.0), changelog review 0.13.5 -> 0.20.0 noted in the commit body vulncheck: 0 affecting; Apache-2.0; no CHANGELOG in the module, MIGRATION_v0.20.md and Context7 reviewed (SDK Prompt now sends session/cancel itself after ctx end, so a cancelled turn sends it twice; harmless)
+- [x] 6.5 Verify: `go test -race ./internal/acpclient/` and `go build ./...` pass
 
 ## 7. Provisioned binary is the checked copy (design D7)
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os/exec"
 	"strings"
 	"sync"
@@ -332,7 +333,7 @@ func (c *callbackClient) CreateTerminal(
 	if err != nil {
 		return acp.CreateTerminalResponse{}, err
 	}
-	return acp.CreateTerminalResponse{TerminalId: resp.TerminalID.String()}, nil
+	return acp.CreateTerminalResponse{TerminalId: acp.TerminalId(resp.TerminalID.String())}, nil
 }
 
 func (c *callbackClient) TerminalOutput(
@@ -413,6 +414,21 @@ func (c *callbackClient) KillTerminal(
 	return acp.KillTerminalResponse{}, nil
 }
 
+// CreateElicitation declines: the client does not offer elicitation (its
+// capabilities leave Elicitation nil), so a request gets method-not-found.
+func (c *callbackClient) CreateElicitation(
+	context.Context,
+	acp.CreateElicitationRequest,
+) (acp.CreateElicitationResponse, error) {
+	return acp.CreateElicitationResponse{}, acp.NewMethodNotFound(acp.ClientMethodElicitationCreate)
+}
+
+// CompleteElicitation declines like CreateElicitation. It is a notification,
+// so the SDK only logs the error.
+func (c *callbackClient) CompleteElicitation(context.Context, acp.CompleteElicitationNotification) error {
+	return acp.NewMethodNotFound(acp.ClientMethodElicitationComplete)
+}
+
 func (c *callbackClient) terminalPolicy() TerminalPolicy {
 	if c.policies.Terminal != nil {
 		return c.policies.Terminal
@@ -443,11 +459,11 @@ func eventFromSessionUpdate(update acp.SessionUpdate) Event {
 	case update.ToolCallUpdate != nil:
 		return Event{
 			Kind:       EventKindToolCallUpdate,
-			Text:       textFromToolContent(update.ToolCallUpdate.Content),
+			Text:       textFromToolContent(patchSlice(update.ToolCallUpdate.Content)),
 			ToolCallID: ToolCallID(update.ToolCallUpdate.ToolCallId),
-			ToolTitle:  toolTitleFromPtr(update.ToolCallUpdate.Title),
-			ToolKind:   toolKindFromPtr(update.ToolCallUpdate.Kind),
-			ToolStatus: toolStatusFromPtr(update.ToolCallUpdate.Status),
+			ToolTitle:  toolTitleFromPtr(update.ToolCallUpdate.Title.Ptr()),
+			ToolKind:   toolKindFromPtr(update.ToolCallUpdate.Kind.Ptr()),
+			ToolStatus: toolStatusFromPtr(update.ToolCallUpdate.Status.Ptr()),
 		}
 	case update.Plan != nil:
 		return Event{Kind: EventKindPlan}
@@ -495,9 +511,17 @@ func toolStatusFromPtr(status *acp.ToolCallStatus) ToolStatus {
 	return ToolStatus(*status)
 }
 
+// patchSlice reads a slice patch field. ACP v1 gives a null update no
+// meaning distinct from an absent one, so both read as no items.
+func patchSlice[T any](field acp.Patch[[]T]) []T {
+	items, _ := field.Value()
+	return items
+}
+
 func toolCallFromACP(tool acp.ToolCallUpdate) (ToolCall, error) {
-	locations := make([]types.FilesystemPath, 0, len(tool.Locations))
-	for _, location := range tool.Locations {
+	toolLocations := patchSlice(tool.Locations)
+	locations := make([]types.FilesystemPath, 0, len(toolLocations))
+	for _, location := range toolLocations {
 		path, err := filesystemPathFromACP(location.Path)
 		if err != nil {
 			return ToolCall{}, err
@@ -506,9 +530,9 @@ func toolCallFromACP(tool acp.ToolCallUpdate) (ToolCall, error) {
 	}
 	return ToolCall{
 		ID:        ToolCallID(tool.ToolCallId),
-		Title:     toolTitleFromPtr(tool.Title),
-		Kind:      toolKindFromPtr(tool.Kind),
-		Status:    toolStatusFromPtr(tool.Status),
+		Title:     toolTitleFromPtr(tool.Title.Ptr()),
+		Kind:      toolKindFromPtr(tool.Kind.Ptr()),
+		Status:    toolStatusFromPtr(tool.Status.Ptr()),
 		Locations: locations,
 	}, nil
 }
@@ -538,24 +562,26 @@ func permissionResponseToACP(resp PermissionResponse) acp.RequestPermissionRespo
 	return acp.RequestPermissionResponse{Outcome: outcome}
 }
 
-//goplint:ignore -- ACP generated protocol uses primitive int pointers for optional line numbers.
-func lineNumberFromPtr(line *int) (OptionalLineNumber, error) {
+//goplint:ignore -- ACP generated protocol uses primitive int64 pointers for optional line numbers.
+func lineNumberFromPtr(line *int64) (OptionalLineNumber, error) {
 	if line == nil {
 		return OptionalLineNumber{}, nil
 	}
-	value := LineNumber(*line)
+	// Clamped into int's range first; a value below 1 fails Validate.
+	value := LineNumber(max(min(*line, int64(math.MaxInt)), 0))
 	if err := value.Validate(); err != nil {
 		return OptionalLineNumber{}, err
 	}
 	return OptionalLineNumber{value: value, present: true}, nil
 }
 
-//goplint:ignore -- ACP generated protocol uses primitive int pointers for optional line limits.
-func lineLimitFromPtr(limit *int) (OptionalLineLimit, error) {
+//goplint:ignore -- ACP generated protocol uses primitive int64 pointers for optional line limits.
+func lineLimitFromPtr(limit *int64) (OptionalLineLimit, error) {
 	if limit == nil {
 		return OptionalLineLimit{}, nil
 	}
-	value := LineLimit(*limit)
+	// Clamped into int's range first; a value below 1 fails Validate.
+	value := LineLimit(max(min(*limit, int64(math.MaxInt)), 0))
 	if err := value.Validate(); err != nil {
 		return OptionalLineLimit{}, err
 	}
@@ -601,21 +627,22 @@ func workDirFromPtr(path *string) (*types.FilesystemPath, error) {
 	return &value, nil
 }
 
-//goplint:ignore -- ACP generated protocol uses primitive int pointers for optional output limits.
-func terminalOutputLimitFromPtr(limit *int) *TerminalOutputLimit {
+//goplint:ignore -- ACP generated protocol uses primitive int64 pointers for optional output limits.
+func terminalOutputLimitFromPtr(limit *int64) *TerminalOutputLimit {
 	if limit == nil {
 		return nil
 	}
-	value := TerminalOutputLimit(*limit)
+	// Clamped to a non-negative int.
+	value := TerminalOutputLimit(max(min(*limit, int64(math.MaxInt)), 0))
 	return &value
 }
 
-//goplint:ignore -- ACP generated protocol uses primitive int pointers for optional exit codes.
-func exitCodeToPtr(exitCode *types.ExitCode) *int {
+//goplint:ignore -- ACP generated protocol uses primitive int64 pointers for optional exit codes.
+func exitCodeToPtr(exitCode *types.ExitCode) *int64 {
 	if exitCode == nil {
 		return nil
 	}
-	value := int(*exitCode)
+	value := int64(*exitCode)
 	return &value
 }
 
