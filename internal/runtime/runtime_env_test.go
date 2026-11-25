@@ -82,6 +82,7 @@ func mustInteractiveVirtualTestResolver(
 
 	resolver, err := newVirtualPathResolverForInteractiveConfig(
 		workDir,
+		"",
 		scriptBasePath,
 		invowkfile.VirtualFilesystemConfig{Paths: paths},
 	)

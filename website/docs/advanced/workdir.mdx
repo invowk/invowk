@@ -74,6 +74,17 @@ With `workdir`, that subdirectory becomes the container's working directory:
 
 <Snippet id="advanced/workdir-container-subdir" />
 
+## Virtual Runtimes
+
+Under the default `restricted` filesystem access of the `virtual-sh` and `virtual-lua` runtimes, the workdir is also an allowed root for the script's file access, with one exception: a `workdir` that a module's own invowkfile declares (at the root, command or implementation level) and that resolves outside the module directory. Links and junctions are followed, and a workdir that cannot be resolved, or that lies on another drive, counts as outside.
+
+Such a workdir is still the script's working directory, and `@work`, `INVOWK_ANCHOR_WORK` and `invowk.path("@work")` still name it, but reads and writes there are refused with `virtual path denied` unless another allowed root covers them. To keep it readable and writable:
+
+- declare it in the selected platform's `virtual.filesystem.paths`, for example `WORK: "@work"`;
+- or pass `--ivk-workdir` with that directory: a workdir chosen on the command line is always an allowed root.
+
+These workdirs stay allowed roots as before: the `--ivk-workdir` override, any workdir of an invowkfile that is not in a module (such as `../packages/x` in a monorepo), a module's default workdir, and a module workdir inside the module. `virtual.filesystem.access: "full"`, the `native` runtime and the `container` runtime are not affected. See [File Access](../runtime-modes/virtual#file-access) for the other roots.
+
 ## Cross-Platform Paths
 
 Use forward slashes for cross-platform compatibility:

@@ -49,16 +49,19 @@ type (
 	// ShInteractiveCommandSpec describes a prepared virtual interactive subprocess request.
 	//goplint:ignore -- subprocess adapter DTO carries CLI-boundary argv and serialized env.
 	ShInteractiveCommandSpec struct {
-		ScriptFile       *types.FilesystemPath
-		WorkDir          *types.FilesystemPath
-		ScriptBasePath   *types.FilesystemPath
-		EnvJSON          ShInteractiveEnvJSON
-		Args             ShInteractiveArgs
-		AllowedBinaries  []string
-		BinaryLookupMode invowkfile.BinaryLookupMode
-		FilesystemAccess invowkfile.VirtualFilesystemAccess
-		FilesystemPaths  invowkfile.VirtualFilesystemPaths
-		EnableUroot      bool
+		ScriptFile     *types.FilesystemPath
+		WorkDir        *types.FilesystemPath
+		ScriptBasePath *types.FilesystemPath
+		// WorkDirModuleRoot is the module directory when a module invowkfile
+		// declares the workdir, and nil for a trusted workdir.
+		WorkDirModuleRoot *types.FilesystemPath
+		EnvJSON           ShInteractiveEnvJSON
+		Args              ShInteractiveArgs
+		AllowedBinaries   []string
+		BinaryLookupMode  invowkfile.BinaryLookupMode
+		FilesystemAccess  invowkfile.VirtualFilesystemAccess
+		FilesystemPaths   invowkfile.VirtualFilesystemPaths
+		EnableUroot       bool
 	}
 
 	// ShInteractiveCommandFactory creates the subprocess command for virtual interactive execution.
@@ -76,20 +79,23 @@ type (
 	// internal interactive subprocess wrapper.
 	//goplint:ignore -- subprocess adapter DTO carries shell script text, argv, and env strings across the CLI boundary.
 	ShScriptOptions struct {
-		Script           string
-		ScriptName       string
-		WorkDir          string
-		ScriptBasePath   string
-		Env              []string
-		Args             []string
-		AllowedBinaries  []string
-		BinaryLookupMode invowkfile.BinaryLookupMode
-		FilesystemAccess invowkfile.VirtualFilesystemAccess
-		FilesystemPaths  invowkfile.VirtualFilesystemPaths
-		EnableUroot      bool
-		Stdin            *os.File
-		Stdout           *os.File
-		Stderr           *os.File
+		Script         string
+		ScriptName     string
+		WorkDir        string
+		ScriptBasePath string
+		// WorkDirModuleRoot is the module directory when a module invowkfile
+		// declares the workdir, and "" for a trusted workdir.
+		WorkDirModuleRoot string
+		Env               []string
+		Args              []string
+		AllowedBinaries   []string
+		BinaryLookupMode  invowkfile.BinaryLookupMode
+		FilesystemAccess  invowkfile.VirtualFilesystemAccess
+		FilesystemPaths   invowkfile.VirtualFilesystemPaths
+		EnableUroot       bool
+		Stdin             *os.File
+		Stdout            *os.File
+		Stderr            *os.File
 	}
 )
 
@@ -147,10 +153,15 @@ func (s ShInteractiveCommandSpec) Validate() error {
 	} else {
 		scriptBaseErr = s.ScriptBasePath.Validate()
 	}
+	var moduleRootErr error
+	if s.WorkDirModuleRoot != nil {
+		moduleRootErr = s.WorkDirModuleRoot.Validate()
+	}
 	return errors.Join(
 		scriptFileErr,
 		workDirErr,
 		scriptBaseErr,
+		moduleRootErr,
 		s.EnvJSON.Validate(),
 		s.BinaryLookupMode.Validate(),
 		s.FilesystemAccess.Validate(),
@@ -321,16 +332,17 @@ func (r *ShRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, err
 	}
 
 	spec := ShInteractiveCommandSpec{
-		ScriptFile:       &prepared.scriptFile,
-		WorkDir:          &prepared.workDir,
-		ScriptBasePath:   &prepared.scriptBasePath,
-		EnvJSON:          ShInteractiveEnvJSON(prepared.envJSON),
-		Args:             ShInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
-		AllowedBinaries:  prepared.allowedBinaries,
-		BinaryLookupMode: prepared.binaryLookupMode,
-		FilesystemAccess: prepared.filesystemAccess,
-		FilesystemPaths:  prepared.filesystemPaths,
-		EnableUroot:      r.enableUrootUtils,
+		ScriptFile:        &prepared.scriptFile,
+		WorkDir:           &prepared.workDir,
+		ScriptBasePath:    &prepared.scriptBasePath,
+		WorkDirModuleRoot: prepared.workDirModuleRoot,
+		EnvJSON:           ShInteractiveEnvJSON(prepared.envJSON),
+		Args:              ShInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
+		AllowedBinaries:   prepared.allowedBinaries,
+		BinaryLookupMode:  prepared.binaryLookupMode,
+		FilesystemAccess:  prepared.filesystemAccess,
+		FilesystemPaths:   prepared.filesystemPaths,
+		EnableUroot:       r.enableUrootUtils,
 	}
 	if validateErr := spec.Validate(); validateErr != nil {
 		prepared.cleanup()
@@ -370,6 +382,7 @@ func RunShScript(ctx context.Context, opts ShScriptOptions) error {
 	env := SliceToEnv(opts.Env)
 	pathResolver, err := newVirtualPathResolverForInteractiveConfig(
 		opts.WorkDir,
+		opts.WorkDirModuleRoot,
 		opts.ScriptBasePath,
 		invowkfile.VirtualFilesystemConfig{
 			Access: opts.FilesystemAccess,

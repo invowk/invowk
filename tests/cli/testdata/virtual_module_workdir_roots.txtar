@@ -1,0 +1,234 @@
+# Test: under restricted filesystem access a workdir that a module declares
+# outside its own directory is the command's working directory, not an allowed
+# root of the virtual runtimes (virtual-runtime-sandbox, "The work directory is
+# an allowed root unless a module declares it outside the module"; formal
+# finding F15). The directory stays readable when the platform declares it in
+# virtual.filesystem.paths, when the user names it with --ivk-workdir, and
+# under full access; a plain invowkfile's workdir stays a root.
+#
+# Characterisation on the base tree (3bb45325, before the fix): the
+# module-outside virtual-sh read and write and the virtual-lua read all
+# succeeded, and the write created shared/out.txt.
+#
+# The denial exists only in the virtual runtimes, so this test has no native
+# mirror (runtime_mirror_exemptions.json); a native leg below shows that the
+# native runtime keeps the workdir as before.
+#
+# The outside directory must lie outside every allowed root. Off Windows /tmp
+# is always a root and $WORK is normally below it, so the fixture tree lives
+# in a fixed entry below /var/tmp. It is recreated before every step, so that
+# no step depends on what an earlier one left behind, and removed at the end.
+
+[!windows] env OUTSIDE=/var/tmp
+[windows] env OUTSIDE=$WORK/outside
+[windows] mkdir $WORK/outside
+env FIX=$OUTSIDE/invowk-module-workdir-roots
+
+# virtual-sh read: denied, and the script still starts in the outside workdir
+rm $FIX
+mkdir $FIX/mod.invowkmod $FIX/shared $FIX/plain
+cp $WORK/fixture/mod.invowkmod/invowkmod.cue $FIX/mod.invowkmod/invowkmod.cue
+cp $WORK/fixture/mod.invowkmod/invowkfile.cue $FIX/mod.invowkmod/invowkfile.cue
+cp $WORK/fixture/shared/data.txt $FIX/shared/data.txt
+cp $WORK/fixture/plain/invowkfile.cue $FIX/plain/invowkfile.cue
+cd $FIX
+! exec invowk cmd sh-read
+stdout 'shared$'
+stderr 'virtual path denied'
+! stdout 'workdir-data'
+
+# virtual-sh write: denied, and nothing is created
+rm $FIX
+mkdir $FIX/mod.invowkmod $FIX/shared $FIX/plain
+cp $WORK/fixture/mod.invowkmod/invowkmod.cue $FIX/mod.invowkmod/invowkmod.cue
+cp $WORK/fixture/mod.invowkmod/invowkfile.cue $FIX/mod.invowkmod/invowkfile.cue
+cp $WORK/fixture/shared/data.txt $FIX/shared/data.txt
+cp $WORK/fixture/plain/invowkfile.cue $FIX/plain/invowkfile.cue
+cd $FIX
+! exec invowk cmd sh-write
+stderr 'virtual path denied'
+! exists $FIX/shared/out.txt
+
+# virtual-lua read: io.open is denied
+rm $FIX
+mkdir $FIX/mod.invowkmod $FIX/shared $FIX/plain
+cp $WORK/fixture/mod.invowkmod/invowkmod.cue $FIX/mod.invowkmod/invowkmod.cue
+cp $WORK/fixture/mod.invowkmod/invowkfile.cue $FIX/mod.invowkmod/invowkfile.cue
+cp $WORK/fixture/shared/data.txt $FIX/shared/data.txt
+cp $WORK/fixture/plain/invowkfile.cue $FIX/plain/invowkfile.cue
+cd $FIX
+! exec invowk cmd lua-read
+stderr 'virtual path denied'
+! stdout 'workdir-data'
+
+# declared path: virtual.filesystem.paths {WORK: "@work"} keeps it readable and writable
+rm $FIX
+mkdir $FIX/mod.invowkmod $FIX/shared $FIX/plain
+cp $WORK/fixture/mod.invowkmod/invowkmod.cue $FIX/mod.invowkmod/invowkmod.cue
+cp $WORK/fixture/mod.invowkmod/invowkfile.cue $FIX/mod.invowkmod/invowkfile.cue
+cp $WORK/fixture/shared/data.txt $FIX/shared/data.txt
+cp $WORK/fixture/plain/invowkfile.cue $FIX/plain/invowkfile.cue
+cd $FIX
+exec invowk cmd sh-declared
+stdout 'workdir-data'
+exists $FIX/shared/out.txt
+
+# --ivk-workdir naming the same directory: trusted, so it is a root
+rm $FIX
+mkdir $FIX/mod.invowkmod $FIX/shared $FIX/plain
+cp $WORK/fixture/mod.invowkmod/invowkmod.cue $FIX/mod.invowkmod/invowkmod.cue
+cp $WORK/fixture/mod.invowkmod/invowkfile.cue $FIX/mod.invowkmod/invowkfile.cue
+cp $WORK/fixture/shared/data.txt $FIX/shared/data.txt
+cp $WORK/fixture/plain/invowkfile.cue $FIX/plain/invowkfile.cue
+cd $FIX
+exec invowk cmd sh-read --ivk-workdir $FIX/shared
+stdout 'workdir-data'
+
+# full access: unaffected
+rm $FIX
+mkdir $FIX/mod.invowkmod $FIX/shared $FIX/plain
+cp $WORK/fixture/mod.invowkmod/invowkmod.cue $FIX/mod.invowkmod/invowkmod.cue
+cp $WORK/fixture/mod.invowkmod/invowkfile.cue $FIX/mod.invowkmod/invowkfile.cue
+cp $WORK/fixture/shared/data.txt $FIX/shared/data.txt
+cp $WORK/fixture/plain/invowkfile.cue $FIX/plain/invowkfile.cue
+cd $FIX
+exec invowk cmd sh-full
+stdout 'workdir-data'
+
+# plain invowkfile with workdir "../shared": stays a root
+rm $FIX
+mkdir $FIX/mod.invowkmod $FIX/shared $FIX/plain
+cp $WORK/fixture/mod.invowkmod/invowkmod.cue $FIX/mod.invowkmod/invowkmod.cue
+cp $WORK/fixture/mod.invowkmod/invowkfile.cue $FIX/mod.invowkmod/invowkfile.cue
+cp $WORK/fixture/shared/data.txt $FIX/shared/data.txt
+cp $WORK/fixture/plain/invowkfile.cue $FIX/plain/invowkfile.cue
+cd $FIX/plain
+exec invowk cmd plain-read
+stdout 'workdir-data'
+
+# native runtime: the same module workdir is unchanged
+[!windows] rm $FIX
+[!windows] mkdir $FIX/mod.invowkmod $FIX/shared $FIX/plain
+[!windows] cp $WORK/fixture/mod.invowkmod/invowkmod.cue $FIX/mod.invowkmod/invowkmod.cue
+[!windows] cp $WORK/fixture/mod.invowkmod/invowkfile.cue $FIX/mod.invowkmod/invowkfile.cue
+[!windows] cp $WORK/fixture/shared/data.txt $FIX/shared/data.txt
+[!windows] cp $WORK/fixture/plain/invowkfile.cue $FIX/plain/invowkfile.cue
+[!windows] cd $FIX
+[!windows] exec invowk cmd native-read
+[!windows] stdout 'shared$'
+[!windows] stdout 'workdir-data'
+
+cd $WORK
+rm $FIX
+! exists $FIX
+
+-- fixture/mod.invowkmod/invowkmod.cue --
+module: "mod"
+version: "1.0.0"
+description: "Module workdir roots"
+
+-- fixture/mod.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:    "sh-read"
+		workdir: "../shared"
+		implementations: [{
+			script: {content: """
+				pwd
+				read line < ./data.txt || exit 3
+				echo "$line"
+				"""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:    "sh-write"
+		workdir: "../shared"
+		implementations: [{
+			script: {content: "echo x > ./out.txt"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:    "lua-read"
+		workdir: "../shared"
+		implementations: [{
+			script: {content: """
+				local f, err = io.open("data.txt", "r")
+				if f == nil then
+					error("open: " .. tostring(err))
+				end
+				print(f:read("*l"))
+				f:close()
+				"""}
+			runtimes: [{name: "virtual-lua"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:    "sh-declared"
+		workdir: "../shared"
+		implementations: [{
+			script: {content: """
+				read line < ./data.txt
+				echo "$line"
+				echo x > ./out.txt
+				"""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [
+				{name: "linux", virtual: {filesystem: {paths: {WORK: "@work"}}}},
+				{name: "macos", virtual: {filesystem: {paths: {WORK: "@work"}}}},
+				{name: "windows", virtual: {filesystem: {paths: {WORK: "@work"}}}},
+			]
+		}]
+	},
+	{
+		name:    "sh-full"
+		workdir: "../shared"
+		implementations: [{
+			script: {content: """
+				read line < ./data.txt
+				echo "$line"
+				"""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [
+				{name: "linux", virtual: {filesystem: {access: "full"}}},
+				{name: "macos", virtual: {filesystem: {access: "full"}}},
+				{name: "windows", virtual: {filesystem: {access: "full"}}},
+			]
+		}]
+	},
+	{
+		name:    "native-read"
+		workdir: "../shared"
+		implementations: [{
+			script: {content: """
+				pwd
+				cat ./data.txt
+				"""}
+			runtimes: [{name: "native"}]
+			platforms: [{name: "linux"}, {name: "macos"}]
+		}]
+	},
+]
+
+-- fixture/shared/data.txt --
+workdir-data
+
+-- fixture/plain/invowkfile.cue --
+cmds: [
+	{
+		name:    "plain-read"
+		workdir: "../shared"
+		implementations: [{
+			script: {content: """
+				read line < ./data.txt
+				echo "$line"
+				"""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

@@ -19,6 +19,10 @@ type virtualInteractiveSubprocess struct {
 	workDir types.FilesystemPath
 	//goplint:ignore -- prepared path is validated before construction; command specs expose it as a pointer.
 	scriptBasePath types.FilesystemPath
+	// workDirModuleRoot is the module directory when the workdir is declared
+	// by a module invowkfile (virtualWorkdir.moduleRoot), and nil for a
+	// trusted workdir. The subprocess makes the same root decision from it.
+	workDirModuleRoot *types.FilesystemPath
 	//goplint:ignore -- adapter-specific command specs wrap serialized JSON in runtime-specific value types.
 	envJSON []byte
 	//goplint:ignore -- runtime config stores allowed binaries as strings after validation.
@@ -35,10 +39,15 @@ func (p virtualInteractiveSubprocess) Validate() error {
 	if p.runtimeCfg != nil {
 		runtimeCfgErr = p.runtimeCfg.Validate()
 	}
+	var moduleRootErr error
+	if p.workDirModuleRoot != nil {
+		moduleRootErr = p.workDirModuleRoot.Validate()
+	}
 	return errors.Join(
 		p.scriptFile.Validate(),
 		p.workDir.Validate(),
 		p.scriptBasePath.Validate(),
+		moduleRootErr,
 		p.binaryLookupMode.Validate(),
 		p.filesystemAccess.Validate(),
 		p.filesystemPaths.Validate(),
@@ -132,19 +141,31 @@ func buildVirtualInteractiveSubprocess(
 
 	runtimeCfg := selectedRuntimeConfig(ctx)
 	prepared := &virtualInteractiveSubprocess{
-		scriptFile:       scriptFile,
-		workDir:          workDirPath,
-		scriptBasePath:   scriptBasePath,
-		envJSON:          envJSON,
-		allowedBinaries:  allowedBinaryStrings(runtimeCfg),
-		binaryLookupMode: binaryLookupMode(runtimeCfg),
-		filesystemAccess: pathResolver.access,
-		filesystemPaths:  filesystem.Paths,
-		runtimeCfg:       runtimeCfg,
-		cleanup:          cleanup,
+		scriptFile:        scriptFile,
+		workDir:           workDirPath,
+		scriptBasePath:    scriptBasePath,
+		workDirModuleRoot: interactiveWorkDirModuleRoot(ctx),
+		envJSON:           envJSON,
+		allowedBinaries:   allowedBinaryStrings(runtimeCfg),
+		binaryLookupMode:  binaryLookupMode(runtimeCfg),
+		filesystemAccess:  pathResolver.access,
+		filesystemPaths:   filesystem.Paths,
+		runtimeCfg:        runtimeCfg,
+		cleanup:           cleanup,
 	}
 	if err := prepared.Validate(); err != nil {
 		return nil, err
 	}
 	return prepared, nil
+}
+
+// interactiveWorkDirModuleRoot returns the module root of the command's
+// virtualWorkdir for the interactive subprocess, or nil for a trusted workdir.
+func interactiveWorkDirModuleRoot(ctx *ExecutionContext) *types.FilesystemPath {
+	if virtualWorkdirFor(ctx.Invowkfile, ctx.Command, ctx.SelectedImpl, ctx.WorkDir).moduleRoot == "" {
+		return nil
+	}
+	// virtualWorkdirFor records the module root only from Invowkfile.ModulePath.
+	moduleRoot := ctx.Invowkfile.ModulePath
+	return &moduleRoot
 }

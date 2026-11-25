@@ -113,3 +113,46 @@ func TestLuaInteractiveCommandPassesVirtualPolicyFlags(t *testing.T) {
 		}
 	}
 }
+
+// TestInteractiveCommandsPassWorkdirModuleRootOnlyWhenSet checks that both
+// adapters pass the hidden --workdir-module-root flag exactly when the spec
+// carries a module root (nil means a trusted workdir).
+func TestInteractiveCommandsPassWorkdirModuleRootOnlyWhenSet(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	scriptFile := types.FilesystemPath(filepath.Join(tmpDir, "invowk-script"))
+	workDir := types.FilesystemPath(filepath.Join(tmpDir, "shared"))
+	moduleRoot := types.FilesystemPath(filepath.Join(tmpDir, "mod.invowkmod"))
+	for _, root := range []*types.FilesystemPath{&moduleRoot, nil} {
+		shCmd, err := shInteractiveCommand(t.Context(), runtime.ShInteractiveCommandSpec{
+			ScriptFile:        &scriptFile,
+			WorkDir:           &workDir,
+			ScriptBasePath:    &moduleRoot,
+			WorkDirModuleRoot: root,
+			EnvJSON:           runtime.ShInteractiveEnvJSON("{}"),
+		})
+		if err != nil {
+			t.Fatalf("shInteractiveCommand() error = %v", err)
+		}
+		luaCmd, err := luaInteractiveCommand(t.Context(), runtime.LuaInteractiveCommandSpec{
+			ScriptFile:        &scriptFile,
+			WorkDir:           &workDir,
+			ScriptBasePath:    &moduleRoot,
+			WorkDirModuleRoot: root,
+			EnvJSON:           runtime.LuaInteractiveEnvJSON("{}"),
+		})
+		if err != nil {
+			t.Fatalf("luaInteractiveCommand() error = %v", err)
+		}
+		for _, args := range [][]string{shCmd.Args, luaCmd.Args} {
+			i := slices.Index(args, "--workdir-module-root")
+			switch {
+			case root == nil && i >= 0:
+				t.Fatalf("args = %v, want no --workdir-module-root for a trusted workdir", args)
+			case root != nil && (i < 0 || i+1 >= len(args) || args[i+1] != string(moduleRoot)):
+				t.Fatalf("args = %v, want --workdir-module-root %s", args, moduleRoot)
+			}
+		}
+	}
+}

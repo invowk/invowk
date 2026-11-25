@@ -28,7 +28,7 @@ Lua scripts interact with Invowk through a read-only `invowk` table:
 
 ## Paths And Files
 
-Lua file I/O uses Invowk's virtual path validator. Relative paths resolve from the command workdir. Standard anchors are exposed as metadata, and the implicit writable/readable roots are `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, the script or module source root, and `/tmp` (except on Windows).
+Lua file I/O uses Invowk's virtual path validator. Relative paths resolve from the command workdir. Standard anchors are exposed as metadata, and the implicit writable/readable roots are `@work` (except a module workdir outside the module: see [Working Directory](../advanced/workdir#virtual-runtimes)), `@tmp`, `@config`, `@data`, `@cache`, `@state`, the script or module source root, and `/tmp` (except on Windows).
 
 Under restricted access (the default), the validator resolves a path before it checks it:
 

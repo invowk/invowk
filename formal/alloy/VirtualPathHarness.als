@@ -8,22 +8,31 @@
 // Windows junction to the deepest existing ancestor (walkVirtualPath) and joins
 // the missing components to that ancestor, with no lexical fallback. It then
 // checks pathWithin against a list of allowed roots built by
-// newVirtualPathResolverForFilesystem (the effective workdir, the script base,
-// standardVirtualAnchorsForOS anchors, temporary roots, and the declared
-// filesystem.paths), resolved by the same function. Under `restricted` access
-// every accepted access must resolve physically inside an allowed root; `full`
-// access is an explicit opt-out.
+// newVirtualPathResolverForFilesystem (the script base,
+// standardVirtualAnchorsForOS anchors, temporary roots, the declared
+// filesystem.paths, and the effective workdir with @work when
+// virtualWorkdir.isReadRoot holds), resolved by the same function. Under
+// `restricted` access every accepted access must resolve physically inside an
+// allowed root; `full` access is an explicit opt-out.
 //
 // This model transcribes the requirements "Traversal out of an allowed root is
-// blocked" (openspec/specs/virtual-runtime-sandbox) and "Restricted access
-// limits virtual file I/O" (openspec/specs/virtual-filesystem-access) as its
-// policy, and records four findings:
+// blocked" and "The work directory is an allowed root unless a module declares
+// it outside the module" (openspec/specs/virtual-runtime-sandbox) and
+// "Restricted access limits virtual file I/O"
+// (openspec/specs/virtual-filesystem-access) as its policy, and records four
+// findings:
 //   F14 (fixed): the pre-fix normalizeExistingOrParent evaluated only the path
 //        and its parent, so a deep missing path below an escaping symlink was
 //        judged lexically. The pre-fix code is kept as
 //        mutantPreFixF14ParentOnlyEval.
-//   F15: a module-declared workdir outside the module widens the allowed roots
-//        under restricted access, admitting reads that are not cwd operations.
+//   F15 (fixed): a module-declared workdir outside the module widened the
+//        allowed roots under restricted access, admitting reads that are not
+//        cwd operations. The workdir is now a root only when it is trusted or
+//        resolves physically inside the module (TrustedOrInside); the pre-fix
+//        rule is kept as mutantPreFixF15WorkdirRoot, and
+//        trustedWorkdirReadableFixed with its mutant
+//        mutantStrictWorkdirNeverRoot keeps the fix from becoming the strict
+//        variant, in which no workdir is a root.
 //   F18 (fixed): filepath.EvalSymlinks does not follow a Windows junction, so
 //        the pre-fix code judged every path through a junction lexically. The
 //        escape was observed on windows-latest (CI run 44523520503, job
@@ -59,16 +68,22 @@
 // | normalized | normalizeVirtualPathForAccess | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_NoFollowOperands, TestVirtualPathFullAccessFallback | the access-mode split: restricted is the strict walk, full falls back to a link's own path or the cleaned path, and no containment decision reads the fallback; the fallback forms are not modelled and are bound by TestVirtualPathFullAccessFallback |
 // | normalized | virtualPathResolver.resolveNoFollow | internal/runtime/virtual_path_nofollow.go | TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck | the no-follow request: the parent is a model request resolved by the walk, the final name is joined unread; one request kind in the model; a final separator, "." or ".." uses the follow form, and the not-a-directory check on it is not modelled and is bound by TestVirtualPathNoFollowValidatorDirectoryCheck |
 // | pathWithin | pathWithin | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | filepath.Rel prefix test |
-// | allowedRoots | newVirtualPathResolverForFilesystem | internal/runtime/virtual_policy.go | TestVirtualPathHarness_RootConstruction | workdir/script base/anchors/temp/declared as tagged roots |
-// | anchors | standardVirtualAnchorsForOS | internal/runtime/virtual_policy.go | TestVirtualPathHarness_RootConstruction | narrow claim (decision 14): anchors are explicit allowed roots (@config/@data/@cache/@state/@tmp/@work InReadRoot; @home/.ssh denied under restricted, cross-platform-path-anchors); it catches only an empty anchor, a reported anchor missing from the allowed roots where no other root encloses it, and an anchor covering @home/.ssh (decision 17); masked (decision 31): dropping @work is equivalent (the workdir is always a root), and dropping @tmp is masked off Windows while TMPDIR lies under /tmp (defaultTempRoots, the Linux reach lane); anchor paths are inputs from the production resolver for the host GOOS, not verified; follow-up: model per-OS anchors |
+// | allowedRoots | newVirtualPathResolverForFilesystem | internal/runtime/virtual_policy.go | TestVirtualPathHarness_RootConstruction | script base/anchors/temp/declared as tagged roots, and the workdir with @work only when workdirIsRoot holds |
+// | workdirIsRoot | virtualWorkdir.isReadRoot | internal/runtime/virtual_workdir.go | TestVirtualPathHarness_RootConstruction, TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_Property | the fixed rule TrustedOrInside: a workdir with no module root is trusted; a module-declared one is a root when it resolves physically inside the module, both paths resolved by normalizeExistingOrParent, and a resolution error or another volume counts as outside; masked: H.workdir = ModuleInside implies no InWorkdir, so a mutant that returns false for a module-inside workdir is equivalent in the model and in the golden (the script base encloses the workdir); TestVirtualWorkdir (module inside) is its killer outside the formal lane |
+// | workdirIsRoot | virtualWorkdirFor | internal/runtime/virtual_workdir.go | TestVirtualPathHarness_RootConstruction, TestVirtualPathHarness_Property | the workdir kind of a command run, from the invowkfile, the command, the implementation and the CLI override: the module root is recorded only for a module invowkfile and a level the invowkfile declares |
+// | workdirIsRoot | Invowkfile.ResolveEffectiveWorkDir | pkg/invowkfile/workdir_source.go | TestVirtualPathHarness_RootConstruction, TestVirtualPathHarness_Property | the effective workdir with the level that supplied it; the path is GetEffectiveWorkDir's |
+// | workdirIsRoot | effectiveWorkDirSource | pkg/invowkfile/workdir_source.go | TestVirtualPathHarness_RootConstruction, TestVirtualPathHarness_Property, TestResolveEffectiveWorkDir | the level of the workdir precedence, with GetEffectiveWorkDir's tests in its order; a swap of the implementation and command tests leaves the source declared and the root decision unchanged, so only the drift test TestResolveEffectiveWorkDir sees it |
+// | workdirIsRoot | WorkDirSource.DeclaredByInvowkfile | pkg/invowkfile/workdir_source.go | TestVirtualPathHarness_RootConstruction, TestVirtualPathHarness_Property | the implementation, command and root levels are declared by the invowkfile; the CLI override and the default are not |
+// | anchors | standardVirtualAnchorsForOS | internal/runtime/virtual_policy.go | TestVirtualPathHarness_RootConstruction | narrow claim (decision 14): anchors are explicit allowed roots (@config/@data/@cache/@state/@tmp InReadRoot, @work InReadRoot exactly when the workdir is a root; @home/.ssh denied under restricted, cross-platform-path-anchors); it catches only an empty anchor, a reported anchor missing from the allowed roots where no other root encloses it, an anchor covering @home/.ssh (decision 17), and @work admitted for a module-declared workdir outside the module; masked (decision 31): dropping @work is equivalent wherever the workdir itself is an allowed root, and dropping @tmp is masked off Windows while TMPDIR lies under /tmp (defaultTempRoots, the Linux reach lane); anchor paths are inputs from the production resolver for the host GOOS, not verified; follow-up: model per-OS anchors |
 // | validate | virtualPathValidator.validate | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | the check only; the operation then runs on the returned path, and the race between this check and that open is not modelled (a residual risk, not closed) |
 // | accepts | virtualPathValidator.validateNoFollow | internal/runtime/virtual_path_nofollow.go | TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck | the check on the no-follow path; the operation runs on it and does not follow the final name; the check-then-act race is not modelled; the not-a-directory check is not modelled and is bound by TestVirtualPathNoFollowValidatorDirectoryCheck |
 // | access | VirtualFilesystemConfig.EffectiveAccess | pkg/invowkfile/virtual_filesystem.go | TestVirtualPathHarness_RootConstruction | restricted vs full |
-// | contained | - | formal/alloy/VirtualPathHarness.als | TestVirtualPathHarness_Property | policy: physical resolution, workdir excluded from read roots |
-// | allowedWorkdirCwd | - | formal/alloy/VirtualPathHarness.als | - | policy: a workdir is a cwd, not an allowed read root |
+// | contained | - | formal/alloy/VirtualPathHarness.als | TestVirtualPathHarness_Property | policy: physical resolution; a trusted workdir is a read root, a module-declared workdir outside the module is not |
+// | allowedTrustedWorkdir | - | formal/alloy/VirtualPathHarness.als | TestVirtualPathHarness_Property | policy: a trusted workdir (the CLI override, a workdir of an invowkfile outside a module, a module's default workdir) is an allowed root under restricted access; justification: the user chose the directory, or it is the module directory, so no module widens its own roots through it |
+// | allowedWorkdirCwd | - | formal/alloy/VirtualPathHarness.als | - | policy: a module-declared workdir outside the module is a cwd, not an allowed read root |
 // | mutantPreFixF14ParentOnlyEval | normalizeExistingOrParent | internal/runtime/virtual_policy.go | TestVirtualPathHarness_DeepMissingPathThroughSymlinkDenied | regression: the fixed F14 deep-missing-path hole; the replay asserts the one-, two- and three-level paths through an escaping symlink are denied and nothing is created outside |
 // | mutantPreFixF19DanglingLinkAsMissingName | normalizeExistingOrParent | internal/runtime/virtual_policy.go | TestVirtualPathHarness_DanglingLinkEscapeDenied | regression: the fixed F19 dangling-link hole; the replay asserts a link to a missing outside file (directly, and two missing levels deep) is denied with nothing created outside; its third leg, a link target with ".." after a missing component, is a path the resolver refuses and the model does not hold |
-// | findingF15 | newVirtualPathResolverForFilesystem | internal/runtime/virtual_policy.go | TestVirtualPathHarness_F15WorkdirWidening | characterisation: workdir added to the allowed roots |
+// | mutantPreFixF15WorkdirRoot | newVirtualPathResolverForFilesystem | internal/runtime/virtual_policy.go | TestVirtualPathHarness_ModuleWorkdirOutsideNotRoot | regression: the fixed F15 workdir widening; the replay asserts that a module-declared workdir at the filesystem root (the volume root on Windows) and its @work are not allowed roots and a read below it is denied, and that the same directory as a CLI override is a root |
 // | mutantPreFixF18JunctionNotFollowed | walkVirtualPath | internal/runtime/virtual_policy.go | TestVirtualPathHarness_JunctionEscapeDenied | characterisation: only to keep this Windows-only replay out of the killers (it is skipped off Windows by the capability policy); it asserts the fixed F18 behaviour, not an open defect. A model request with link = Junction is materialised with fstree.MustJunction: an existing file, a new file, and a new file two missing components below a junction to an outside directory are denied and nothing is created outside, a path through a junction whose target is inside the root is accepted, and a root given through a junction accepts a request written through it at any depth |
 
 module VirtualPathHarness
@@ -94,7 +109,20 @@ sig InReadRoot extends Loc {}    // physically inside a non-workdir allowed root
 sig InWorkdir extends Loc {}     // physically inside the declared workdir only
 sig OutsideAll extends Loc {}    // physically outside every root
 
-one sig H { access: one Access, includeWorkdir: one Bool }
+// The kind of the effective workdir (virtualWorkdirFor): trusted (the CLI
+// override, a workdir of an invowkfile outside a module, or a module's default
+// workdir), declared by a module's own invowkfile and physically inside the
+// module, or declared by it and physically outside the module.
+abstract sig WorkdirKind {}
+one sig TrustedWorkdir, ModuleInside, ModuleOutside extends WorkdirKind {}
+
+one sig H { access: one Access, workdir: one WorkdirKind }
+
+// A module-inside workdir is enclosed by the script base, which is a read root,
+// so no location lies inside the workdir only.
+fact moduleInsideWorkdirIsEnclosed {
+	H.workdir = ModuleInside implies no InWorkdir
+}
 
 // The kind of link a request crosses: a symbolic link, or a Windows junction
 // (a mount-point reparse point, which os.Lstat reports with neither ModeSymlink
@@ -154,44 +182,70 @@ fun normalized[r: Req, mode: EvalMode]: one Loc {
 	                  else (r.depth = Zero => r.physAnc else r.lexAnc))))
 }
 
+// The code's rule for whether the workdir and @work enter the allowed roots
+// (virtualWorkdir.isReadRoot in newVirtualPathResolverForFilesystem):
+//   AlwaysRoot:      the pre-fix code, the workdir is always a root (F15);
+//   TrustedOrInside: the fixed code, the workdir is a root when it is trusted
+//                    or declared by the module inside the module;
+//   NeverRoot:       the strict variant, the workdir is never a root (not
+//                    chosen: it breaks trusted workdirs).
+abstract sig WorkdirRule {}
+one sig AlwaysRoot, TrustedOrInside, NeverRoot extends WorkdirRule {}
+
+pred workdirIsRoot[rule: WorkdirRule] {
+	rule = AlwaysRoot or (rule = TrustedOrInside and H.workdir in TrustedWorkdir + ModuleInside)
+}
+
 // isReadRoot: a location that counts as an allowed root for the pathWithin
-// check. Under the current code the workdir is added to the roots
-// (includeWorkdir = True); the fix keeps it out.
-pred locIsAllowedRoot[l: Loc, includeWorkdir: Bool] {
-	l in InReadRoot or (includeWorkdir = True and l in InWorkdir)
+// check: a read root, or the workdir when the rule makes it a root.
+pred locIsAllowedRoot[l: Loc, rule: WorkdirRule] {
+	l in InReadRoot or (workdirIsRoot[rule] and l in InWorkdir)
 }
 
 // accepts: the validator admits the access. Full access is an explicit opt-out;
 // under restricted access the normalized location must be within an allowed root.
-pred accepts[r: Req, mode: EvalMode, includeWorkdir: Bool] {
-	H.access = Full or locIsAllowedRoot[normalized[r, mode], includeWorkdir]
+pred accepts[r: Req, mode: EvalMode, rule: WorkdirRule] {
+	H.access = Full or locIsAllowedRoot[normalized[r, mode], rule]
 }
 
-// contained: the policy. Under restricted access every accepted access resolves
-// physically inside a real allowed root; the workdir is a cwd, not a read root
-// (allowedWorkdirCwd). Full access admits everything by design.
-pred allowedWorkdirCwd[r: Req] { no r }   // no read is admitted merely by the workdir
+// contained: the policy, written from the specs (virtual-runtime-sandbox "The
+// work directory is an allowed root unless a module declares it outside the
+// module"), not from the code's rule. Under restricted access every accepted
+// access resolves physically inside a real allowed root, or inside a trusted
+// workdir (allowedTrustedWorkdir); a module-declared workdir outside the module
+// is a cwd, not a read root (allowedWorkdirCwd). Full access admits everything
+// by design.
+pred allowedTrustedWorkdir[r: Req] { H.workdir = TrustedWorkdir and r.physAnc in InWorkdir }
+pred allowedWorkdirCwd[r: Req] { no r }   // no read is admitted merely by an outside module workdir
 pred contained[r: Req] {
-	H.access = Full or r.physAnc in InReadRoot or allowedWorkdirCwd[r]
+	H.access = Full or r.physAnc in InReadRoot or allowedTrustedWorkdir[r] or allowedWorkdirCwd[r]
 }
 
 // ---------------------------------------------------------------------------
 // Safety predicates (parameterised so mutants and findings reuse them)
 
-pred harnessContained[mode: EvalMode, includeWorkdir: Bool] {
-	all r: Req | accepts[r, mode, includeWorkdir] implies contained[r]
+pred harnessContained[mode: EvalMode, rule: WorkdirRule] {
+	all r: Req | accepts[r, mode, rule] implies contained[r]
+}
+
+// The narrow fix must not become the strict one: under restricted access every
+// request inside a trusted workdir is accepted.
+pred trustedWorkdirReadable[rule: WorkdirRule] {
+	all r: Req | (H.access = Restricted and allowedTrustedWorkdir[r]) implies accepts[r, FixedEval, rule]
 }
 
 // ---------------------------------------------------------------------------
 // Antecedents / witnesses
 
-pred anteHarness { some r: Req | H.access = Restricted and accepts[r, FixedEval, False] }
+pred anteHarness { some r: Req | H.access = Restricted and accepts[r, FixedEval, TrustedOrInside] }
+pred anteTrustedWorkdir { H.access = Restricted and some r: Req | allowedTrustedWorkdir[r] }
 
 pred witEscapingAncestor { some r: Req | r.lexAnc != r.physAnc }
 pred witDeepMissing { some r: Req | r.depth = TwoPlus }
 pred witExisting { some r: Req | r.depth = Zero }
 pred witFullAccess { H.access = Full }
 pred witWorkdirRoot { some InWorkdir }
+pred witModuleOutsideWorkdir { H.workdir = ModuleOutside and some InWorkdir }
 pred witJunctionAncestor { some r: Req | r.link = Junction and r.lexAnc != r.physAnc }
 pred witInLocationLink { some r: Req | some r.link and r.lexAnc = r.physAnc }
 pred witDanglingLink { some r: Req | r.dangling = True and r.lexAnc != r.physAnc }
@@ -203,9 +257,10 @@ pred deepSymlinkEscape {
 	some r: Req | r.depth = TwoPlus and r.lexAnc in InReadRoot and r.physAnc in OutsideAll
 }
 
-// F15: a workdir outside every read root, admitting a physical access inside it.
+// F15 (fixed): a module-declared workdir outside the module, and a physical
+// access inside it, which the pre-fix rule (AlwaysRoot) accepted.
 pred workdirWidening {
-	H.access = Restricted and H.includeWorkdir = True
+	H.access = Restricted and H.workdir = ModuleOutside
 	some r: Req | r.depth = Zero and r.physAnc in InWorkdir and r.lexAnc in InWorkdir
 }
 
@@ -220,16 +275,15 @@ one sig Decisions {
 
 pred goldenDecisions {
 	Decisions.dNormalized = { r: Req, l: Loc | l = normalized[r, FixedEval] }
-	Decisions.dAccepts = { r: Req | accepts[r, FixedEval, H.includeWorkdir] }
+	Decisions.dAccepts = { r: Req | accepts[r, FixedEval, TrustedOrInside] }
 	Decisions.dContained = { r: Req | contained[r] }
 }
 
-// The golden fixes the current-code configuration: restricted access, with the
-// workdir still an allowed root (F15 is open), so the replay compares the real
-// validator with the fixed evaluation; the model-level checks vary the flags.
+// The golden fixes restricted access and leaves the workdir kind free, so the
+// replay compares the real validator with the fixed evaluation and the fixed
+// root rule for every kind; the model-level checks vary the rest.
 pred goldenScenario {
 	H.access = Restricted
-	H.includeWorkdir = True
 }
 
 pred noJunk {

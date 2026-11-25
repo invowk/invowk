@@ -151,11 +151,12 @@ If you need execution isolation, use the **container** runtime instead.
 
 ## File Access
 
-Redirections and the built-in utilities go through Invowk's path validator. By default (`virtual.filesystem.access: "restricted"`) a path must resolve inside an allowed root: the command workdir, the script or module source root, the `@tmp`, `@config`, `@data`, `@cache` and `@state` anchors, `/tmp` (except on Windows), and the selected platform's `virtual.filesystem.paths` entries (see [Paths And Files](./virtual-lua#paths-and-files)).
+Redirections and the built-in utilities go through Invowk's path validator. By default (`virtual.filesystem.access: "restricted"`) a path must resolve inside an allowed root: the command workdir (except a module workdir outside the module, below), the script or module source root, the `@tmp`, `@config`, `@data`, `@cache` and `@state` anchors, `/tmp` (except on Windows), and the selected platform's `virtual.filesystem.paths` entries (see [Paths And Files](./virtual-lua#paths-and-files)).
 
 - **Links are followed before the check.** Every symbolic link and every Windows junction on the path is resolved, also when the last parts of the path do not exist yet.
 - **A link that leaves the allowed roots is denied at any depth**, with `virtual path denied`: `mkdir -p link/a/b` and `echo x > dangling-link` fail when the link points outside. A link or junction whose target stays inside an allowed root works.
 - **A path that cannot be resolved is refused** (a link cycle, a missing drive or share), and a `virtual.filesystem.paths` entry that cannot be resolved fails the command before the script runs.
+- **A module's workdir outside the module is not an allowed root.** When a module's own invowkfile sets a `workdir` (at the root, command or implementation level) that resolves outside the module directory, with links and junctions followed, the script still starts there and `@work` still names it, but neither the workdir nor `@work` is an allowed root. To read or write there, declare the directory in the selected platform's `virtual.filesystem.paths` (for example `WORK: "@work"`) or pass `--ivk-workdir`. The `--ivk-workdir` override, the workdir of an invowkfile that is not in a module, and a module workdir inside the module stay allowed roots (see [Working Directory](../advanced/workdir#virtual-runtimes)).
 - **`/dev/stdout`, `/dev/stderr` and `/dev/stdin` are not files when the stream is a pipe** (Linux), so they cannot be opened as paths. Write `echo msg >&2` or `>&1` instead: a descriptor duplication opens no path.
 
 With `access: "full"` there is no allowed-root check, and a path the validator cannot resolve is passed to the operating system as it is.

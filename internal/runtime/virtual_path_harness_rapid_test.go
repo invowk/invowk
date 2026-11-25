@@ -33,6 +33,28 @@ const (
 	propInside       = "resolves inside the root"
 	propOutside      = "resolves outside the root"
 	propUnresolvable = "cannot be resolved"
+
+	// Workdir sources and placements of the workdir property.
+	propSourceCLI          = "cli override"
+	propSourcePlain        = "invowkfile outside a module"
+	propSourceDefault      = "module default"
+	propSourceDeclared     = "module-declared"
+	propPlaceInside        = "inside the module"
+	propPlaceDotDot        = "outside by .."
+	propPlaceAbsolute      = "absolute outside path"
+	propPlaceLinkOut       = "link that leaves the module"
+	propPlaceLinkIn        = "link that stays in the module"
+	propPlaceJunctionOut   = "junction that leaves the module"
+	propPlaceJunctionIn    = "junction that stays in the module"
+	propWorkdirLevelRoot   = "root"
+	propWorkdirLevelCmd    = "command"
+	propWorkdirLevelImpl   = "implementation"
+	propWorkdirLinkName    = "lnk"
+	propWorkdirSharedName  = "shared"
+	propWorkdirSubName     = "sub"
+	propWorkdirModuleName  = "mod"
+	propWorkdirMaxMissing  = 2
+	propWorkdirRequestName = "m"
 )
 
 // TestVirtualPathHarness_Property generates allowed roots, links and deep
@@ -51,6 +73,19 @@ const (
 // and hold ".." before and after a missing component; on Windows they are also
 // junctions. An accepted path is created, as a script would, and after every
 // case nothing may exist outside the root that the test did not put there.
+//
+// A second property covers the workdir (rows workdirIsRoot and
+// allowedTrustedWorkdir): it generates a module directory, a workdir source
+// (CLI override, invowkfile outside a module, module default, module-declared
+// at the root, command or implementation level) and a placement (inside the
+// module, outside by "..", an absolute outside path, a link, on Windows also a
+// junction, that leaves or stays in the module), builds the workdir input
+// through virtualWorkdirFor, and compares the production decision and the
+// validator's verdict on a request below the workdir with an oracle from how
+// the tree was built: the workdir is a root when it is trusted or lies
+// physically inside the module. The verdict half builds the roots directly
+// (the module, and the workdir when the decision admits it), so no implicit
+// root encloses the generated tree.
 func TestVirtualPathHarness_Property(t *testing.T) {
 	t.Parallel()
 	fstree.Require(t, fstree.CapSymlink)
@@ -196,6 +231,118 @@ func TestVirtualPathHarness_Property(t *testing.T) {
 		}
 		if names := dirNames(rt, outsideSub); len(names) != 0 {
 			rt.Fatalf("%s: the link's outside target holds %q, want nothing", describe, names)
+		}
+	})
+
+	checkWorkdirProperty(t, root)
+}
+
+// checkWorkdirProperty is the workdir half of TestVirtualPathHarness_Property.
+func checkWorkdirProperty(t *testing.T, root string) {
+	t.Helper()
+	placements := []string{propPlaceInside, propPlaceDotDot, propPlaceAbsolute, propPlaceLinkOut, propPlaceLinkIn}
+	if harnessJunctions(t) {
+		placements = append(placements, propPlaceJunctionOut, propPlaceJunctionIn)
+	}
+	sources := []string{propSourceCLI, propSourcePlain, propSourceDefault, propSourceDeclared}
+	levels := []string{propWorkdirLevelRoot, propWorkdirLevelCmd, propWorkdirLevelImpl}
+
+	rapid.Check(t, func(rt *rapid.T) {
+		dir, err := os.MkdirTemp(root, "workdir-*")
+		if err != nil {
+			rt.Fatalf("mkdtemp: %v", err)
+		}
+		defer func() { _ = os.RemoveAll(dir) }()
+		module := filepath.Join(dir, propWorkdirModuleName)
+		sub := filepath.Join(module, propWorkdirSubName)
+		shared := filepath.Join(dir, propWorkdirSharedName)
+		for _, d := range []string{sub, shared} {
+			if err = os.MkdirAll(d, 0o755); err != nil {
+				rt.Fatalf("mkdir: %v", err)
+			}
+		}
+
+		source := rapid.SampledFrom(sources).Draw(rt, "source")
+		placement := rapid.SampledFrom(placements).Draw(rt, "placement")
+		level := rapid.SampledFrom(levels).Draw(rt, "level")
+		missing := rapid.IntRange(0, propWorkdirMaxMissing).Draw(rt, "missing")
+
+		// The workdir value and where it physically lies, from the tree.
+		link := filepath.Join(module, propWorkdirLinkName)
+		value, inside := "", false
+		switch placement {
+		case propPlaceInside:
+			value, inside = propWorkdirSubName, true
+		case propPlaceDotDot:
+			value = "../" + propWorkdirSharedName
+		case propPlaceAbsolute:
+			value = shared
+		case propPlaceLinkOut:
+			fstree.MustSymlink(rt, shared, link)
+			value = propWorkdirLinkName
+		case propPlaceLinkIn:
+			fstree.MustSymlink(rt, sub, link)
+			value, inside = propWorkdirLinkName, true
+		case propPlaceJunctionOut:
+			fstree.MustJunction(rt, shared, link)
+			value = propWorkdirLinkName
+		case propPlaceJunctionIn:
+			fstree.MustJunction(rt, sub, link)
+			value, inside = propWorkdirLinkName, true
+		}
+
+		inv := &invowkfile.Invowkfile{FilePath: invowkfile.FilesystemPath(filepath.Join(module, "invowkfile.cue"))}
+		if source != propSourcePlain {
+			inv.ModulePath = invowkfile.FilesystemPath(module)
+		}
+		cmd := &invowkfile.Command{Name: "probe"}
+		impl := &invowkfile.Implementation{Script: invowkfile.ImplementationScript{Content: "echo"}}
+		var override invowkfile.WorkDir
+		switch {
+		case source == propSourceDefault:
+			inside = true
+		case source == propSourceCLI:
+			override = invowkfile.WorkDir(value)
+		case level == propWorkdirLevelRoot:
+			inv.WorkDir = invowkfile.WorkDir(value)
+		case level == propWorkdirLevelCmd:
+			cmd.WorkDir = invowkfile.WorkDir(value)
+		default:
+			impl.WorkDir = invowkfile.WorkDir(value)
+		}
+		// The oracle: a workdir is a root when it is trusted or inside.
+		declared := source == propSourceDeclared
+		wantRoot := !declared || inside
+
+		workdir := virtualWorkdirFor(inv, cmd, impl, override)
+		describe := fmt.Sprintf("workdir %q (source %s, level %s, placement %s, %d missing)",
+			workdir.path, source, level, placement, missing)
+		if got := workdir.moduleRoot != ""; got != declared {
+			rt.Fatalf("%s: module root %q, want recorded=%v", describe, workdir.moduleRoot, declared)
+		}
+		isRoot := workdir.isReadRoot()
+		if isRoot != wantRoot {
+			rt.Fatalf("%s: isReadRoot() = %v, oracle %v", describe, isRoot, wantRoot)
+		}
+
+		roots := []string{module}
+		if isRoot {
+			roots = append(roots, workdir.path)
+		}
+		validator := virtualPathValidator{resolver: virtualPathResolver{
+			allowedRoots: normalizedRoots(roots),
+			access:       invowkfile.VirtualFilesystemAccessRestricted,
+		}}
+		request := workdir.path
+		for i := range missing {
+			request = filepath.Join(request, fmt.Sprintf("%s%d", propWorkdirRequestName, i+1))
+		}
+		_, err = validator.validate(module, request)
+		switch {
+		case wantRoot && err != nil:
+			rt.Fatalf("false denial: %s is an allowed root, the request %q was denied: %v", describe, request, err)
+		case !wantRoot && !errors.Is(err, errVirtualPathDenied):
+			rt.Fatalf("policy violation: %s lies outside the module, the request %q got %v", describe, request, err)
 		}
 	})
 }

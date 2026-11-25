@@ -28,7 +28,7 @@ Scripts Lua interagem com o Invowk por meio de uma tabela `invowk` somente leitu
 
 ## Caminhos E Arquivos
 
-A E/S de arquivos Lua usa o validador de caminhos virtual do Invowk. Caminhos relativos são resolvidos a partir do diretório de trabalho do comando. Âncoras padrão são expostas como metadados, e as raízes implícitas de leitura/escrita são `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, a raiz do script ou módulo e `/tmp` (exceto no Windows).
+A E/S de arquivos Lua usa o validador de caminhos virtual do Invowk. Caminhos relativos são resolvidos a partir do diretório de trabalho do comando. Âncoras padrão são expostas como metadados, e as raízes implícitas de leitura/escrita são `@work` (exceto o diretório de trabalho de um módulo fora do módulo: veja [Diretório de Trabalho](../advanced/workdir#runtimes-virtuais)), `@tmp`, `@config`, `@data`, `@cache`, `@state`, a raiz do script ou módulo e `/tmp` (exceto no Windows).
 
 No acesso restrito (o padrão), o validador resolve o caminho antes de verificá-lo:
 

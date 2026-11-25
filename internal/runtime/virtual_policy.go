@@ -140,7 +140,7 @@ func newVirtualPathValidator(ctx *ExecutionContext) (virtualPathValidator, error
 func newVirtualPathResolver(ctx *ExecutionContext) (virtualPathResolver, error) {
 	filesystem := selectedVirtualFilesystem(ctx)
 	return newVirtualPathResolverForFilesystem(
-		ctx.EffectiveWorkDir(),
+		virtualWorkdirFor(ctx.Invowkfile, ctx.Command, ctx.SelectedImpl, ctx.WorkDir),
 		string(ctx.Invowkfile.GetScriptBasePath()),
 		filesystem,
 	)
@@ -157,17 +157,26 @@ func selectedVirtualFilesystem(ctx *ExecutionContext) invowkfile.VirtualFilesyst
 	return ctx.SelectedImpl.VirtualFilesystemForPlatform(platform)
 }
 
+// newVirtualPathResolverForFilesystem builds the resolver of a virtual command.
+// The workdir and the @work anchor are allowed roots only when
+// workdir.isReadRoot holds; @work still reports the workdir either way.
 func newVirtualPathResolverForFilesystem(
-	workDir, scriptBasePath string,
+	workdir virtualWorkdir,
+	scriptBasePath string,
 	filesystem invowkfile.VirtualFilesystemConfig,
 ) (virtualPathResolver, error) {
-	anchors := standardVirtualAnchors(workDir)
+	anchors := standardVirtualAnchors(workdir.path)
 	paths, err := resolveVirtualFilesystemPaths(filesystem.Paths, scriptBasePath, anchors, filesystem.EffectiveAccess())
 	if err != nil {
 		return virtualPathResolver{}, err
 	}
-	roots := []string{workDir, scriptBasePath, anchors[virtualAnchorTmp]}
-	for _, name := range []string{virtualAnchorConfig, virtualAnchorData, virtualAnchorCache, virtualAnchorState, virtualAnchorWork} {
+	roots := []string{scriptBasePath, anchors[virtualAnchorTmp]}
+	rootAnchors := []string{virtualAnchorConfig, virtualAnchorData, virtualAnchorCache, virtualAnchorState}
+	if workdir.isReadRoot() {
+		roots = append(roots, workdir.path)
+		rootAnchors = append(rootAnchors, virtualAnchorWork)
+	}
+	for _, name := range rootAnchors {
 		if path := anchors[name]; path != "" {
 			roots = append(roots, path)
 		}
@@ -184,11 +193,16 @@ func newVirtualPathResolverForFilesystem(
 	}, nil
 }
 
+// newVirtualPathResolverForInteractiveConfig builds the resolver of an
+// interactive subprocess from its flags. workDirModuleRoot is the parent's
+// virtualWorkdir.moduleRoot ("" for a trusted workdir), so the child makes the
+// same root decision as the parent.
 func newVirtualPathResolverForInteractiveConfig(
-	workDir, scriptBasePath string,
+	workDir, workDirModuleRoot, scriptBasePath string,
 	filesystem invowkfile.VirtualFilesystemConfig,
 ) (virtualPathResolver, error) {
-	resolver, err := newVirtualPathResolverForFilesystem(workDir, scriptBasePath, filesystem)
+	workdir := virtualWorkdir{path: workDir, moduleRoot: workDirModuleRoot}
+	resolver, err := newVirtualPathResolverForFilesystem(workdir, scriptBasePath, filesystem)
 	if err != nil {
 		return virtualPathResolver{}, err
 	}
