@@ -188,7 +188,10 @@ add avoidable unbounded heap growth.
   a `cp -P` link may only be the command's one destination (`errCpLinkWithOtherDestinations`,
   which compares no names, because which names a volume treats as one entry cannot be
   told from their spelling); a `tar -x` archive that exists must be a regular file
-  (`errTarArchiveNotRegular`).
+  (`errTarArchiveNotRegular`). Through the registry no restricted `cp -P` creates a link:
+  `cp` operands are resolved (`operandHookFor` has no `cp` case), and a `-r` copy's top
+  directory is a destination before any link below it, so the one-destination allowance
+  only matters if `cp` operands ever stop being followed.
 - When `Copy` fails, the enumerator never ends a source earlier than `CopyTree`: only a
   walk error ends one, a failing entry yields its destination as a file write and the
   walk goes on, and the pre-callback's skips are not evaluated. Checking more than u-root

@@ -87,7 +87,10 @@ type (
 	cpDerivedChecker struct {
 		hc        *HandlerContext
 		recursive bool
-		// sources holds the os.Lstat info of every source operand that exists.
+		noFollow  bool
+		// sources holds the os.Lstat info of every source operand that is a
+		// directory. A file source has no tree below it that a write could
+		// change.
 		sources []fs.FileInfo
 		// insideDirs caches, per resolved directory, whether it or one of its
 		// existing ancestors is a source operand.
@@ -169,7 +172,7 @@ func cpDerivedPaths(ctx context.Context, resolved urootArgs, visit derivedPathVi
 	}
 	for _, source := range sources {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return fmt.Errorf("cp: %w", ctxErr)
+			return fmt.Errorf("checking derived paths: %w", ctxErr)
 		}
 		dst := to
 		if toDir {
@@ -216,7 +219,7 @@ func cpTreeDerivedPaths(ctx context.Context, src, dst string, noFollow bool, vis
 			return filepath.SkipAll
 		}
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			stop = fmt.Errorf("cp: %w", ctxErr)
+			stop = fmt.Errorf("checking derived paths: %w", ctxErr)
 			return filepath.SkipAll
 		}
 		rel, relErr := filepath.Rel(src, path)
@@ -358,7 +361,7 @@ func tarEntryDerivedPaths(ctx context.Context, archive, dir string, visit derive
 	tr := tar.NewReader(f)
 	for {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return fmt.Errorf("tar: %w", ctxErr)
+			return fmt.Errorf("checking derived paths: %w", ctxErr)
 		}
 		hdr, err := tr.Next()
 		if err != nil {
@@ -387,18 +390,19 @@ func tarEntryDerivedPaths(ctx context.Context, archive, dir string, visit derive
 }
 
 // newCpDerivedChecker records the os.Lstat info of every source operand of
-// resolved that exists.
+// resolved that is a directory.
 func newCpDerivedChecker(hc *HandlerContext, resolved urootArgs) *cpDerivedChecker {
 	checker := &cpDerivedChecker{
 		hc:         hc,
 		recursive:  resolved.boolOption("r", "R", "recursive", "RECURSIVE"),
+		noFollow:   resolved.boolOption("P", "no-dereference"),
 		insideDirs: make(map[string]bool),
 	}
 	if len(resolved.operands) < 2 {
 		return checker
 	}
 	for _, source := range resolved.operands[:len(resolved.operands)-1] {
-		if info, err := os.Lstat(source); err == nil {
+		if info, err := os.Lstat(source); err == nil && info.IsDir() {
 			checker.sources = append(checker.sources, info)
 		}
 	}
@@ -411,9 +415,10 @@ func newCpDerivedChecker(hc *HandlerContext, resolved urootArgs) *cpDerivedCheck
 //     missing first source yields nothing and keeps u-root's own error.
 //   - A followed source link is resolved and checked.
 //   - A destination is resolved and checked. With -r it must not be at or
-//     below a source operand of the command (errCpIntoSource), compared by
-//     file identity of its existing part, unless the destination as u-root
-//     builds it is already the source entry it copies, which u-root skips.
+//     below a directory source operand of the command (errCpIntoSource),
+//     compared by file identity of its existing part, unless the destination
+//     as u-root builds it is already the source entry it copies, which
+//     u-root skips.
 //   - A link the command creates must be its only destination
 //     (errCpLinkWithOtherDestinations). No names are compared: which names a
 //     volume treats as one entry cannot be told from their spelling.
@@ -440,7 +445,7 @@ func (c *cpDerivedChecker) checkDestination(p derivedPath) error {
 	if err != nil {
 		return err
 	}
-	if c.recursive && c.insideSource(resolved) && !sameSourceEntry(p) {
+	if c.recursive && c.insideSource(resolved) && !sameSourceEntry(p, c.noFollow) {
 		return fmt.Errorf("%w: %s", errCpIntoSource, resolved)
 	}
 	c.destinations++
@@ -454,7 +459,7 @@ func (c *cpDerivedChecker) checkDestination(p derivedPath) error {
 }
 
 // insideSource reports whether path, a resolved destination, or one of its
-// existing ancestors is the same file as a source operand. The existing part
+// existing ancestors is the same file as a directory source operand. The existing part
 // of a resolved path holds no link, so its ancestors are its real parents;
 // its missing components are new entries, which are no existing source.
 //
@@ -487,14 +492,16 @@ func (c *cpDerivedChecker) isSource(info fs.FileInfo) bool {
 	return false
 }
 
-// sameSourceEntry reports whether the destination, as u-root builds it and
-// read without following its last component, is the source entry it copies:
-// u-root's same-file check then skips it, or, under -P for a link, creating
-// the link fails on the existing entry, so nothing is written.
-func sameSourceEntry(p derivedPath) bool {
+// sameSourceEntry reports whether the destination, as u-root builds it, is
+// the source entry it copies. Without -P it is read with os.Stat, as u-root's
+// pre-callback reads it, and u-root's same-file check then skips it. Under -P
+// it is read without following its last component: the same-file check then
+// skips a directory or a file, and for a link creating the link fails on the
+// existing entry, so nothing is written.
+func sameSourceEntry(p derivedPath, noFollow bool) bool {
 	if p.sourceInfo == nil {
 		return false
 	}
-	info, err := os.Lstat(p.path)
-	return err == nil && os.SameFile(info, p.sourceInfo)
+	info, ok := cpStat(p.path, noFollow)
+	return ok && os.SameFile(info, p.sourceInfo)
 }

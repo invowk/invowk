@@ -4,6 +4,7 @@ package uroot
 
 import (
 	"archive/tar"
+	"context"
 	"errors"
 	"io/fs"
 	"os"
@@ -23,7 +24,10 @@ type (
 		name string
 		// links requires symbolic links (fstree.CapSymlink).
 		links bool
-		setup func(t *testing.T, tr derivedTestTree)
+		// restrictedOnly skips the full-access run, for a shape whose u-root
+		// run is unbounded (it stops only at the path length limit).
+		restrictedOnly bool
+		setup          func(t *testing.T, tr derivedTestTree)
 		// dir is the handler's working directory; nil means tr.root.
 		dir  func(tr derivedTestTree) string
 		args []string
@@ -48,6 +52,9 @@ func runDerivedCases(t *testing.T, cases []derivedCase) {
 			for _, full := range []bool{false, true} {
 				mode := "restricted"
 				if full {
+					if tc.restrictedOnly {
+						continue
+					}
 					mode = "full"
 				}
 				t.Run(mode, func(t *testing.T) {
@@ -433,7 +440,9 @@ func TestUrootDerivedPathsCpIntoSource(t *testing.T) {
 			args: []string{"cp", "-r", "d", "d/sub"}, refused: errCpIntoSource,
 		},
 		{
-			name: "directory copied into an existing directory below itself",
+			// Under full access u-root walks each copy it has just made and
+			// copies the tree into it again, until the path length limit.
+			name: "directory copied into an existing directory below itself", restrictedOnly: true,
 			setup: func(t *testing.T, tr derivedTestTree) {
 				t.Helper()
 				dSetup(t, tr)
@@ -468,6 +477,38 @@ func TestUrootDerivedPathsCpIntoSource(t *testing.T) {
 				t.Helper()
 				expectNoError(t, run)
 				assertRegularFile(t, tr.in("d", "x"), "x-content")
+			},
+		},
+		{
+			name: "copy onto the same entries through a link in the tree", links: true,
+			setup: func(t *testing.T, tr derivedTestTree) {
+				t.Helper()
+				writeTestFile(t, tr.in("a", "b", "x"), "x-content")
+				symlinkTest(t, "x", tr.in("a", "b", "l"))
+			},
+			args: []string{"cp", "-r", "a/b", "a"},
+			check: func(t *testing.T, tr derivedTestTree, run derivedTestRun, _ bool) {
+				t.Helper()
+				expectNoError(t, run)
+				assertRegularFile(t, tr.in("a", "b", "x"), "x-content")
+				assertLinkTo(t, tr.in("a", "b", "l"), "x")
+			},
+		},
+		{
+			name: "destination that is a hard link of a file source",
+			setup: func(t *testing.T, tr derivedTestTree) {
+				t.Helper()
+				cpBaseSetup(t, tr)
+				if err := os.Link(tr.in("f"), tr.in("d", "g")); err != nil {
+					t.Fatal(err)
+				}
+			},
+			args: []string{"cp", "-r", "f", "g", "d"},
+			check: func(t *testing.T, tr derivedTestTree, run derivedTestRun, _ bool) {
+				t.Helper()
+				expectNoError(t, run)
+				assertRegularFile(t, tr.in("d", "f"), "f-content")
+				assertRegularFile(t, tr.in("d", "g"), "g-content")
 			},
 		},
 		{
@@ -535,6 +576,7 @@ func TestUrootDerivedPathsCpLinkCreation(t *testing.T) {
 				mkdirTest(t, tr.in("dst"))
 			},
 			args: []string{"cp", "-P", "-r", "src", "dst"}, refused: errCpLinkWithOtherDestinations,
+			names: func(tr derivedTestTree) string { return tr.in("dst", "src", "l") },
 			check: func(t *testing.T, tr derivedTestTree, run derivedTestRun, _ bool) {
 				t.Helper()
 				expectNoError(t, run)
@@ -858,4 +900,65 @@ func TestUrootDerivedPathsTarDashArchive(t *testing.T) {
 		assertRegularFile(t, tr.in("ex", "from-dash"), "dash")
 		assertNotExist(t, tr.in("ex", "from-stdin"))
 	}
+}
+
+// TestUrootDerivedPathsCancelled checks that a cancelled context ends the
+// derived-path enumeration with the context's error, named once by the
+// command, and that nothing is written.
+func TestUrootDerivedPathsCancelled(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		setup func(t *testing.T, tr derivedTestTree)
+		args  []string
+	}{
+		{name: "cp -r", setup: cpTreeSetup, args: []string{"cp", "-r", "src", "dst"}},
+		{
+			name: "tar -x",
+			setup: func(t *testing.T, tr derivedTestTree) {
+				t.Helper()
+				writeTarArchive(t, tr.in("a.tar"), tarFile("f", "f", 0o644))
+				mkdirTest(t, tr.in("ex"))
+			},
+			args: []string{"tar", "-x", "-f", "a.tar", "ex"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tr := newDerivedTestTree(t)
+			tc.setup(t, tr)
+			validator := &derivedTestValidator{root: tr.root}
+			var stdout, stderr strings.Builder
+			hc := &HandlerContext{
+				Stdin: strings.NewReader(""), Stdout: &stdout, Stderr: &stderr, Dir: tr.root, LookupEnv: os.LookupEnv,
+				ValidatePath: validator.follow, ValidateNoFollowPath: validator.noFollow,
+			}
+			ctx, cancel := context.WithCancel(WithHandlerContext(t.Context(), hc))
+			cancel()
+			before := derivedSnapshot(t, tr.base)
+			err := BuildDefaultRegistry().Run(ctx, tc.args[0], tc.args)
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("error = %v, want context.Canceled", err)
+			}
+			if n := strings.Count(err.Error(), tc.args[0]+":"); n != 1 {
+				t.Fatalf("error %q names %s %d times, want once", err, tc.args[0], n)
+			}
+			assertSnapshotUnchanged(t, before, derivedSnapshot(t, tr.base))
+		})
+	}
+	t.Run("cp -r walk", func(t *testing.T) {
+		t.Parallel()
+		tr := newDerivedTestTree(t)
+		cpTreeSetup(t, tr)
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		visited := 0
+		err := cpTreeDerivedPaths(ctx, tr.in("src"), tr.in("dst", "src"), false, func(derivedPath) error {
+			visited++
+			return nil
+		})
+		if !errors.Is(err, context.Canceled) || visited != 0 {
+			t.Fatalf("cpTreeDerivedPaths = (%v, %d visited), want context.Canceled before any visit", err, visited)
+		}
+	})
 }

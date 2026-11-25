@@ -53,7 +53,6 @@ func runDerivedRuntimeCases(t *testing.T, cases []derivedRuntimeCase) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			fstree.Require(t, fstree.CapSymlink)
 			for _, access := range []invowkfile.VirtualFilesystemAccess{invowkfile.VirtualFilesystemAccessRestricted, invowkfile.VirtualFilesystemAccessFull} {
 				t.Run(string(access), func(t *testing.T) {
 					work := harnessPhysicalDir(t, t.TempDir())
@@ -154,6 +153,7 @@ func derivedWrite(t *testing.T, path, content string) {
 
 func derivedLink(t *testing.T, target, link string) {
 	t.Helper()
+	fstree.Require(t, fstree.CapSymlink)
 	mustMkdir(t, filepath.Dir(link))
 	fstree.MustSymlink(t, target, link)
 }
