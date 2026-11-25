@@ -4,8 +4,6 @@ package modulesync
 
 import (
 	"bytes"
-	"errors"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -161,10 +159,7 @@ func TestResolverRepeatedSyncReportsWriteThenSkip(t *testing.T) {
 	t.Parallel()
 
 	f := newIntegrityFixture(t, t.TempDir(), "1.2.3")
-	lockPath := filepath.Join(f.workDir, LockFileName)
-	if _, err := os.Stat(lockPath); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("fixture: lock present before the first sync (stat error = %v)", err)
-	}
+	assertPathAbsent(t, filepath.Join(f.workDir, LockFileName))
 
 	if _, lockWritten := f.mustSyncReportingWrite(t); !lockWritten {
 		t.Fatal("first Sync() lockWritten = false, want true: it created the lock")
@@ -194,18 +189,4 @@ func TestResolverSyncWithoutRequirementsReportsNoWrite(t *testing.T) {
 		t.Fatalf("Sync(nil) = %v, %t, want nil, false", resolved, lockWritten)
 	}
 	assertPathAbsent(t, filepath.Join(f.workDir, LockFileName))
-}
-
-// mustSyncReportingWrite syncs the fixture's one requirement and returns the
-// resolved module and Sync's lockWritten result.
-func (f *integrityFixture) mustSyncReportingWrite(t *testing.T) (*ResolvedModule, bool) {
-	t.Helper()
-	resolved, lockWritten, err := f.resolver.Sync(t.Context(), []ModuleRef{{GitURL: integrityTestGitURL, Version: "^1.0.0"}})
-	if err != nil {
-		t.Fatalf("Sync() error = %v", err)
-	}
-	if len(resolved) != 1 {
-		t.Fatalf("Sync() resolved %d modules, want 1", len(resolved))
-	}
-	return resolved[0], lockWritten
 }

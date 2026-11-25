@@ -77,14 +77,22 @@ func (f *integrityFixture) sync(ctx context.Context) ([]*ResolvedModule, error) 
 
 func (f *integrityFixture) mustSync(t *testing.T) *ResolvedModule {
 	t.Helper()
-	resolved, err := f.sync(t.Context())
+	resolved, _ := f.mustSyncReportingWrite(t)
+	return resolved
+}
+
+// mustSyncReportingWrite syncs the fixture's one requirement and returns the
+// resolved module and Sync's lockWritten result.
+func (f *integrityFixture) mustSyncReportingWrite(t *testing.T) (*ResolvedModule, bool) {
+	t.Helper()
+	resolved, lockWritten, err := f.resolver.Sync(t.Context(), []ModuleRef{{GitURL: integrityTestGitURL, Version: "^1.0.0"}})
 	if err != nil {
 		t.Fatalf("Sync() error = %v", err)
 	}
 	if len(resolved) != 1 {
 		t.Fatalf("Sync() resolved %d modules, want 1", len(resolved))
 	}
-	return resolved[0]
+	return resolved[0], lockWritten
 }
 
 func (f *integrityFixture) readLock(t *testing.T) []byte {
