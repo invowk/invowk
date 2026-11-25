@@ -41,7 +41,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 | **EnvContext** | Groups environment configuration: `ExtraEnv` (INVOWK_FLAG_*, INVOWK_ARG_*), `RuntimeEnvVars` (--ivk-env-var), `RuntimeEnvFiles` (--ivk-env-file), and inheritance overrides (mode, allow, deny). |
 | **TUIContext** | Groups TUI server connection details: `ServerURL`, `ServerToken` and the plan's container `NetworkMode` (`pasta:-T,<port>` for rootless Podman). Used to pass `INVOWK_TUI_ADDR` and `INVOWK_TUI_TOKEN` into command environments and `--network=<mode>` onto a new container run. |
 | **Result** | Execution result: `ExitCode`, `Error`, `Output` (captured stdout), `ErrOutput` (captured stderr), and `Diagnostics []InitDiagnostic` for non-fatal runtime initialization/provisioning notices. The command service bridges those diagnostics into its execution result for rendering. `Success()` returns true when both exit code is 0 and error is nil. |
-| **PreparedCommand** | Returned by `PrepareInteractive()`: contains an `exec.Cmd` ready for PTY attachment and an optional `Cleanup` function. |
+| **PreparedCommand** | Returned by `PrepareInteractive()`: contains an `exec.Cmd` ready for PTY attachment (stdio and `SysProcAttr` left unset: the interactive adapter attaches the PTY and, on Unix, starts the command in a new session with the PTY as its controlling terminal) and an optional `Cleanup` function. |
 
 ## External Dependencies
 

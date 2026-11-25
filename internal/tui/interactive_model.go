@@ -12,15 +12,27 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+const (
+	// interactiveRebuildDelay is the frame period that batches the rebuilds
+	// of the completed view when output arrives after completion (design D8).
+	interactiveRebuildDelay = 16 * time.Millisecond
+
+	// leaveAltScreen returns a command that crashed in a full-screen program
+	// to the main screen before the completed view is built (design D7).
+	leaveAltScreen = "\x1b[?1049l"
+)
+
 func (m *interactiveModel) Init() tea.Cmd {
 	return nil
 }
 
 // Update processes messages for the interactive model, which operates in three states:
-//   - stateExecuting: PTY running, output streaming to viewport. Keys forwarded to PTY.
+//   - stateExecuting: the command runs; its output is applied to the emulated
+//     screen shown in the command area, and keys are encoded for its terminal.
 //   - stateTUI: modal overlay for a child TUI component (e.g., input, choose, confirm).
-//     The overlay renders on top of the scrolling output view.
-//   - stateCompleted: output browsable with vim-style navigation, exit on keypress.
+//     The overlay renders on top of the command's screen.
+//   - stateCompleted: history, final screen and banner browsable with
+//     vim-style navigation, exit on keypress.
 //
 // When a child TUI component completes, we intercept its tea.Quit via tuiComponentDoneMsg
 // to prevent it from propagating and closing the parent program.
@@ -31,30 +43,33 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m.handleKeyMsg(msg)
 
+	case tea.PasteMsg:
+		// While the command runs the paste is its input; under a server
+		// component overlay it goes to the component below.
+		if m.state == stateExecuting {
+			m.screen.paste(msg)
+			return m, nil
+		}
+
 	case tea.WindowSizeMsg:
 		return m.handleWindowSize(msg)
 
 	case outputMsg:
-		m.mu.Lock()
-		m.content.WriteString(msg.content)
-		m.mu.Unlock()
-		if m.ready {
-			m.viewport.SetContent(m.content.String())
-			// Auto-scroll to bottom during execution
-			if m.state == stateExecuting {
-				m.viewport.GotoBottom()
-			}
-		}
+		rebuild := m.applyOutput(msg)
+		return m, rebuild
+
+	case completedRebuildMsg:
+		m.rebuildPending = false
+		m.rebuildCompletedView(false)
+		return m, nil
 
 	case doneMsg:
 		m.result = &msg.result
 		m.state = stateCompleted
-		// Add completion message to output
-		m.appendCompletionMessage()
-		if m.ready {
-			m.viewport.SetContent(m.content.String())
-			m.viewport.GotoBottom()
+		if m.screen.emu.IsAltScreen() {
+			m.writeScreen(outputMsg{data: []byte(leaveAltScreen)})
 		}
+		m.rebuildCompletedView(true)
 
 	case TUIComponentMsg:
 		// A child process requested a TUI component to be rendered
@@ -77,7 +92,9 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if m.ready && m.state != stateTUI {
+	// The viewport holds the completed view only; while the command runs,
+	// keys go to the command and mouse events are not used.
+	if m.ready && m.state == stateCompleted {
 		var cmd tea.Cmd
 		m.viewport, cmd = m.viewport.Update(msg)
 		cmds = append(cmds, cmd)
@@ -91,11 +108,43 @@ func (m *interactiveModel) View() tea.View {
 	if !m.ready {
 		view := tea.NewView("Initializing...")
 		view.AltScreen = true
-		view.MouseMode = tea.MouseModeCellMotion
 		return view
 	}
 
-	// Title bar
+	var b strings.Builder
+	m.writeHeader(&b)
+	b.WriteByte('\n')
+	var cursor *tea.Cursor
+	if m.state == stateCompleted {
+		b.WriteString(m.viewport.View())
+	} else {
+		b.WriteString(m.screen.emu.Render())
+		if m.state == stateExecuting && !m.screen.emu.CursorHidden() {
+			pos := m.screen.emu.CursorPosition()
+			cursor = tea.NewCursor(pos.X, pos.Y+interactiveHeaderRows)
+		}
+	}
+	b.WriteByte('\n')
+	m.writeFooter(&b)
+	baseView := b.String()
+
+	// If we're displaying a TUI component, render it as an overlay on top of the base view
+	if m.state == stateTUI && m.activeComponent != nil {
+		componentView := m.activeComponent.View()
+		baseView = RenderOverlay(baseView, componentView.Content, m.width, m.height) //goplint:ignore -- bubbletea View() cannot return error
+	}
+
+	view := tea.NewView(baseView)
+	view.AltScreen = true
+	view.Cursor = cursor
+	if m.state == stateCompleted {
+		view.MouseMode = tea.MouseModeCellMotion
+	}
+	return view
+}
+
+// writeHeader writes the title line and the separator.
+func (m *interactiveModel) writeHeader(b *strings.Builder) {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(modalColorPrimary)
@@ -110,66 +159,45 @@ func (m *interactiveModel) View() tea.View {
 
 	separatorStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#374151"))
-	separator := separatorStyle.Render(strings.Repeat("-", int(m.width)))
+	b.WriteString(title)
+	b.WriteByte('\n')
+	b.WriteString(separatorStyle.Render(strings.Repeat("-", int(m.width))))
+}
 
-	// Footer with status
-	var footerContent string
-	if m.state == stateCompleted {
-		if m.result != nil && m.result.ExitCode == 0 && m.result.Error == nil {
-			footerContent = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#10B981")).
-				Render("Done")
-		} else {
-			footerContent = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#EF4444")).
-				Render("Failed")
-		}
-		footerContent += lipgloss.NewStyle().
-			Foreground(modalColorMuted).
-			Render("  |  arrows: scroll  |  Enter/q: exit")
-	} else {
-		footerContent = lipgloss.NewStyle().
+// writeFooter writes the status line.
+func (m *interactiveModel) writeFooter(b *strings.Builder) {
+	muted := lipgloss.NewStyle().Foreground(modalColorMuted)
+	if m.state != stateCompleted {
+		b.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#F59E0B")).
-			Render("Running...")
-		footerContent += lipgloss.NewStyle().
-			Foreground(modalColorMuted).
-			Render("  |  Ctrl+\\: force quit")
+			Render("Running..."))
+		b.WriteString(muted.Render("  |  Ctrl+\\: force quit"))
+		return
 	}
 
-	scrollPercent := lipgloss.NewStyle().
-		Foreground(modalColorMuted).
-		Render(fmt.Sprintf("  %3.f%%", m.viewport.ScrollPercent()*100))
-
-	footer := footerContent + scrollPercent
-
-	baseView := fmt.Sprintf("%s\n%s\n%s\n%s", title, separator, m.viewport.View(), footer)
-
-	// If we're displaying a TUI component, render it as an overlay on top of the base view
-	if m.state == stateTUI && m.activeComponent != nil {
-		componentView := m.activeComponent.View()
-		baseView = RenderOverlay(baseView, componentView.Content, m.width, m.height) //goplint:ignore -- bubbletea View() cannot return error
+	if m.result != nil && m.result.ExitCode == 0 && m.result.Error == nil {
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#10B981")).
+			Render("Done"))
+	} else {
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#EF4444")).
+			Render("Failed"))
 	}
-
-	view := tea.NewView(baseView)
-	view.AltScreen = true
-	view.MouseMode = tea.MouseModeCellMotion
-	return view
+	b.WriteString(muted.Render("  |  arrows: scroll  |  Enter/q: exit"))
+	b.WriteString(muted.Render(fmt.Sprintf("  %3.f%%", m.viewport.ScrollPercent()*100)))
 }
 
 // handleKeyMsg processes keyboard input based on current state.
 func (m *interactiveModel) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch m.state {
 	case stateExecuting:
-		// During execution, forward most keys to the PTY
-		switch msg.String() {
-		case "ctrl+\\":
-			// Emergency escape: force quit
+		// Emergency escape: force quit, never forwarded to the command.
+		if isForceQuitKey(msg) {
 			return m, tea.Quit
-		default:
-			// Forward the key to the terminal session
-			if m.terminal != nil {
-				m.forwardKeyToPty(msg)
-			}
+		}
+		if event, ok := encodeInteractiveKey(msg); ok {
+			m.screen.emu.SendKey(event)
 		}
 
 	case stateCompleted:
@@ -258,17 +286,29 @@ func (m *interactiveModel) handleStyledTextRequest(msg TUIComponentMsg) (tea.Mod
 	if !strings.HasSuffix(rendered, "\n") {
 		rendered += "\n"
 	}
-	m.mu.Lock()
-	m.content.WriteString(rendered)
-	m.mu.Unlock()
-	if m.ready {
-		m.viewport.SetContent(m.content.String())
-		m.viewport.GotoBottom()
-	}
+	// The text goes where the command's output is: onto its screen, with
+	// each line starting at the left margin.
+	rebuild := m.applyOutput(outputMsg{data: []byte(strings.ReplaceAll(rendered, "\n", "\r\n"))})
 	go func() {
 		msg.ResponseCh <- ComponentResponse{}
 	}()
-	return m, nil
+	return m, rebuild
+}
+
+// applyOutput writes the command's output to its screen and, past
+// completion, schedules the rebuild of the completed view that shows it.
+func (m *interactiveModel) applyOutput(out outputMsg) tea.Cmd {
+	m.writeScreen(out)
+	if m.state == stateCompleted {
+		return m.scheduleCompletedRebuild()
+	}
+	return nil
+}
+
+// writeScreen applies output to the command's emulated screen. vt's Write
+// fails only after Emulator.Close, which the viewer never calls (design D5).
+func (m *interactiveModel) writeScreen(out outputMsg) {
+	_, _ = m.screen.emu.Write(out.data) //nolint:errcheck // cannot fail: the emulator is never closed
 }
 
 // handleTUIComponentDone processes the result from a completed TUI component.
@@ -326,88 +366,21 @@ func (m *interactiveModel) componentDoneCmd(cmd tea.Cmd) tea.Cmd {
 	return nil
 }
 
-// forwardKeyToPty forwards keyboard input to the PTY.
-func (m *interactiveModel) forwardKeyToPty(msg tea.KeyPressMsg) {
-	// Convert the key message to bytes and write to PTY
-	var data []byte
-
-	key := msg.Key()
-
-	// Handle common ctrl+<key> combinations first.
-	if key.Mod.Contains(tea.ModCtrl) {
-		switch key.Code {
-		case 'c':
-			data = []byte{0x03} // ETX (Ctrl+C)
-		case 'd':
-			data = []byte{0x04} // EOT (Ctrl+D)
-		case 'z':
-			data = []byte{0x1a} // SUB (Ctrl+Z)
-		}
-	}
-
-	if len(data) == 0 {
-		//exhaustive:ignore
-		switch key.Code {
-		case tea.KeyEnter:
-			data = []byte("\r")
-		case tea.KeySpace:
-			data = []byte(" ")
-		case tea.KeyTab:
-			data = []byte("\t")
-		case tea.KeyBackspace:
-			data = []byte{0x7f} // DEL character
-		case tea.KeyDelete:
-			data = []byte{0x1b, '[', '3', '~'} // ESC [ 3 ~
-		case tea.KeyUp:
-			data = []byte{0x1b, '[', 'A'}
-		case tea.KeyDown:
-			data = []byte{0x1b, '[', 'B'}
-		case tea.KeyRight:
-			data = []byte{0x1b, '[', 'C'}
-		case tea.KeyLeft:
-			data = []byte{0x1b, '[', 'D'}
-		case tea.KeyHome:
-			data = []byte{0x1b, '[', 'H'}
-		case tea.KeyEnd:
-			data = []byte{0x1b, '[', 'F'}
-		case tea.KeyPgUp:
-			data = []byte{0x1b, '[', '5', '~'}
-		case tea.KeyPgDown:
-			data = []byte{0x1b, '[', '6', '~'}
-		case tea.KeyEscape:
-			data = []byte{0x1b}
-		default:
-			if key.Text != "" {
-				data = []byte(key.Text)
-			}
-		}
-	}
-
-	if len(data) > 0 {
-		if _, err := m.terminal.Write(data); err != nil {
-			return
-		}
-	}
-}
-
 // handleWindowSize handles terminal resize events.
 func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.width, m.height = validatedWindowDimensions(msg)
-	headerHeight := 2 // Title + separator
-	footerHeight := 1 // Status line
-	viewportHeight := max(msg.Height-headerHeight-footerHeight, 1)
+	cols, rows := InteractiveCommandArea(m.width, m.height)
 
 	if !m.ready {
 		m.viewport = viewport.New(
-			viewport.WithWidth(msg.Width),
-			viewport.WithHeight(viewportHeight),
+			viewport.WithWidth(int(cols)),
+			viewport.WithHeight(int(rows)),
 		)
-		m.viewport.YPosition = headerHeight
+		m.viewport.YPosition = interactiveHeaderRows
 		m.ready = true
-		m.viewport.SetContent(m.content.String())
 	} else {
-		m.viewport.SetWidth(msg.Width)
-		m.viewport.SetHeight(viewportHeight)
+		m.viewport.SetWidth(int(cols))
+		m.viewport.SetHeight(int(rows))
 	}
 
 	// Resize the active TUI component if one is displayed
@@ -416,56 +389,16 @@ func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, t
 		m.activeComponent.SetSize(modalSize.Width, modalSize.Height)
 	}
 
-	// Resize the terminal session to match
-	if m.terminal != nil && m.state == stateExecuting {
-		_ = m.terminal.Resize(msg.Width, viewportHeight) //nolint:errcheck // Best-effort resize
+	// While the command runs (also under a server component overlay), its
+	// screen and its terminal follow the command area together. After
+	// completion only the completed view is laid out again.
+	if m.state == stateCompleted {
+		m.rebuildCompletedView(false)
+		return m, nil
 	}
-
+	m.screen.emu.Resize(max(int(cols), 1), int(rows))
+	if m.terminal != nil {
+		_ = m.terminal.Resize(int(cols), int(rows)) //nolint:errcheck // Best-effort resize
+	}
 	return m, nil
-}
-
-// appendCompletionMessage appends the completion status message to the output.
-func (m *interactiveModel) appendCompletionMessage() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	var status string
-	var statusStyle lipgloss.Style
-
-	if m.result.ExitCode == 0 && m.result.Error == nil {
-		statusStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#10B981")).
-			Bold(true)
-		status = "COMPLETED SUCCESSFULLY"
-	} else {
-		statusStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#EF4444")).
-			Bold(true)
-		if m.result.Error != nil {
-			status = fmt.Sprintf("FAILED: %v", m.result.Error)
-		} else {
-			status = fmt.Sprintf("EXITED WITH CODE %d", int(m.result.ExitCode))
-		}
-	}
-
-	separator := lipgloss.NewStyle().
-		Foreground(modalColorMuted).
-		Render(strings.Repeat("-", 50))
-
-	durationStr := lipgloss.NewStyle().
-		Foreground(modalColorMuted).
-		Render(fmt.Sprintf("Duration: %s", m.result.Duration.Round(time.Millisecond)))
-
-	m.content.WriteString("\n\n")
-	m.content.WriteString(separator)
-	m.content.WriteString("\n\n")
-	m.content.WriteString(statusStyle.Render(status))
-	m.content.WriteString("\n")
-	m.content.WriteString(durationStr)
-	m.content.WriteString("\n\n")
-	m.content.WriteString(lipgloss.NewStyle().
-		Foreground(modalColorPrimarySoft).
-		Italic(true).
-		Render("Press Enter to return to terminal..."))
-	m.content.WriteString("\n")
 }

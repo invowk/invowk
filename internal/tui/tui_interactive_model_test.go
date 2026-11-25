@@ -22,6 +22,11 @@ type (
 		view      string
 	}
 
+	resizeRecordingTerminal struct {
+		fakeInteractiveTerminal
+		sizes [][2]int
+	}
+
 	styledTextRequestCase struct {
 		name      string
 		options   any
@@ -63,8 +68,8 @@ func TestInteractiveModel_Update_WindowSizeMsg_InitializesViewport(t *testing.T)
 
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 
-	// Pre-populate content before the viewport is ready.
-	model.content.WriteString("buffered output")
+	// Output that arrives before the viewer is ready is kept on the screen.
+	model.Update(outputMsg{data: []byte("buffered output")})
 
 	msg := tea.WindowSizeMsg{Width: 100, Height: 30}
 	updated, _ := model.Update(msg)
@@ -78,6 +83,12 @@ func TestInteractiveModel_Update_WindowSizeMsg_InitializesViewport(t *testing.T)
 	}
 	if m.height != 30 {
 		t.Errorf("height = %d, want 30", m.height)
+	}
+	if got := m.screen.emu.String(); !strings.HasPrefix(got, "buffered output") {
+		t.Errorf("screen = %q, want the buffered output", got)
+	}
+	if w, h := m.screen.emu.Width(), m.screen.emu.Height(); w != 100 || h != 27 {
+		t.Errorf("screen = %dx%d, want the 100x27 command area", w, h)
 	}
 }
 
@@ -263,21 +274,22 @@ func assertStyledTextRequest(t *testing.T, tt styledTextRequestCase, response Co
 	if got.state != stateExecuting || got.activeComponent != nil {
 		t.Fatalf("styled text state = %v with component %T, want executing without component", got.state, got.activeComponent)
 	}
-	content := got.content.String()
-	if tt.wantText != "" && (!strings.Contains(content, tt.wantText) || !strings.HasSuffix(content, "\n")) {
-		t.Errorf("content = %q, want text %q ending in newline", content, tt.wantText)
+	content := got.screen.emu.String()
+	if tt.wantText != "" && !strings.HasPrefix(content, tt.wantText) {
+		t.Errorf("screen = %q, want text %q on its first row", content, tt.wantText)
 	}
-	if tt.wantErr && content != "" {
-		t.Errorf("content = %q after rejected options, want empty", content)
+	if tt.wantErr && strings.TrimSpace(content) != "" {
+		t.Errorf("screen = %q after rejected options, want empty", content)
 	}
 	if tt.wantWidth > 0 {
-		line := strings.TrimSuffix(content, "\n")
-		if width := lipgloss.Width(line); width != tt.wantWidth {
-			t.Errorf("styled text width = %d, want %d; content %q", width, tt.wantWidth, content)
+		first, _, _ := strings.Cut(got.screen.emu.Render(), "\n")
+		if width := lipgloss.Width(strings.TrimRight(stripANSI(first), " ")); width > tt.wantWidth {
+			t.Errorf("styled text width = %d, want at most %d; row %q", width, tt.wantWidth, first)
 		}
 	}
-	if !tt.wantErr && !strings.Contains(got.viewport.View(), tt.wantText) {
-		t.Errorf("viewport = %q, want styled text", got.viewport.View())
+	// The text moved the cursor below it: it ended in a newline.
+	if !tt.wantErr && got.screen.emu.CursorPosition().Y < 1 {
+		t.Errorf("cursor row = %d after styled text, want below the text", got.screen.emu.CursorPosition().Y)
 	}
 }
 
@@ -355,5 +367,53 @@ func TestInteractiveModel_ChildQuitBecomesCompletion(t *testing.T) {
 	}
 	if model.state != stateExecuting {
 		t.Errorf("state = %v, want stateExecuting", model.state)
+	}
+}
+
+func (r *resizeRecordingTerminal) Resize(width, height int) error {
+	r.sizes = append(r.sizes, [2]int{width, height})
+	return nil
+}
+
+func TestInteractiveCommandArea(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct{ w, h, wantCols, wantRows TerminalDimension }{
+		{w: 100, h: 30, wantCols: 100, wantRows: 27},
+		{w: 80, h: 24, wantCols: 80, wantRows: 21},
+		{w: 10, h: 3, wantCols: 10, wantRows: 1},
+		{w: 10, h: 1, wantCols: 10, wantRows: 1},
+	}
+	for _, tt := range tests {
+		cols, rows := InteractiveCommandArea(tt.w, tt.h)
+		if cols != tt.wantCols || rows != tt.wantRows {
+			t.Errorf("InteractiveCommandArea(%d, %d) = %dx%d, want %dx%d", tt.w, tt.h, cols, rows, tt.wantCols, tt.wantRows)
+		}
+	}
+}
+
+// TestInteractiveModel_WindowSizeResizesTerminalWhileRunning: the command's
+// terminal follows the viewer's command area in every running state, with a
+// server component overlay too, and no longer after completion.
+func TestInteractiveModel_WindowSizeResizesTerminalWhileRunning(t *testing.T) {
+	t.Parallel()
+
+	for _, state := range []executionState{stateExecuting, stateTUI, stateCompleted} {
+		t.Run(state.String(), func(t *testing.T) {
+			t.Parallel()
+			term := &resizeRecordingTerminal{}
+			model := newInteractiveModel(InteractiveOptions{}, term)
+			model.state = state
+			model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+			if state == stateCompleted {
+				if len(term.sizes) != 0 {
+					t.Fatalf("resizes after completion = %v, want none", term.sizes)
+				}
+				return
+			}
+			if len(term.sizes) != 1 || term.sizes[0] != [2]int{100, 27} {
+				t.Fatalf("resizes = %v, want one to 100x27", term.sizes)
+			}
+		})
 	}
 }

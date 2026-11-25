@@ -3,38 +3,54 @@
 package tui
 
 import (
+	"io"
 	"os"
-	"regexp"
 )
 
-// oscSequenceRe matches all OSC (Operating System Command) escape sequences.
-// OSC sequences are used for terminal features like window titles, hyperlinks,
-// color queries, clipboard operations, etc.
-//
-// In the context of invowk's interactive pager, these sequences don't function
-// (hyperlinks aren't clickable, window titles don't apply, etc.) and can appear
-// as visual garbage when fragmented across PTY read buffers.
-//
-// Format: ESC ] <content> <terminator>
-// Terminators: BEL (\x07), ST (\x1b\\), or backslash alone (\)
-//
-// Also matches partial/fragmented sequences where leading ESC was consumed.
-var oscSequenceRe = regexp.MustCompile(
-	`\x1b\][^\x07\x1b\\]*(?:\x07|\x1b\\|\\)` + // Full OSC: ESC ] ... terminator
-		`|` +
-		`\][^\x07\x1b\\]*(?:\x07|\x1b\\|\\)`, // Partial: ] ... terminator (missing ESC)
+const (
+	// interactiveHeaderRows is the viewer's title line plus its separator.
+	interactiveHeaderRows = 2
+	// interactiveFooterRows is the viewer's status line.
+	interactiveFooterRows = 1
+
+	// interactiveDefaultWidth and interactiveDefaultHeight are the size
+	// assumed when the terminal's size cannot be read.
+	interactiveDefaultWidth  TerminalDimension = 80
+	interactiveDefaultHeight TerminalDimension = 24
 )
 
-// stripOSCSequences removes all OSC escape sequences from output.
-// In invowk's interactive pager context, OSC features don't function anyway
-// (the pager is a text viewport, not a full terminal emulator), and fragmented
-// sequences appear as visual garbage.
-func stripOSCSequences(s string) string {
-	return oscSequenceRe.ReplaceAllString(s, "")
+// InteractiveCommandArea returns the size of the command area of an
+// interactive viewer drawn in a terminal of the given size: the full width,
+// and the height without the viewer's header and footer rows (at least one
+// row). Runtime adapters create the command's terminal at this size, so the
+// command sees no size change when the viewer draws its first frame.
+func InteractiveCommandArea(width, height TerminalDimension) (cols, rows TerminalDimension) {
+	return width, max(height-interactiveHeaderRows-interactiveFooterRows, 1)
 }
 
+// InteractiveTerminalSize returns the size of the terminal the interactive
+// viewer draws in, or 80x24 when it cannot be read. The runtime adapter
+// sizes the command's PTY and the viewer sizes its emulated screen from it,
+// so both start at the same command area.
+func InteractiveTerminalSize() (width, height TerminalDimension) {
+	if w, h, err := TerminalSize(); err == nil && w > 0 && h > 0 {
+		return w, h
+	}
+	return interactiveDefaultWidth, interactiveDefaultHeight
+}
+
+// newInteractiveModel creates the viewer model with its emulated screen at
+// the command area of InteractiveTerminalSize, the size the runtime adapter
+// gave the command's PTY. The screen writes replies and keys to terminal
+// (discarded when terminal is nil).
 func newInteractiveModel(opts InteractiveOptions, terminal InteractiveTerminal) *interactiveModel {
+	cols, rows := InteractiveCommandArea(InteractiveTerminalSize())
+	sink := io.Discard
+	if terminal != nil {
+		sink = terminal
+	}
 	return &interactiveModel{
+		screen:   newEmulatedScreen(cols, rows, sink),
 		title:    opts.Title,
 		cmdName:  opts.CommandName,
 		state:    stateExecuting,

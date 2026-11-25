@@ -155,6 +155,13 @@ Checklist:
   to make headless ConPTY tests reliable on Windows.
 - Durable TUI E2E coverage belongs in `tmux-testing`; tmux itself is not a
   Windows CI assumption.
+- Never wrap a standard handle in `os.NewFile` to call a console API: the
+  wrapper's finalizer closes the process's real stdin/stdout/stderr handle once
+  the GC collects it. Pass `windows.Handle(fd)` directly
+  (`internal/tui/interactive_windows.go`).
+- `conpty.ConPty.Write` has no guard against a closed handle: a goroutine that
+  writes to a ConPTY must stop before the adapter's `Close`
+  (`emulatedScreen.close` in `internal/tui/interactive_screen.go`).
 
 ## Current CI Shape
 

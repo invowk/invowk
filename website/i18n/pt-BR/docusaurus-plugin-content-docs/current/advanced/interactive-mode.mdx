@@ -14,9 +14,10 @@ Quando você executa um comando com `-i`, o Invowk:
 
 1. Cria um pseudo-terminal (PTY) para o comando
 2. Exibe a saída em um buffer de tela alternativo (terminal fica limpo)
-3. Encaminha toda entrada de teclado para o comando em execução
-4. Permite rolar e revisar a saída após a conclusão
-5. Suporta componentes TUI embutidos como overlays modais
+3. Desenha a saída do comando como uma tela de terminal, então prompts que se redesenham e programas de tela cheia aparecem corretamente
+4. Encaminha toda entrada de teclado para o comando em execução
+5. Permite rolar e revisar a saída após a conclusão
+6. Suporta componentes TUI embutidos como overlays modais
 
 ## Uso Básico
 
@@ -54,7 +55,29 @@ O modo interativo funciona com **todos os runtimes**: native, virtual-sh, virtua
 
 <Snippet id="interactive/key-bindings-executing" />
 
-Toda entrada de teclado é encaminhada diretamente para o comando em execução, permitindo interação completa com prompts de senha, editores e outros programas interativos.
+Toda entrada de teclado é encaminhada para o comando em execução, codificada como um terminal nos modos atuais do comando a enviaria (por exemplo, teclas de cursor no modo de aplicação depois que o comando o ativa, e Alt como prefixo `ESC`), permitindo interação completa com prompts de senha, editores e outros programas interativos. Todo Ctrl+letra é encaminhado como seu caractere de controle, Caps Lock e Num Lock não mudam uma tecla, e uma tecla especial com um modificador que a codificação do terminal não consegue expressar (como Ctrl+Seta para a esquerda) é enviada como a tecla simples. Texto colado é encaminhado, entre marcadores de bracketed paste quando o comando os ativou.
+
+### O Terminal do Comando
+
+O pseudo-terminal do visualizador é o terminal do comando: no Unix o comando começa em uma nova sessão cujo terminal de controle é esse PTY, que também é seu stdin, stdout e stderr. Um programa que abre `/dev/tty` recebe o visualizador, então componentes `invowk tui *` sem o servidor TUI e prompts de `sudo` e `ssh` desenham e leem dentro do visualizador, nunca no terminal em que o invowk roda.
+
+Como o PTY é um terminal de controle de verdade, os sinais usuais de terminal chegam ao comando no Unix:
+
+- **Ctrl+C** chega ao comando como o caractere de interrupção, então seu job em primeiro plano recebe `SIGINT` (um programa em modo raw lê a tecla). O visualizador continua aberto e mostra a conclusão.
+- **Redimensionar** o seu terminal redimensiona o terminal do comando para a área de comando do visualizador (a largura do seu terminal, e a altura menos as linhas de cabeçalho e rodapé do visualizador) e entrega `SIGWINCH`.
+- **Ctrl+\\** sai do visualizador na hora e desliga (hang-up) o terminal do comando: sua sessão recebe `SIGHUP`.
+- **Jobs em segundo plano** que um script inicia com `&` terminam com `SIGHUP` quando o processo principal do comando sai, como quando uma janela de terminal fecha. Desanexe um job que precisa continuar rodando (`nohup`, `setsid`). Execuções sem `-i` não são afetadas.
+- **Ctrl+Z** não suspende o comando (a sessão do comando não tem controle de jobs); um programa em modo raw lê a tecla. **Ctrl+D** é fim de arquivo, como em qualquer terminal.
+
+Para um comando de container, a CLI do engine (`docker` ou `podman`) é o processo no PTY: o hang-up chega à CLI do engine, e o que acontece então com os processos dentro do container é comportamento do engine. No Windows o comando roda no pseudo-console que o invowk cria para ele, como antes; nada da configuração de sessão acima se aplica lá.
+
+### Tela, Histórico e Consultas ao Terminal
+
+O visualizador emula uma tela de terminal do tamanho da área de comando. Movimento de cursor, apagamento, regiões de rolagem, cores e a tela alternativa são aplicados, então um prompt que se redesenha (um componente `invowk tui` inline, uma barra de progresso que reescreve sua linha com `\r`) mostra um único quadro atual, e um programa de tela cheia como `less` ou um editor aparece na área de comando; quando ele sai, a tela principal volta como estava.
+
+- **Histórico**: linhas que rolam para fora do topo da tela principal são guardadas, até as últimas 10.000 linhas. Conteúdo de tela cheia (tela alternativa) não é adicionado. Enquanto o comando roda, o visualizador mostra a tela ao vivo e as teclas vão para o comando; eventos do mouse não são repassados ao comando, e a roda do mouse não rola o histórico nesse momento; depois que o comando termina, o histórico, a tela final e o banner de conclusão podem ser navegados com as teclas abaixo.
+- **Banner de conclusão**: o banner aparece depois da saída que o visualizador leu antes de o comando terminar, e continua por último: saída que chega depois (de um processo que o comando deixou rodando, ou descarregada tarde pelo pseudo-console do Windows) é desenhada acima dele.
+- **Consultas ao terminal** (atributos do dispositivo, posição do cursor, relatórios de modo, cores) são respondidas pelo terminal do visualizador; o comando nunca conversa com o seu terminal real. As cores são informadas como os padrões do visualizador, não as do seu terminal. Quando o comando não lê sua entrada, respostas e teclas que não cabem são descartadas em vez de travar o visualizador, e Ctrl+\\ sempre sai.
 
 ### Após a Conclusão do Comando
 
@@ -105,6 +128,7 @@ Isso significa que após sair do modo interativo:
 ## Limitações
 
 - **Comando único**: Não é possível executar múltiplos comandos em paralelo no modo interativo
+- **Limite de histórico**: o visualizador guarda as últimas 10.000 linhas de histórico; a roda do mouse o rola apenas depois que o comando termina
 - **PTY necessário**: O terminal deve suportar operações PTY
 - **Apenas containers Debian**: Imagens Alpine e Windows não são suportadas
 

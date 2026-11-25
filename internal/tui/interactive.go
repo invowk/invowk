@@ -5,8 +5,6 @@ package tui
 import (
 	"context"
 	"fmt"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -36,6 +34,11 @@ type (
 		// This allows callers to access the program for terminal control
 		// (e.g., ReleaseTerminal/RestoreTerminal for nested TUI components).
 		OnProgramReady func(p *tea.Program)
+		// ProgramOptions are extra Bubble Tea program options, applied after
+		// the session's own. Tests use them to run the viewer without a
+		// terminal (tea.WithInput(nil), tea.WithOutput, tea.WithWindowSize)
+		// and to observe its messages (tea.WithFilter).
+		ProgramOptions []tea.ProgramOption
 	}
 
 	// InteractiveResult contains the result of interactive execution.
@@ -51,10 +54,14 @@ type (
 	// executionState represents the current state of execution.
 	executionState int
 
-	// outputMsg is sent when new output is available from the PTY.
+	// outputMsg carries bytes the command wrote to its terminal, in order.
 	outputMsg struct {
-		content string
+		data []byte
 	}
+
+	// completedRebuildMsg rebuilds the completed view once per frame after
+	// output arrived past completion.
+	completedRebuildMsg struct{}
 
 	// doneMsg is sent when command execution completes.
 	doneMsg struct {
@@ -94,17 +101,21 @@ type (
 
 	// interactiveModel is the Bubbletea model for interactive execution.
 	interactiveModel struct {
+		// screen is the command's emulated terminal screen, shown while the
+		// command runs; its history and final screen feed the completed view.
+		screen *emulatedScreen
+		// viewport holds the completed view (history, final screen, banner).
 		viewport viewport.Model
 		title    string
 		cmdName  string
-		content  strings.Builder
 		result   *InteractiveResult
 		state    executionState
 		ready    bool
-		width    TerminalDimension
-		height   TerminalDimension
-		mu       sync.Mutex
-		terminal InteractiveTerminal
+		// rebuildPending is set while a completed-view rebuild is scheduled.
+		rebuildPending bool
+		width          TerminalDimension
+		height         TerminalDimension
+		terminal       InteractiveTerminal
 
 		// TUI component overlay fields
 		activeComponent     EmbeddableComponent

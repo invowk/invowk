@@ -95,6 +95,10 @@ When adding a new interactive `tui` command:
 - Keep tests resilient to harmless ANSI/style changes unless the style is the
   behavior under test.
 
+## The `-i` Viewer
+
+`tests/cli/interactive_viewer_tmux_test.go` drives `invowk -i cmd …` itself (the PTY viewer, not a `tui` component): controlling terminal, signals, screen emulation, history and query answering. The viewer only redraws on a Bubble Tea message, so wait for a pane line (`mustWaitLine`) rather than sleeping, and assert on whole pane rows (header row 0, command screen from row 2, footer last). Model-level viewer tests run without a terminal through `tui.InteractiveOptions.ProgramOptions` (`WithInput(nil)`, `WithOutput`, `WithWindowSize`, `WithFilter`); a filter sees the view only when a message arrives, so poke the program with a no-op message while waiting.
+
 ## When To Use Something Else
 
 Testscript for `tui format`/`tui style` and other non-interactive commands,

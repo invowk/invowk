@@ -4,6 +4,7 @@ package tui
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,8 +53,8 @@ func TestInteractiveModel_Update_OutputMsg(t *testing.T) {
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 
 	// Send output messages
-	msg1 := outputMsg{content: "Hello "}
-	msg2 := outputMsg{content: "World!"}
+	msg1 := outputMsg{data: []byte("Hello ")}
+	msg2 := outputMsg{data: []byte("World!")}
 
 	updatedModel, _ := model.Update(msg1)
 	m1 := updatedModel.(*interactiveModel)
@@ -62,8 +63,8 @@ func TestInteractiveModel_Update_OutputMsg(t *testing.T) {
 	m2 := updatedModel2.(*interactiveModel)
 
 	expected := "Hello World!"
-	if m2.content.String() != expected {
-		t.Errorf("expected content %q, got %q", expected, m2.content.String())
+	if got := m2.screen.emu.String(); !strings.HasPrefix(got, expected) {
+		t.Errorf("expected screen to start with %q, got %q", expected, got)
 	}
 }
 
@@ -334,15 +335,14 @@ func TestInteractiveModel_AppendCompletionMessage_Success(t *testing.T) {
 		Duration: 1 * time.Second,
 	}
 
-	model.appendCompletionMessage()
+	var b strings.Builder
+	model.appendCompletionMessage(&b)
 
-	content := model.content.String()
-	if content == "" {
-		t.Error("expected completion message to be appended")
-	}
-	// The message should contain "COMPLETED SUCCESSFULLY" for exit code 0
-	if content == "" {
-		t.Error("content should not be empty after appending completion message")
+	content := b.String()
+	for _, want := range []string{"COMPLETED SUCCESSFULLY", "Duration: 1s", "Press Enter to return to terminal..."} {
+		if !strings.Contains(content, want) {
+			t.Errorf("completion message lacks %q:\n%s", want, content)
+		}
 	}
 }
 
@@ -355,123 +355,10 @@ func TestInteractiveModel_AppendCompletionMessage_Failure(t *testing.T) {
 		Duration: 500 * time.Millisecond,
 	}
 
-	model.appendCompletionMessage()
+	var b strings.Builder
+	model.appendCompletionMessage(&b)
 
-	content := model.content.String()
-	if content == "" {
-		t.Error("expected completion message to be appended")
-	}
-}
-
-func TestInteractiveModel_ConcurrentOutputWrites(t *testing.T) {
-	t.Parallel()
-
-	model := newInteractiveModel(InteractiveOptions{}, nil)
-
-	// Simulate concurrent output writes (should be safe due to mutex)
-	done := make(chan bool)
-	for range 10 {
-		go func() {
-			msg := outputMsg{content: "output "}
-			model.Update(msg)
-			done <- true
-		}()
-	}
-
-	// Wait for all goroutines
-	for range 10 {
-		<-done
-	}
-
-	// Verify content was written (exact content may vary due to race, but should not panic)
-	content := model.content.String()
-	if content == "" {
-		t.Error("expected some content to be written")
-	}
-}
-
-func TestStripOSCSequences(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "no OSC sequences",
-			input:    "Hello World!",
-			expected: "Hello World!",
-		},
-		{
-			name:     "OSC 11 background color with BEL terminator",
-			input:    "prefix\x1b]11;rgb:3030/0a0a/2424\x07suffix",
-			expected: "prefixsuffix",
-		},
-		{
-			name:     "OSC 11 background color with ST terminator",
-			input:    "prefix\x1b]11;rgb:3030/0a0a/2424\x1b\\suffix",
-			expected: "prefixsuffix",
-		},
-		{
-			name:     "OSC 11 without leading ESC (partial sequence)",
-			input:    "prefix]11;rgb:3030/0a0a/2424\\suffix",
-			expected: "prefixsuffix",
-		},
-		{
-			name:     "OSC 10 foreground color",
-			input:    "prefix\x1b]10;rgb:ffff/ffff/ffff\x07suffix",
-			expected: "prefixsuffix",
-		},
-		{
-			name:     "OSC 4 palette color",
-			input:    "prefix\x1b]4;0;rgb:0000/0000/0000\x07suffix",
-			expected: "prefixsuffix",
-		},
-		{
-			name:     "multiple OSC sequences",
-			input:    "\x1b]11;rgb:3030/0a0a/2424\x07You chose: green\x1b]11;rgb:3030/0a0a/2424\x07",
-			expected: "You chose: green",
-		},
-		{
-			name:     "OSC 8 hyperlink also stripped in pager context",
-			input:    "\x1b]8;;https://example.com\x07link\x1b]8;;\x07",
-			expected: "link",
-		},
-		{
-			name:     "OSC 0 window title also stripped in pager context",
-			input:    "\x1b]0;My Window Title\x07text",
-			expected: "text",
-		},
-		{
-			name:     "mixed content from screenshot",
-			input:    "]11;rgb:3030/0a0a/2424\\You chose: green",
-			expected: "You chose: green",
-		},
-		{
-			name:     "uppercase hex in color response",
-			input:    "\x1b]11;rgb:FFFF/AAAA/BBBB\x07text",
-			expected: "text",
-		},
-		{
-			name:     "preserves regular text and ANSI colors",
-			input:    "\x1b[32mGreen text\x1b[0m",
-			expected: "\x1b[32mGreen text\x1b[0m",
-		},
-		{
-			name:     "partial sequence without ESC",
-			input:    "]0;title\x07rest of output",
-			expected: "rest of output",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := stripOSCSequences(tt.input)
-			if result != tt.expected {
-				t.Errorf("stripOSCSequences() mismatch\ngot:  %q\nwant: %q", result, tt.expected)
-			}
-		})
+	if content := b.String(); !strings.Contains(content, "EXITED WITH CODE 1") {
+		t.Errorf("completion message lacks the exit code:\n%s", content)
 	}
 }

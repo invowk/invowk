@@ -48,7 +48,7 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 | **EnvContext** | Agrupa configuração de variáveis de ambiente: `ExtraEnv` (INVOWK_FLAG_\*, INVOWK_ARG_\*), `RuntimeEnvVars` (--ivk-env-var), `RuntimeEnvFiles` (--ivk-env-file) e overrides de herança. |
 | **TUIContext** | Agrupa detalhes de conexão do servidor TUI: `ServerURL` e `ServerToken`. |
 | **Result** | Resultado de execução: `ExitCode`, `Error`, `Output` (stdout capturado), `ErrOutput` (stderr capturado) e `Diagnostics []InitDiagnostic` para avisos não fatais de inicialização/provisionamento do runtime. O serviço de comandos converte esses diagnósticos no resultado de execução para renderização. |
-| **PreparedCommand** | Retornado por `PrepareInteractive()`: contém um `exec.Cmd` pronto para attachment de PTY e uma função `Cleanup` opcional. |
+| **PreparedCommand** | Retornado por `PrepareInteractive()`: contém um `exec.Cmd` pronto para attachment de PTY (stdio e `SysProcAttr` sem valor: o adapter interativo conecta o PTY e, no Unix, inicia o comando em uma nova sessão com o PTY como terminal de controle) e uma função `Cleanup` opcional. |
 
 ## Dependências Externas
 
