@@ -215,11 +215,11 @@ func (s *Server) publish(listener serverListener, srv *ssh.Server, gate *serveGa
 	return true
 }
 
-// failStart ends a Start that will not reach readiness; ctx is Start's context. It holds stopMu, so
-// it never runs inside a concurrent Stop, marks the server Failed and tears
-// it down. It never returns nil: it returns the recorded failure or, when a
-// concurrent Stop already stopped the server without one, an error matching
-// errStoppedDuringStartup.
+// failStart ends a Start that will not reach readiness; ctx is Start's
+// context. It holds stopMu, so it never runs inside a concurrent Stop, marks
+// the server Failed and tears it down. It never returns nil: it returns the
+// recorded failure or, when a concurrent Stop already stopped the server
+// without one, an error matching errStoppedDuringStartup.
 func (s *Server) failStart(ctx context.Context, cause error) error {
 	if cause == nil {
 		cause = errStoppedDuringStartup

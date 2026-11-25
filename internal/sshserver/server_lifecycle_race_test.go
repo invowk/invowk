@@ -97,6 +97,24 @@ func newTestServer(t *testing.T, mutate func(*Config)) *Server {
 	return mustNew(t, cfg)
 }
 
+// captureAddr installs hooks on srv whose beforePublish records the bound
+// address, and returns the capture.
+func captureAddr(srv *Server) *addrCapture {
+	capture := &addrCapture{}
+	srv.hooks = &lifecycleHooks{beforePublish: capture.record}
+	return capture
+}
+
+// requireStillStarting fails the test unless srv is still Starting and the
+// Start whose result arrives on startCh has not returned.
+func requireStillStarting(t *testing.T, srv *Server, startCh <-chan error) {
+	t.Helper()
+	if st := srv.State(); st != serverbase.StateStarting {
+		t.Fatalf("State() = %s while the serve loop is held, want %s (readiness reported before the serve loop)", st, serverbase.StateStarting)
+	}
+	requireNotReturned(t, startCh, "Start")
+}
+
 // stopOnCleanup releases every hold and then stops srv when the test ends,
 // so a failed assertion never leaves a goroutine blocked in a hook.
 func stopOnCleanup(t *testing.T, srv *Server, holds ...*lifecycleHold) {
@@ -294,11 +312,7 @@ func TestServerStartWaitsForServeLoop(t *testing.T) {
 
 	startCh := startAsync(t.Context(), srv)
 	awaitClosed(t, hold.reached, hookTimeout, "beforeServe")
-
-	if st := srv.State(); st != serverbase.StateStarting {
-		t.Fatalf("State() = %s while the serve loop is held, want %s (readiness reported before the serve loop)", st, serverbase.StateStarting)
-	}
-	requireNotReturned(t, startCh, "Start")
+	requireStillStarting(t, srv, startCh)
 
 	hold.Release()
 	if err := awaitErr(t, startCh, callTimeout, "Start"); err != nil {
@@ -331,11 +345,7 @@ func TestServerStopWhileServeLoopDelayed(t *testing.T) {
 
 	startCh := startAsync(t.Context(), srv)
 	awaitClosed(t, hold.reached, hookTimeout, "beforeServe")
-
-	if st := srv.State(); st != serverbase.StateStarting {
-		t.Fatalf("State() = %s while the serve loop is held, want %s (readiness reported before the serve loop)", st, serverbase.StateStarting)
-	}
-	requireNotReturned(t, startCh, "Start")
+	requireStillStarting(t, srv, startCh)
 
 	if err := srv.Stop(); err != nil {
 		t.Errorf("Stop() error = %v, want nil", err)
@@ -419,7 +429,7 @@ func TestServerStopBeforeServeReadsResources(t *testing.T) {
 		beforePublish: capture.record,
 		serveEntered: func() {
 			hold.holdUntil(func() bool {
-				if srv.State() != serverbase.StateStopping {
+				if !stateIs(srv, serverbase.StateStopping)() {
 					return false
 				}
 				srv.srvMu.Lock()
@@ -607,8 +617,7 @@ func TestServerStartAfterStopWithCancelledContext(t *testing.T) {
 
 	port := holdPort(t)
 	srv := newTestServer(t, func(cfg *Config) { cfg.Port = port })
-	capture := &addrCapture{}
-	srv.hooks = &lifecycleHooks{beforePublish: capture.record}
+	capture := captureAddr(srv)
 
 	if err := srv.Stop(); err != nil {
 		t.Fatalf("Stop() on a fresh server error = %v, want nil", err)
@@ -645,8 +654,7 @@ func TestServerStopRacesStartWithCancelledContext(t *testing.T) {
 
 	for i := range 50 {
 		srv := newTestServer(t, func(cfg *Config) { cfg.Port = port })
-		capture := &addrCapture{}
-		srv.hooks = &lifecycleHooks{beforePublish: capture.record}
+		capture := captureAddr(srv)
 
 		release := make(chan struct{})
 		stopCh := make(chan error, 1)
@@ -700,8 +708,7 @@ func TestServerStartStopLoop(t *testing.T) {
 
 	for i := range iterations {
 		srv := newTestServer(t, func(cfg *Config) { cfg.ShutdownTimeout = 5 * time.Second })
-		capture := &addrCapture{}
-		srv.hooks = &lifecycleHooks{beforePublish: capture.record}
+		capture := captureAddr(srv)
 
 		if err := srv.Start(t.Context()); err != nil {
 			t.Fatalf("back-to-back iteration %d: Start() error = %v", i, err)
@@ -718,8 +725,7 @@ func TestServerStartStopLoop(t *testing.T) {
 
 	for i := range iterations {
 		srv := newTestServer(t, func(cfg *Config) { cfg.ShutdownTimeout = 5 * time.Second })
-		capture := &addrCapture{}
-		srv.hooks = &lifecycleHooks{beforePublish: capture.record}
+		capture := captureAddr(srv)
 
 		startCh := startAsync(t.Context(), srv)
 		began := time.Now()
