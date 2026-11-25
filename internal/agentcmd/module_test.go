@@ -347,11 +347,7 @@ func TestChangeModuleWritesAtomicallyUnderProjectLock(t *testing.T) {
 	files := []string{filepath.Join(modulePath, invowkmodFileName), filepath.Join(modulePath, invowkfileFileName)}
 	before := make([]os.FileInfo, len(files))
 	for i, path := range files {
-		info, err := os.Stat(path)
-		if err != nil {
-			t.Fatalf("Stat(%s) error = %v", path, err)
-		}
-		before[i] = info
+		before[i] = statFileIdentity(t, path)
 	}
 	var atUnlock [][]byte
 	locker := &agentRecordingLocker{inner: modulelock.NewFileLocker()}
@@ -383,10 +379,7 @@ func TestChangeModuleWritesAtomicallyUnderProjectLock(t *testing.T) {
 		if got := string(readFixtureFile(t, path)); got != want[i] {
 			t.Fatalf("%s = %q, want the generated %q", path, got, want[i])
 		}
-		after, statErr := os.Stat(path)
-		if statErr != nil {
-			t.Fatalf("Stat(%s) after error = %v", path, statErr)
-		}
+		after := statFileIdentity(t, path)
 		if os.SameFile(before[i], after) {
 			t.Fatalf("%s is the same file as before the change, want an atomic replace", path)
 		}
@@ -537,4 +530,24 @@ func TestChangeModulePreviewTakesNoLock(t *testing.T) {
 			t.Fatalf("completer calls = %d, want none before the locker check", completer.calls)
 		}
 	})
+}
+
+func statFileIdentity(t *testing.T, path string) os.FileInfo {
+	t.Helper()
+	// Open and call File.Stat so Windows populates NTFS file IDs before a
+	// rename; os.Stat defers loading them until os.SameFile, which then opens
+	// the renamed path and compares the new file to itself.
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("Open(%s) error = %v", path, err)
+	}
+	info, statErr := f.Stat()
+	closeErr := f.Close()
+	if statErr != nil {
+		t.Fatalf("Stat(%s) error = %v", path, statErr)
+	}
+	if closeErr != nil {
+		t.Fatalf("Close(%s) error = %v", path, closeErr)
+	}
+	return info
 }

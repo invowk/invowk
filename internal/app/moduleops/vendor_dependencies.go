@@ -99,11 +99,9 @@ func VendorDependencies(ctx context.Context, locks modulesync.EditLocks, moduleP
 // come from the lock this run read or wrote.
 func vendorDependenciesWithResolver(
 	ctx context.Context,
-	modulePath types.FilesystemPath,
-	invowkmodPath types.FilesystemPath,
+	modulePath, invowkmodPath types.FilesystemPath,
 	resolver vendorDependencyResolver,
-	update bool,
-	prune bool,
+	update, prune bool,
 ) (requirements []invowkmod.ModuleRef, result *VendorResult, strategy VendorResolutionStrategy, err error) {
 	unlock, err := resolver.LockProject(ctx)
 	if err != nil {

@@ -499,10 +499,7 @@ func TestConcurrentEdits_F10RestoreReplacesFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile(lock) error = %v", err)
 	}
-	beforeInfo, err := os.Stat(lockPath)
-	if err != nil {
-		t.Fatalf("Stat(lock) error = %v", err)
-	}
+	beforeInfo := statFileIdentity(t, lockPath)
 
 	result, err := p.resolver(t, p.fetcher(concurrentURLA)).AddModuleDependency(t.Context(), p.invowkmodPath, ModuleRef{GitURL: concurrentURLA, Version: "^1.0.0"})
 	if err != nil {
@@ -522,11 +519,28 @@ func TestConcurrentEdits_F10RestoreReplacesFile(t *testing.T) {
 	if !bytes.Equal(after, before) {
 		t.Fatalf("restored lock differs from the snapshot:\n got: %s\nwant: %s", after, before)
 	}
-	afterInfo, err := os.Stat(lockPath)
-	if err != nil {
-		t.Fatalf("Stat(lock) after rollback error = %v", err)
-	}
+	afterInfo := statFileIdentity(t, lockPath)
 	if os.SameFile(beforeInfo, afterInfo) {
 		t.Fatal("the restore rewrote the lock file in place; want an atomic replace (a new file renamed over the path)")
 	}
+}
+
+func statFileIdentity(t *testing.T, path string) os.FileInfo {
+	t.Helper()
+	// Open and call File.Stat so Windows populates NTFS file IDs before a
+	// rename; os.Stat defers loading them until os.SameFile, which then opens
+	// the renamed path and compares the new file to itself.
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("Open(%s) error = %v", path, err)
+	}
+	info, statErr := f.Stat()
+	closeErr := f.Close()
+	if statErr != nil {
+		t.Fatalf("Stat(%s) error = %v", path, statErr)
+	}
+	if closeErr != nil {
+		t.Fatalf("Close(%s) error = %v", path, closeErr)
+	}
+	return info
 }

@@ -75,7 +75,7 @@
 \* | WriteMod add | AddRequirement | pkg/invowkmod/invowkmod_edit.go | - | narrow read (29) to write (73) window with no seam |
 \* | WriteMod remove | RemoveRequirement | pkg/invowkmod/invowkmod_edit.go | - | delegates to RemoveRequirementIfPresent, which holds the narrow read (98) to write (153) window with no seam |
 \* | WriteLock | LockFile.Save | pkg/invowkmod/lockfile.go | TestConcurrentEdits_VendorFromStaleLock | atomic replace (A1); skipped when the valid lock on disk has equal content, which equals a replace with identical content at Save's own re-read (InspectLockFile), not at the sync's earlier lock read; Save delegates to SaveIfChanged, which holds the skip-or-replace body and which the resolver calls; its written flag is reporting only |
-\* | VendorProg | vendorDependenciesWithResolver | internal/app/moduleops/vendor_dependencies.go | TestConcurrentEdits_VendorFromStaleLock | project lock (108), then LoadRequirements (114), the lock-file resolve, and VendorModules (127) under it; released when the function returns |
+\* | VendorProg | vendorDependenciesWithResolver | internal/app/moduleops/vendor_dependencies.go | TestConcurrentEdits_VendorFromStaleLock | project lock (106), then LoadRequirements (112), the lock-file resolve, and VendorModules (125) under it; released when the function returns |
 \* | VendorRemove, VendorCopy | VendorModules | internal/app/moduleops/vendor.go | - | the RemoveAll (107) to copy (115) window has no seam |
 EXTENDS Naturals, Sequences, FiniteSets
 
