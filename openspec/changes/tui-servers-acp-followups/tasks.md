@@ -36,10 +36,10 @@ All paths are in the worktree `/var/home/danilo/Workspace/github/invowk/invowk-w
 
 ## 5. TestWatcherDebounce on Windows (design D5)
 
-- [ ] 5.1 Add a deterministic coalescing test on `fakeWatcherBackend` in `internal/watch/watcher_test.go`: three events in one window give exactly one callback with all three paths and no second callback
-- [ ] 5.2 Change `TestWatcherDebounce` to the assertions of D5 (first callback in time, only the three paths, union of all three until two quiet debounce periods), with a comment citing run 45517294042 and the late Windows change notification
-- [ ] 5.3 Check `.agents/skills/review-tests/references/known-exceptions.md:117` and `.agents/skills/fixer/references/ci-failure-diagnosis.md:167` against the changed `TestWatcherDebounce` and update them where they no longer describe it
-- [ ] 5.4 Verify: `go test -race -count=20 -run 'TestWatcher' ./internal/watch/` passes locally; the fix stage names the passing "Test (windows)" job of the PR head in its result
+- [x] 5.1 Add a deterministic coalescing test on `fakeWatcherBackend` in `internal/watch/watcher_test.go`: three events in one window give exactly one callback with all three paths and no second callback (`TestWatcherBackendCoalescesBurst`)
+- [x] 5.2 Change `TestWatcherDebounce` to the assertions of D5 (first callback in time, only the three paths, union of all three until two quiet debounce periods), with a comment citing run 45517294042 and the late Windows change notification
+- [x] 5.3 Check `.agents/skills/review-tests/references/known-exceptions.md:117` and `.agents/skills/fixer/references/ci-failure-diagnosis.md:167` against the changed `TestWatcherDebounce` and update them where they no longer describe it Checked: both still describe it (the 20 ms sleeps stay; the fixer list only uses the name as a format example), so neither changes
+- [x] 5.4 Verify: `go test -race -count=20 -run 'TestWatcher' ./internal/watch/` passes locally; the fix stage names the passing "Test (windows)" job of the PR head in its result Local run passed (14.3 s); the Windows CI job is for the fix stage
 
 ## 6. acp-go-sdk 0.20.0 (design D6)
 
