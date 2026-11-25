@@ -15,17 +15,19 @@ cmp invowkmod.cue invowkmod.cue.before
 ! grep 'example/dep.invowkmod.git' invowkmod.lock.cue
 
 # Case 2: a directory at the invowkmod.cue path makes the edit fail. The lock
-# is restored byte-identical, the summary says so, and no Removed line claims
-# a removal that was rolled back.
+# is restored byte-identical, the summary says so, no Removed line claims a
+# removal that was rolled back, and the command exits 1 with the error on
+# stderr.
 cd $WORK/broken
 mkdir invowkmod.cue
 cp invowkmod.lock.cue lock.before
-exec invowk module remove dep
+! exec invowk module remove dep
 stdout 'Could not auto-edit invowkmod.cue'
 stdout 'Lock file changes were rolled back; invowkmod.cue needs manual review'
 ! stdout 'Removed'
 ! stdout 'Lock file updated'
 ! stdout 'Lock file unchanged'
+stderr '(?i)failed to read invowkmod.cue'
 cmp invowkmod.lock.cue lock.before
 
 -- nomatch/invowkmod.cue --

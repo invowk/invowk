@@ -189,12 +189,23 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	if declaration.Err() != nil {
 		fmt.Println()
 		fmt.Println(moduleAddDeclarationFailureLine(declaration))
-	} else {
-		fmt.Println(moduleAddLockLine(result.LockWritten()))
-		fmt.Printf("%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
+		return moduleDeclarationExitError(declaration)
 	}
+	fmt.Println(moduleAddLockLine(result.LockWritten()))
+	fmt.Printf("%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
 
 	return nil
+}
+
+// moduleDeclarationExitError returns the error module add and module remove
+// return after a rolled-back invowkmod.cue edit: exit status 1 (the "invowk
+// failed" class), carrying the declaration error so stderr shows it. It
+// returns nil when the edit did not roll back.
+func moduleDeclarationExitError(declaration modulesync.DeclarationEditResult) error {
+	if declaration.Rollback() == modulesync.DeclarationRollbackNone {
+		return nil
+	}
+	return &ExitError{Code: 1, Err: declaration.Err()}
 }
 
 func runModuleRemove(ctx context.Context, args []string) error {
@@ -217,16 +228,18 @@ func runModuleRemove(ctx context.Context, args []string) error {
 
 	declarations := result.Declarations()
 	removed := result.Removed()
-	rolledBack := false
+	var rollbackErr error
 	for i := range declarations {
 		if declarations[i].Err() != nil {
 			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, declarations[i].Err())
 		}
-		rolledBack = rolledBack || declarations[i].Rollback() != modulesync.DeclarationRollbackNone
+		if rollbackErr == nil {
+			rollbackErr = moduleDeclarationExitError(declarations[i])
+		}
 	}
 
 	// After a rollback nothing was removed: print only what persisted.
-	if !rolledBack {
+	if rollbackErr == nil {
 		for i := range removed {
 			fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(string(removed[i].RemovedEntry.Namespace)))
 		}
@@ -235,7 +248,7 @@ func runModuleRemove(ctx context.Context, args []string) error {
 	fmt.Println()
 	fmt.Println(moduleRemoveSummaryLine(declarations, result.LockWritten()))
 
-	return nil
+	return rollbackErr
 }
 
 // moduleLockFileLine returns the line module sync and module update print

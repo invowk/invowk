@@ -158,6 +158,47 @@ func TestModuleLockLinesNoModulesToUpdate(t *testing.T) {
 	}
 }
 
+// TestModuleDeclarationExitError covers the exit status of module add and
+// module remove after a rollback (spec "A failed invowkmod.cue edit exits
+// with status 1"): both outcomes of a rollback exit 1 and carry the
+// declaration error; an edit that did not roll back returns nil. module add
+// has no offline testscript case (its resolve needs a Git fetch), so this test
+// covers the error runModuleAdd returns.
+func TestModuleDeclarationExitError(t *testing.T) {
+	t.Parallel()
+
+	editErr := errors.New("failed to read invowkmod.cue: is a directory")
+	tests := []struct {
+		name     string
+		err      error
+		rollback modulesync.DeclarationRollback
+		wantCode types.ExitCode
+	}{
+		{name: "no rollback", rollback: modulesync.DeclarationRollbackNone, wantCode: 0},
+		{name: "complete rollback", err: editErr, rollback: modulesync.DeclarationRollbackComplete, wantCode: 1},
+		{name: "incomplete rollback", err: errors.Join(editErr, errors.New("restore failed")), rollback: modulesync.DeclarationRollbackIncomplete, wantCode: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := moduleDeclarationExitError(mustDeclarationEditResult(t, false, tt.err, tt.rollback))
+			if got := exitCodeForError(err); got != tt.wantCode {
+				t.Fatalf("exitCodeForError(%v) = %d, want %d", err, got, tt.wantCode)
+			}
+			if tt.err == nil {
+				if err != nil {
+					t.Fatalf("moduleDeclarationExitError() = %v, want nil", err)
+				}
+				return
+			}
+			if !errors.Is(err, editErr) {
+				t.Fatalf("moduleDeclarationExitError() = %v, want it to carry the declaration error", err)
+			}
+		})
+	}
+}
+
 func mustDeclarationEditResult(t *testing.T, updated bool, err error, rollback modulesync.DeclarationRollback) modulesync.DeclarationEditResult {
 	t.Helper()
 

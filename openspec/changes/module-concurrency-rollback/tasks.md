@@ -31,8 +31,8 @@ Every `make test`, `make lint`, `make test-scripts`, `make check-baseline`, `mak
 
 ## 5. Exit status 1 after a rollback (brief item 5)
 
-- [ ] 5.1 Make `runModuleAdd` and `runModuleRemove` return `&ExitError{Code: 1, Err: <declaration error>}` after any rollback (design D10). Change case 2 of `module_remove_messages.txtar` to `! exec` and add an offline add-rollback case if one can run without the network (otherwise cover add's status with a `cmd/invowk` unit test of the returned error and say so here). Verify `go test -run 'TestCLI/module_remove_messages' ./tests/cli/` and the unit test pass.
-- [ ] 5.2 Docs: README (module commands and the "Lock File" paragraph near line 2188) and `website/docs/modules/dependencies/cli-commands.mdx` with its pt-BR copy state that add and remove exit with status 1 after a rollback; draft the BREAKING release-note lines for the PR body from proposal.md's Migration notes. Verify `cd website && npm run build` passes.
+- [x] 5.1 Make `runModuleAdd` and `runModuleRemove` return `&ExitError{Code: 1, Err: <declaration error>}` after any rollback (design D10). Change case 2 of `module_remove_messages.txtar` to `! exec` and add an offline add-rollback case if one can run without the network (otherwise cover add's status with a `cmd/invowk` unit test of the returned error and say so here). Verify `go test -run 'TestCLI/module_remove_messages' ./tests/cli/` and the unit test pass. Done: module add has no offline testscript case (its resolve needs a Git fetch), so `TestModuleDeclarationExitError` (`cmd/invowk/module_deps_lock_test.go`) covers the error `runModuleAdd` and `runModuleRemove` return through `moduleDeclarationExitError`; case 2 also checks stderr.
+- [x] 5.2 Docs: README (module commands and the "Lock File" paragraph near line 2188) and `website/docs/modules/dependencies/cli-commands.mdx` with its pt-BR copy state that add and remove exit with status 1 after a rollback; draft the BREAKING release-note lines for the PR body from proposal.md's Migration notes. Verify `cd website && npm run build` passes.
 
 ## 6. One-line requires entries and one-line blocks (brief item 3 and OQ-A)
 
