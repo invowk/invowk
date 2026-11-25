@@ -218,20 +218,17 @@ func linkTargets(link types.FilesystemPath) ([]types.FilesystemPath, error) {
 }
 
 // linkChainTargets returns target and every later target of the chain of links
-// that starts at it, each followed by its filepath.EvalSymlinks result when
-// that resolves. filepath.EvalSymlinks does not follow Windows junctions, so a
-// chain that runs through junctions is followed here, one os.Readlink at a time.
-// The chain ends at the first target that is not a link or does not exist. A
-// target whose entry cannot be read, a link that cannot be read, and a chain
-// longer than maxLinkHops are errors, since the end of the chain is then
+// that starts at it, and the filepath.EvalSymlinks result of the chain's end
+// when that resolves. filepath.EvalSymlinks does not follow Windows junctions,
+// so a chain that runs through junctions is followed here, one os.Readlink at a
+// time. The chain ends at the first target that is not a link or does not
+// exist. A target whose entry cannot be read, a link that cannot be read, and a
+// chain longer than maxLinkHops are errors, since the end of the chain is then
 // unknown.
 func linkChainTargets(target types.FilesystemPath) ([]types.FilesystemPath, error) {
 	var targets []types.FilesystemPath
 	for range maxLinkHops {
 		targets = append(targets, target)
-		if resolved, err := resolvedPath(target); err == nil {
-			targets = append(targets, resolved)
-		}
 		info, err := os.Lstat(string(target))
 		if errors.Is(err, fs.ErrNotExist) {
 			return targets, nil
@@ -240,6 +237,9 @@ func linkChainTargets(target types.FilesystemPath) ([]types.FilesystemPath, erro
 			return nil, fmt.Errorf("read link target entry: %w", err)
 		}
 		if !isLinkEntry(info) {
+			if resolved, evalErr := resolvedPath(target); evalErr == nil {
+				targets = append(targets, resolved)
+			}
 			return targets, nil
 		}
 		next, err := readlinkPath(target)
