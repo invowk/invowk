@@ -1313,6 +1313,20 @@
       "digest": "857457136e35fc2bd2358fd6ee3a9159a1b36cc1327710e6f3948494d4a9fca8"
     },
     {
+      "id": "2cfa81ff5b450eadcbb32761ee35c1f6",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 176,
+      "digest": "cd2e65312a8fca7baf2dec456b419ac9c978028bc74140b0e6c1b961b52f94e4"
+    },
+    {
+      "id": "ef1aa630722a0b1c88192f61bc8e0e83",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 177,
+      "digest": "cd2e65312a8fca7baf2dec456b419ac9c978028bc74140b0e6c1b961b52f94e4"
+    },
+    {
       "id": "8e7a4c152dc031f7226c2a1017b9097d",
       "file": "internal/runtime/virtual_policy.go",
       "mutator": "branch/if",
@@ -1462,6 +1476,13 @@
       "mutator": "statement/return",
       "line": 651,
       "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "bb3af7485f500c7243ab47d2dd2251f1",
+      "file": "internal/runtime/virtual_workdir.go",
+      "mutator": "expression/remove",
+      "line": 42,
+      "digest": "cd2e65312a8fca7baf2dec456b419ac9c978028bc74140b0e6c1b961b52f94e4"
     },
     {
       "id": "e04fea9e5f059dc2796bd8d270dcf0b4",

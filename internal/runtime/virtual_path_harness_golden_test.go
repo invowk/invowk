@@ -35,6 +35,9 @@ const (
 	harnessRequestShapes = 81
 )
 
+// harnessWorkdirKindNames are the model's workdir kinds.
+var harnessWorkdirKindNames = []string{"TrustedWorkdir", "ModuleInside", "ModuleOutside"}
+
 type (
 	// harnessAncestor identifies one materialised request ancestor: the
 	// deepest existing ancestor, or for a dangling request the link whose
@@ -50,12 +53,22 @@ type (
 	harnessBuilt struct {
 		request, resolved string
 	}
+
+	// harnessWorkdir is the workdir input the golden replay builds for one
+	// workdir kind, and the production decision the model requires of it.
+	harnessWorkdir struct {
+		workdir virtualWorkdir
+		root    bool
+	}
 )
 
 // TestVirtualPathHarness_GoldenVectors replays every harness instance against a
 // directly built virtualPathResolver over materialised roots (design D5.4/D5.5):
-// the real validate decision must equal the model's fixed-evaluation decision
-// dAccepts on every request, with no finding carve-out, and an accepted
+// the workdir joins the roots exactly when the production decision
+// virtualWorkdir.isReadRoot admits it for the instance's workdir kind, that
+// decision must equal the model's fixed root rule, the real validate decision
+// must equal the model's fixed decision dAccepts on every request, with no
+// finding carve-out, and an accepted
 // request must validate to its resolved physical path: the deepest existing
 // ancestor's physical directory joined with the missing names. A request is
 // materialised by its link kind: a plain directory, a symbolic link, on
@@ -82,15 +95,17 @@ func TestVirtualPathHarness_GoldenVectors(t *testing.T) {
 		"InWorkdir":  mustMkdir(t, filepath.Join(base, "work")),
 		"OutsideAll": mustMkdir(t, filepath.Join(base, "outside")),
 	}
-	// The code still adds the workdir to the allowed roots (F15 is open;
-	// H.includeWorkdir is fixed True in the golden). Build the resolver directly
-	// so t.TempDir's own enclosing roots (/tmp, HOME) do not make the check
-	// vacuous (design D5.4).
-	validator := virtualPathValidator{resolver: virtualPathResolver{
-		allowedRoots: normalizedRoots([]string{dirFor["InReadRoot"], dirFor["InWorkdir"]}),
-		access:       invowkfile.VirtualFilesystemAccessRestricted,
-	}}
-	expectHarnessResolutionErrors(t, validator, dirFor["InReadRoot"])
+	// The roots are built directly so t.TempDir's own enclosing roots (/tmp,
+	// HOME) do not make the check vacuous (design D5.4); whether the workdir
+	// joins them is the production decision for the instance's workdir kind.
+	// The workdir input of a kind is the same in every instance, so each kind's
+	// decision and validator are built once.
+	workdirs := harnessWorkdirs(dirFor, mustMkdir(t, filepath.Join(dirFor["InReadRoot"], "work")))
+	validators := make(map[string]virtualPathValidator, len(workdirs))
+	for kind, w := range workdirs {
+		validators[kind] = harnessWorkdirValidator(t, w, dirFor["InReadRoot"])
+	}
+	expectHarnessResolutionErrors(t, pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, dirFor["InReadRoot"]), dirFor["InReadRoot"])
 	// Missing components are never created, so one ancestor per (lex, phys,
 	// link kind, dangling) serves every request.
 	ancestors := map[harnessAncestor]harnessBuilt{}
@@ -101,8 +116,15 @@ func TestVirtualPathHarness_GoldenVectors(t *testing.T) {
 	junctionsReplayed, junctionsLeftOut := 0, 0
 	shapes := map[string]bool{}
 	report := mpctree.NewReporter(t)
+	kinds := map[string]int{}
 	for i, inst := range instances {
 		accepts := inst.Targets("dAccepts", inst.Atoms("Decisions")[0])
+		kind := mpctree.Which(inst, inst.Target("workdir", inst.Atoms("H")[0]), harnessWorkdirKindNames...)
+		kinds[kind]++
+		validator, ok := validators[kind]
+		if !ok {
+			t.Fatalf("instance %d has no workdir kind among %v", i, harnessWorkdirKindNames)
+		}
 		for n, req := range inst.Atoms("Req") {
 			key := harnessAncestor{
 				lex:      mpctree.Which(inst, inst.Target("lexAnc", req), locs...),
@@ -128,17 +150,23 @@ func TestVirtualPathHarness_GoldenVectors(t *testing.T) {
 			validated, err := validator.validate(base, reqPath)
 			gotAccept, wantAccept := err == nil, slices.Contains(accepts, req)
 			if gotAccept != wantAccept {
-				report.Errorf("instance %d req %d (lex=%s phys=%s link=%q depth=%s dangling=%v): real accept=%v, model dAccepts=%v (err %v)",
-					i, n, key.lex, key.phys, key.link, depth, key.dangling, gotAccept, wantAccept, err)
+				report.Errorf("instance %d req %d (workdir=%s lex=%s phys=%s link=%q depth=%s dangling=%v): real accept=%v, model dAccepts=%v (err %v)",
+					i, n, kind, key.lex, key.phys, key.link, depth, key.dangling, gotAccept, wantAccept, err)
 			}
 			if want := requestPath(built.resolved, depth, key.dangling); gotAccept && validated != want {
-				report.Errorf("instance %d req %d (lex=%s phys=%s link=%q depth=%s dangling=%v): validated %q, want the resolved path %q",
-					i, n, key.lex, key.phys, key.link, depth, key.dangling, validated, want)
+				report.Errorf("instance %d req %d (workdir=%s lex=%s phys=%s link=%q depth=%s dangling=%v): validated %q, want the resolved path %q",
+					i, n, kind, key.lex, key.phys, key.link, depth, key.dangling, validated, want)
 			}
 		}
 	}
 	if !sawOutside {
 		t.Fatal("no golden instance placed a node outside every allowed root; the check would be vacuous")
+	}
+	t.Logf("instances per workdir kind: %v", kinds)
+	for _, kind := range harnessWorkdirKindNames {
+		if kinds[kind] == 0 {
+			t.Fatalf("no golden instance has the workdir kind %s", kind)
+		}
 	}
 	t.Logf("junction requests: %d replayed, %d left out (no junctions on %s)", junctionsReplayed, junctionsLeftOut, runtime.GOOS)
 	if junctions && junctionsReplayed == 0 {
@@ -153,6 +181,36 @@ func TestVirtualPathHarness_GoldenVectors(t *testing.T) {
 		t.Fatalf("the golden holds %d request shapes, want %d", len(shapes), harnessRequestShapes)
 	}
 	report.Finish("VirtualPathHarness", len(instances))
+}
+
+// harnessWorkdirs builds the workdir input of each kind (design D5): a trusted
+// workdir has no module root; a module-outside workdir is the work directory
+// with the read root as module root; a module-inside workdir lies below the
+// read root, which is its module root, because the model has no location
+// inside the workdir only for that kind.
+func harnessWorkdirs(dirFor map[string]string, insideWork string) map[string]harnessWorkdir {
+	return map[string]harnessWorkdir{
+		"TrustedWorkdir": {workdir: virtualWorkdir{path: dirFor["InWorkdir"]}, root: true},
+		"ModuleOutside":  {workdir: virtualWorkdir{path: dirFor["InWorkdir"], moduleRoot: dirFor["InReadRoot"]}, root: false},
+		"ModuleInside":   {workdir: virtualWorkdir{path: insideWork, moduleRoot: dirFor["InReadRoot"]}, root: true},
+	}
+}
+
+// harnessWorkdirValidator calls the production workdir-root decision, fails
+// when it differs from the model's fixed rule, and builds the validator over
+// the read root plus the workdir exactly when the decision admits it.
+func harnessWorkdirValidator(t *testing.T, w harnessWorkdir, readRoot string) virtualPathValidator {
+	t.Helper()
+	roots := []string{readRoot}
+	isRoot := w.workdir.isReadRoot()
+	if isRoot != w.root {
+		t.Fatalf("isReadRoot() = %v for workdir %q with module root %q, model workdirIsRoot[TrustedOrInside] = %v",
+			isRoot, w.workdir.path, w.workdir.moduleRoot, w.root)
+	}
+	if isRoot {
+		roots = append(roots, w.workdir.path)
+	}
+	return pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, roots...)
 }
 
 // expectHarnessResolutionErrors checks what the model does not hold: a path the

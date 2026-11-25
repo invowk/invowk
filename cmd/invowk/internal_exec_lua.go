@@ -26,6 +26,7 @@ func newInternalExecLuaCommand() *cobra.Command {
 	cmd.Flags().String(flagScriptFile, "", "path to Lua script file to execute")
 	cmd.Flags().String("workdir", "", "working directory for execution")
 	cmd.Flags().String("script-base-path", "", "script base path for virtual path policy")
+	cmd.Flags().String(flagWorkdirModuleRoot, "", "module root of a module-declared workdir for virtual path policy")
 	cmd.Flags().StringArray("env", nil, "environment variables (KEY=VALUE format)")
 	cmd.Flags().StringArray("args", nil, "positional arguments for the script")
 	cmd.Flags().String("env-json", "", "environment variables as JSON object")
@@ -50,6 +51,7 @@ func runInternalExecLua(cmd *cobra.Command, _ []string) error {
 	scriptFile, _ := cmd.Flags().GetString(flagScriptFile)
 	workdir, _ := cmd.Flags().GetString("workdir")
 	scriptBasePath, _ := cmd.Flags().GetString("script-base-path")
+	workdirModuleRoot, _ := cmd.Flags().GetString(flagWorkdirModuleRoot)
 	envVars, _ := cmd.Flags().GetStringArray("env")
 	posArgs, _ := cmd.Flags().GetStringArray("args")
 	envJSON, _ := cmd.Flags().GetString("env-json")
@@ -95,22 +97,23 @@ func runInternalExecLua(cmd *cobra.Command, _ []string) error {
 	}
 
 	err = ivkruntime.RunLuaScript(cmd.Context(), ivkruntime.LuaScriptOptions{
-		Script:           string(scriptContent),
-		ScriptName:       scriptFile,
-		WorkDir:          workdir,
-		ScriptBasePath:   scriptBasePath,
-		Env:              env,
-		Args:             posArgs,
-		AllowedBinaries:  allowedBinaries,
-		BinaryLookupMode: binaryLookupMode,
-		FilesystemAccess: filesystemAccess,
-		FilesystemPaths:  filesystemPaths,
-		CPULimit:         luaCPULimit,
-		MemoryLimit:      luaMemoryLimit,
-		EnableUroot:      enableUroot,
-		Stdin:            os.Stdin,
-		Stdout:           os.Stdout,
-		Stderr:           os.Stderr,
+		Script:            string(scriptContent),
+		ScriptName:        scriptFile,
+		WorkDir:           workdir,
+		ScriptBasePath:    scriptBasePath,
+		WorkDirModuleRoot: workdirModuleRoot,
+		Env:               env,
+		Args:              posArgs,
+		AllowedBinaries:   allowedBinaries,
+		BinaryLookupMode:  binaryLookupMode,
+		FilesystemAccess:  filesystemAccess,
+		FilesystemPaths:   filesystemPaths,
+		CPULimit:          luaCPULimit,
+		MemoryLimit:       luaMemoryLimit,
+		EnableUroot:       enableUroot,
+		Stdin:             os.Stdin,
+		Stdout:            os.Stdout,
+		Stderr:            os.Stderr,
 	})
 	if err != nil {
 		return internalExecLuaExit(cmd, "Error executing Lua script: %v\n", err)

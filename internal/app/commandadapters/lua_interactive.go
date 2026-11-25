@@ -36,6 +36,9 @@ func luaInteractiveCommand(ctx context.Context, spec runtime.LuaInteractiveComma
 		"--cpu-limit", fmt.Sprintf("%d", spec.CPULimit),
 		"--memory-limit", spec.MemoryLimit.String(),
 	}
+	if spec.WorkDirModuleRoot != nil {
+		args = append(args, "--workdir-module-root", string(*spec.WorkDirModuleRoot))
+	}
 	if spec.EnableUroot {
 		args = append(args, "--enable-uroot")
 	}

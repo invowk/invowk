@@ -14,6 +14,11 @@ for the transformation workflow and `invowk-schema` for CUE authoring rules.
 - `commonSetup` (`tests/cli/cmd_test.go`) sets `HOME=$WORK` for every test
   (plus `APPDATA`/`USERPROFILE` on Windows); see rule "Integration and Container
   Tests" before changing home handling.
+- A fixture that must live outside `$WORK` (for example below `/var/tmp`,
+  because `/tmp`, which normally encloses `$WORK`, is a virtual-runtime root)
+  is named with `$TEST_RUN_SUFFIX` from `commonSetup`, so concurrent runs of
+  the suite on one host never delete each other's tree
+  (`virtual_module_workdir_roots.txtar`).
 - Use `--` between Invowk flags and user-command flags.
 - Assert both output channels on error paths unless the harness documents
   unavoidable incidental output.

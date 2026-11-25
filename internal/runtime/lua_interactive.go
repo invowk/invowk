@@ -24,18 +24,21 @@ type (
 	// LuaInteractiveCommandSpec describes a prepared virtual-lua interactive subprocess request.
 	//goplint:ignore -- subprocess adapter DTO carries CLI-boundary argv and serialized env.
 	LuaInteractiveCommandSpec struct {
-		ScriptFile       *types.FilesystemPath
-		WorkDir          *types.FilesystemPath
-		ScriptBasePath   *types.FilesystemPath
-		EnvJSON          LuaInteractiveEnvJSON
-		Args             LuaInteractiveArgs
-		AllowedBinaries  []string
-		BinaryLookupMode invowkfile.BinaryLookupMode
-		FilesystemAccess invowkfile.VirtualFilesystemAccess
-		FilesystemPaths  invowkfile.VirtualFilesystemPaths
-		CPULimit         invowkfile.LuaCPULimit
-		MemoryLimit      invowkfile.MemoryLimit
-		EnableUroot      bool
+		ScriptFile     *types.FilesystemPath
+		WorkDir        *types.FilesystemPath
+		ScriptBasePath *types.FilesystemPath
+		// WorkDirModuleRoot is the module directory when a module invowkfile
+		// declares the workdir, and nil for a trusted workdir.
+		WorkDirModuleRoot *types.FilesystemPath
+		EnvJSON           LuaInteractiveEnvJSON
+		Args              LuaInteractiveArgs
+		AllowedBinaries   []string
+		BinaryLookupMode  invowkfile.BinaryLookupMode
+		FilesystemAccess  invowkfile.VirtualFilesystemAccess
+		FilesystemPaths   invowkfile.VirtualFilesystemPaths
+		CPULimit          invowkfile.LuaCPULimit
+		MemoryLimit       invowkfile.MemoryLimit
+		EnableUroot       bool
 	}
 
 	// LuaInteractiveCommandFactory creates the subprocess command for virtual-lua interactive execution.
@@ -45,22 +48,25 @@ type (
 	// interactive subprocess wrapper.
 	//goplint:ignore -- subprocess adapter DTO carries Lua script text, argv, and env strings across the CLI boundary.
 	LuaScriptOptions struct {
-		Script           string
-		ScriptName       string
-		WorkDir          string
-		ScriptBasePath   string
-		Env              []string
-		Args             []string
-		AllowedBinaries  []string
-		BinaryLookupMode invowkfile.BinaryLookupMode
-		FilesystemAccess invowkfile.VirtualFilesystemAccess
-		FilesystemPaths  invowkfile.VirtualFilesystemPaths
-		CPULimit         invowkfile.LuaCPULimit
-		MemoryLimit      invowkfile.MemoryLimit
-		EnableUroot      bool
-		Stdin            io.Reader
-		Stdout           io.Writer
-		Stderr           io.Writer
+		Script         string
+		ScriptName     string
+		WorkDir        string
+		ScriptBasePath string
+		// WorkDirModuleRoot is the module directory when a module invowkfile
+		// declares the workdir, and "" for a trusted workdir.
+		WorkDirModuleRoot string
+		Env               []string
+		Args              []string
+		AllowedBinaries   []string
+		BinaryLookupMode  invowkfile.BinaryLookupMode
+		FilesystemAccess  invowkfile.VirtualFilesystemAccess
+		FilesystemPaths   invowkfile.VirtualFilesystemPaths
+		CPULimit          invowkfile.LuaCPULimit
+		MemoryLimit       invowkfile.MemoryLimit
+		EnableUroot       bool
+		Stdin             io.Reader
+		Stdout            io.Writer
+		Stderr            io.Writer
 	}
 )
 
@@ -103,10 +109,15 @@ func (s LuaInteractiveCommandSpec) Validate() error {
 	} else {
 		scriptBaseErr = s.ScriptBasePath.Validate()
 	}
+	var moduleRootErr error
+	if s.WorkDirModuleRoot != nil {
+		moduleRootErr = s.WorkDirModuleRoot.Validate()
+	}
 	return errors.Join(
 		scriptFileErr,
 		workDirErr,
 		scriptBaseErr,
+		moduleRootErr,
 		s.EnvJSON.Validate(),
 		s.BinaryLookupMode.Validate(),
 		s.FilesystemAccess.Validate(),
@@ -162,16 +173,17 @@ func (r *LuaRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, er
 	}
 
 	spec := LuaInteractiveCommandSpec{
-		ScriptFile:       &prepared.scriptFile,
-		WorkDir:          &prepared.workDir,
-		ScriptBasePath:   &prepared.scriptBasePath,
-		EnvJSON:          LuaInteractiveEnvJSON(prepared.envJSON),
-		Args:             LuaInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
-		AllowedBinaries:  prepared.allowedBinaries,
-		BinaryLookupMode: prepared.binaryLookupMode,
-		FilesystemAccess: prepared.filesystemAccess,
-		FilesystemPaths:  prepared.filesystemPaths,
-		EnableUroot:      r.utilitiesEnabled,
+		ScriptFile:        &prepared.scriptFile,
+		WorkDir:           &prepared.workDir,
+		ScriptBasePath:    &prepared.scriptBasePath,
+		WorkDirModuleRoot: prepared.workDirModuleRoot,
+		EnvJSON:           LuaInteractiveEnvJSON(prepared.envJSON),
+		Args:              LuaInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
+		AllowedBinaries:   prepared.allowedBinaries,
+		BinaryLookupMode:  prepared.binaryLookupMode,
+		FilesystemAccess:  prepared.filesystemAccess,
+		FilesystemPaths:   prepared.filesystemPaths,
+		EnableUroot:       r.utilitiesEnabled,
 	}
 	if prepared.runtimeCfg != nil {
 		spec.CPULimit = prepared.runtimeCfg.CPULimit
@@ -210,6 +222,7 @@ func RunLuaScript(ctx context.Context, opts LuaScriptOptions) error {
 	env := SliceToEnv(opts.Env)
 	pathResolver, err := newVirtualPathResolverForInteractiveConfig(
 		opts.WorkDir,
+		opts.WorkDirModuleRoot,
 		opts.ScriptBasePath,
 		invowkfile.VirtualFilesystemConfig{
 			Access: opts.FilesystemAccess,

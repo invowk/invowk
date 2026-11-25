@@ -194,6 +194,11 @@ var (
 			testFile: "pkg/invowkfile/implementation_test.go",
 			reason:   "containment receives resolved host paths; raw syntax is covered by ScriptFilePath validation and resolution matrices",
 		},
+		"pkg/invowkfile.Invowkfile.ResolveEffectiveWorkDir": {
+			testFile: "pkg/invowkfile/workdir_source_test.go",
+			testFunc: "TestResolveEffectiveWorkDir_NilCommandAndImplementation",
+			reason:   "returns GetEffectiveWorkDir's path unchanged with the precedence level that supplied it; path dialect resolution belongs to GetEffectiveWorkDir (TestGetEffectiveWorkDir_Matrix)",
+		},
 		"pkg/invowkfile.WorkDir.Validate": {
 			testFile: "pkg/invowkfile/workdir_type_test.go",
 			testFunc: "TestWorkDir_Validate",

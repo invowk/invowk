@@ -3726,6 +3726,10 @@ pattern = "ArgsSubcommandConflictError.FilePath.nonzero"
 reason = "required value-field using a nonzero value type"
 
 [[exceptions]]
+pattern = "invowkfile.EffectiveWorkDir.Path.nonzero"
+reason = "required value-field using a nonzero value type: ResolveEffectiveWorkDir always sets it"
+
+[[exceptions]]
 pattern = "Argument.Name.nonzero"
 reason = "required value-field using a nonzero value type"
 

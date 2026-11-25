@@ -88,7 +88,7 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 186
+command_count = 190
 
 # Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
 # every killer test of every bound correspondence row must execute at least one
@@ -163,7 +163,6 @@ unresolved_elements = [
     "VirtualPathHarness: allowedRoots",
     "VirtualPathHarness: anchors",
     "VirtualPathHarness: validate",
-    "VirtualPathHarness: findingF15",
     "ConcurrentModuleEdits: AddProg (add_add_same)",
     "ConcurrentModuleEdits: AddProg (sync_add)",
     "ConcurrentModuleEdits: RemoveProg",
@@ -1544,16 +1543,18 @@ used only when nothing is missing), a superset of the F14 defect. The replay \
 builds the resolver directly over materialised roots so t.TempDir's enclosing \
 roots do not make the check vacuous (design D5.4), and it fails if no instance \
 places a node outside every root. Finding F15 (workdir widening the allowed \
-roots under restricted access) reproduces with a passing fixed configuration; \
-F14 (deep missing path through an escaping symlink) reproduced until \
-virtual-path-physical-normalisation fixed it (below). \
+roots under restricted access) reproduced with a passing fixed configuration \
+until module-workdir-roots fixed it (below); F14 (deep missing path through an \
+escaping symlink) reproduced until virtual-path-physical-normalisation fixed \
+it (below). \
 2026-11-14 (harden-formal-instruments): the reach gate found allowedRoots \
 (newVirtualPathResolverForFilesystem), anchors (standardVirtualAnchorsForOS) and \
 access (EffectiveAccess) never executed by the golden. allowedRoots and access \
 bind TestVirtualPathHarness_RootConstruction, which builds the real resolver \
 for access omitted, restricted and full, with and without a declared path, \
 and requires acceptance per location kind to equal H.access = Full or \
-locIsAllowedRoot[l, True] (F15) and the omitted mode to be restricted \
+locIsAllowedRoot[l, True] (then F15; since module-workdir-roots the fixed rule \
+TrustedOrInside, below) and the omitted mode to be restricted \
 (virtual-filesystem-access spec). anchors binds it too with the narrow claim \
 of decision 14: @config, @data, @cache, @state, @tmp and @work as the resolver \
 reports them are accepted, and @home/.ssh/<tag> is denied under restricted \
@@ -1652,7 +1653,49 @@ that names a directory" and "validateNoFollow skips the not-a-directory \
 check" fail TestVirtualPathNoFollowValidatorDirectoryCheck only; \
 "validateNoFollow skips the allowed-root check" fails NoFollowOperands; \
 "validateNoFollow negates pathWithin" fails NoFollowOperands and \
-TestVirtualPathNoFollowValidatorDirectoryCheck."""
+TestVirtualPathNoFollowValidatorDirectoryCheck. \
+2026-11-25 (module-workdir-roots, F15 fixed): H holds a workdir kind \
+(TrustedWorkdir, ModuleInside, ModuleOutside; a module-inside workdir leaves \
+no InWorkdir location) in place of includeWorkdir, and the code's root rule \
+is a parameter (AlwaysRoot pre-fix, TrustedOrInside fixed, NeverRoot strict). \
+The finding command became mutantPreFixF15WorkdirRoot, and \
+trustedWorkdirReadableFixed with mutantStrictWorkdirNeverRoot keeps the fix \
+from becoming the strict variant. The golden leaves the workdir kind free \
+and allows at most one InWorkdir location (a module-inside instance has \
+none): 8790 instances (3794 TrustedWorkdir, 3794 ModuleOutside, 1202 \
+ModuleInside; the 81 request shapes are unchanged), 6424 bytes, and the \
+replay takes about 0.4 s on Linux. The golden replay builds a virtualWorkdir \
+per instance kind and adds the workdir to the roots exactly when \
+virtualWorkdir.isReadRoot says so. TestVirtualPathHarness_F15WorkdirWidening \
+is inverted and renamed TestVirtualPathHarness_ModuleWorkdirOutsideNotRoot; \
+TestVirtualPathHarness_RootConstruction builds the workdir through \
+virtualWorkdirFor for 13 kinds (CLI override; plain invowkfile root, command \
+and implementation; module default and inside; module-outside by "..", by an \
+absolute path and through a link; the CLI override over a module-outside \
+declaration at each level). Seeded one at a time and reverted (go test \
+-overlay), with the bindings that fail: (1) "always add the workdir and \
+@work" in newVirtualPathResolverForFilesystem (the pre-fix rule) fails \
+ModuleWorkdirOutsideNotRoot, RootConstruction and TestVirtualWorkdir; (2) \
+"never add the workdir" there fails ModuleWorkdirOutsideNotRoot, \
+RootConstruction and TestVirtualWorkdir; (3) isReadRoot "always true" fails \
+the golden replay, ModuleWorkdirOutsideNotRoot, the rapid property, \
+RootConstruction and TestVirtualWorkdir; (4) isReadRoot "false for every \
+module-declared workdir" fails the golden replay, the rapid property and \
+TestVirtualWorkdir, and not RootConstruction, whose module-inside kind has \
+no workdir-only probe (the masked case of the workdirIsRoot row); (5) \
+effectiveWorkDirSource without the CLI-override test fails \
+TestResolveEffectiveWorkDir, ModuleWorkdirOutsideNotRoot, RootConstruction \
+and TestVirtualWorkdir; (6) it without the implementation test fails \
+TestResolveEffectiveWorkDir, ModuleWorkdirOutsideNotRoot, the rapid \
+property, RootConstruction and TestVirtualWorkdir; (7) it with the \
+implementation and command tests swapped fails TestResolveEffectiveWorkDir \
+only; (8) DeclaredByInvowkfile false for the command level fails the rapid \
+property, RootConstruction, TestVirtualWorkdir and \
+TestInteractiveSpecCarriesWorkDirModuleRoot; (9) virtualWorkdirFor never \
+recording the module root fails ModuleWorkdirOutsideNotRoot, the rapid \
+property, RootConstruction, TestVirtualWorkdir and \
+TestInteractiveSpecCarriesWorkDirModuleRoot. The binding reach gate reaches \
+every new (row, killer, function) triple on Linux and skips none."""
 
 [model.golden]
 command = "golden"
@@ -1660,7 +1703,7 @@ output = "internal/runtime/testdata/formal/virtual_path_harness_golden.json.gz"
 
 [[model.command]]
 name = "harnessContainedFixed"
-body = "harnessContained[FixedEval, False]"
+body = "harnessContained[FixedEval, TrustedOrInside]"
 expect = "pass"
 property = "harnessContained"
 antecedent = "anteHarness"
@@ -1671,37 +1714,55 @@ body = "anteHarness"
 expect = "instance"
 
 [[model.command]]
+name = "trustedWorkdirReadableFixed"
+body = "trustedWorkdirReadable[TrustedOrInside]"
+expect = "pass"
+property = "trustedWorkdirReadable"
+antecedent = "anteTrustedWorkdir"
+
+[[model.command]]
+name = "anteTrustedWorkdir"
+body = "anteTrustedWorkdir"
+expect = "instance"
+
+[[model.command]]
+name = "mutantStrictWorkdirNeverRoot"
+body = "trustedWorkdirReadable[NeverRoot]"
+expect = "counterexample"
+property = "trustedWorkdirReadable"
+mutant_of = "trustedWorkdirReadableFixed"
+
+[[model.command]]
 name = "mutantNoParentEval"
-body = "harnessContained[NoParentEval, False]"
+body = "harnessContained[NoParentEval, TrustedOrInside]"
 expect = "counterexample"
 property = "harnessContained"
 mutant_of = "harnessContainedFixed"
 
 [[model.command]]
 name = "mutantPreFixF18JunctionNotFollowed"
-body = "harnessContained[PreFixF18Eval, False]"
+body = "harnessContained[PreFixF18Eval, TrustedOrInside]"
 expect = "counterexample"
 property = "harnessContained"
 mutant_of = "harnessContainedFixed"
 
 [[model.command]]
 name = "mutantPreFixF14ParentOnlyEval"
-body = "harnessContained[PreFixF14Eval, False]"
+body = "harnessContained[PreFixF14Eval, TrustedOrInside]"
 expect = "counterexample"
 property = "harnessContained"
 mutant_of = "harnessContainedFixed"
 
 [[model.command]]
 name = "mutantPreFixF19DanglingLinkAsMissingName"
-body = "harnessContained[PreFixF19Eval, False]"
+body = "harnessContained[PreFixF19Eval, TrustedOrInside]"
 expect = "counterexample"
 property = "harnessContained"
 mutant_of = "harnessContainedFixed"
 
 [[model.command]]
-name = "findingF15WorkdirWidening"
-body = "harnessContained[FixedEval, True]"
-finding = "F15"
+name = "mutantPreFixF15WorkdirRoot"
+body = "harnessContained[FixedEval, AlwaysRoot]"
 expect = "counterexample"
 property = "harnessContained"
 mutant_of = "harnessContainedFixed"
@@ -1733,6 +1794,12 @@ witness = true
 [[model.command]]
 name = "witWorkdirRoot"
 body = "witWorkdirRoot"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witModuleOutsideWorkdir"
+body = "witModuleOutsideWorkdir"
 expect = "instance"
 witness = true
 
@@ -1772,7 +1839,7 @@ body = """
 goldenScenario
 goldenDecisions
 noJunk"""
-scope = "exactly 2 Req, exactly 1 InReadRoot, exactly 1 InWorkdir, exactly 1 OutsideAll"
+scope = "exactly 2 Req, exactly 1 InReadRoot, 1 InWorkdir, exactly 1 OutsideAll"
 expect = "instance"
 
 

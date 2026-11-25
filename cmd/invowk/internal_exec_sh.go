@@ -17,7 +17,12 @@ import (
 	"mvdan.cc/sh/v3/interp"
 )
 
-const flagScriptFile = "script-file"
+const (
+	flagScriptFile = "script-file"
+	// flagWorkdirModuleRoot carries the parent's virtual workdir module root:
+	// set only when a module invowkfile declares the workdir.
+	flagWorkdirModuleRoot = "workdir-module-root"
+)
 
 // newInternalExecShCommand creates the `invowk internal exec-virtual-sh` command.
 // This is an internal command used for virtual-sh interactive mode, where the
@@ -33,6 +38,7 @@ func newInternalExecShCommand() *cobra.Command {
 	cmd.Flags().String(flagScriptFile, "", "path to script file to execute")
 	cmd.Flags().String("workdir", "", "working directory for execution")
 	cmd.Flags().String("script-base-path", "", "script base path for virtual path policy")
+	cmd.Flags().String(flagWorkdirModuleRoot, "", "module root of a module-declared workdir for virtual path policy")
 	cmd.Flags().StringArray("env", nil, "environment variables (KEY=VALUE format)")
 	cmd.Flags().StringArray("args", nil, "positional arguments for the script")
 	cmd.Flags().String("env-json", "", "environment variables as JSON object")
@@ -55,6 +61,7 @@ func runInternalExecSh(cmd *cobra.Command, _ []string) error {
 	scriptFile, _ := cmd.Flags().GetString(flagScriptFile)
 	workdir, _ := cmd.Flags().GetString("workdir")
 	scriptBasePath, _ := cmd.Flags().GetString("script-base-path")
+	workdirModuleRoot, _ := cmd.Flags().GetString(flagWorkdirModuleRoot)
 	envVars, _ := cmd.Flags().GetStringArray("env")
 	posArgs, _ := cmd.Flags().GetStringArray("args")
 	envJSON, _ := cmd.Flags().GetString("env-json")
@@ -105,20 +112,21 @@ func runInternalExecSh(cmd *cobra.Command, _ []string) error {
 
 	// Execute the script
 	err = ivkruntime.RunShScript(cmd.Context(), ivkruntime.ShScriptOptions{
-		Script:           string(scriptContent),
-		ScriptName:       scriptFile,
-		WorkDir:          workdir,
-		ScriptBasePath:   scriptBasePath,
-		Env:              env,
-		Args:             posArgs,
-		AllowedBinaries:  allowedBinaries,
-		BinaryLookupMode: binaryLookupMode,
-		FilesystemAccess: filesystemAccess,
-		FilesystemPaths:  filesystemPaths,
-		EnableUroot:      enableUroot,
-		Stdin:            os.Stdin,
-		Stdout:           os.Stdout,
-		Stderr:           os.Stderr,
+		Script:            string(scriptContent),
+		ScriptName:        scriptFile,
+		WorkDir:           workdir,
+		ScriptBasePath:    scriptBasePath,
+		WorkDirModuleRoot: workdirModuleRoot,
+		Env:               env,
+		Args:              posArgs,
+		AllowedBinaries:   allowedBinaries,
+		BinaryLookupMode:  binaryLookupMode,
+		FilesystemAccess:  filesystemAccess,
+		FilesystemPaths:   filesystemPaths,
+		EnableUroot:       enableUroot,
+		Stdin:             os.Stdin,
+		Stdout:            os.Stdout,
+		Stderr:            os.Stderr,
 	})
 	if err != nil {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {

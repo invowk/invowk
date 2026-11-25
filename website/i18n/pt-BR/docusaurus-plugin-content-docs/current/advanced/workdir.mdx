@@ -74,6 +74,17 @@ Com `workdir`, esse subdiretório se torna o diretório de trabalho do container
 
 <Snippet id="advanced/workdir-container-subdir" />
 
+## Runtimes Virtuais
+
+Com o acesso ao sistema de arquivos padrão `restricted` dos runtimes `virtual-sh` e `virtual-lua`, o diretório de trabalho também é uma raiz permitida para o acesso a arquivos do script, com uma exceção: um `workdir` que o próprio invowkfile de um módulo declara (no nível raiz, do comando ou da implementação) e que resolve para fora do diretório do módulo. Links e junctions são seguidos, e um diretório de trabalho que não pode ser resolvido, ou que fica em outra unidade, conta como fora. Aqui, o invowkfile de um módulo é aquele que o Invowk carrega como parte de um módulo.
+
+Esse diretório continua sendo o diretório de trabalho do script, e `@work`, `INVOWK_ANCHOR_WORK` e `invowk.path("@work")` continuam apontando para ele, mas leituras e gravações ali são recusadas com `virtual path denied`, a menos que outra raiz permitida as cubra. A mesma verificação vale para `cd` e para os testes de arquivo do shell: `cd` para um diretório ali falha, e um teste como `[ -f settings.json ]` é falso mesmo quando o arquivo existe. Binários do host listados em `allowed_binaries` não são verificados: eles rodam como processos nativos do host, com esse diretório como diretório de trabalho, e mantêm seu acesso ao host, porque os runtimes virtuais não isolam binários do host (use o runtime `container` para isolamento). Para mantê-lo legível e gravável pelo próprio script:
+
+- declare-o em `virtual.filesystem.paths` da plataforma selecionada, por exemplo `WORK: "@work"`;
+- ou passe `--ivk-workdir` com esse diretório: um diretório de trabalho escolhido na linha de comando é sempre uma raiz permitida.
+
+Estes diretórios de trabalho continuam sendo raízes permitidas, como antes: o override `--ivk-workdir`, qualquer diretório de trabalho de um invowkfile que o Invowk não carrega como parte de um módulo (como `../packages/x` em um monorepo), o diretório de trabalho padrão de um módulo e um diretório de trabalho de módulo dentro do módulo. `virtual.filesystem.access: "full"`, o runtime `native` e o runtime `container` não são afetados. Veja [Acesso a Arquivos](../runtime-modes/virtual#acesso-a-arquivos) para as outras raízes.
+
 ## Caminhos Multiplataforma
 
 Use barras para frente para compatibilidade multiplataforma:

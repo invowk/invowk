@@ -62,6 +62,12 @@ func commonSetup(env *testscript.Env) error {
 	testSuffix := generateTestSuffix(env.WorkDir)
 	env.Setenv("INVOWK_PROVISION_TAG_SUFFIX", testSuffix)
 
+	// TEST_RUN_SUFFIX is the same per-test value for scripts that must place a
+	// fixture outside $WORK (for example below /var/tmp, which no virtual root
+	// encloses): a name with this suffix keeps concurrent runs of the suite on
+	// one host from deleting each other's fixture.
+	env.Setenv("TEST_RUN_SUFFIX", testSuffix)
+
 	// Set GOCOVERDIR for coverage instrumentation (Go 1.20+).
 	// When the binary is built with -cover, it writes coverage data to this directory.
 	// Each test gets its own subdirectory under a shared GOCOVERDIR root.

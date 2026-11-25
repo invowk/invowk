@@ -154,7 +154,10 @@ tool or a model.
        "Cost budgets", of the model-module-path-containment OpenSpec change).
      - Build the virtual-harness validator directly over materialised roots so
        the host's own enclosing roots (`/tmp`, HOME) do not make the check
-       vacuous.
+       vacuous. Where production code decides whether a root exists (the
+       workdir: `virtualWorkdir.isReadRoot`), the replay calls that decision
+       per instance and adds the root only when it holds, so the directly
+       built roots still reach it.
 7. **Calibrate.** Seed plausible defects in the real code, one at a time, and
    confirm the bindings fail. Record the result in the manifest's
    `calibration`. If a defect survives, widen the golden scope before trusting

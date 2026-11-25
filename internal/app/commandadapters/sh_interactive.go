@@ -47,6 +47,9 @@ func shInteractiveCommand(ctx context.Context, spec runtime.ShInteractiveCommand
 		"--filesystem-access", spec.FilesystemAccess.String(),
 		"--filesystem-paths-json", filesystemPathsJSON.String(),
 	}
+	if spec.WorkDirModuleRoot != nil {
+		args = append(args, "--workdir-module-root", string(*spec.WorkDirModuleRoot))
+	}
 	if spec.EnableUroot {
 		args = append(args, "--enable-uroot")
 	}

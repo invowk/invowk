@@ -6,6 +6,7 @@
     "virtual_diagnostics_footer.txtar": "discovery diagnostics formatting",
     "virtual_anchor_relative_home.txtar": "path anchors are injected only by the virtual runtimes",
     "virtual_anchor_relative_xdg.txtar": "path anchors are injected only by the virtual runtimes",
+    "virtual_module_workdir_roots.txtar": "restricted path denials exist only in the virtual runtimes",
     "virtual_path_link_escape.txtar": "restricted path denials exist only in the virtual runtimes"
   },
   "prefix": {

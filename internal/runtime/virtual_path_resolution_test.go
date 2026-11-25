@@ -170,7 +170,7 @@ func TestVirtualPathUnresolvableRootIsNotAllowed(t *testing.T) {
 
 	// A workdir that cannot be resolved does not fail the construction; it is
 	// only not an allowed root.
-	resolver, err := newVirtualPathResolverForFilesystem(cycle, module, invowkfile.VirtualFilesystemConfig{
+	resolver, err := newVirtualPathResolverForFilesystem(virtualWorkdir{path: cycle}, module, invowkfile.VirtualFilesystemConfig{
 		Access: invowkfile.VirtualFilesystemAccessRestricted,
 	})
 	if err != nil {
@@ -243,7 +243,7 @@ func TestVirtualPathBridgeResolvesDeclaredLink(t *testing.T) {
 	link := filepath.Join(base, "link")
 	fstree.MustSymlink(t, realDir, link)
 
-	resolver, err := newVirtualPathResolverForFilesystem(work, module, invowkfile.VirtualFilesystemConfig{
+	resolver, err := newVirtualPathResolverForFilesystem(virtualWorkdir{path: work}, module, invowkfile.VirtualFilesystemConfig{
 		Access: invowkfile.VirtualFilesystemAccessRestricted,
 		Paths:  invowkfile.VirtualFilesystemPaths{"DATA": invowkfile.VirtualFilesystemPath(link)},
 	})
@@ -277,7 +277,7 @@ func TestVirtualPathDeclaredPathBehindLink(t *testing.T) {
 	cycle := filepath.Join(base, "cycle")
 	fstree.MustSymlink(t, "cycle", cycle)
 
-	resolver, err := newVirtualPathResolverForFilesystem(work, module, invowkfile.VirtualFilesystemConfig{
+	resolver, err := newVirtualPathResolverForFilesystem(virtualWorkdir{path: work}, module, invowkfile.VirtualFilesystemConfig{
 		Access: invowkfile.VirtualFilesystemAccessRestricted,
 		Paths:  invowkfile.VirtualFilesystemPaths{"DATA": invowkfile.VirtualFilesystemPath(link)},
 	})
@@ -306,7 +306,7 @@ func TestVirtualPathDeclaredPathBehindLink(t *testing.T) {
 
 	// A declared path that cannot be resolved fails the construction under
 	// restricted access, and the error names the entry.
-	_, err = newVirtualPathResolverForFilesystem(work, module, invowkfile.VirtualFilesystemConfig{
+	_, err = newVirtualPathResolverForFilesystem(virtualWorkdir{path: work}, module, invowkfile.VirtualFilesystemConfig{
 		Access: invowkfile.VirtualFilesystemAccessRestricted,
 		Paths:  invowkfile.VirtualFilesystemPaths{"LOOP": invowkfile.VirtualFilesystemPath(cycle)},
 	})
@@ -415,7 +415,7 @@ func TestVirtualPathFullAccessFallback(t *testing.T) {
 	// and neither fails the construction.
 	dangling2 := filepath.Join(root, "dangling2")
 	fstree.MustSymlink(t, filepath.Join("..", "outside", "missing2"), dangling2)
-	resolver, err := newVirtualPathResolverForFilesystem(work, work, invowkfile.VirtualFilesystemConfig{
+	resolver, err := newVirtualPathResolverForFilesystem(virtualWorkdir{path: work}, work, invowkfile.VirtualFilesystemConfig{
 		Access: invowkfile.VirtualFilesystemAccessFull,
 		Paths: invowkfile.VirtualFilesystemPaths{
 			"OUT":  invowkfile.VirtualFilesystemPath(dangling2),
