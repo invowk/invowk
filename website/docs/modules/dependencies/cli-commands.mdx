@@ -140,6 +140,8 @@ Sync all dependencies declared in `invowkmod.cue`. This reads the `requires` fie
 
 <Snippet id="modules/dependencies/cli/sync-output" />
 
+When the resolved lock has the same content as the lock on disk, the save leaves it untouched and the last line reads `✓ Lock file unchanged: invowkmod.lock.cue`.
+
 ### No Requirements
 
 <Snippet id="modules/dependencies/cli/sync-empty" />
@@ -165,6 +167,8 @@ Update dependencies to their latest versions matching the declared constraints.
 ### Output
 
 <Snippet id="modules/dependencies/cli/update-output" />
+
+When nothing newer matches the constraints, the lock keeps its content, the save leaves it untouched and the last line reads `✓ Lock file unchanged: invowkmod.lock.cue`.
 
 ### No Updates
 
