@@ -14,8 +14,6 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-const moduleDepsTestGitURL invowkmod.GitURL = "https://github.com/user/tools.git"
-
 // TestModuleLockLines covers every row of the lock-outcome wording that module
 // sync, update and add print (spec "Sync and update say whether the lock
 // changed" and "Add and remove report each file truthfully"). The remove
@@ -89,7 +87,7 @@ func TestModuleRemoveSummaryLine(t *testing.T) {
 func TestModuleAddDeclarationFailureLine(t *testing.T) {
 	t.Parallel()
 
-	ref := invowkmod.ModuleRef{GitURL: moduleDepsTestGitURL, Version: "^1.0.0"}
+	ref := invowkmod.ModuleRef{GitURL: "https://github.com/user/tools.git", Version: "^1.0.0"}
 	missingErr := invowkmod.AddRequirement(types.FilesystemPath(filepath.Join(t.TempDir(), "invowkmod.cue")), ref)
 	if missingErr == nil {
 		t.Fatal("AddRequirement() on a missing file = nil, want an error")

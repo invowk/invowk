@@ -199,8 +199,7 @@ version: "1.0.0"
 func TestRemoveRequirement(t *testing.T) {
 	t.Parallel()
 
-	tests := removeRequirementCases()
-	for _, tt := range tests {
+	for _, tt := range removeRequirementCases() {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -216,21 +215,7 @@ func TestRemoveRequirement(t *testing.T) {
 			if tt.missingFile {
 				return
 			}
-			result, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("read result: %v", err)
-			}
-			got := string(result)
-			for _, want := range tt.wantContains {
-				if !strings.Contains(got, want) {
-					t.Errorf("result does not contain %q:\n%s", want, got)
-				}
-			}
-			for _, unwanted := range tt.wantNotContains {
-				if strings.Contains(got, unwanted) {
-					t.Errorf("result unexpectedly contains %q:\n%s", unwanted, got)
-				}
-			}
+			assertRemoveRequirementContent(t, path, tt)
 		})
 	}
 }
@@ -265,15 +250,7 @@ func TestRemoveRequirementIfPresent(t *testing.T) {
 			case !tt.wantWritten:
 				assertInvowkmodEditFile(t, path, tt.content)
 			default:
-				result, readErr := os.ReadFile(path)
-				if readErr != nil {
-					t.Fatalf("read result: %v", readErr)
-				}
-				for _, unwanted := range tt.wantNotContains {
-					if strings.Contains(string(result), unwanted) {
-						t.Errorf("result unexpectedly contains %q:\n%s", unwanted, result)
-					}
-				}
+				assertRemoveRequirementContent(t, path, tt)
 			}
 		})
 	}
@@ -536,6 +513,28 @@ func writeInvowkmodEditFixture(t *testing.T, content string) string {
 		t.Fatalf("write fixture: %v", err)
 	}
 	return path
+}
+
+// assertRemoveRequirementContent checks the file at path against the row's
+// wantContains and wantNotContains.
+func assertRemoveRequirementContent(t *testing.T, path string, tt removeRequirementCase) {
+	t.Helper()
+
+	result, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read result: %v", err)
+	}
+	got := string(result)
+	for _, want := range tt.wantContains {
+		if !strings.Contains(got, want) {
+			t.Errorf("result does not contain %q:\n%s", want, got)
+		}
+	}
+	for _, unwanted := range tt.wantNotContains {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("result unexpectedly contains %q:\n%s", unwanted, got)
+		}
+	}
 }
 
 func assertInvowkmodEditFile(t *testing.T, path, want string) {
