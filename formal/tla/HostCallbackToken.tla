@@ -28,9 +28,10 @@
 \* | Auth | Server.ValidateToken | internal/sshserver/server_auth.go | - | TTL expiry is a nondeterministic action; not gated (decision 1): ValidateToken has no production caller (server_auth.go:49 is the only non-test reference), the model's Auth is implemented by Server.admitConn (row Auth/End atomicity), and re-pointing the row is the survivor-triage follow-up |
 \* | Start/Auth/End/EndSession/Expire/Stop | Server.GetConnectionInfo | internal/sshserver/server_auth.go | TestHostCallbackToken_TraceHarness | two executions; real SSH clients over loopback on a fake clock |
 \* | Revoke | Server.RevokeToken | internal/sshserver/server_auth.go | TestRevokeTokenClosesAuthenticatedConnection | sessions abstracted to the connection that carries them |
-\* | Auth/End atomicity | Server.admitConn | internal/sshserver/server_conns.go | TestRevocationRacesAuthenticationSafely | login and revocation are single atomic actions |
+\* | Auth/End atomicity | Server.admitConn | internal/sshserver/server_conns.go | TestRevocationRacesAuthenticationSafely, TestServerStopDuringHandshake | login and revocation are single atomic actions; the model's Stop is atomic, so the handshake window in which teardown closes a connection before its login completes (admitConn refuses a closed connection) is abstracted away |
 \* | End paths | ContainerRuntime.prepareContainerExecution | internal/runtime/container_exec.go | - | success, error, and cancel all run the deferred revoke |
 \* | Stop | Server.Stop | internal/sshserver/server_lifecycle.go | TestHostCallbackToken_StopClosesAuthenticatedConnection | closes the listener and every accepted connection |
+\* | Stop | Server.closeAcceptedConns | internal/sshserver/server_conns.go | TestHostCallbackToken_StopClosesAuthenticatedConnection, TestServerStopDuringHandshake | the closing of every accepted connection inside teardown; the listener close, the library Close and the bounded wait for connection handling (Server.teardown, Server.waitConns) are checked by the lifecycle tests, not by this row |
 EXTENDS Naturals
 
 CONSTANTS Execs, Mutant, RevokeClosesSessions, StopClosesSessions

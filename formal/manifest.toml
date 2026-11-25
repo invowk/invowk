@@ -89,7 +89,7 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 190
+command_count = 194
 
 # Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
 # every killer test of every bound correspondence row must execute at least one
@@ -556,7 +556,9 @@ budget_source = "ci"
 calibration = """2026-11-25: the cancelled-start guard (decision 120) is fixed: a Start whose \\
 context is already cancelled changes only a Created server (FixStartGuard, property \\
 CancelledStartChangesOnlyCreated); the pre-fix code, which failed any non-terminal \\
-state, is kept as mutantPreFixCancelledStartFailsAny. \\
+state, is kept as mutantPreFixCancelledStartFailsAny; mutantCancelCASAnyState mutates the \\
+fixed CAS itself, and witnessCancelledStartOnNotCreated shows that a cancelled Start \\
+reaches it on a server that is no longer Created. \\
 2026-09-25: findings F1 and F2 are fixed; the base configuration now mirrors \\
 the fixed code, and the pre-fix code is kept as two regression mutants. \\
 2026-09-24: TLC reproduced findings F1 and F2 with exactly the interleavings \\
@@ -682,6 +684,13 @@ property = "CancelledStartChangesOnlyCreated"
 mutant_of = "cancelledStartGuardFixed"
 
 [[model.command]]
+name = "mutantCancelCASAnyState"
+constants = { Mutant = "\"cancel_cas_any_state\"" }
+expect = "counterexample"
+property = "CancelledStartChangesOnlyCreated"
+mutant_of = "cancelledStartGuardFixed"
+
+[[model.command]]
 name = "witnessConcurrentStop"
 expect = "counterexample"
 property = "WitnessNoConcurrentStop"
@@ -697,6 +706,12 @@ witness = true
 name = "witnessStartedClosed"
 expect = "counterexample"
 property = "WitnessNeverStartedClosed"
+witness = true
+
+[[model.command]]
+name = "witnessCancelledStartOnNotCreated"
+expect = "counterexample"
+property = "WitnessCancelledStartOnlyOnCreated"
 witness = true
 
 [[model]]
@@ -972,7 +987,7 @@ targeted mutations). \
 2026-09-25 (trace validation): TestHostCallbackToken_TraceHarness drives a \
 started Server on a fake clock with real SSH clients: 165 sequences, 37 unique \
 accepted traces, 7 targeted mutations. TLC and a Go replay reproduce finding \
-F11 (fixed 2026-11-25; then open): Stop closed the listener but no connection, and returned \
+F11 (open then; fixed 2026-11-25): Stop closed the listener but no connection, and returned \
 context.DeadlineExceeded while a client is connected; the base configuration \
 mirrors that (StopClosesSessions = FALSE), noSessionAfterStopFixed passes, and \
 mutantListenerLeftOpen now guards the fix configuration. Seeded defects: \

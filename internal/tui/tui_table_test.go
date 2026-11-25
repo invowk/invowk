@@ -591,6 +591,27 @@ func TestTableModel_ViewDrawsRows(t *testing.T) {
 	}
 }
 
+// TestTableModel_ZeroWindowWidthDrawsRows checks that a terminal reporting
+// 0 columns (a pty whose size is unset) leaves the natural width in place:
+// a width of 0 would empty the row viewport again (decision 98a).
+func TestTableModel_ZeroWindowWidthDrawsRows(t *testing.T) {
+	t.Parallel()
+
+	model := NewTableModel(TableOptions{
+		Columns: []TableColumn{{Title: "name"}, {Title: "age"}, {Title: "city"}},
+		Rows:    [][]string{{"Alice", "30", "NYC"}, {"Bob", "25", "LA"}},
+		Config:  DefaultConfig(),
+	})
+	model.Update(tea.WindowSizeMsg{Width: 0, Height: 0})
+
+	lines := strings.Split(stripANSI(model.View().Content), "\n")
+	alice := tableLineWithFields(lines, "Alice", "30", "NYC")
+	bob := tableLineWithFields(lines, "Bob", "25", "LA")
+	if alice < 0 || bob <= alice {
+		t.Fatalf("rows not drawn after a zero-width size message (Alice %d, Bob %d), view:\n%s", alice, bob, strings.Join(lines, "\n"))
+	}
+}
+
 // TestTableModel_WindowSizeCutsWideRows checks that a table wider than the
 // terminal draws each row on one line cut at the terminal width.
 func TestTableModel_WindowSizeCutsWideRows(t *testing.T) {

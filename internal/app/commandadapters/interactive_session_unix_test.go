@@ -7,11 +7,13 @@ package commandadapters
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +25,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/xpty"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -58,6 +61,10 @@ type (
 		done chan struct{}
 		wait chan error
 	}
+
+	// syscallFile reaches a file's descriptor through its SyscallConn, as
+	// xpty.UnixPty's Control does for the PTY master.
+	syscallFile struct{ *os.File }
 )
 
 // startPtyHarness starts `sh -c script` on a PTY through startInteractivePty
@@ -531,4 +538,76 @@ func TestInteractiveForceQuitHangsUpNonReadingCommand(t *testing.T) {
 		}
 		time.Sleep(ptyTestPollInterval)
 	}
+}
+
+// TestDuplicatePolledNonBlockingRefusesUnpollableFile checks the fallback of
+// viewerTerminal: for a descriptor the runtime poller refuses, the helper
+// returns nil and leaves the shared open file description blocking, so the
+// original file still waits in Read and Write instead of failing with EAGAIN.
+// Linux's epoll refuses a regular file; kqueue on the BSDs and Darwin accepts
+// one, so the case cannot be built there from a plain file.
+func TestDuplicatePolledNonBlockingRefusesUnpollableFile(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS != "linux" {
+		t.Skip("only Linux's epoll is known to refuse a regular file")
+	}
+
+	file, err := os.CreateTemp(t.TempDir(), "unpollable")
+	if err != nil {
+		t.Fatalf("CreateTemp() error = %v", err)
+	}
+	defer file.Close()
+	if master := duplicatePolledNonBlocking(syscallFile{file}); master != nil {
+		_ = master.Close()
+		t.Fatal("duplicatePolledNonBlocking() returned a file the poller refused")
+	}
+	conn, err := file.SyscallConn()
+	if err != nil {
+		t.Fatalf("SyscallConn() error = %v", err)
+	}
+	var flags int
+	var flagsErr error
+	if err := conn.Control(func(fd uintptr) {
+		flags, flagsErr = unix.FcntlInt(fd, unix.F_GETFL, 0)
+	}); err != nil || flagsErr != nil {
+		t.Fatalf("reading the file's flags: %v, %v", err, flagsErr)
+	}
+	if flags&unix.O_NONBLOCK != 0 {
+		t.Fatal("the shared open file description stayed non-blocking after the fallback")
+	}
+}
+
+// TestDuplicatePolledNonBlockingPolledPtyMaster checks that a duplicate of a PTY
+// master is registered with the poller (its deadline can be set), which the
+// early hang-up of TestInteractiveForceQuitHangsUpNonReadingCommand needs.
+func TestDuplicatePolledNonBlockingPolledPtyMaster(t *testing.T) {
+	t.Parallel()
+
+	pty, err := xpty.NewPty(80, 24)
+	if err != nil {
+		t.Fatalf("NewPty() error = %v", err)
+	}
+	defer pty.Close()
+	terminal := viewerTerminal(pty)
+	nonBlocking, ok := terminal.(*nonBlockingTerminal)
+	if !ok {
+		t.Fatalf("viewerTerminal() = %T, want *nonBlockingTerminal", terminal)
+	}
+	if err := nonBlocking.master.SetReadDeadline(time.Time{}); err != nil {
+		t.Fatalf("SetReadDeadline() on the duplicate error = %v", err)
+	}
+	if err := nonBlocking.master.Close(); err != nil {
+		t.Fatalf("closing the duplicate: %v", err)
+	}
+}
+
+func (f syscallFile) Control(fn func(fd uintptr)) error {
+	conn, err := f.SyscallConn()
+	if err != nil {
+		return fmt.Errorf("syscall conn: %w", err)
+	}
+	if err := conn.Control(fn); err != nil {
+		return fmt.Errorf("control: %w", err)
+	}
+	return nil
 }

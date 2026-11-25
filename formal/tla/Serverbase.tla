@@ -15,7 +15,7 @@
 \*
 \* | model element | Go symbol | file | binding | abstraction |
 \* |---|---|---|---|---|
-\* | Starting steps | Base.TransitionToStarting | internal/core/serverbase/base.go | TestServerbase_SequentialMatchesModel | parent-context cancellation is a nondeterministic boolean; the state check precedes the context check |
+\* | Starting steps | Base.TransitionToStarting | internal/core/serverbase/base.go | TestServerbase_SequentialMatchesModel, TestTransitionToStarting_NotCreatedChangesNothing, TestTransitionToStarting_CancelledOnCreatedFails, TestTransitionToStarting_CancelledRacesStop | parent-context cancellation is a nondeterministic boolean; the state check precedes every effect of the context check |
 \* | Running steps | Base.TransitionToRunning | internal/core/serverbase/base.go | TestServerbase_SequentialMatchesModel | - |
 \* | Failed steps | Base.TransitionToFailed | internal/core/serverbase/base.go | TestServerbase_SequentialMatchesModel | error values abstracted |
 \* | Stopping steps | Base.TransitionToStopping | internal/core/serverbase/base.go | TestServerbase_SequentialMatchesModel | CAS retry loop modelled as a back edge |
@@ -112,11 +112,15 @@ StartBegin(p) == op[p] = "Start" /\ pc[p] = "begin" /\
 \* Stopped in between; the CAS then loses and nothing changes. The Failed
 \* bookkeeping (lastErr, sendErrorLocked, closeErrChannelLocked) follows in the
 \* same critical section; no server context exists yet, so nothing is cancelled.
+\* The history records a change from any state but Created, so the property
+\* checks this step too; the cancel_cas_any_state mutant CASes from every
+\* non-terminal state.
 StartCancelCAS(p) == pc[p] = "start_cancel_cas" /\
-    IF state = "Created"
+    IF state = "Created" \/ (Mutant = "cancel_cas_any_state" /\ state \notin Terminal)
     THEN /\ state' = "Failed" /\ firstTerminal' = Mark("Failed") /\ CloseErrLocked
+         /\ cancelledChangedOther' = (cancelledChangedOther \/ state /= "Created")
          /\ Goto(p, "start_unlock")
-         /\ UNCHANGED <<cancelledChangedOther, mu, ctxVars, sentAfterClose, startedVars, stopWon, callerVars>>
+         /\ UNCHANGED <<mu, ctxVars, sentAfterClose, startedVars, stopWon, callerVars>>
     ELSE /\ Goto(p, "start_unlock")
          /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
 
@@ -248,4 +252,6 @@ CancelledStartChangesOnlyCreated == ~cancelledChangedOther
 WitnessNoConcurrentStop == ~(\A p \in Procs : op[p] = "Stop" /\ pc[p] /= "begin")
 WitnessNeverRunning == state /= "Running"
 WitnessNeverStartedClosed == startedCloses = 0
+\* A cancelled Start reaches its CAS on a server that is no longer Created.
+WitnessCancelledStartOnlyOnCreated == ~(\E p \in Procs : pc[p] = "start_cancel_cas" /\ state /= "Created")
 =============================================================================

@@ -42,12 +42,12 @@ type (
 	// runs onReady once, at the first Accept.
 	//
 	// Workaround for https://github.com/charmbracelet/ssh/issues/61: in
-	// charm.land/ssh v0.4.3, a Shutdown that runs before Serve has registered
-	// its listener returns at once, and Serve then registers the listener,
-	// resets its done channel and serves on, so its listener WaitGroup's Add
-	// races Shutdown's Wait. Serve calls trackListener (the Add) before its
-	// first Accept in the same goroutine, so readiness signalled from that
-	// Accept orders the Add before any Shutdown that teardown runs. Remove
+	// charm.land/ssh v0.4.3, a Close or Shutdown that runs before Serve has
+	// registered its listener does not reach that listener: Serve then
+	// registers it and serves on (with Shutdown, its listener WaitGroup's Add
+	// also races Shutdown's Wait). Serve calls trackListener before its first
+	// Accept in the same goroutine, so readiness signalled from that Accept
+	// orders the registration before the library Close that teardown runs. Remove
 	// the wrapper, the serve gate and teardown's wait for it (back to a plain
 	// Close after closing the listener) once upstream fixes the defect;
 	// re-check that ordering whenever charm.land/ssh is upgraded.
@@ -279,8 +279,9 @@ func (s *Server) doStop() error {
 // the only code that does either, it runs at most once, and its caller holds
 // stopMu. It shuts the library down only after the serve goroutine has
 // reached its first Accept or returned, waiting at most ShutdownTimeout; on a
-// timeout it skips the shutdown (so the library's listener WaitGroup Add
-// cannot race a Wait) and returns an error wrapping context.DeadlineExceeded.
+// timeout it skips the shutdown (so the library's Close never runs before
+// Serve registered its listener) and returns an error wrapping
+// context.DeadlineExceeded.
 // The closed listener still ends the serve loop at its first Accept.
 //
 // The shutdown closes every accepted connection (finding F11), calls the

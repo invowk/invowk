@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -111,7 +112,7 @@ func TestRunPromptCancellationForwardsCancel(t *testing.T) {
 // elicitation, answers an elicitation request with method-not-found, and
 // still completes the prompt turn.
 func TestRunPromptDeclinesElicitation(t *testing.T) {
-	reportFile := types.FilesystemPath(t.TempDir() + "/report")
+	reportFile := types.FilesystemPath(filepath.Join(t.TempDir(), "report"))
 	t.Setenv(fakeAgentEnv, "1")
 	t.Setenv(fakeAgentScenarioEnv, fakeAgentScenarioElicitation)
 	t.Setenv(fakeAgentReportFileEnv, reportFile.String())

@@ -84,10 +84,16 @@ func (m *tableModel) Init() tea.Cmd {
 func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// A table without a configured width is as wide as its columns, cut at
 	// the terminal edge so a row never wraps. A configured width (opts.Width
-	// or an overlay's SetSize) always wins, whatever the order of the two.
+	// or an overlay's SetSize) always wins, whatever the order of the two. A
+	// terminal width of 0 (a pty whose size is unset) is unknown, not a limit:
+	// a row viewport of width 0 would draw no rows at all.
 	if sizeMsg, ok := msg.(tea.WindowSizeMsg); ok && m.width == 0 && !m.done {
 		m.termWidth, _ = validatedWindowDimensions(sizeMsg)
-		m.table.SetWidth(int(min(m.naturalWidth, m.termWidth)))
+		width := m.naturalWidth
+		if m.termWidth > 0 {
+			width = min(width, m.termWidth)
+		}
+		m.table.SetWidth(int(width))
 		return m, nil
 	}
 

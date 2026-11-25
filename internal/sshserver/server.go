@@ -80,7 +80,7 @@ type (
 		listener serverListener
 		addr     string // Actual bound address (including resolved port)
 		// gate opens once the serve goroutine has reached the SSH library's
-		// first Accept or returned; teardown waits for it before Shutdown.
+		// first Accept or returned; teardown waits for it before the library's Close.
 		gate *serveGate
 		// tornDown is set by the first teardown; Start publishes nothing after it.
 		tornDown bool
