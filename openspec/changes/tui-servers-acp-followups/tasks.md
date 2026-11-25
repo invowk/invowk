@@ -4,10 +4,10 @@ All paths are in the worktree `/var/home/danilo/Workspace/github/invowk/invowk-w
 
 ## 1. A drawn table shows its data rows (design D1)
 
-- [ ] 1.1 Add tmux subtests to `TestTUI_Table` (`tests/cli/tui_tmux_test.go`) for a display table and a `--selectable` table on `name,age,city` / `Alice,30,NYC` / `Bob,25,LA`: wait for `Alice` and `Bob` on separate pane lines before any key; for the selectable one send Down and Enter and check that the printed row is `Bob,25,LA`. Run them against the base binary and record that they fail (`go test -run 'TestTUI_Table' ./tests/cli/`)
-- [ ] 1.2 Add a unit test in `internal/tui/tui_table_test.go` that the `View()` of `NewTableModel` with two rows contains both rows' cells, and one that a table whose columns exceed a `WindowSizeMsg` width renders each row on one line no wider than that width; see both fail on the base
-- [ ] 1.3 In `internal/tui/table.go`, set the table width when the model is built (`opts.Width`, else the natural width of the columns) and handle `tea.WindowSizeMsg` in the standalone model as D1 says; keep `SetSize` for overlays
-- [ ] 1.4 Verify: `go test -run 'TestNewTableModel|TestTableModel' ./internal/tui/` and `go test -run 'TestTUI_Table' ./tests/cli/` pass
+- [x] 1.1 Add tmux subtests to `TestTUI_Table` (`tests/cli/tui_tmux_test.go`) for a display table and a `--selectable` table on `name,age,city` / `Alice,30,NYC` / `Bob,25,LA`: wait for `Alice` and `Bob` on separate pane lines before any key; for the selectable one send Down and Enter and check that the printed row is `Bob,25,LA`. Run them against the base binary and record that they fail (`go test -run 'TestTUI_Table' ./tests/cli/`). Recorded: on the base both fail with "Alice -1, Bob -1" (header and rule only)
+- [x] 1.2 Add a unit test in `internal/tui/tui_table_test.go` that the `View()` of `NewTableModel` with two rows contains both rows' cells, and one that a table whose columns exceed a `WindowSizeMsg` width renders each row on one line no wider than that width; see both fail on the base
+- [x] 1.3 In `internal/tui/table.go`, set the table width when the model is built (`opts.Width`, else the natural width of the columns) and handle `tea.WindowSizeMsg` in the standalone model as D1 says; keep `SetSize` for overlays
+- [x] 1.4 Verify: `go test -run 'TestNewTableModel|TestTableModel' ./internal/tui/` and `go test -run 'TestTUI_Table' ./tests/cli/` pass
 
 ## 2. Plain-text table cell text (design D2)
 

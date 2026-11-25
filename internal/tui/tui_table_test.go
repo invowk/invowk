@@ -3,10 +3,12 @@
 package tui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 func TestNewTableModel(t *testing.T) {
@@ -565,4 +567,89 @@ func TestTableModel_UnicodeAndLongInputs(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestTableModel_ViewDrawsRows checks that a table drawn without an overlay
+// shows its data rows, each on its own line below the titles (decision 98a):
+// the base built the bubbles table without a width, so its row viewport
+// rendered nothing.
+func TestTableModel_ViewDrawsRows(t *testing.T) {
+	t.Parallel()
+
+	model := NewTableModel(TableOptions{
+		Columns: []TableColumn{{Title: "name"}, {Title: "age"}, {Title: "city"}},
+		Rows:    [][]string{{"Alice", "30", "NYC"}, {"Bob", "25", "LA"}},
+		Config:  DefaultConfig(),
+	})
+
+	lines := strings.Split(stripANSI(model.View().Content), "\n")
+	header := tableLineWithFields(lines, "name", "age", "city")
+	alice := tableLineWithFields(lines, "Alice", "30", "NYC")
+	bob := tableLineWithFields(lines, "Bob", "25", "LA")
+	if header < 0 || alice <= header || bob <= alice {
+		t.Fatalf("rows not drawn below the titles (header %d, Alice %d, Bob %d), view:\n%s", header, alice, bob, strings.Join(lines, "\n"))
+	}
+}
+
+// TestTableModel_WindowSizeCutsWideRows checks that a table wider than the
+// terminal draws each row on one line cut at the terminal width.
+func TestTableModel_WindowSizeCutsWideRows(t *testing.T) {
+	t.Parallel()
+
+	const termWidth = 50
+	model := NewTableModel(TableOptions{
+		Columns: []TableColumn{{Title: "name", Width: 40}, {Title: "age", Width: 40}, {Title: "city", Width: 40}},
+		Rows:    [][]string{{"Alice", "30", "NYC"}, {"Bob", "25", "LA"}},
+		Config:  DefaultConfig(),
+	})
+	model.Update(tea.WindowSizeMsg{Width: termWidth, Height: 20})
+
+	lines := strings.Split(stripANSI(model.View().Content), "\n")
+	aliceLines, bobLines := 0, 0
+	for _, line := range lines {
+		if w := lipgloss.Width(line); w > termWidth {
+			t.Errorf("line %q is %d cells wide, more than the terminal's %d", line, w, termWidth)
+		}
+		if strings.Contains(line, "Alice") {
+			aliceLines++
+		}
+		if strings.Contains(line, "Bob") {
+			bobLines++
+		}
+		if strings.Contains(line, "NYC") || strings.Contains(line, "LA") {
+			t.Errorf("line %q holds a cell beyond the terminal width", line)
+		}
+	}
+	if aliceLines != 1 || bobLines != 1 {
+		t.Fatalf("expected each row on exactly one line (Alice %d, Bob %d), view:\n%s", aliceLines, bobLines, strings.Join(lines, "\n"))
+	}
+}
+
+// TestTableModel_WindowSizeKeepsConfiguredWidth checks that a terminal size
+// never overrides a width that SetSize configured for an overlay.
+func TestTableModel_WindowSizeKeepsConfiguredWidth(t *testing.T) {
+	t.Parallel()
+
+	model := NewTableModel(TableOptions{
+		Columns: []TableColumn{{Title: "name"}},
+		Rows:    [][]string{{"Alice"}},
+		Config:  DefaultConfig(),
+	})
+	model.SetSize(30, 10)
+	model.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	if model.width != 30 || model.table.Width() != 30 {
+		t.Fatalf("expected SetSize's width 30 to stay, got model %d, table %d", model.width, model.table.Width())
+	}
+}
+
+// tableLineWithFields returns the index of the first line whose
+// whitespace-separated fields are exactly fields, or -1.
+func tableLineWithFields(lines []string, fields ...string) int {
+	for i, line := range lines {
+		if slices.Equal(strings.Fields(line), fields) {
+			return i
+		}
+	}
+	return -1
 }

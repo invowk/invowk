@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -436,6 +437,45 @@ func TestTUI_Table(t *testing.T) {
 		}
 	})
 
+	// A drawn table shows its data rows before any key press, each on its own
+	// line (decision 98a): the base drew only the header and its rule, since
+	// the table's row viewport had no width.
+	t.Run("display_draws_rows", func(t *testing.T) {
+		t.Parallel()
+
+		csvPath := writeTableRowsCSV(t)
+		s := newTmuxSession(t, "table-display-rows")
+		command := fmt.Sprintf("%s tui table --file %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(csvPath))
+		s.sendKeys(command, "Enter")
+
+		waitForTableRows(t, s)
+		s.sendKeys("Escape")
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
+			t.Fatalf("table command did not exit within timeout, pane:\n%s", s.capturePlain())
+		}
+	})
+
+	t.Run("selectable_draws_rows", func(t *testing.T) {
+		t.Parallel()
+
+		csvPath := writeTableRowsCSV(t)
+		s := newTmuxSession(t, "table-select-rows")
+		command := fmt.Sprintf("row=$(%s tui table --file %s --selectable); echo INVOWK_EXIT:$? INVOWK_ROW:$row", binaryPath, shellQuote(csvPath))
+		s.sendKeys(command, "Enter")
+
+		waitForTableRows(t, s)
+		time.Sleep(tuiInputSettleDelay)
+		s.sendKeys("Down")
+		time.Sleep(tuiInputSettleDelay)
+		s.sendKeys("Enter")
+		if !s.waitFor("INVOWK_ROW:", tmuxWaitTimeout) {
+			t.Fatalf("selectable table did not exit within timeout, pane:\n%s", s.capturePlain())
+		}
+		if pane := s.capturePlain(); !strings.Contains(pane, "INVOWK_EXIT:0 INVOWK_ROW:Bob,25,LA") {
+			t.Fatalf("expected the selected row Bob,25,LA, pane:\n%s", pane)
+		}
+	})
+
 	// With a terminal present and stdout piped, a non-selectable table prints
 	// plain-text rows and exits without a key press (tui-clean-terminal-path,
 	// N15).
@@ -538,6 +578,50 @@ func waitForPath(path string, timeout time.Duration) bool {
 		time.Sleep(20 * time.Millisecond)
 	}
 	return true
+}
+
+// writeTableRowsCSV writes the three-column table of the drawn-table tests and
+// returns its path.
+func writeTableRowsCSV(t *testing.T) string {
+	t.Helper()
+
+	csvPath := filepath.Join(t.TempDir(), "rows.csv")
+	if err := os.WriteFile(csvPath, []byte("name,age,city\nAlice,30,NYC\nBob,25,LA\n"), 0o644); err != nil {
+		t.Fatalf("failed to create csv file: %v", err)
+	}
+	return csvPath
+}
+
+// waitForTableRows waits until the pane shows the rows of writeTableRowsCSV
+// below their titles, each row on its own line, and fails the test otherwise.
+func waitForTableRows(t *testing.T, s *tmuxSession) {
+	t.Helper()
+
+	deadline := time.Now().Add(tmuxWaitTimeout)
+	for {
+		pane := s.capturePlain()
+		header := paneLineWithFields(pane, "name", "age", "city")
+		alice := paneLineWithFields(pane, "Alice", "30", "NYC")
+		bob := paneLineWithFields(pane, "Bob", "25", "LA")
+		if header >= 0 && alice > header && bob > alice {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("table rows not drawn on separate lines below the titles (header %d, Alice %d, Bob %d), pane:\n%s", header, alice, bob, pane)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// paneLineWithFields returns the index of the first pane line whose
+// whitespace-separated fields are exactly fields, or -1.
+func paneLineWithFields(pane string, fields ...string) int {
+	for i, line := range strings.Split(pane, "\n") {
+		if slices.Equal(strings.Fields(line), fields) {
+			return i
+		}
+	}
+	return -1
 }
 
 // paneHasLine reports whether a line of the captured pane, without trailing
