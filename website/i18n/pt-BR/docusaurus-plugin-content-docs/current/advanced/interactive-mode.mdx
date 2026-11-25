@@ -56,6 +56,20 @@ O modo interativo funciona com **todos os runtimes**: native, virtual-sh, virtua
 
 Toda entrada de teclado é encaminhada diretamente para o comando em execução, permitindo interação completa com prompts de senha, editores e outros programas interativos.
 
+### O Terminal do Comando
+
+O pseudo-terminal do visualizador é o terminal do comando: no Unix o comando começa em uma nova sessão cujo terminal de controle é esse PTY, que também é seu stdin, stdout e stderr. Um programa que abre `/dev/tty` recebe o visualizador, então componentes `invowk tui *` sem o servidor TUI e prompts de `sudo` e `ssh` desenham e leem dentro do visualizador, nunca no terminal em que o invowk roda.
+
+Como o PTY é um terminal de controle de verdade, os sinais usuais de terminal chegam ao comando no Unix:
+
+- **Ctrl+C** chega ao comando como o caractere de interrupção, então seu job em primeiro plano recebe `SIGINT` (um programa em modo raw lê a tecla). O visualizador continua aberto e mostra a conclusão.
+- **Redimensionar** o seu terminal redimensiona o terminal do comando para a área de comando do visualizador (a largura do seu terminal, e a altura menos as linhas de cabeçalho e rodapé do visualizador) e entrega `SIGWINCH`.
+- **Ctrl+\\** sai do visualizador na hora e desliga (hang-up) o terminal do comando: sua sessão recebe `SIGHUP`.
+- **Jobs em segundo plano** que um script inicia com `&` terminam com `SIGHUP` quando o processo principal do comando sai, como quando uma janela de terminal fecha. Desanexe um job que precisa continuar rodando (`nohup`, `setsid`). Execuções sem `-i` não são afetadas.
+- **Ctrl+Z** não suspende o comando (a sessão do comando não tem controle de jobs); um programa em modo raw lê a tecla. **Ctrl+D** é fim de arquivo, como em qualquer terminal.
+
+Para um comando de container, a CLI do engine (`docker` ou `podman`) é o processo no PTY: o hang-up chega à CLI do engine, e o que acontece então com os processos dentro do container é comportamento do engine. No Windows o comando roda no pseudo-console que o invowk cria para ele, como antes; nada da configuração de sessão acima se aplica lá.
+
 ### Após a Conclusão do Comando
 
 Uma vez que o comando termina, você pode revisar a saída:

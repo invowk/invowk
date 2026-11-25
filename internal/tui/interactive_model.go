@@ -393,16 +393,15 @@ func (m *interactiveModel) forwardKeyToPty(msg tea.KeyPressMsg) {
 // handleWindowSize handles terminal resize events.
 func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.width, m.height = validatedWindowDimensions(msg)
-	headerHeight := 2 // Title + separator
-	footerHeight := 1 // Status line
-	viewportHeight := max(msg.Height-headerHeight-footerHeight, 1)
+	_, rows := InteractiveCommandArea(m.width, m.height)
+	viewportHeight := int(rows)
 
 	if !m.ready {
 		m.viewport = viewport.New(
 			viewport.WithWidth(msg.Width),
 			viewport.WithHeight(viewportHeight),
 		)
-		m.viewport.YPosition = headerHeight
+		m.viewport.YPosition = interactiveHeaderRows
 		m.ready = true
 		m.viewport.SetContent(m.content.String())
 	} else {
@@ -416,8 +415,9 @@ func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, t
 		m.activeComponent.SetSize(modalSize.Width, modalSize.Height)
 	}
 
-	// Resize the terminal session to match
-	if m.terminal != nil && m.state == stateExecuting {
+	// Resize the terminal session to match while the command runs, also while
+	// a server component overlays it: the command keeps running underneath.
+	if m.terminal != nil && m.state != stateCompleted {
 		_ = m.terminal.Resize(msg.Width, viewportHeight) //nolint:errcheck // Best-effort resize
 	}
 

@@ -22,6 +22,11 @@ type (
 		view      string
 	}
 
+	resizeRecordingTerminal struct {
+		fakeInteractiveTerminal
+		sizes [][2]int
+	}
+
 	styledTextRequestCase struct {
 		name      string
 		options   any
@@ -355,5 +360,53 @@ func TestInteractiveModel_ChildQuitBecomesCompletion(t *testing.T) {
 	}
 	if model.state != stateExecuting {
 		t.Errorf("state = %v, want stateExecuting", model.state)
+	}
+}
+
+func (r *resizeRecordingTerminal) Resize(width, height int) error {
+	r.sizes = append(r.sizes, [2]int{width, height})
+	return nil
+}
+
+func TestInteractiveCommandArea(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct{ w, h, wantCols, wantRows TerminalDimension }{
+		{w: 100, h: 30, wantCols: 100, wantRows: 27},
+		{w: 80, h: 24, wantCols: 80, wantRows: 21},
+		{w: 10, h: 3, wantCols: 10, wantRows: 1},
+		{w: 10, h: 1, wantCols: 10, wantRows: 1},
+	}
+	for _, tt := range tests {
+		cols, rows := InteractiveCommandArea(tt.w, tt.h)
+		if cols != tt.wantCols || rows != tt.wantRows {
+			t.Errorf("InteractiveCommandArea(%d, %d) = %dx%d, want %dx%d", tt.w, tt.h, cols, rows, tt.wantCols, tt.wantRows)
+		}
+	}
+}
+
+// TestInteractiveModel_WindowSizeResizesTerminalWhileRunning: the command's
+// terminal follows the viewer's command area in every running state, with a
+// server component overlay too, and no longer after completion.
+func TestInteractiveModel_WindowSizeResizesTerminalWhileRunning(t *testing.T) {
+	t.Parallel()
+
+	for _, state := range []executionState{stateExecuting, stateTUI, stateCompleted} {
+		t.Run(state.String(), func(t *testing.T) {
+			t.Parallel()
+			term := &resizeRecordingTerminal{}
+			model := newInteractiveModel(InteractiveOptions{}, term)
+			model.state = state
+			model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+			if state == stateCompleted {
+				if len(term.sizes) != 0 {
+					t.Fatalf("resizes after completion = %v, want none", term.sizes)
+				}
+				return
+			}
+			if len(term.sizes) != 1 || term.sizes[0] != [2]int{100, 27} {
+				t.Fatalf("resizes = %v, want one to 100x27", term.sizes)
+			}
+		})
 	}
 }

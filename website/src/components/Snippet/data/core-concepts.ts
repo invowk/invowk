@@ -578,8 +578,11 @@ invowk cmd database-cli --ivk-interactive`,
   'interactive/key-bindings-executing': {
     language: 'text',
     code: `During command execution:
-  All keys      → Forwarded to running command
-  Ctrl+\        → Emergency quit (force exit)`,
+  All keys      → Forwarded to the command's terminal
+  Ctrl+C        → Interrupt: SIGINT to the command's foreground job (Unix)
+  Ctrl+D        → End of file, as in any terminal
+  Ctrl+Z        → Forwarded; does not suspend the command
+  Ctrl+\\        → Force quit: leave the viewer and hang up the command`,
   },
 
   'interactive/key-bindings-completed': {

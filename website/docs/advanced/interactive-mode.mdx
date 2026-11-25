@@ -56,6 +56,20 @@ Interactive mode works with **all runtimes**: native, virtual-sh, virtual-lua, a
 
 All keyboard input is forwarded directly to the running command, allowing full interaction with password prompts, editors, and other interactive programs.
 
+### The Command's Terminal
+
+The viewer's pseudo-terminal is the command's terminal: on Unix the command starts in a new session whose controlling terminal is that PTY, which is also its stdin, stdout and stderr. A program that opens `/dev/tty` gets the viewer, so `invowk tui *` components without the TUI server, `sudo` and `ssh` prompts draw and read inside the viewer, never on the terminal invowk runs in.
+
+Because the PTY is a real controlling terminal, the usual terminal signals reach the command on Unix:
+
+- **Ctrl+C** reaches the command as the interrupt character, so its foreground job gets `SIGINT` (a program in raw mode reads the key instead). The viewer stays open and shows the completion.
+- **Resizing** your terminal resizes the command's terminal to the viewer's command area (your terminal's width, and its height minus the viewer's header and footer rows) and delivers `SIGWINCH`.
+- **Ctrl+\\** leaves the viewer at once and hangs up the command's terminal: its session gets `SIGHUP`.
+- **Background jobs** that a script starts with `&` end with `SIGHUP` when the command's main process exits, as when a terminal window closes. Detach a job that must keep running (`nohup`, `setsid`). Runs without `-i` are not affected.
+- **Ctrl+Z** does not suspend the command (the command's session has no job control); a program in raw mode reads the key. **Ctrl+D** is end-of-file, as in any terminal.
+
+For a container command, the engine CLI (`docker` or `podman`) is the process on the PTY: the hang-up reaches the engine CLI, and what then happens to the processes inside the container is the engine's behavior. On Windows the command runs on the pseudo-console invowk creates for it, as before; none of the session setup above applies there.
+
 ### After Command Completion
 
 Once the command finishes, you can review the output:

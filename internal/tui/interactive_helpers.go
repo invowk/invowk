@@ -7,6 +7,13 @@ import (
 	"regexp"
 )
 
+const (
+	// interactiveHeaderRows is the viewer's title line plus its separator.
+	interactiveHeaderRows = 2
+	// interactiveFooterRows is the viewer's status line.
+	interactiveFooterRows = 1
+)
+
 // oscSequenceRe matches all OSC (Operating System Command) escape sequences.
 // OSC sequences are used for terminal features like window titles, hyperlinks,
 // color queries, clipboard operations, etc.
@@ -31,6 +38,15 @@ var oscSequenceRe = regexp.MustCompile(
 // sequences appear as visual garbage.
 func stripOSCSequences(s string) string {
 	return oscSequenceRe.ReplaceAllString(s, "")
+}
+
+// InteractiveCommandArea returns the size of the command area of an
+// interactive viewer drawn in a terminal of the given size: the full width,
+// and the height without the viewer's header and footer rows (at least one
+// row). Runtime adapters create the command's terminal at this size, so the
+// command sees no size change when the viewer draws its first frame.
+func InteractiveCommandArea(width, height TerminalDimension) (cols, rows TerminalDimension) {
+	return width, max(height-interactiveHeaderRows-interactiveFooterRows, 1)
 }
 
 func newInteractiveModel(opts InteractiveOptions, terminal InteractiveTerminal) *interactiveModel {
