@@ -71,7 +71,9 @@ longer exists. Add new coverage to the Go tmux harness.
    command can otherwise satisfy the wait before the UI draws.
 5. Assert on plain text for behavior and ANSI capture only when style matters.
    Use `INVOWK_EXIT:$?` or a command-specific marker for completion/exit checks,
-   and quote filesystem paths with the existing helpers (`shellQuote`).
+   and quote filesystem paths with the existing helpers (`shellQuote`). Wait for
+   the expanded result (`INVOWK_EXIT:0 INVOWK_ROW:Bob,25,LA`), never a bare
+   marker such as `INVOWK_ROW:` that the typed `echo` line already shows.
 6. Always clean up the session with `t.Cleanup` (done by `newTmuxSession`).
 
 Do not copy ad hoc tmux shell commands into tests. If you need to experiment

@@ -64,19 +64,19 @@ All paths are in the worktree `/var/home/danilo/Workspace/github/invowk/invowk-w
 
 ## 9. Formal-bindings refresh and integration
 
-- [ ] 9.1 After the review fixes and after W1a has merged and this branch is rebased: `python3 scripts/formal_mutation.py plan --out <scratch>` and `symbols` for every rewritten bound symbol (D9); on `-> refresh`, one report-only `make mutation-formal` in a throwaway worktree, `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=...`, triage of every added entry, the reruns it names, and `python3 scripts/formal_mutation.py triage --check`
-- [ ] 9.2 Verify: `python3 scripts/formal.py correspondence`, `make formal-reach`, `make test-scripts` and `make formal` (when Java is available) pass
+- [x] 9.1 After the review fixes and after W1a has merged and this branch is rebased: `python3 scripts/formal_mutation.py plan --out <scratch>` and `symbols` for every rewritten bound symbol (D9); on `-> refresh`, one report-only `make mutation-formal` in a throwaway worktree, `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=...`, triage of every added entry, the reruns it names, and `python3 scripts/formal_mutation.py triage --check` Done 2026-11-25 by the fix stage on origin/main 2bec9446 (W1a not merged yet: redo after its merge): `symbols` labelled Base.TransitionToStarting, Server.Stop, Server.admitConn and the newly bound Server.closeAcceptedConns planned; two report-only runs (the first showed `requireNoIndexedConns` ignoring its poll and `sendErrorLocked` unasserted; both tests fixed, then rerun on b421f95e); refresh removed 5, added 6 (`binding-gap`), kept 4
+- [x] 9.2 Verify: `python3 scripts/formal.py correspondence`, `make formal-reach`, `make test-scripts` and `make formal` (when Java is available) pass Fix stage 2026-11-25 at 279a213a: correspondence, `make formal-reach`, `make test-scripts` and `make formal` passed
 
 ## 10. Completion gates (.agents/rules/checklist.md)
 
-- [ ] 10.1 `make tidy`; `make license-check` for new Go files
-- [ ] 10.2 `make lint`, fixing every issue
-- [ ] 10.3 `make test`
-- [ ] 10.4 `make check-baseline`, triaging every new goplint finding
-- [ ] 10.5 `make check-file-length`
-- [ ] 10.6 `make sonar-local`
-- [ ] 10.7 Conditional checks: `make test-scripts` (formal changed), `python3 scripts/formal.py correspondence` and `make formal`, `make check-agent-docs` (server skill changed), `cd website && npm run build` (docs changed)
-- [ ] 10.8 `/learn`
+- [x] 10.1 `make tidy`; `make license-check` for new Go files Passed (no new Go file)
+- [x] 10.2 `make lint`, fixing every issue Passed
+- [x] 10.3 `make test` Passed on the final head after the tmux wait fix (fix stage)
+- [x] 10.4 `make check-baseline`, triaging every new goplint finding Passed on the final head (fix stage); no new finding after the review fixes
+- [x] 10.5 `make check-file-length` Passed
+- [x] 10.6 `make sonar-local` Passed (no branch analysis available locally)
+- [x] 10.7 Conditional checks: `make test-scripts` (formal changed), `python3 scripts/formal.py correspondence` and `make formal`, `make check-agent-docs` (server skill changed), `cd website && npm run build` (docs changed) Passed: test-scripts, correspondence, `make formal`, check-agent-docs, website build
+- [x] 10.8 `/learn` Fix stage, after the archive: testing skill (PollUntil result) and tmux-testing skill (wait for the expanded exit marker)
 
 ## Workflow follow-up
 
