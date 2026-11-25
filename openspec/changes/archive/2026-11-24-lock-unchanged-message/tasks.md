@@ -23,8 +23,8 @@
 ## 4. Formal correspondence
 
 - [x] 4.1 Extend the notes of the `LockFile.Save` rows (`formal/tla/AtomicWrite.tla:27`, `formal/tla/ConcurrentModuleEdits.tla:60`) to say that `Save` delegates to `SaveIfChanged`, which holds the skip-or-replace body and which the resolver calls, and that the written flag is reporting only; keep the symbol `LockFile.Save` and do not touch `formal/manifest.toml` `[triage]` (design D6). Update the line references in the `ConcurrentModuleEdits.tla` rows (`:43-54`) and step comments (`:162-189`) and in `LockIntegrity.tla:32` to the new line numbers. No model logic changes. Verify `python3 scripts/formal.py correspondence` and `make formal-reach` pass.
-- [ ] 4.2 Run `make formal` when Java is available (under the heavy-command lock, backgrounded with an `rc=` log); otherwise say so in the result. Because `formal/` changed, run `make test-scripts` the same way and verify it passes.
-- [ ] 4.3 Fix stage, after the review fixes and the tidy and lint fixes are committed: run `python3 scripts/formal_mutation.py plan --out <scratch>` and `symbols --plan <scratch>/formal-plan.json internal/app/modulesync/resolver.go:Resolver.Add internal/app/modulesync/resolver.go:Resolver.Remove internal/app/modulesync/resolver.go:Resolver.Update internal/app/modulesync/resolver.go:Resolver.Sync pkg/invowkmod/lockfile.go:LockFile.Save` (plus any other bound symbol whose body changed), expect `-> refresh`, then run `make mutation-formal` once, report-only, in a throwaway worktree, refresh the planned symbols, triage the added entries, run the named reruns, and commit baseline, ledger and reruns (`.agents/runbooks/change-flow.md`, Formal lane). Verify `python3 scripts/formal_mutation.py triage --check` passes.
+- [x] 4.2 Run `make formal` when Java is available (under the heavy-command lock, backgrounded with an `rc=` log); otherwise say so in the result. Because `formal/` changed, run `make test-scripts` the same way and verify it passes.
+- [x] 4.3 Fix stage, after the review fixes and the tidy and lint fixes are committed: run `python3 scripts/formal_mutation.py plan --out <scratch>` and `symbols --plan <scratch>/formal-plan.json internal/app/modulesync/resolver.go:Resolver.Add internal/app/modulesync/resolver.go:Resolver.Remove internal/app/modulesync/resolver.go:Resolver.Update internal/app/modulesync/resolver.go:Resolver.Sync pkg/invowkmod/lockfile.go:LockFile.Save` (plus any other bound symbol whose body changed), expect `-> refresh`, then run `make mutation-formal` once, report-only, in a throwaway worktree, refresh the planned symbols, triage the added entries, run the named reruns, and commit baseline, ledger and reruns (`.agents/runbooks/change-flow.md`, Formal lane). Verify `python3 scripts/formal_mutation.py triage --check` passes.
 
 ## 5. Docs
 
@@ -32,14 +32,14 @@
 
 ## 6. Completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 6.1 `make tidy`; `make license-check` for the new Go test file.
-- [ ] 6.2 `make lint` passes with no issues (under the heavy-command lock).
-- [ ] 6.3 `make test` passes (full suite, under the heavy-command lock, backgrounded with an `rc=` log).
-- [ ] 6.4 `make check-baseline` passes; triage any new goplint finding (for `SaveIfChanged`, a sibling exception with the reason "filepath boundary", design D1).
-- [ ] 6.5 `make check-file-length` passes.
-- [ ] 6.6 `make sonar-local`: no new real issues (no go:S8209, go:S1192 outside tests, go:S107 or go:S8239 in new code).
-- [ ] 6.7 Conditional checks: `python3 scripts/formal.py correspondence`, `make test-scripts` (formal changed), `cd website && npm run build` (website changed), `make check-agent-docs` only if `.agents/` changed.
-- [ ] 6.8 `/learn` (`.agents/skills/learn/`) last; it does not edit the change-flow tooling inside this PR.
+- [x] 6.1 `make tidy`; `make license-check` for the new Go test file.
+- [x] 6.2 `make lint` passes with no issues (under the heavy-command lock).
+- [x] 6.3 `make test` passes (full suite, under the heavy-command lock, backgrounded with an `rc=` log).
+- [x] 6.4 `make check-baseline` passes; triage any new goplint finding (for `SaveIfChanged`, a sibling exception with the reason "filepath boundary", design D1).
+- [x] 6.5 `make check-file-length` passes.
+- [x] 6.6 `make sonar-local`: no new real issues (no go:S8209, go:S1192 outside tests, go:S107 or go:S8239 in new code).
+- [x] 6.7 Conditional checks: `python3 scripts/formal.py correspondence`, `make test-scripts` (formal changed), `cd website && npm run build` (website changed), `make check-agent-docs` only if `.agents/` changed.
+- [x] 6.8 `/learn` (`.agents/skills/learn/`) last; it does not edit the change-flow tooling inside this PR.
 
 ## Workflow follow-up
 

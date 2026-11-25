@@ -167,6 +167,9 @@ tool or a model.
    ledger survivor of an unbound row is listed in the shrink-only `[triage]`
    table; rows unbound by design (no symbol, a non-function symbol,
    trace-only, characterisation-only) are derived and reported, never listed.
+   A characterisation-only row (its binding is a `_Finding*` test) has no
+   killer, so reach never runs its binding: check a claim that such a row
+   "will fail reach" with `make formal-reach`, not with coverage of that test.
    `triage --check` fails on any entry of `[triage]` or
    `[correspondence] unresolved_elements` that the base does not list. The
    base is `--base <sha>`, else a non-empty `INVOWK_TRIAGE_BASE`, else the
