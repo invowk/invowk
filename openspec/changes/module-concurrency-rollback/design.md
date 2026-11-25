@@ -303,11 +303,41 @@ Docs: `website/docs/advanced/llm-assisted-authoring.mdx` and its pt-BR copy get 
 
 ### Refactor check (C0)
 
-Filled by the C0 commit: for each of the 31 `ConcurrentModuleEdits` commands, the verdict and `distinct_states` at 88f44a6e (the manifest values) and at C0. They must be equal in every row; a difference blocks C0.
+Filled by the C0 commit (TLC run 2026-11-25, `python3 scripts/formal.py tla ConcurrentModuleEdits`, no "differ from recorded" warning): for each of the 31 `ConcurrentModuleEdits` commands, the verdict and `distinct_states` at 88f44a6e (the manifest values) and at C0. They must be equal in every row; a difference blocks C0.
 
 | Command | 88f44a6e verdict / states | C0 verdict / states |
 |---|---|---|
-| (31 rows, filled by the implementation) | | |
+| `syncAddProjectLock` | pass / 49 | pass / 49 |
+| `findingF8SyncOverwritesConcurrentAdd` | counterexample / 80 | counterexample / 80 |
+| `mutantReleaseBetweenFiles` | counterexample / 74 | counterexample / 74 |
+| `updateAddProjectLock` | pass / 46 | pass / 46 |
+| `findingF8UpdateOverwritesConcurrentAdd` | counterexample / 89 | counterexample / 89 |
+| `mutantUpdateAddLockAfterSnapshot` | counterexample / 89 | counterexample / 89 |
+| `updateRemoveProjectLock` | pass / 43 | pass / 43 |
+| `findingF8UpdateResurrectsConcurrentRemove` | counterexample / 80 | counterexample / 80 |
+| `mutantUpdateRemoveLockAfterSnapshot` | counterexample / 83 | counterexample / 83 |
+| `addAddSameProjectLock` | pass / 71 | pass / 71 |
+| `findingF8DuplicateAddRollsBackOtherAdd` | counterexample / 342 | counterexample / 342 |
+| `mutantAddAddLockAfterSnapshot` | counterexample / 192 | counterexample / 192 |
+| `rollbackReadAtomicRestore` | pass / 52 | pass / 52 |
+| `findingF10NonAtomicRollback` | counterexample / 31 | counterexample / 31 |
+| `mutantRestoreRemoveThenWrite` | counterexample / 31 | counterexample / 31 |
+| `fetchProjectAndSourceLock` | pass / 196 | pass / 196 |
+| `findingF9SharedWorktreeRecordsWrongContent` | counterexample / 47 | counterexample / 47 |
+| `mutantNoSourceLock` | counterexample / 67 | counterexample / 67 |
+| `vendorSyncProjectLock` | pass / 40 | pass / 40 |
+| `proposedVendorFromStaleLock` | counterexample / 30 | counterexample / 30 |
+| `mutantVendorOutsideLock` | counterexample / 38 | counterexample / 38 |
+| `noCircularWait` | pass / 58 | pass / 58 |
+| `mutantReverseOrder` | counterexample / 11 | counterexample / 11 |
+| `witnessFetchOverlap` | counterexample / 29 | counterexample / 29 |
+| `witnessRollback` | counterexample / 318 | counterexample / 318 |
+| `witnessPartialFile` | counterexample / 24 | counterexample / 24 |
+| `witnessVendorOverlap` | counterexample / 24 | counterexample / 24 |
+| `witnessProjectLockAllOk` | counterexample / 48 | counterexample / 48 |
+| `witnessSourceLockAllOk` | counterexample / 195 | counterexample / 195 |
+| `witnessAtomicRestoreAllOk` | counterexample / 51 | counterexample / 51 |
+| `witnessLockOrderAllOk` | counterexample / 57 | counterexample / 57 |
 
 ## Risks / Trade-offs
 

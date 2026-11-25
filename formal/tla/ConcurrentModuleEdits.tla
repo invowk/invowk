@@ -156,46 +156,76 @@ FetchSteps(p, o, keyMode) ==
          \o Opt(UseSrc, Rel(SrcL(o.key)))
     ELSE <<S("Fetch", keyMode, o.key, o.ver)>>
 
-Program(p) ==
+\* One named operator per program kind; Program(p) dispatches on the kind.
+AddProg(p) ==                               \* Resolver.AddModuleDependency (use_cases.go:187)
     LET o == Plan(p)
         j == ProjOf(p)
         k == o.kind
+    IN Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:191,195
+       \o <<St("ReadLock")>>                                    \* resolver.go:139
+       \o FetchSteps(p, o, "key")                               \* resolver.go:145
+       \o <<S("WriteLock", "add", o.key, "-")>>                 \* resolver.go:152-161
+       \o Between(k, j)
+       \o <<St("ReadMod"), S("WriteMod", "add", o.key, "-"),   \* invowkmod_edit.go:29,73
+            S("Restore", "mod", "-", "-"), S("Restore", "lock", "-", "-")>> \* use_cases.go:205
+       \o Final(k, j)
+
+RemoveProg(p) ==                            \* Resolver.RemoveModuleDependency (use_cases.go:228)
+    LET o == Plan(p)
+        j == ProjOf(p)
+        k == o.kind
+    IN Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:229,233
+       \o <<St("ReadLock"), S("WriteLock", "remove", o.key, "-")>> \* resolver.go:179,206
+       \o Between(k, j)
+       \o <<St("ReadMod"), S("WriteMod", "remove", o.key, "-")>> \* invowkmod_edit.go:98,153
+       \o Final(k, j)
+
+SyncProg(p) ==                              \* SyncModule -> Resolver.Sync
+    LET o == Plan(p)
+        j == ProjOf(p)
+        k == o.kind
+    IN Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:407
+       \o <<St("ReadLock")>>                                    \* resolver.go:296
+       \o FetchSteps(p, o, "req")                               \* resolver.go:302
+       \o <<S("WriteLock", "rebuild", "-", "-")>>               \* resolver.go:313-320
+       \o Final(k, j)
+
+UpdateProg(p) ==                            \* UpdateModule -> Resolver.Update
+    LET o == Plan(p)
+        j == ProjOf(p)
+        k == o.kind
+    IN Early(k, j) \o <<St("ReadLock")>> \o Late(k, j)          \* resolver.go:225
+       \o FetchSteps(p, o, "lock")                              \* resolver.go:262
+       \o <<S("WriteLock", "update", "-", "-")>>                \* resolver.go:273
+       \o Final(k, j)
+
+TidyProg(p) ==                              \* TidyModule, as a reader
+    LET o == Plan(p)
+        j == ProjOf(p)
+        k == o.kind
+    IN Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:429
+       \o <<St("ReadLock")>>                                    \* resolver_tidy.go:29
+       \o Final(k, j)
+
+VendorProg(p) ==                            \* vendorDependenciesWithResolver
+    LET o == Plan(p)
+        j == ProjOf(p)
+        k == o.kind
+    IN Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* vendor_dependencies.go:75
+       \o <<St("ReadLock")>>                                    \* vendor_dependencies.go:122,127
+       \o <<S("VendorRemove", "-", o.key, "-"), S("VendorCopy", "-", o.key, "-")>> \* vendor.go:107,115
+       \o Final(k, j)
+
+Program(p) ==
+    LET o == Plan(p)
+        k == o.kind
         body ==
-          CASE k = "add" ->                 \* Resolver.AddModuleDependency (use_cases.go:187)
-                 Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:191,195
-                 \o <<St("ReadLock")>>                                    \* resolver.go:139
-                 \o FetchSteps(p, o, "key")                               \* resolver.go:145
-                 \o <<S("WriteLock", "add", o.key, "-")>>                 \* resolver.go:152-161
-                 \o Between(k, j)
-                 \o <<St("ReadMod"), S("WriteMod", "add", o.key, "-"),   \* invowkmod_edit.go:29,73
-                      S("Restore", "mod", "-", "-"), S("Restore", "lock", "-", "-")>> \* use_cases.go:205
-                 \o Final(k, j)
-            [] k = "remove" ->              \* Resolver.RemoveModuleDependency (use_cases.go:228)
-                 Early(k, j) \o <<St("Snapshot")>> \o Late(k, j)          \* use_cases.go:229,233
-                 \o <<St("ReadLock"), S("WriteLock", "remove", o.key, "-")>> \* resolver.go:179,206
-                 \o Between(k, j)
-                 \o <<St("ReadMod"), S("WriteMod", "remove", o.key, "-")>> \* invowkmod_edit.go:98,153
-                 \o Final(k, j)
-            [] k = "sync" ->                \* SyncModule -> Resolver.Sync
-                 Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:407
-                 \o <<St("ReadLock")>>                                    \* resolver.go:296
-                 \o FetchSteps(p, o, "req")                               \* resolver.go:302
-                 \o <<S("WriteLock", "rebuild", "-", "-")>>               \* resolver.go:313-320
-                 \o Final(k, j)
-            [] k = "update" ->              \* UpdateModule -> Resolver.Update
-                 Early(k, j) \o <<St("ReadLock")>> \o Late(k, j)       \* resolver.go:225
-                 \o FetchSteps(p, o, "lock")                              \* resolver.go:262
-                 \o <<S("WriteLock", "update", "-", "-")>>                \* resolver.go:273
-                 \o Final(k, j)
-            [] k = "tidy" ->                \* TidyModule, as a reader
-                 Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* use_cases.go:429
-                 \o <<St("ReadLock")>>                                    \* resolver_tidy.go:29
-                 \o Final(k, j)
-            [] k = "vendor" ->              \* vendorDependenciesWithResolver
-                 Early(k, j) \o <<St("ReadMod")>> \o Late(k, j)           \* vendor_dependencies.go:75
-                 \o <<St("ReadLock")>>                                    \* vendor_dependencies.go:122,127
-                 \o <<S("VendorRemove", "-", o.key, "-"), S("VendorCopy", "-", o.key, "-")>> \* vendor.go:107,115
-                 \o Final(k, j)
+          CASE k = "add" -> AddProg(p)
+            [] k = "remove" -> RemoveProg(p)
+            [] k = "sync" -> SyncProg(p)
+            [] k = "update" -> UpdateProg(p)
+            [] k = "tidy" -> TidyProg(p)
+            [] k = "vendor" -> VendorProg(p)
     IN Opt(Reversed(p) /\ o.src, Acq(SrcL(o.key))) \o body \o <<St("Return")>>
 
 (* --- State (design D2) --- *)

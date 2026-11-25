@@ -163,14 +163,6 @@ unresolved_elements = [
     "VirtualPathHarness: allowedRoots",
     "VirtualPathHarness: anchors",
     "VirtualPathHarness: validate",
-    "ConcurrentModuleEdits: AddProg (add_add_same)",
-    "ConcurrentModuleEdits: AddProg (sync_add)",
-    "ConcurrentModuleEdits: RemoveProg",
-    "ConcurrentModuleEdits: SyncProg",
-    "ConcurrentModuleEdits: UpdateProg",
-    "ConcurrentModuleEdits: TidyProg",
-    "ConcurrentModuleEdits: AddProg (fetch_v1_v2)",
-    "ConcurrentModuleEdits: VendorProg",
 ]
 
 # Binding gaps (rows with no binding that name a function) and ledger survivors
