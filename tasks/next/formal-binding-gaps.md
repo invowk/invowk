@@ -22,7 +22,11 @@ module-read-physical-containment (2026-11-19) removed 6 and added 35, so both
 held 432. The partial refresh of virtual-path-physical-normalisation
 (2026-11-24) removed 21 and added 1, so both held 412. The partial refresh of
 virtual-path-no-follow-operands (2026-11-24) removed none and added 23 (4
-`equivalent`, 19 deferred `binding-gap`), so both now hold 435.
+`equivalent`, 19 deferred `binding-gap`), so both held 435 (439 on main
+after subsequent refreshes). The partial refresh of
+`module-concurrency-rollback` (2026-11-25) removed none and added 198
+deferred `binding-gap` entries across the newly bound and rewritten
+module-concurrency functions, so both now hold 637.
 
 ## Rows whose binding does not reach the function
 
@@ -103,6 +107,30 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 ### tidyToFixedPoint
 
 `internal/app/modulesync/resolver_tidy.go`, 11 survivors. Tidy bindings compare the added key set; mutants that only change redundant rounds or the known-set bookkeeping survive.
+
+### vendorDependenciesWithResolver
+
+`internal/app/moduleops/vendor_dependencies.go`, 17 deferred `binding-gap` survivors, added by `module-concurrency-rollback` (2026-11-25). `TestConcurrentEdits_VendorFromStaleLock` replays a successful concurrent vendor under the project lock; error returns, empty-requirements skip and result fields are covered outside the binding cell by `TestVendorDependenciesRequiresLocker`, `TestVendorDependenciesWithoutRequirementsCreatesOnlyProjectLock`, `TestVendorDependenciesHoldsProjectLock` and `vendor_test.go`.
+
+### Resolver.LockProject and Resolver.lockSource
+
+`internal/app/modulesync/edit_locks.go`, 20 deferred `binding-gap` survivors (`LockProject` 15, `lockSource` 5), added by `module-concurrency-rollback` (2026-11-25). The `Acquire project` and `Acquire source` killers are concurrency replays in which every lock is granted once per resolver; refusals, lock-order errors, `PhysicalDir`/path/open failures, wait callbacks and cancellations are checked outside the binding cell by `edit_locks_test.go`, `edit_locks_edge_test.go` and `source_locks_test.go`.
+
+### GitFetcher.checkout
+
+`internal/app/modulesync/git.go`, 11 deferred `binding-gap` survivors, added by `module-concurrency-rollback` (2026-11-25). `TestConcurrentEdits_F9SourceLockRecordsMatchingContent` exercises clean two-tag checkouts; bare-repo URL normalization and git failure branches are checked outside the binding cell by `git_test.go`.
+
+### Resolver.Add, Resolver.Remove and Resolver.Update
+
+`internal/app/modulesync/resolver.go`, 24 deferred `binding-gap` survivors (`Add` 12, `Remove` 1, `Update` 11), added by `module-concurrency-rollback` (2026-11-25). Concurrent replays exercise successful operations; missing-entry, resolve-error and lock-save error branches are checked outside the binding cell by `resolver_test.go` and `resolver_lock_test.go`.
+
+### Resolver.resolveOne
+
+`internal/app/modulesync/resolver_deps.go`, 46 deferred `binding-gap` survivors, added by `module-concurrency-rollback` (2026-11-25). The F9 replay resolves two versions under the source lock; version-selection, lock-acquisition failure and cache-verification error branches are checked outside the binding cell by `resolver_test.go` and `source_locks_test.go`.
+
+### Module edit use cases and fileSnapshot.restore
+
+`internal/app/modulesync/use_cases.go`, 80 deferred `binding-gap` survivors (`AddModuleDependency` 8, `Resolver.AddModuleDependency` 14, `RemoveModuleDependency` 3, `Resolver.RemoveModuleDependency` 17, `SyncModule` 3, `Resolver.SyncModule` 9, `UpdateModule` 3, `Resolver.UpdateModule` 4, `fileSnapshot.restore` 19), added by `module-concurrency-rollback` (2026-11-25). Concurrent replays exercise happy paths and F10's lock-file atomic replace; locker validation, lock-error, declaration-error, symlink/mode-preserving and rollback-failure branches are checked outside the binding cell by `use_cases_*_test.go`, `edit_locks_test.go` and `edit_locks_edge_test.go`.
 
 ### Base.TransitionToFailed
 
