@@ -14,7 +14,7 @@
    | When | Run |
    |------|-----|
    | `scripts/`, `tools/mutation/` or `formal/` changed | `make test-scripts` |
-   | Code bound by formal correspondence tables changed (`.agents/rules/formal-bindings.md`) | `python3 scripts/formal.py correspondence`; `make formal` when Java is available |
+   | Code bound by formal correspondence tables changed (`.agents/rules/formal-bindings.md`) | `python3 scripts/formal.py correspondence`; `make formal` when Java is available; if a bound function body was rewritten, run scoped `make mutation-formal MUTATION_FORMAL_SYMBOL=<[file:]sym>[,...]` (or `MUTATION_FORMAL_STALE=1`) + `make mutation-formal-refresh` **once** on the final tree after review, lint, SonarCloud, and cross-platform fixes settle |
    | Hot-path files changed and the `pgo-staleness` pre-commit hook warns | Prefer `make pgo-profile-parse-discovery` and commit `default.pgo`; advisory, since CI `pgo-sanity` regenerates it otherwise |
    | A `*_schema.cue`, CUE-backed Go struct or `internal/config/types.go` changed | `go test -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/` |
    | Website changed | `cd website && npm run build` |

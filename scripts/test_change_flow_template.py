@@ -299,7 +299,7 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   assert.ok(fixP.includes('`FILE:OLD` (removal-only) and the new name in the same MUTATION_FORMAL_SYMBOL'), 'renamed or deleted bound functions')
   assert.ok(fixP.includes('The only classes this stage may write are `equivalent` and a deferred `binding-gap` or `model-gap` with a `follow_up`'), 'allowed triage classes')
   assert.ok(fixP.includes('(a closed gap, `abstraction`, `defect`) would change the plan-inputs digest after the review: put it in maintainer_asks and return status blocked'), 'digest-changing classes block')
-  assert.ok(fixP.includes('commit the review fixes and the fixes of checklist steps 2-3 (tidy, lint) first, then run the mutation and the refresh'), 'refresh after the lint and tidy fixes')
+  assert.ok(fixP.includes('commit the review fixes, SonarCloud fixes, cross-platform fixes, and the fixes of checklist steps 2-3 (tidy, lint) first, then run the mutation and the refresh ONCE on the final tree'), 'refresh once at the end after review, SonarCloud, cross-platform, lint and tidy fixes')
   assert.ok(fixP.includes('if a later gate makes you edit a bound function body, redo both on the new HEAD'), 'a later bound-body edit redoes the refresh')
   assert.ok(fixP.includes('on the FINAL tree after the review fixes are committed'), 'the refresh runs on the final tree')
   assert.ok(fixP.includes('`make mutation-formal-rerun MUTATION_MUTANT_ID=...` line it printed twice'), 'two reruns per new escapee')
@@ -308,10 +308,12 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   assert.ok(fixP.includes('A survivor you cannot classify goes into maintainer_asks') && fixP.includes('return status blocked'))
   assert.ok(!fixP.includes('report-only, in a throwaway worktree, ONLY'), 'no report-only-only mutation run')
   {
-    // lesson (#186): check the formal-bindings plan before the 35-minute run.
+    // lesson (#186 + perf): check the formal-bindings plan before running scoped parallel mutation once at the end.
     const planAt = fixP.indexOf('python3 scripts/formal_mutation.py plan --out')
-    const runAt = fixP.indexOf('Run `make mutation-formal` once')
+    const runAt = fixP.indexOf('Run scoped `make mutation-formal` once')
     assert.ok(planAt >= 0 && runAt >= 0 && planAt < runAt, 'the plan check comes before make mutation-formal')
+    assert.ok(!fixP.includes('35 minutes'), 'no 35-minute full-run assumption')
+    assert.ok(fixP.includes('MUTATION_FORMAL_JOBS'), 'parallel worker knob is surfaced')
     const symbolsAt = fixP.indexOf('python3 scripts/formal_mutation.py symbols --plan')
     assert.ok(planAt < symbolsAt && symbolsAt < runAt, 'the symbols check reads the plan before make mutation-formal')
     assert.ok(!fixP.includes('jq -r'), 'no jq or by-eye matching of the plan')

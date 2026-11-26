@@ -21,8 +21,9 @@ Standard library only (Python 3.11+ for tomllib).
 
 Usage:
     scripts/formal_mutation.py plan --out DIR
-    scripts/formal_mutation.py show --plan FILE [--group N] {match|files|group-count|max-timeout}
-    scripts/formal_mutation.py exec-args --plan FILE --original PATH --changed PATH [--overlay-out FILE]
+    scripts/formal_mutation.py scope --plan FILE --out FILE [--ledger FILE] [--baseline FILE] [--manifest FILE] (--symbol [FILE:]SYMBOL ... | --stale)
+    scripts/formal_mutation.py show --plan FILE [--group N | --scope FILE | --per-file] {match|files|group-count|max-timeout|shards|scoped-files}
+    scripts/formal_mutation.py exec-args --plan FILE --original PATH --changed PATH [--workdir DIR] [--overlay-out FILE]
     scripts/formal_mutation.py preflight-record --plan FILE --file PATH --json FILE --status N --seconds S
     scripts/formal_mutation.py rerun-scope --plan FILE [--hint REPORT ...] ID ...
     scripts/formal_mutation.py rerun-record --plan FILE --summary FILE --id ID [--reruns FILE]
@@ -482,8 +483,8 @@ def first_changed_line(original: list[str], changed: list[str]) -> int | None:
     return max(1, min(index + 1, len(original)))
 
 
-def plan_relative(plan: dict, path: str) -> str:
-    root = Path(plan["root"])
+def plan_relative(plan: dict, path: str, workdir: str | Path | None = None) -> str:
+    root = Path(workdir).resolve() if workdir else Path(plan["root"])
     resolved = Path(path).resolve()
     try:
         return resolved.relative_to(root).as_posix()
@@ -513,10 +514,10 @@ def exec_timeout(plan: dict, file: str, preflight: bool) -> int:
     return int(record["timeout_seconds"])
 
 
-def exec_args(plan: dict, original: str, changed: str) -> dict:
+def exec_args(plan: dict, original: str, changed: str, workdir: str | Path | None = None) -> dict:
     """What the executor runs for one mutant (or, when the files are identical,
     the pre-flight of the whole file)."""
-    file = plan_relative(plan, original)
+    file = plan_relative(plan, original, workdir=workdir)
     targets = functions_in(plan, file)
     if not targets:
         raise PlanError(f"{file} is not a formal-bindings target file")
@@ -680,10 +681,20 @@ def read_baseline(path: Path) -> dict:
 
 
 def group_dirs(report_dir: Path) -> list[Path]:
-    dirs = sorted(report_dir.glob("group-*"), key=lambda d: int(d.name.split("-")[1]))
-    if not dirs:
-        raise PlanError(f"{report_dir}: no group-* report directories")
-    return dirs
+    """Shard or group directories produced by a run. An empty scoped run
+    (removal-only symbols) has scope.json with shards=[] and returns []."""
+    shards = sorted(report_dir.glob("shard-*"), key=lambda d: int(d.name.split("-")[1]))
+    if shards:
+        return shards
+    groups = sorted(report_dir.glob("group-*"), key=lambda d: int(d.name.split("-")[1]))
+    if groups:
+        return groups
+    scope_path = report_dir / "scope.json"
+    if scope_path.exists():
+        scope = json.loads(scope_path.read_text())
+        if scope.get("shards") == []:
+            return []
+    raise PlanError(f"{report_dir}: no group-* or shard-* report directories")
 
 
 BASELINE_MUTANT_KEYS = ("id", "file", "mutator", "line")
@@ -716,10 +727,34 @@ STAT_KEYS = ("killedCount", "escapedCount", "errorCount", "skippedCount", "notCo
 TIMEOUT_KILL_RE = re.compile(r"^formal-mutation: timeout-kill file=(\S+) ", re.M)
 
 
+def normalize_worker_prefixes(lists: dict[str, list[dict]], worker_marker: Path, plan_root: str) -> None:
+    """Rewrite worker-worktree originalFilePath prefixes back to plan_root so
+    merged report.json paths match the main plan root."""
+    if not worker_marker.exists():
+        return
+    raw_root = worker_marker.read_text().strip()
+    if not raw_root:
+        return
+    prefixes = {raw_root.rstrip("/") + "/", Path(raw_root).resolve().as_posix().rstrip("/") + "/"}
+    for mutants in lists.values():
+        for mutant in mutants:
+            orig = mutant["mutator"]["originalFilePath"]
+            for prefix in prefixes:
+                if orig.startswith(prefix):
+                    mutant["mutator"]["originalFilePath"] = plan_root + orig[len(prefix):]
+                    break
+
+
 def merge_reports(report_dir: Path, log: str) -> dict:
     """One summary, agentic report, full report, and per-file table for all
-    groups of a run. MSI is recomputed as go-mutesting does:
+    groups or shards of a run. MSI is recomputed as go-mutesting does:
     (killed + errored + skipped) / total, as a percentage."""
+    plan_path = report_dir / PLAN_FILE
+    plan_root = (
+        Path(load_plan(plan_path)["root"]).as_posix().rstrip("/") + "/"
+        if plan_path.exists()
+        else str(REPO_ROOT) + "/"
+    )
     stats = dict.fromkeys(STAT_KEYS, 0)
     agentic: list[dict] = []
     lists: dict[str, list[dict]] = {name: [] for name in RERUN_STATUSES}
@@ -733,8 +768,10 @@ def merge_reports(report_dir: Path, log: str) -> dict:
             agentic += json.loads((group / "go-mutesting-agentic.json").read_text()).get("mutants") or []
         if (group / "report.json").exists():
             full = json.loads((group / "report.json").read_text())
+            group_lists = {name: list(full.get(name) or []) for name in RERUN_STATUSES}
+            normalize_worker_prefixes(group_lists, group / ".worker-root", plan_root)
             for name in RERUN_STATUSES:
-                lists[name] += full.get(name) or []
+                lists[name] += group_lists[name]
     total = sum(stats.values())
     stats["totalMutantsCount"] = total
     stats["msi"] = round(100 * (stats["killedCount"] + stats["errorCount"] + stats["skippedCount"]) / total, 2) if total else 0.0
@@ -744,17 +781,20 @@ def merge_reports(report_dir: Path, log: str) -> dict:
     )
     (report_dir / "report.json").write_text(json.dumps({"stats": stats, **lists}) + "\n")
 
-    root = str(REPO_ROOT) + "/"
+    strip_prefixes = {plan_root, str(REPO_ROOT) + "/"}
     columns = [*RERUN_STATUSES, "timeout-kill"]
     per_file: dict[str, dict[str, int]] = {}
     for name, mutants in lists.items():
         for mutant in mutants:
-            file = mutant["mutator"]["originalFilePath"].removeprefix(root)
+            file = mutant["mutator"]["originalFilePath"]
+            for prefix in strip_prefixes:
+                if file.startswith(prefix):
+                    file = file[len(prefix):]
+                    break
             per_file.setdefault(file, dict.fromkeys(columns, 0))[name] += 1
     timeout_kills = TIMEOUT_KILL_RE.findall(log)
     for file in timeout_kills:
         per_file.setdefault(file, dict.fromkeys(columns, 0))["timeout-kill"] += 1
-    plan_path = report_dir / PLAN_FILE
     with (report_dir / "run-metadata.txt").open("a") as metadata:
         for file in sorted(set(timeout_kills)):
             metadata.write(f"timeout_kills[{file}]={timeout_kills.count(file)}\n")
@@ -1417,8 +1457,8 @@ def read_metadata(path: Path) -> dict[str, str]:
 
 def validate_run(report_dir: Path, current: Callable[[], dict]) -> tuple[dict, str]:
     """The run plan and its recorded inputs digest, once the run is a complete
-    full run of the current inputs (design D2); PlanError otherwise. `current`
-    builds the current tree's plan."""
+    full or scoped report-only run of the current inputs (design D2);
+    PlanError otherwise. `current` builds the current tree's plan."""
     rerun = f"rerun `{RUN_COMMAND}`"
     plan_path = report_dir / PLAN_FILE
     if not plan_path.exists():
@@ -1434,17 +1474,56 @@ def validate_run(report_dir: Path, current: Callable[[], dict]) -> tuple[dict, s
         raise PlanError(f"{report_dir}: run-metadata.txt records no inputs_digest (a run made before `refresh` "
                         f"existed, or one whose merge failed); {rerun}")
     incomplete = []
-    for group in range(len(run_plan["groups"])):
-        why = []
-        if not (report_dir / f"group-{group}" / "report.json").exists():
-            why.append("no report.json")
-        status = meta.get(f"group_status[{group}]")
-        if status is None:
-            why.append("no group_status")
-        elif status not in {"0", str(QUALITY_GATE_EXIT_CODE)}:
-            why.append(f"status {status}")
-        if why:
-            incomplete.append(f"group {group} ({', '.join(why)})")
+    scope_mode = meta.get("scope_mode", "full")
+    if scope_mode == "scoped":
+        scope_path = report_dir / "scope.json"
+        if not scope_path.exists():
+            incomplete.append("no scope.json")
+        else:
+            scope = json.loads(scope_path.read_text())
+            for shard in scope.get("shards", []):
+                sid = shard["id"]
+                why = []
+                if not (report_dir / sid / "report.json").exists():
+                    why.append("no report.json")
+                status = meta.get(f"shard_status[{sid}]")
+                if status is None:
+                    why.append("no shard_status")
+                elif status not in {"0", str(QUALITY_GATE_EXIT_CODE)}:
+                    why.append(f"status {status}")
+                if why:
+                    incomplete.append(f"{sid} ({', '.join(why)})")
+    elif "shard_count" in meta:
+        try:
+            shard_count = int(meta["shard_count"])
+        except ValueError:
+            shard_count = -1
+        if shard_count <= 0:
+            incomplete.append(f"invalid shard_count {meta['shard_count']!r}")
+        for idx in range(max(0, shard_count)):
+            sid = f"shard-{idx}"
+            why = []
+            if not (report_dir / sid / "report.json").exists():
+                why.append("no report.json")
+            status = meta.get(f"shard_status[{sid}]")
+            if status is None:
+                why.append("no shard_status")
+            elif status not in {"0", str(QUALITY_GATE_EXIT_CODE)}:
+                why.append(f"status {status}")
+            if why:
+                incomplete.append(f"{sid} ({', '.join(why)})")
+    else:
+        for group in range(len(run_plan["groups"])):
+            why = []
+            if not (report_dir / f"group-{group}" / "report.json").exists():
+                why.append("no report.json")
+            status = meta.get(f"group_status[{group}]")
+            if status is None:
+                why.append("no group_status")
+            elif status not in {"0", str(QUALITY_GATE_EXIT_CODE)}:
+                why.append(f"status {status}")
+            if why:
+                incomplete.append(f"group {group} ({', '.join(why)})")
     if not (report_dir / "report.json").exists():
         incomplete.append("no merged report.json")
     if incomplete:
@@ -1767,6 +1846,93 @@ class RefreshPaths:
     manifest: Path = formal.MANIFEST
 
 
+def resolve_chosen_symbols(
+    functions: list[dict],
+    symbols: list[str],
+    stale: bool,
+    survivors: list[dict],
+    mutators: dict[str, str],
+    manifest: dict,
+    source: Callable[[str], ParsedSource | None],
+    context_label: str = "refresh",
+) -> tuple[set[Key], set[Key]]:
+    """Resolve --symbol specs and --stale survivors into (planned, removal_only)
+    keys, failing closed on any unknown, unplanned or ambiguous symbol."""
+    triage = manifest.get("triage", {})
+    orphans = set(triage.get("orphaned_survivors", []))
+    listed_stale = set(triage.get("stale_survivors", []))
+    specs = [part.strip() for value in symbols for part in value.split(",") if part.strip()]
+    if stale:
+        specs += sorted({
+            f"{s['file']}:{s['symbol']}"
+            for s in survivors
+            if s["id"] not in orphans and (s["id"] in listed_stale or anchor_problem(s, mutators.get(s["id"]), source))
+        })
+    planned: set[Key] = set()
+    removal: set[Key] = set()
+    errors = []
+    for spec in dict.fromkeys(specs):
+        try:
+            is_planned, key = resolve_symbol(spec, functions, survivors, source)
+        except PlanError as err:
+            errors.append(str(err))
+            continue
+        (planned if is_planned else removal).add(key)
+    if errors:
+        raise PlanError(f"{context_label} refused, nothing written:\n  - " + "\n  - ".join(errors))
+    return planned, removal
+
+
+def per_file_shards(plan: dict) -> list[dict]:
+    """Expand plan groups into one shard per planned file."""
+    group_of = {f: (idx, group["match"]) for idx, group in enumerate(plan["groups"]) for f in group["files"]}
+    return [
+        {"id": f"shard-{i}", "group": group_of[file][0], "file": file, "match": group_of[file][1]}
+        for i, file in enumerate(sorted(group_of))
+    ]
+
+
+def scope_plan(
+    plan: dict,
+    symbols: list[str],
+    stale: bool,
+    survivors: list[dict],
+    mutators: dict[str, str],
+    manifest: dict,
+    source: Callable[[str], ParsedSource | None],
+) -> dict:
+    """Build a scoped shard plan covering only the files of the chosen
+    planned symbols (or an empty shard list when all chosen symbols are
+    removal-only)."""
+    planned, removal = resolve_chosen_symbols(
+        plan["functions"], symbols, stale, survivors, mutators, manifest, source, context_label="scope"
+    )
+    if not planned and not removal:
+        raise PlanError("scope found no matching symbols (with --stale only, no stale survivors were found)")
+    group_of = {f: (idx, group["match"]) for idx, group in enumerate(plan["groups"]) for f in group["files"]}
+    files = sorted({key[0] for key in planned})
+    shards = [
+        {"id": f"shard-{i}", "group": group_of[file][0], "file": file, "match": group_of[file][1]}
+        for i, file in enumerate(files)
+    ]
+    return {
+        "version": 1,
+        "mode": "scoped",
+        "symbols": sorted(f"{f}:{s}" for f, s in planned),
+        "removal_only": sorted(f"{f}:{s}" for f, s in removal),
+        "files": files,
+        "shards": shards,
+    }
+
+
+def load_scoped_files(report_dir: Path) -> set[str] | None:
+    meta = read_metadata(report_dir / "run-metadata.txt")
+    if meta.get("scope_mode", "full") != "scoped":
+        return None
+    scope = json.loads((report_dir / "scope.json").read_text())
+    return set(scope.get("files", []))
+
+
 def refresh(
     report_dir: Path,
     symbols: list[str],
@@ -1811,24 +1977,18 @@ def refresh(
 
     # Choice (design D3). Orphans are never chosen and never owned: the plan
     # does not target their row, and they carry no anchor.
-    specs = [part.strip() for value in symbols for part in value.split(",") if part.strip()]
-    if stale:
-        specs += sorted({f"{s['file']}:{s['symbol']}" for s in survivors if s["id"] not in orphans and (
-            s["id"] in listed_stale or anchor_problem(s, mutators.get(s["id"]), source))})
-    planned: set[Key] = set()
-    removal: set[Key] = set()
-    errors = []
-    for spec in dict.fromkeys(specs):
-        try:
-            is_planned, key = resolve_symbol(spec, functions, survivors, source)
-        except PlanError as err:
-            errors.append(str(err))
-            continue
-        (planned if is_planned else removal).add(key)
-    if errors:
-        raise PlanError("refresh refused, nothing written:\n  - " + "\n  - ".join(errors))
+    planned, removal = resolve_chosen_symbols(functions, symbols, stale, survivors, mutators, manifest, source)
     order = sorted(planned, key=lambda k: (k[0], by_key[k]["start"]))
     chosen = planned | removal
+    errors: list[str] = []
+    scoped_files = load_scoped_files(report_dir)
+    if scoped_files is not None:
+        missing_files = sorted({key[0] for key in planned} - scoped_files)
+        if missing_files:
+            raise PlanError(
+                f"{report_dir}: scoped run did not mutate {', '.join(missing_files)}; "
+                "rerun `make mutation-formal MUTATION_FORMAL_SYMBOL=...` with all chosen symbols"
+            )
 
     attr = attribute(run_plan, load_mutants(report_dir, run_plan))
     owner = {s["id"]: entry_key(s, functions, source) for s in survivors if s["id"] not in orphans}
@@ -2252,14 +2412,25 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="action", required=True)
     p = sub.add_parser("plan")
     p.add_argument("--out", type=Path, required=True)
+    p = sub.add_parser("scope", help="build a scoped shard plan for chosen symbols or stale survivors")
+    p.add_argument("--plan", type=Path, required=True)
+    p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--symbol", action="append", default=[], metavar="[FILE:]SYMBOL")
+    p.add_argument("--stale", action="store_true")
+    p.add_argument("--baseline", type=Path, default=BASELINE)
+    p.add_argument("--ledger", type=Path, default=LEDGER)
+    p.add_argument("--manifest", type=Path, default=formal.MANIFEST)
     p = sub.add_parser("show")
     p.add_argument("--plan", type=Path, required=True)
     p.add_argument("--group", type=int)
-    p.add_argument("field", choices=["match", "files", "group-count", "max-timeout"])
+    p.add_argument("--scope", type=Path)
+    p.add_argument("--per-file", action="store_true")
+    p.add_argument("field", choices=["match", "files", "group-count", "max-timeout", "shards", "scoped-files"])
     p = sub.add_parser("exec-args")
     p.add_argument("--plan", type=Path, required=True)
     p.add_argument("--original", required=True)
     p.add_argument("--changed", required=True)
+    p.add_argument("--workdir", type=Path)
     p.add_argument("--overlay-out", type=Path)
     p = sub.add_parser("preflight-record")
     p.add_argument("--plan", type=Path, required=True)
@@ -2342,12 +2513,43 @@ def main(argv: list[str] | None = None) -> int:
             path = write_plan(plan, args.out)
             print(f"formal-bindings plan: {len(plan['functions'])} functions in {len(plan['files'])} files, "
                   f"{len(plan['unbound'])} unbound rows -> {path}")
+        elif args.action == "scope":
+            if not args.symbol and not args.stale:
+                raise PlanError("scope needs --symbol [FILE:]SYMBOL (repeatable) or --stale")
+            plan = load_plan(args.plan)
+            baseline = read_baseline(args.baseline)
+            mutators = {m["id"]: m["mutator"] for m in baseline["mutants"]}
+            with args.ledger.open("rb") as handle:
+                survivors = tomllib.load(handle).get("survivor", [])
+            with args.manifest.open("rb") as handle:
+                manifest = tomllib.load(handle)
+            source = source_reader(Path(plan.get("root") or REPO_ROOT))
+            data = scope_plan(plan, args.symbol, args.stale, survivors, mutators, manifest, source)
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(json.dumps(data, indent=2) + "\n")
+            print(f"formal-bindings scope: {len(data['symbols'])} planned, {len(data['removal_only'])} removal-only, "
+                  f"{len(data['files'])} file(s) -> {args.out}")
         elif args.action == "show":
             plan = load_plan(args.plan)
             if args.field == "group-count":
                 print(len(plan["groups"]))
             elif args.field == "max-timeout":
                 print(max_timeout(plan))
+            elif args.field == "scoped-files":
+                if args.scope is None:
+                    raise PlanError("show scoped-files needs --scope")
+                files = json.loads(args.scope.read_text()).get("files", [])
+                if files:
+                    print("\n".join(files))
+            elif args.field == "shards":
+                if args.scope is not None:
+                    shards = json.loads(args.scope.read_text()).get("shards", [])
+                elif args.per_file:
+                    shards = per_file_shards(plan)
+                else:
+                    raise PlanError("show shards needs --scope or --per-file")
+                for shard in shards:
+                    print(f"{shard['id']}\t{shard['group']}\t{shard['file']}\t{shard['match']}")
             elif args.group is None:
                 if args.field == "match":
                     raise PlanError("show match needs --group: each group has its own --match")
@@ -2359,7 +2561,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(group["match"] if args.field == "match" else "\n".join(group["files"]))
         elif args.action == "exec-args":
             plan = load_plan(args.plan)
-            result = exec_args(plan, args.original, args.changed)
+            workdir = args.workdir or os.environ.get("MUTATION_FORMAL_WORKDIR")
+            result = exec_args(plan, args.original, args.changed, workdir=workdir)
             if args.overlay_out and not result["preflight"]:
                 write_overlay(args.original, args.changed, args.overlay_out)
             print(f"file={result['file']}")

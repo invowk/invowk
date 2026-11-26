@@ -268,22 +268,38 @@ mutation-rerun:
 # Formal-bindings mutation profiles: mutate only the Go functions named by bound
 # rows of the formal models' correspondence tables and run only their binding
 # tests (no -short, -count=1). Manual and advisory; never part of make test.
+# Scope with MUTATION_FORMAL_SYMBOL=<[file:]sym>[,...] and/or
+# MUTATION_FORMAL_STALE=1; tune parallelism with MUTATION_FORMAL_JOBS=<n>.
 .PHONY: mutation-formal-dry-run mutation-formal mutation-formal-baseline-update mutation-formal-rerun
 mutation-formal-dry-run:
-	@./scripts/mutation.sh dry-run --target-set formal-bindings --report-dir "$(MUTATION_REPORT_DIR)"
+	@if [ -n "$(MUTATION_FORMAL_STALE)" ] && [ "$(MUTATION_FORMAL_STALE)" != 1 ]; then \
+		echo "MUTATION_FORMAL_STALE must be 1 or unset, not '$(MUTATION_FORMAL_STALE)'"; \
+		exit 1; \
+	fi
+	@./scripts/mutation.sh dry-run --target-set formal-bindings --report-dir "$(MUTATION_REPORT_DIR)" \
+		$(if $(MUTATION_FORMAL_SYMBOL),--symbol "$(MUTATION_FORMAL_SYMBOL)") $(if $(filter 1,$(MUTATION_FORMAL_STALE)),--stale) \
+		$(if $(MUTATION_FORMAL_JOBS),--jobs "$(MUTATION_FORMAL_JOBS)")
 
 mutation-formal:
-	@./scripts/mutation.sh full --target-set formal-bindings --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
+	@if [ -n "$(MUTATION_FORMAL_STALE)" ] && [ "$(MUTATION_FORMAL_STALE)" != 1 ]; then \
+		echo "MUTATION_FORMAL_STALE must be 1 or unset, not '$(MUTATION_FORMAL_STALE)'"; \
+		exit 1; \
+	fi
+	@./scripts/mutation.sh full --target-set formal-bindings --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)" \
+		$(if $(MUTATION_FORMAL_SYMBOL),--symbol "$(MUTATION_FORMAL_SYMBOL)") $(if $(filter 1,$(MUTATION_FORMAL_STALE)),--stale) \
+		$(if $(MUTATION_FORMAL_JOBS),--jobs "$(MUTATION_FORMAL_JOBS)")
 
 mutation-formal-baseline-update:
-	@./scripts/mutation.sh baseline-update --target-set formal-bindings --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
+	@./scripts/mutation.sh baseline-update --target-set formal-bindings --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)" \
+		$(if $(MUTATION_FORMAL_JOBS),--jobs "$(MUTATION_FORMAL_JOBS)")
 
 mutation-formal-rerun:
 	@if [ -z "$(MUTATION_MUTANT_ID)" ]; then \
 		echo "MUTATION_MUTANT_ID is required. Usage: make mutation-formal-rerun MUTATION_MUTANT_ID=<id>[,<id>...]"; \
 		exit 1; \
 	fi
-	@./scripts/mutation.sh rerun --target-set formal-bindings --mode "$(MUTATION_MODE)" --mutant-id "$(MUTATION_MUTANT_ID)" --report-dir "$(MUTATION_REPORT_DIR)"
+	@./scripts/mutation.sh rerun --target-set formal-bindings --mode "$(MUTATION_MODE)" --mutant-id "$(MUTATION_MUTANT_ID)" --report-dir "$(MUTATION_REPORT_DIR)" \
+		$(if $(MUTATION_FORMAL_JOBS),--jobs "$(MUTATION_FORMAL_JOBS)")
 
 # Same-change partial refresh of the formal-bindings ledger from the last
 # `make mutation-formal` run: MUTATION_FORMAL_SYMBOL=<[file:]sym>[,...] and/or
@@ -687,10 +703,10 @@ help:
 	@echo "  mutation-full    Run curated full mutation profile"
 	@echo "  mutation-baseline-update Update accepted-survivor mutation baselines"
 	@echo "  mutation-rerun   Rerun a single escaped mutant by stable ID"
-	@echo "  mutation-formal-dry-run Count formal-bindings mutation candidates"
-	@echo "  mutation-formal  Mutate correspondence-table functions against their binding tests only"
+	@echo "  mutation-formal-dry-run Count formal-bindings mutation candidates (supports MUTATION_FORMAL_SYMBOL, MUTATION_FORMAL_STALE)"
+	@echo "  mutation-formal  Mutate correspondence-table functions (supports MUTATION_FORMAL_SYMBOL, MUTATION_FORMAL_STALE, MUTATION_FORMAL_JOBS)"
 	@echo "  mutation-formal-baseline-update Update the formal-bindings baseline and check the triage ledger"
-	@echo "  mutation-formal-rerun Rerun formal-bindings mutants (comma-separated IDs) and record the rerun evidence"
+	@echo "  mutation-formal-rerun Rerun formal-bindings mutants (comma-separated IDs, supports MUTATION_FORMAL_JOBS) and record evidence"
 	@echo "  mutation-formal-refresh Refresh chosen symbols' formal-bindings survivors from the last report-only run"
 	@echo "  pgo-profile      Generate PGO profile from benchmarks (full)"
 	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
