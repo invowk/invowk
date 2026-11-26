@@ -219,7 +219,17 @@ func (p *concurrentProject) raceFetchWindow(t *testing.T, url GitURL, p1 func(*R
 		t.Fatal("P2 wrote invowkmod.cue or the lock file while P1 held the project lock")
 	}
 	openGate()
-	return (<-done1).Err, (<-done2).Err
+	p1Err, p2Err = (<-done1).Err, (<-done2).Err
+	// Confirm P1 explicitly released both editLocks and FileLocker state
+	// rather than relying on GC closing the lock descriptor.
+	unlock, lockErr := r1.LockProject(t.Context())
+	if lockErr != nil {
+		t.Fatalf("P1 did not release project lock: %v", lockErr)
+	}
+	if unlockErr := unlock(); unlockErr != nil {
+		t.Fatalf("release re-acquired project lock: %v", unlockErr)
+	}
+	return p1Err, p2Err
 }
 
 // awaitLockWait waits until waited is closed (the process reported a busy
