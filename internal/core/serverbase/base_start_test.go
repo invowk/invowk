@@ -73,7 +73,7 @@ func TestTransitionToStarting_NotCreatedChangesNothing(t *testing.T) {
 				if got := b.LastError(); !errors.Is(got, lastErr) || (lastErr == nil) != (got == nil) {
 					t.Errorf("LastError() = %v after TransitionToStarting, want %v unchanged", got, lastErr)
 				}
-				if got := b.Context(); got != serverCtx {
+				if b.Context() != serverCtx {
 					t.Error("Context() changed after TransitionToStarting")
 				}
 				if (setup.state == StateStarting || setup.state == StateRunning) && serverCtx.Err() != nil {
