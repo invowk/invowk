@@ -515,6 +515,7 @@ try {
     $errRes = Invoke-CosignCommand -CosignPath $probeExe -Arguments @('-NoProfile', '-Command', "[Console]::Error.WriteLine('err-line'); exit 2")
     Assert-Equal 'Invoke-CosignCommand captures non-zero exit code without throwing' '2' "$($errRes.ExitCode)"
     Assert-True 'Invoke-CosignCommand captures stderr' ($errRes.Output -like '*err-line*')
+    Assert-Equal 'Invoke-CosignCommand does not leak non-zero LASTEXITCODE' '0' "$LASTEXITCODE"
 } finally {
     $env:INVOWK_REQUIRE_SIGNATURE = $savedReqForSig
     Remove-Item -LiteralPath $sigTmpDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -530,3 +531,4 @@ Write-Host "$($script:Pass) passed, $($script:Fail) failed"
 if ($script:Fail -gt 0) {
     exit 1
 }
+exit 0

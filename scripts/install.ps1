@@ -244,6 +244,7 @@ function Invoke-CosignCommand {
         if ($hasNativePref) {
             $PSNativeCommandUseErrorActionPreference = $prevNativePref
         }
+        $global:LASTEXITCODE = 0
     }
 }
 
