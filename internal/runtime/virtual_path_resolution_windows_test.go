@@ -215,3 +215,32 @@ func TestVirtualPathWindowsDriveLessRootedPath(t *testing.T) {
 		}
 	}
 }
+
+// TestVirtualPathWindowsColonComponentRefused verifies that under restricted
+// access a colon-bearing path component outside the volume prefix is refused
+// for both follow and no-follow resolution, while a normal drive-prefixed path
+// remains accepted.
+func TestVirtualPathWindowsColonComponentRefused(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapJunction)
+	work := mustMkdir(t, filepath.Join(fstree.TempRoot(t), "work"))
+	outside := mustMkdir(t, filepath.Join(outsideVirtualRootsDir(t), "target"))
+	fstree.MustJunction(t, outside, filepath.Join(work, "j"))
+
+	validator := pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, work)
+
+	if got, err := validator.validate(work, "j:stream"); err == nil {
+		t.Errorf("validate(j:stream) unexpectedly succeeded: %q", got)
+	}
+	if got, err := validator.validateNoFollow(work, "j:stream"); err == nil {
+		t.Errorf("validateNoFollow(j:stream) unexpectedly succeeded: %q", got)
+	}
+
+	okPath := filepath.Join(work, "ok.txt")
+	if _, err := validator.validate(work, okPath); err != nil {
+		t.Errorf("validate(%s) unexpected error: %v", okPath, err)
+	}
+	if _, err := validator.validateNoFollow(work, okPath); err != nil {
+		t.Errorf("validateNoFollow(%s) unexpected error: %v", okPath, err)
+	}
+}
