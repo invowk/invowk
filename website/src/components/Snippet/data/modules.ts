@@ -942,13 +942,13 @@ invowk module add https://github.com/user/monorepo.git ^1.0.0 --path modules/io.
     language: 'text',
     code: `Add Module Dependency
 
-ℹ Resolving https://github.com/user/tools.git@^1.0.0...
+• Resolving https://github.com/user/tools.git@^1.0.0...
 ✓ Module resolved
 
-ℹ Git URL:   https://github.com/user/tools.git
-ℹ Version:   ^1.0.0 → 1.2.3
-ℹ Namespace: io.example.tools@1.2.3
-ℹ Cache:     /home/user/.invowk/modules/github.com/user/tools/1.2.3/io.example.tools.invowkmod
+• Git URL:   https://github.com/user/tools.git
+• Version:   ^1.0.0 → 1.2.3
+• Namespace: io.example.tools@1.2.3
+• Cache:     /home/user/.invowk/modules/github.com/user/tools/1.2.3/io.example.tools.invowkmod
 ✓ Module lock file updated
 ✓ Updated invowkmod.cue with new requires entry`,
   },
@@ -967,7 +967,7 @@ invowk module add https://github.com/user/monorepo.git ^1.0.0 --path modules/io.
     language: 'text',
     code: `Remove Module Dependency
 
-ℹ Removing https://github.com/user/tools.git...
+• Removing https://github.com/user/tools.git...
 ✓ Removed io.example.tools@1.2.3
 
 ✓ Lock file and invowkmod.cue updated`,

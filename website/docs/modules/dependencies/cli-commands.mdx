@@ -58,12 +58,12 @@ Resolve a dependency, cache it, update the lock file, and auto-edit `invowkmod.c
 
 The output looks like:
 ```
-ℹ Resolving <url>@<version>...
+• Resolving <url>@<version>...
 ✓ Module resolved
-ℹ Git URL:   <url>
-ℹ Version:   <requested> → <resolved>
-ℹ Namespace: <namespace>
-ℹ Cache:     <path>
+• Git URL:   <url>
+• Version:   <requested> → <resolved>
+• Namespace: <namespace>
+• Cache:     <path>
 ✓ Module lock file updated
 ✓ Updated invowkmod.cue with new requires entry
 ```
@@ -103,7 +103,7 @@ Remove a module dependency from the lock file and `invowkmod.cue`.
 The output looks like:
 ```
 Remove Module Dependency
-ℹ Removing <identifier>...
+• Removing <identifier>...
 ✓ Removed <namespace>
 
 ✓ Lock file and invowkmod.cue updated
@@ -203,12 +203,12 @@ After running `tidy`, run `invowk module sync` to update the lock file.
 
 ```
 Tidy Module Dependencies
-ℹ Found 3 requirement(s) in invowkmod.cue
-ℹ Resolving dependencies to find missing transitive requirements...
+• Found 3 requirement(s) in invowkmod.cue
+• Resolving dependencies to find missing transitive requirements...
 ✓ Added https://github.com/example/utils.git (^1.0.0)
 
 ✓ Added 1 missing transitive dependency(ies) to invowkmod.cue
-ℹ Run invowk module sync to update the lock file
+• Run invowk module sync to update the lock file
 ```
 
 ## invowk module vendor

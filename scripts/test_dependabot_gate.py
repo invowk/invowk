@@ -3524,7 +3524,7 @@ class GateWorkflowTests(unittest.TestCase):
 
 class DependabotConfigTests(unittest.TestCase):
     GROUP_OPTIONS = {"applies-to", "dependency-type", "exclude-patterns", "group-by", "patterns", "update-types"}
-    EXTRA_EXCLUDES = {"gomod": {"github.com/coder/acp-go-sdk", "github.com/openai/openai-go/v3"}, "npm": set()}
+    EXTRA_EXCLUDES = {"gomod": {"github.com/coder/acp-go-sdk", "github.com/charmbracelet/x/vt", "github.com/openai/openai-go/v3"}, "npm": set()}
 
     def setUp(self) -> None:
         self.doc = load_yaml(DEPENDABOT_CONFIG.read_text(encoding="utf-8"))
