@@ -66,7 +66,7 @@ curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.
 irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
 ```
 
-This downloads the latest release, verifies its SHA256 checksum, installs to `%LOCALAPPDATA%\Programs\invowk`, and adds it to your User PATH. Customize with environment variables:
+This downloads the latest release, verifies its SHA256 checksum, installs to `%LOCALAPPDATA%\Programs\invowk`, and adds it to your User PATH. When [Cosign](https://github.com/sigstore/cosign) is on your `PATH`, the script first verifies the signature of `checksums.txt` against the release workflow's identity and stops if it does not verify. It needs Cosign v2.4.2 or later, and stops with an upgrade hint when an older Cosign is found. Without Cosign it prints a warning and continues; set `$env:INVOWK_REQUIRE_SIGNATURE='1'` (or `'true'`/`'yes'`) to make that an error. Customize with environment variables:
 
 ```powershell
 # Install a specific version to a custom directory
@@ -160,7 +160,7 @@ cosign verify-blob \
   checksums.txt
 ```
 
-Other workflows of the repository can also obtain a GitHub OIDC token, so pin the exact identity above rather than a pattern that matches any workflow of `invowk/invowk`. The `.sigstore.json` bundles need Cosign v2.4.2 or later; older versions reject them with "bundle does not contain cert for verification". The shell installer runs this check itself when Cosign is installed.
+Other workflows of the repository can also obtain a GitHub OIDC token, so pin the exact identity above rather than a pattern that matches any workflow of `invowk/invowk`. The `.sigstore.json` bundles need Cosign v2.4.2 or later; older versions reject them with "bundle does not contain cert for verification". Both the shell and PowerShell installers run this check automatically when Cosign is installed.
 
 Then verify individual archives against `checksums.txt` using `sha256sum -c checksums.txt`.
 

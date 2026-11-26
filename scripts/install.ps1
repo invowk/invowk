@@ -6,13 +6,20 @@
 #   irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
 #
 # Environment variables:
-#   INVOWK_VERSION        - Specific version to install (e.g., v1.0.0). Default: latest stable.
-#   INSTALL_DIR           - Installation directory. Default: $env:LOCALAPPDATA\Programs\invowk.
-#   INVOWK_NO_MODIFY_PATH - Set to 1 to skip automatic PATH modification.
-#   GITHUB_TOKEN          - Optional GitHub token for API rate limit relief.
+#   INVOWK_VERSION           - Specific version to install (e.g., v1.0.0). Default: latest stable.
+#   INSTALL_DIR              - Installation directory. Default: $env:LOCALAPPDATA\Programs\invowk.
+#   INVOWK_NO_MODIFY_PATH    - Set to 1 to skip automatic PATH modification.
+#   INVOWK_REQUIRE_SIGNATURE - Set to 1, true or yes to fail when cosign is not
+#                              installed, instead of warning and installing without
+#                              verifying the signature of checksums.txt. 0, false, no
+#                              or unset keep the warning; any other value is an error.
+#   GITHUB_TOKEN             - Optional GitHub token for API rate limit relief.
 #
 # Requirements:
 #   - PowerShell 5.1+ (ships with Windows 10/11)
+#   - cosign (optional, recommended): verifies the Sigstore signature of
+#     checksums.txt before the script trusts it. Releases with a Sigstore
+#     bundle (v0.5.0 on) need cosign v2.4.2 or later.
 #
 # Supported platforms:
 #   - Windows (amd64)
@@ -23,6 +30,18 @@
 
 $script:GitHubRepo = 'invowk/invowk'
 $script:BinaryName = 'invowk'
+
+# The only signer accepted for checksums.txt: the release workflow, run by a
+# tag push, at the tag of the version being installed. Other workflows of the
+# repository can also obtain an OIDC token, so the identity is pinned to the
+# workflow file and the tag, never to the repository alone.
+$script:SignerIdentityPrefix = "https://github.com/$($script:GitHubRepo)/.github/workflows/release.yml@refs/tags/"
+$script:SignerOidcIssuer = 'https://token.actions.githubusercontent.com'
+$script:SignerWorkflowTrigger = 'push'
+
+# The oldest cosign that verifies every published checksums.txt.sigstore.json
+# (v0.7.0+ publish Sigstore bundle v0.3 format, rejected by cosign <= v2.4.1).
+$script:CosignMinBundleVersion = '2.4.2'
 
 # -------------------------------------------------------------------------
 # Testable Pure Functions (script scope — accessible when dot-sourced)
@@ -104,6 +123,288 @@ function Test-InPath {
         }
     }
     return $false
+}
+
+# Validate that a version string looks like a semver tag (vN.N.N with optional suffix)
+# and contains only safe tag characters before it enters download URLs or signer pins.
+function Test-VersionFormat {
+    param([string]$Version)
+    if ([string]::IsNullOrEmpty($Version)) { return $false }
+    return [bool]($Version -cmatch '\Av[0-9]+\.[0-9]+\.[0-9]+[0-9A-Za-z.+-]*\z')
+}
+
+# Print the certificate identity that must have signed a version's checksums.txt.
+function Get-SignerIdentity {
+    param([string]$Version)
+    return "$($script:SignerIdentityPrefix)$Version"
+}
+
+# Report whether INVOWK_REQUIRE_SIGNATURE asks for a verified signature.
+# 1, true and yes (any case) mean on; 0, false, no, empty and unset mean off.
+# Any other value is fatal, so a typo never turns the requirement off.
+function Test-SignatureRequired {
+    $value = $env:INVOWK_REQUIRE_SIGNATURE
+    if ([string]::IsNullOrEmpty($value)) {
+        return $false
+    }
+    switch -Exact ($value) {
+        '1'     { return $true }
+        'true'  { return $true }
+        'yes'   { return $true }
+        '0'     { return $false }
+        'false' { return $false }
+        'no'    { return $false }
+        default {
+            throw @"
+Invalid INVOWK_REQUIRE_SIGNATURE value: $value
+Use 1, true or yes to require a verified signature, or 0, false or no (or leave it unset) to allow installing without cosign.
+"@
+        }
+    }
+}
+
+# Report whether version X.Y.Z ($Have) is at least version X.Y.Z ($Min).
+function Test-VersionAtLeast {
+    param(
+        [string]$Have,
+        [string]$Min
+    )
+    if ($Have -cnotmatch '\A[0-9]+\.[0-9]+\.[0-9]+\z' -or $Min -cnotmatch '\A[0-9]+\.[0-9]+\.[0-9]+\z') {
+        return $false
+    }
+    $haveParts = $Have -split '\.'
+    $minParts = $Min -split '\.'
+    for ($i = 0; $i -lt 3; $i++) {
+        $h = [int]$haveParts[$i]
+        $m = [int]$minParts[$i]
+        if ($h -gt $m) { return $true }
+        if ($h -lt $m) { return $false }
+    }
+    return $true
+}
+
+# Extract the X.Y.Z version from `cosign version` output, or '' when missing / devel.
+function Get-CosignVersion {
+    param([string]$Output)
+    if ([string]::IsNullOrEmpty($Output)) { return '' }
+    foreach ($line in ($Output -split "\r?\n")) {
+        if ($line -cmatch '^GitVersion:\s*v?([0-9]+\.[0-9]+\.[0-9]+)') {
+            return $Matches[1]
+        }
+    }
+    return ''
+}
+
+# Report whether cosign output shows that cosign could not reach Sigstore services
+# rather than a signature that does not verify. Identity/signature errors ALWAYS
+# count as a bad signature so attacker-controlled SAN text cannot masquerade as
+# a network failure.
+function Test-CosignOutputIsNetworkError {
+    param([string]$Output)
+    if ([string]::IsNullOrEmpty($Output)) { return $false }
+    if ($Output -match '(?i)CertificateIdentity|expected SAN|invalid signature|failed to verify|verification failed|no matching') {
+        return $false
+    }
+    return [bool]($Output -match '(?i)tuf refresh failed|getting trusted root from TUF|failed to create TUF client|dial tcp|proxyconnect tcp|no such host|connection refused|connection reset by peer|i/o timeout|TLS handshake timeout|context deadline exceeded|network is unreachable')
+}
+
+# Run a native cosign command and capture exit code + combined stdout/stderr output
+# safely under both Windows PowerShell 5.1 and PowerShell 7+ with ErrorActionPreference=Stop.
+function Invoke-CosignCommand {
+    param(
+        [string]$CosignPath,
+        [string[]]$Arguments
+    )
+    $prevErrorAction = $ErrorActionPreference
+    $hasNativePref = Test-Path variable:PSNativeCommandUseErrorActionPreference
+    $prevNativePref = $null
+    if ($hasNativePref) {
+        $prevNativePref = $PSNativeCommandUseErrorActionPreference
+    }
+    try {
+        $ErrorActionPreference = 'Continue'
+        if ($hasNativePref) {
+            $PSNativeCommandUseErrorActionPreference = $false
+        }
+        $rawOutput = & $CosignPath @Arguments 2>&1
+        $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+        $lines = @()
+        foreach ($item in $rawOutput) {
+            if ($null -ne $item) {
+                $lines += $item.ToString()
+            }
+        }
+        return @{
+            ExitCode = $exitCode
+            Output   = ($lines -join "`n")
+        }
+    }
+    finally {
+        $ErrorActionPreference = $prevErrorAction
+        if ($hasNativePref) {
+            $PSNativeCommandUseErrorActionPreference = $prevNativePref
+        }
+        $global:LASTEXITCODE = 0
+    }
+}
+
+# Fail unless the cosign on PATH can verify a Sigstore bundle.
+function Assert-CosignBundleSupport {
+    param(
+        [string]$CosignPath,
+        [scriptblock]$RunCosign = { param($Exe, $CmdArgs) Invoke-CosignCommand -CosignPath $Exe -Arguments $CmdArgs },
+        [scriptblock]$WriteWarning = { param($Msg) Write-Warning $Msg }
+    )
+    $versionResult = & $RunCosign $CosignPath @('version')
+    if ($versionResult.ExitCode -ne 0) {
+        throw @"
+cosign is on PATH, but 'cosign version' failed, so the signature of checksums.txt cannot be verified.
+This is a problem with the cosign installation, not with the release.
+cosign output:
+$($versionResult.Output)
+
+Repair or upgrade cosign (v$($script:CosignMinBundleVersion) or later) and try again.
+"@
+    }
+    $cosignVersion = Get-CosignVersion -Output $versionResult.Output
+    if ([string]::IsNullOrEmpty($cosignVersion)) {
+        & $WriteWarning "Could not read the cosign version; this release needs cosign v$($script:CosignMinBundleVersion) or later. Verifying anyway."
+        return
+    }
+    if (-not (Test-VersionAtLeast -Have $cosignVersion -Min $script:CosignMinBundleVersion)) {
+        throw "cosign $cosignVersion is older than the minimum $($script:CosignMinBundleVersion) needed to verify this release; upgrade cosign to v$($script:CosignMinBundleVersion) or later and try again."
+    }
+}
+
+# Verify the Cosign signature of checksums.txt before trusting it.
+function Test-ChecksumsSignature {
+    param(
+        [string]$Version,
+        [string]$ChecksumsPath,
+        [string]$DownloadBaseUrl = "https://github.com/$($script:GitHubRepo)/releases/download",
+        [scriptblock]$FindCosign = {
+            $cmd = Get-Command cosign -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($cmd) { return $cmd.Source }
+            return $null
+        },
+        [scriptblock]$DownloadFile,
+        [scriptblock]$RunCosign = { param($Exe, $CmdArgs) Invoke-CosignCommand -CosignPath $Exe -Arguments $CmdArgs },
+        [scriptblock]$WriteInfo = { param($Msg) },
+        [scriptblock]$WriteSuccess = { param($Msg) },
+        [scriptblock]$WriteWarning = { param($Msg) Write-Warning $Msg }
+    )
+
+    $sigRequired = Test-SignatureRequired
+    $cosignPath = & $FindCosign
+    if ([string]::IsNullOrEmpty($cosignPath)) {
+        if ($sigRequired) {
+            throw @"
+cosign not found, and INVOWK_REQUIRE_SIGNATURE=$($env:INVOWK_REQUIRE_SIGNATURE) requires the signature of checksums.txt to be verified.
+Install cosign v$($script:CosignMinBundleVersion) or later (https://docs.sigstore.dev/cosign/system_config/installation/) and try again.
+"@
+        }
+        & $WriteWarning @"
+cosign not found: the signature of checksums.txt was NOT verified; only the SHA256 checksum of the archive will be checked.
+Install cosign v$($script:CosignMinBundleVersion) or later (https://docs.sigstore.dev/cosign/system_config/installation/) to verify it,
+or set INVOWK_REQUIRE_SIGNATURE=1 to make a missing cosign an error.
+"@
+        return
+    }
+
+    if (-not $DownloadFile) {
+        throw 'Internal error: DownloadFile callback is required when cosign is present.'
+    }
+
+    $identity = Get-SignerIdentity -Version $Version
+    $sigBaseUrl = "$DownloadBaseUrl/$Version/checksums.txt"
+    $bundlePath = "$ChecksumsPath.sigstore.json"
+    $sigPath = "$ChecksumsPath.sig"
+    $pemPath = "$ChecksumsPath.pem"
+
+    & $WriteInfo 'Verifying the signature of checksums.txt...'
+
+    # Releases from v0.5.0 on publish a Sigstore bundle; earlier ones published
+    # a detached signature and certificate. Once a bundle downloads, never fall
+    # back to a detached signature.
+    $haveBundle = $false
+    try {
+        & $DownloadFile "$sigBaseUrl.sigstore.json" $bundlePath
+        if (Test-Path -LiteralPath $bundlePath) {
+            $haveBundle = $true
+        }
+    }
+    catch {
+        Remove-Item -LiteralPath $bundlePath -Force -ErrorAction SilentlyContinue
+        $haveBundle = $false
+    }
+
+    $sigArgs = $null
+    if ($haveBundle) {
+        Assert-CosignBundleSupport -CosignPath $cosignPath -RunCosign $RunCosign -WriteWarning $WriteWarning
+        $sigArgs = @('--bundle', $bundlePath)
+    }
+    else {
+        $haveLegacy = $false
+        try {
+            & $DownloadFile "$sigBaseUrl.sig" $sigPath
+            & $DownloadFile "$sigBaseUrl.pem" $pemPath
+            if ((Test-Path -LiteralPath $sigPath) -and (Test-Path -LiteralPath $pemPath)) {
+                $haveLegacy = $true
+            }
+        }
+        catch {
+            Remove-Item -LiteralPath $sigPath, $pemPath -Force -ErrorAction SilentlyContinue
+            $haveLegacy = $false
+        }
+        if ($haveLegacy) {
+            $sigArgs = @('--signature', $sigPath, '--certificate', $pemPath)
+        }
+        else {
+            throw @"
+Could not download the signature of checksums.txt for $Version.
+
+cosign is installed, so the installer will not continue without verifying it.
+Check your network connection and try again.
+If this persists, report at https://github.com/$($script:GitHubRepo)/issues
+"@
+        }
+    }
+
+    $verifyArgs = @(
+        'verify-blob'
+    ) + $sigArgs + @(
+        '--certificate-identity', $identity,
+        '--certificate-oidc-issuer', $script:SignerOidcIssuer,
+        '--certificate-github-workflow-trigger', $script:SignerWorkflowTrigger,
+        $ChecksumsPath
+    )
+
+    $verifyResult = & $RunCosign $cosignPath $verifyArgs
+    if ($verifyResult.ExitCode -ne 0) {
+        if (Test-CosignOutputIsNetworkError -Output $verifyResult.Output) {
+            throw @"
+cosign could not verify the signature of checksums.txt for ${Version}: it could not reach the Sigstore services (TUF metadata or Rekor).
+This usually points to a network or proxy problem. Do not install this release
+until its signature verifies; the installer does not continue without it.
+cosign output:
+$($verifyResult.Output)
+
+Check your network connection and proxy settings, and try again.
+"@
+        }
+        throw @"
+Signature verification of checksums.txt failed for $Version.
+
+Expected signer: $identity
+Expected issuer: $($script:SignerOidcIssuer)
+cosign output:
+$($verifyResult.Output)
+
+Do not install this release. Report at https://github.com/$($script:GitHubRepo)/issues
+"@
+    }
+
+    & $WriteSuccess 'Signature of checksums.txt verified.'
 }
 
 # -------------------------------------------------------------------------
@@ -248,6 +549,13 @@ function Install-Invowk {
             if ($version -notmatch '^v') {
                 $version = "v$version"
             }
+            if (-not (Test-VersionFormat -Version $version)) {
+                Stop-WithError @"
+Invalid INVOWK_VERSION: $version
+Use a release tag such as v1.0.0 or v0.1.0-alpha.1 (the v prefix is optional).
+Check available versions at: https://github.com/$script:GitHubRepo/releases
+"@
+            }
             Write-Log "Using specified version: ${Bold}${version}${Reset}"
 
             # Verify the release exists by checking the tag endpoint.
@@ -313,7 +621,7 @@ Try again in a few minutes, or specify a version directly:
         }
 
         # Validate the extracted version looks like a semver tag (vN.N.N with optional suffix).
-        if ($version -notmatch '^v\d+\.\d+\.\d+') {
+        if (-not (Test-VersionFormat -Version $version)) {
             Stop-WithError @"
 Unexpected version format from GitHub API: $version
 This may indicate an API change. Report at: https://github.com/$script:GitHubRepo/issues
@@ -361,9 +669,8 @@ Check available assets at: https://github.com/$script:GitHubRepo/releases/tag/$V
 "@
             }
 
-            # Note: checksums.txt is not signature-verified by this script because cosign
-            # is not a standard system tool. For supply-chain verification, see:
-            # https://github.com/invowk/invowk#verifying-signatures
+            # The checksum file and its signature are downloaded to a freshly
+            # created temp directory before verification.
             Write-Log 'Downloading checksums...'
             try {
                 Invoke-SafeWebRequest -Uri $checksumsUrl -OutFile $checksumsPath
@@ -374,6 +681,22 @@ Failed to download checksums.txt.
 
 Cannot verify download integrity. Please try again.
 "@
+            }
+
+            # checksums.txt is trusted only after its signature verifies (when cosign
+            # is available; see Test-ChecksumsSignature).
+            try {
+                Test-ChecksumsSignature `
+                    -Version $Version `
+                    -ChecksumsPath $checksumsPath `
+                    -DownloadBaseUrl $DownloadBaseUrl `
+                    -DownloadFile { param($Url, $Dest) Invoke-SafeWebRequest -Uri $Url -OutFile $Dest } `
+                    -WriteInfo { param($Msg) Write-Log $Msg } `
+                    -WriteSuccess { param($Msg) Write-Ok $Msg } `
+                    -WriteWarning { param($Msg) Write-Warn $Msg }
+            }
+            catch {
+                Stop-WithError $_.Exception.Message
             }
 
             # Extract expected checksum for our asset from checksums.txt.
@@ -510,6 +833,14 @@ Add it manually by running:
 
     Write-Log "Installing ${Bold}${script:BinaryName}${Reset}..."
     Write-Log ''
+
+    # Reject an invalid INVOWK_REQUIRE_SIGNATURE before anything is downloaded.
+    try {
+        $null = Test-SignatureRequired
+    }
+    catch {
+        Stop-WithError $_.Exception.Message
+    }
 
     Test-Prerequisites
 
