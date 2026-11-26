@@ -153,6 +153,7 @@ container: {
         inherit_includes: true
         cache_dir: ""
     }
+    tui_server_bind: "restricted"
 }`,
   },
 
@@ -178,8 +179,8 @@ container: {
 })
 
 #IncludeEntry: close({
-    path:   string  // Must be absolute and end with .invowkmod
-    alias?: string  // Optional, for collision disambiguation
+    path:   string & !="" & strings.MaxRunes(4096) & =~"\\\\.invowkmod$"
+    alias?: string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
 })
 
 #VirtualConfig: close({
@@ -225,16 +226,17 @@ container: {
 })
 
 #ContainerConfig: close({
-    auto_provision: *#AutoProvisionConfig | #AutoProvisionConfig
+    auto_provision:  *#AutoProvisionConfig | #AutoProvisionConfig
+    tui_server_bind: *"restricted" | #TUIServerBindType
 })
 
 #AutoProvisionConfig: close({
     enabled: *true | bool
     strict: *false | bool
-    binary_path: *"" | (string & !="")
+    binary_path: *"" | (string & !="" & strings.MaxRunes(4096))
     includes: *([]) | [...#IncludeEntry]
     inherit_includes: *true | bool
-    cache_dir: *"" | (string & !="")
+    cache_dir: *"" | (string & !="" & strings.MaxRunes(4096))
 })`,
   },
 
@@ -425,6 +427,7 @@ container: {
         inherit_includes: true
         cache_dir: ""
     }
+    tui_server_bind: "restricted"
 }`,
   },
 
@@ -562,6 +565,7 @@ container: {
         inherit_includes: true
         cache_dir: ""
     }
+    tui_server_bind: "restricted"
 }`,
   },
 
@@ -590,6 +594,7 @@ import "strings"
 #ContainerEngineType: "podman" | "docker"
 #ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
+#TUIServerBindType: "restricted" | "all-interfaces"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 #LLMTimeoutDurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
@@ -605,8 +610,8 @@ import "strings"
 
 // Include entry for modules
 #IncludeEntry: close({
-    path:   string  // Must be absolute and end with .invowkmod
-    alias?: string  // Optional, for collision disambiguation
+    path:   string & !="" & strings.MaxRunes(4096) & =~"\\\\.invowkmod$"
+    alias?: string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
 })
 
 // Virtual runtime family configuration
@@ -657,17 +662,18 @@ import "strings"
 
 // Container configuration
 #ContainerConfig: close({
-    auto_provision: *#AutoProvisionConfig | #AutoProvisionConfig
+    auto_provision:  *#AutoProvisionConfig | #AutoProvisionConfig
+    tui_server_bind: *"restricted" | #TUIServerBindType
 })
 
 // Auto-provisioning configuration
 #AutoProvisionConfig: close({
     enabled:          *true | bool
     strict:           *false | bool
-    binary_path:      *"" | (string & !="")
+    binary_path:      *"" | (string & !="" & strings.MaxRunes(4096))
     includes:         *([]) | [...#IncludeEntry]
     inherit_includes: *true | bool
-    cache_dir:        *"" | (string & !="")
+    cache_dir:        *"" | (string & !="" & strings.MaxRunes(4096))
 })`,
   },
 
@@ -678,6 +684,7 @@ import "strings"
 #ContainerEngineType: "podman" | "docker"
 #ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
+#TUIServerBindType: "restricted" | "all-interfaces"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 #LLMTimeoutDurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
@@ -692,8 +699,8 @@ import "strings"
 })
 
 #IncludeEntry: close({
-    path:   string  // Must be absolute and end with .invowkmod
-    alias?: string  // Optional, for collision disambiguation
+    path:   string & !="" & strings.MaxRunes(4096) & =~"\\\\.invowkmod$"
+    alias?: string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
 })
 
 #VirtualConfig: close({
@@ -739,16 +746,17 @@ import "strings"
 })
 
 #ContainerConfig: close({
-    auto_provision: *#AutoProvisionConfig | #AutoProvisionConfig
+    auto_provision:  *#AutoProvisionConfig | #AutoProvisionConfig
+    tui_server_bind: *"restricted" | #TUIServerBindType
 })
 
 #AutoProvisionConfig: close({
     enabled: *true | bool
     strict: *false | bool
-    binary_path: *"" | (string & !="")
+    binary_path: *"" | (string & !="" & strings.MaxRunes(4096))
     includes: *([]) | [...#IncludeEntry]
     inherit_includes: *true | bool
-    cache_dir: *"" | (string & !="")
+    cache_dir: *"" | (string & !="" & strings.MaxRunes(4096))
 })`,
   },
 
@@ -909,10 +917,10 @@ import "strings"
     code: `#AutoProvisionConfig: close({
     enabled:          *true | bool
     strict:           *false | bool
-    binary_path:      *"" | (string & !="")
+    binary_path:      *"" | (string & !="" & strings.MaxRunes(4096))
     includes:         *([]) | [...#IncludeEntry]
     inherit_includes: *true | bool
-    cache_dir:        *"" | (string & !="")
+    cache_dir:        *"" | (string & !="" & strings.MaxRunes(4096))
 })`,
   },
 
@@ -1059,6 +1067,7 @@ container: {
         inherit_includes: true
         cache_dir: ""
     }
+    tui_server_bind: "restricted"
 }`,
   },
 

@@ -35,7 +35,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
-    # 8 excluded modules (the 6 sync pairs never merge here) + the group +
+    # 9 excluded modules (the 6 sync pairs never merge here) + the group +
     # majors.
     open-pull-requests-limit: 15
     cooldown:
@@ -59,6 +59,9 @@ updates:
           # 0.x SDK whose minor releases break the API (0.13.5 -> 0.20.0
           # broke internal/acpclient in #190). The gate holds its minors.
           - "github.com/coder/acp-go-sdk"
+          # 0.x terminal emulation library whose minor bumps are held by the gate;
+          # keep it in its own pull request so it does not hold the group back.
+          - "github.com/charmbracelet/x/vt"
           # Generated SDK that releases several minors a week (3.53.0 on
           # 2026-08-27, 3.105.0 on 2026-11-23). It is past 1.0, so alone the
           # gate can still merge it, and a bad release is one revert.

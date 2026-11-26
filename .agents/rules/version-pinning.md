@@ -59,7 +59,7 @@ build configuration. The exceptions below are deliberate. User-facing install in
 - **Current pinned versions:**
   - `gotestsum`: `v1.13.0` (`.github/workflows/ci.yml`, `.github/workflows/release.yml`)
   - `govulncheck`: `v1.7.0` (`.github/workflows/ci.yml`)
-  - `cosign`: `v3.1.3` (`cosign-release` input in `.github/workflows/release-signing.yml` and `.github/workflows/release.yml`)
+  - `cosign`: `v3.1.4` (`cosign-release` input in `.github/workflows/release-signing.yml` and `.github/workflows/release.yml`)
   - UPX: `5.2.0` (`UPX_VERSION` in `.github/workflows/ci.yml`, `.github/workflows/release-signing.yml` and `.github/workflows/release.yml`)
   - D2: `v0.7.1` (`.github/workflows/validate-diagrams.yml`)
 
