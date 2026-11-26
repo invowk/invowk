@@ -315,8 +315,8 @@ The formal-bindings executor SHALL run with the wrapper's fixed rapid seed, disa
 
 #### Scenario: Reruns are recorded
 - **WHEN** `mutation-formal-rerun` runs a mutant
-- **THEN** it SHALL append the mutant ID, status, timestamp, and the SHA-256 digest of the plan inputs (the mutated target files and the files declaring their killer tests, sorted by path, each hashed as path, NUL, bytes) to `tools/mutation/triage/formal-bindings-reruns.jsonl`
-- **THEN** a recorded commit, if any, SHALL be information only and SHALL NOT decide whether evidence counts
+- **THEN** it SHALL append the mutant ID, status, timestamp, and the SHA-256 digest of the plan inputs (the mutated target files, the files declaring their killer tests, and any planned model golden-vector files, sorted by path, each hashed as path, NUL, bytes) to `tools/mutation/triage/formal-bindings-reruns.jsonl` without recording a pre-rebase `commit` hash
+- **THEN** a historical `commit` field on older records, if any, SHALL be ignored when deciding whether evidence counts
 
 #### Scenario: Survivors are confirmed by evidence
 - **WHEN** the triage check runs
@@ -630,15 +630,19 @@ The triage check SHALL fail on every ledger entry that carries the refresh's unt
 - **THEN** the triage check SHALL raise no failure for that entry
 
 ### Requirement: The refresh leaves other entries byte-identical
-The refresh SHALL leave every baseline entry, ledger entry, ledger comment and `[triage]` entry that it does not remove, add or re-anchor byte-identical, including the baseline entries it keeps in the chosen symbols and the baseline's top-level digest.
+The refresh SHALL leave every baseline entry, ledger entry, ledger comment and `[triage]` entry of unchosen symbols byte-identical, as well as the baseline's top-level digest. For kept survivors of chosen symbols, it SHALL keep their evidence digest and (when anchored) ledger entry unchanged while updating any shifted `line` number (and baseline sort position) from the report.
 
 #### Scenario: Unrelated entries unchanged
-- **WHEN** the refresh adds and removes entries of one symbol
-- **THEN** the diff of the baseline, the ledger and `formal/manifest.toml` SHALL contain only the added, removed and re-anchored entries of that symbol and its ids' `stale_survivors` lines
+- **WHEN** the refresh adds, updates or removes entries of one symbol
+- **THEN** the diff of the baseline, the ledger and `formal/manifest.toml` SHALL contain only the touched symbol's entries and its ids' `stale_survivors` lines
 
-#### Scenario: Kept survivor unchanged
-- **WHEN** a chosen symbol's baselined id is reported escaped again and its ledger entry passes the anchor check
+#### Scenario: Kept survivor unchanged when unshifted
+- **WHEN** a chosen symbol's baselined id is reported escaped again at its recorded line and its ledger entry passes the anchor check
 - **THEN** the refresh SHALL keep its baseline and ledger entries unchanged and count it as kept
+
+#### Scenario: Kept survivor updates shifted line
+- **WHEN** a chosen symbol's baselined id is reported escaped again at a different line and its ledger entry passes the anchor check
+- **THEN** the refresh SHALL update its baseline `line` (and sort position) while keeping its evidence digest and ledger entry unchanged, report the updated line in the summary, and remain idempotent on a second run
 
 #### Scenario: Refresh is idempotent
 - **WHEN** the refresh runs twice with the same run and the same symbols

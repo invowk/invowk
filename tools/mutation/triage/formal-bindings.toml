@@ -17,13 +17,14 @@
 #   - every id has at least two `escaped` records in formal-bindings-reruns.jsonl
 #     whose `digest` equals its evidence digest (the mutant's own baseline
 #     `digest` after a partial refresh, else the baseline's input digest), and
-#     no other status there (the digest covers the target files and the files
-#     declaring their killer tests, so it survives squash merges);
+#     no other status there (the digest covers the target files, the files
+#     declaring their killer tests, and any planned model golden-vector files, so
+#     it survives squash merges);
 #   - the anchor (`removed` and `added`, the exact diff lines) hashes, with the
 #     file and the baseline's mutator, to the id (go-mutesting's MutantID);
 #   - the symbol still names a function in `file`, and the anchor lines
-#     (`removed`, or `context` when it removes no line), whitespace-trimmed,
-#     still appear in order starting inside that function's body.
+#     (`removed`, or `context` when it removes no line), verbatim (indentation
+#     included), still appear in order starting inside that function's body.
 #     Survivors in formal/manifest.toml [triage] orphaned_survivors are not
 #     anchored; ids in [triage] stale_survivors (shrink-only) are reported
 #     instead of failing, and fail once they pass.
@@ -37,7 +38,7 @@
 #
 # [[survivor]] fields: id, file, symbol, model, element, class, reason, follow_up,
 # removed, added, and context (only for a mutant that removes no line: the
-# unchanged line before its first added line).
+# nearest preceding non-blank unchanged line before its first added line).
 #
 # [[closed]] records a gap closed by a stronger binding or a new model property:
 # the mutant left the baseline, and its id must appear in the model's
