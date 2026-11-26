@@ -323,6 +323,7 @@ generated module file bundle.`,
 				DryRun:      dryRun,
 				PrintOnly:   printOnly,
 				Verify:      verify,
+				EditLocks:   moduleEditLocks(),
 			}, llmFlags)
 		},
 	}

@@ -270,42 +270,6 @@ requires: [
 	}
 }
 
-func TestInvowkmodEditMutationLeadingWhitespace(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		line string
-		want string
-	}{
-		{
-			name: "mixed leading whitespace",
-			line: "\t  {",
-			want: "\t  ",
-		},
-		{
-			name: "all whitespace",
-			line: "\t ",
-			want: "\t ",
-		},
-		{
-			name: "no leading whitespace",
-			line: "field",
-			want: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := leadingWhitespace(tt.line); got != tt.want {
-				t.Fatalf("leadingWhitespace(%q) = %q, want %q", tt.line, got, tt.want)
-			}
-		})
-	}
-}
-
 func testEditModuleRef() ModuleRef {
 	return ModuleRef{
 		GitURL:  "https://github.com/user/tools.git",

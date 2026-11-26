@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/modulecache"
+	"github.com/invowk/invowk/internal/modulelock"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -25,7 +26,7 @@ func TestNewResolverForInvowkmodPathUsesMetadataDirectory(t *testing.T) {
 		t.Fatalf("MkdirAll(moduleDir) error = %v", err)
 	}
 
-	resolver, err := newResolverForInvowkmodPath(types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")))
+	resolver, err := newResolverForInvowkmodPath(types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")), testEditLocks(t))
 	if err != nil {
 		t.Fatalf("newResolverForInvowkmodPath() error = %v", err)
 	}
@@ -99,10 +100,13 @@ func TestListModuleDependenciesDoesNotCreateModuleCache(t *testing.T) {
 	}
 }
 
-func TestRemoveModuleDependencyDoesNotCreateModuleCache(t *testing.T) {
+// TestRemoveModuleDependencyCreatesOnlyProjectLock checks design D5 for
+// remove: from a cache root that does not exist, it creates nothing in the
+// cache but locks/ and the project lock file (no sources/, no module copy).
+func TestRemoveModuleDependencyCreatesOnlyProjectLock(t *testing.T) {
+	t.Parallel()
 	moduleDir := t.TempDir()
 	cacheDir := filepath.Join(t.TempDir(), "modules")
-	t.Setenv(modulecache.ModuleCachePathEnv, cacheDir)
 
 	invowkmodPath := filepath.Join(moduleDir, "invowkmod.cue")
 	if err := os.WriteFile(invowkmodPath, []byte(`module: "io.example.root"
@@ -128,16 +132,15 @@ requires: [
 		t.Fatalf("Save() error = %v", err)
 	}
 
-	result, err := RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), "tools")
+	locks := EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(cacheDir)}
+	result, err := RemoveModuleDependency(t.Context(), locks, types.FilesystemPath(invowkmodPath), "tools")
 	if err != nil {
 		t.Fatalf("RemoveModuleDependency() error = %v", err)
 	}
 	if len(result.Removed()) != 1 {
 		t.Fatalf("Removed = %d, want 1", len(result.Removed()))
 	}
-	if _, err := os.Stat(cacheDir); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("module cache stat error = %v, want not exist", err)
-	}
+	assertOnlyProjectLock(t, cacheDir, moduleDir)
 }
 
 func TestAddModuleDependencyRejectsDeclarationInvalidVersionBeforeCache(t *testing.T) {
@@ -145,7 +148,8 @@ func TestAddModuleDependencyRejectsDeclarationInvalidVersionBeforeCache(t *testi
 	cacheDir := filepath.Join(t.TempDir(), "modules")
 	t.Setenv(modulecache.ModuleCachePathEnv, cacheDir)
 
-	_, err := AddModuleDependency(t.Context(), types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")), ModuleRef{
+	locks := EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(cacheDir)}
+	_, err := AddModuleDependency(t.Context(), locks, types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")), ModuleRef{
 		GitURL:  "https://github.com/user/tools.git",
 		Version: "v1.2.3",
 	})
@@ -180,7 +184,7 @@ func TestAddModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 		t.Fatalf("newResolverWithFetcher() error = %v", err)
 	}
 
-	result, err := resolver.AddModuleDependency(t.Context(), types.FilesystemPath(filepath.Join(workDir, "invowkmod.cue")), ModuleRef{
+	result, err := withEditLocks(resolver).AddModuleDependency(t.Context(), types.FilesystemPath(filepath.Join(workDir, "invowkmod.cue")), ModuleRef{
 		GitURL:  "https://github.com/user/tools.git",
 		Version: "^1.0.0",
 	})
@@ -197,11 +201,11 @@ func TestAddModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 		t.Fatal("Declaration.Err = nil, want declaration edit error")
 	}
 	// The CLI prints its not-found line from this check; the error is wrapped
-	// with %w and joined with the restore errors, so os.IsNotExist misses it.
+	// with %w, so os.IsNotExist misses it.
 	if !errors.Is(result.Declaration().Err(), fs.ErrNotExist) {
 		t.Fatalf("Declaration.Err = %v, want an error wrapping fs.ErrNotExist", result.Declaration().Err())
 	}
-	assertRestoresSucceeded(t, result.Declaration().Err())
+	assertRollbackComplete(t, result.Declaration())
 
 	lock, err := invowkmod.LoadLockFile(filepath.Join(workDir, LockFileName))
 	if err != nil {
@@ -244,7 +248,7 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile(lock) error = %v", err)
 	}
-	result, err := resolver.RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), "tools")
+	result, err := withEditLocks(resolver).RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), "tools")
 	if err != nil {
 		t.Fatalf("RemoveModuleDependency() error = %v", err)
 	}
@@ -262,7 +266,7 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	if declarations[0].Err() == nil {
 		t.Fatal("Declaration.Err = nil, want declaration edit error")
 	}
-	assertRestoresSucceeded(t, declarations[0].Err())
+	assertRollbackComplete(t, declarations[0])
 
 	reloaded, err := invowkmod.LoadLockFile(filepath.Join(workDir, LockFileName))
 	if err != nil {
@@ -280,14 +284,13 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	}
 }
 
-// assertRestoresSucceeded checks the error shape the CLI's rollback lines rely
-// on (moduleDeclarationRestoreFailed in cmd/invowk): after a rollback whose
-// restores succeeded, the declaration error is a join of the edit error alone.
-func assertRestoresSucceeded(t *testing.T, err error) {
+// assertRollbackComplete checks the outcome the CLI's rollback lines switch
+// on: after a rollback whose restores succeeded, the use case reports it as
+// complete.
+func assertRollbackComplete(t *testing.T, declaration DeclarationEditResult) {
 	t.Helper()
 
-	joined, ok := err.(interface{ Unwrap() []error })
-	if !ok || len(joined.Unwrap()) != 1 {
-		t.Fatalf("Declaration.Err = %v, want errors.Join of the edit error alone (both restores succeeded)", err)
+	if got := declaration.Rollback(); got != DeclarationRollbackComplete {
+		t.Fatalf("Declaration.Rollback = %s (err %v), want complete (both restores succeeded)", got, declaration.Err())
 	}
 }

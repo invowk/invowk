@@ -27,7 +27,16 @@ type (
 	// VendorResolutionStrategy describes how vendored dependencies were resolved.
 	VendorResolutionStrategy string
 
+	// vendorDependencyResolver is the resolver vendor runs under its project
+	// lock; LockProject takes that lock.
 	vendorDependencyResolver interface {
+		vendorResolveResolver
+		LockProject(ctx context.Context) (unlock func() error, err error)
+	}
+
+	// vendorResolveResolver is the part resolveVendorDependencies uses, under
+	// the caller's project lock.
+	vendorResolveResolver interface {
 		Sync(ctx context.Context, requirements []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, bool, error)
 		LoadDeclaredFromLock(ctx context.Context, requirements []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, error)
 	}
@@ -47,8 +56,12 @@ func (s VendorResolutionStrategy) Validate() error {
 }
 
 // VendorDependencies resolves module dependencies for modulePath and copies
-// them into invowk_modules/ according to the update/prune policy.
-func VendorDependencies(ctx context.Context, modulePath types.FilesystemPath, update, prune bool) ([]invowkmod.ModuleRef, *VendorResult, VendorResolutionStrategy, error) {
+// them into invowk_modules/ according to the update/prune policy, under the
+// project lock of locks.
+func VendorDependencies(ctx context.Context, locks modulesync.EditLocks, modulePath types.FilesystemPath, update, prune bool) ([]invowkmod.ModuleRef, *VendorResult, VendorResolutionStrategy, error) {
+	if err := locks.Validate(); err != nil {
+		return nil, nil, "", err
+	}
 	if err := modulePath.Validate(); err != nil {
 		return nil, nil, "", fmt.Errorf("module path: %w", err)
 	}
@@ -72,7 +85,31 @@ func VendorDependencies(ctx context.Context, modulePath types.FilesystemPath, up
 		return nil, nil, "", fmt.Errorf("failed to stat invowkmod.cue: %w", statErr)
 	}
 
-	requirements, err := modulesync.LoadRequirements(invowkmodPath)
+	resolver, err := modulesync.NewResolver(modulePath, "", modulesync.WithEditLocks(locks))
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create resolver: %w", err)
+	}
+
+	return vendorDependenciesWithResolver(ctx, modulePath, invowkmodPath, resolver, update, prune)
+}
+
+// vendorDependenciesWithResolver takes the project lock, reads the
+// requirements of invowkmodPath, resolves them and vendors them; it releases
+// the lock after VendorModules returns, so the copies into invowk_modules/
+// come from the lock this run read or wrote.
+func vendorDependenciesWithResolver(
+	ctx context.Context,
+	modulePath, invowkmodPath types.FilesystemPath,
+	resolver vendorDependencyResolver,
+	update, prune bool,
+) (requirements []invowkmod.ModuleRef, result *VendorResult, strategy VendorResolutionStrategy, err error) {
+	unlock, err := resolver.LockProject(ctx)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	defer func() { err = errors.Join(err, unlock()) }()
+
+	requirements, err = modulesync.LoadRequirements(invowkmodPath)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -80,28 +117,12 @@ func VendorDependencies(ctx context.Context, modulePath types.FilesystemPath, up
 		return requirements, nil, "", nil
 	}
 
-	resolver, err := modulesync.NewResolver(modulePath, "")
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to create resolver: %w", err)
-	}
-
-	return vendorDependenciesWithResolver(ctx, modulePath, requirements, resolver, update, prune)
-}
-
-func vendorDependenciesWithResolver(
-	ctx context.Context,
-	modulePath types.FilesystemPath,
-	requirements []invowkmod.ModuleRef,
-	resolver vendorDependencyResolver,
-	update bool,
-	prune bool,
-) ([]invowkmod.ModuleRef, *VendorResult, VendorResolutionStrategy, error) {
 	resolved, strategy, err := resolveVendorDependencies(ctx, resolver, modulePath, requirements, update)
 	if err != nil {
 		return requirements, nil, strategy, err
 	}
 
-	result, err := VendorModules(VendorOptions{
+	result, err = VendorModules(VendorOptions{
 		ModulePath: modulePath,
 		Modules:    resolved,
 		Prune:      prune,
@@ -112,7 +133,7 @@ func vendorDependenciesWithResolver(
 	return requirements, result, strategy, nil
 }
 
-func resolveVendorDependencies(ctx context.Context, resolver vendorDependencyResolver, modulePath types.FilesystemPath, requirements []invowkmod.ModuleRef, update bool) ([]*invowkmod.ResolvedModule, VendorResolutionStrategy, error) {
+func resolveVendorDependencies(ctx context.Context, resolver vendorResolveResolver, modulePath types.FilesystemPath, requirements []invowkmod.ModuleRef, update bool) ([]*invowkmod.ResolvedModule, VendorResolutionStrategy, error) {
 	if update {
 		resolved, _, err := resolver.Sync(ctx, requirements)
 		return resolved, VendorResolutionUpdated, err

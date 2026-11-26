@@ -5,17 +5,35 @@ package invowkmod
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// entryBounds represents the line range of a single entry within the requires block.
-type entryBounds struct {
-	start int // First line (the "{" line), absolute index in file
-	end   int // Last line (the "}," or "}" line), absolute index in file
-}
+type (
+	// entrySpan is one top-level {…} entry of the requires list by byte
+	// offset: start is the offset of its "{", end the offset just after its
+	// matching "}".
+	entrySpan struct {
+		start int
+		end   int
+	}
+
+	// requiresBlock is the requires field located by byte offset: field is
+	// the offset of the "requires" label, open and close the offsets of the
+	// list's "[" and its matching "]".
+	requiresBlock struct {
+		field   int
+		open    int
+		close   int
+		entries []entrySpan
+	}
+)
 
 // AddRequirement adds a module requirement to the requires block in invowkmod.cue.
 // If no requires block exists, one is appended to the file.
@@ -30,16 +48,14 @@ func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", invowkmodPath, err)
 	}
-
-	lines := strings.Split(string(data), "\n")
+	text := string(data)
 
 	// Check for duplicate if requires block exists
-	startLine, endLine, hasBlock := findRequiresBlock(lines)
+	block, hasBlock := scanRequiresBlock(text)
 	if hasBlock {
-		entries := findEntryBounds(lines, startLine, endLine)
-		for _, entry := range entries {
-			entryGitURL, entryPath := parseRequiresEntryFields(lines[entry.start : entry.end+1])
-			if entryGitURL == string(req.GitURL) && entryPath == string(req.Path) {
+		for _, entry := range block.entries {
+			entryGitURL, entryPath, readable := entryFields(text, entry)
+			if readable && entryGitURL == string(req.GitURL) && entryPath == string(req.Path) {
 				identifier := string(req.GitURL)
 				if req.Path != "" {
 					identifier += "#" + string(req.Path)
@@ -52,25 +68,38 @@ func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 	// Build the new entry lines
 	entryLines := formatRequiresEntry(req)
 
-	if hasBlock {
-		// Insert new entry before the closing "]"
-		var newLines []string
-		newLines = append(newLines, lines[:endLine]...)
-		newLines = append(newLines, entryLines...)
-		newLines = append(newLines, lines[endLine:]...)
-		lines = newLines
-	} else {
+	var out string
+	switch {
+	case hasBlock && ownsStart(text, block.close):
+		// The closing "]" starts its line: insert the entry lines before it.
+		at := lineStart(text, block.close)
+		out = text[:at] + strings.Join(entryLines, "\n") + "\n" + text[at:]
+	case hasBlock:
+		// The closing "]" follows other content on its line (a one-line block,
+		// or "}]"): split the line at the "]" so the entry lands inside the
+		// list, after the existing entries.
+		before := strings.TrimRight(text[:block.close], " \t")
+		if !strings.HasSuffix(before, ",") && !strings.HasSuffix(before, "[") {
+			before += ","
+		}
+		out = before + "\n" + strings.Join(entryLines, "\n") + "\n" + text[block.close:]
+	default:
 		// Append requires block at end of file
 		// Remove trailing empty lines
+		lines := strings.Split(text, "\n")
 		for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
 			lines = lines[:len(lines)-1]
 		}
 		lines = append(lines, "", "requires: [")
 		lines = append(lines, entryLines...)
 		lines = append(lines, "]", "")
+		out = strings.Join(lines, "\n")
 	}
 
-	return fspath.AtomicWriteFile(string(invowkmodPath), []byte(strings.Join(lines, "\n")), fspath.DefaultFilePerm)
+	if err := checkEditKeepsCUEValid(invowkmodPath, data, []byte(out)); err != nil {
+		return err
+	}
+	return fspath.AtomicWriteFile(string(invowkmodPath), []byte(out), fspath.DefaultFilePerm)
 }
 
 // RemoveRequirement removes a module requirement matching gitURL and subPath
@@ -102,166 +131,458 @@ func RemoveRequirementIfPresent(invowkmodPath types.FilesystemPath, gitURL GitUR
 		}
 		return false, fmt.Errorf("failed to read %s: %w", invowkmodPath, err)
 	}
+	text := string(data)
 
-	lines := strings.Split(string(data), "\n")
-
-	startLine, endLine, hasBlock := findRequiresBlock(lines)
+	block, hasBlock := scanRequiresBlock(text)
 	if !hasBlock {
 		return false, nil // No requires block, nothing to remove
 	}
 
-	// Find entries within the requires block
-	entries := findEntryBounds(lines, startLine, endLine)
-
 	// Find the matching entry
-	var matchedEntry *entryBounds
-	for i, entry := range entries {
-		entryGitURL, entryPath := parseRequiresEntryFields(lines[entry.start : entry.end+1])
-		if entryGitURL == string(gitURL) && entryPath == string(subPath) {
-			matchedEntry = &entries[i]
+	matched := -1
+	for i, entry := range block.entries {
+		entryGitURL, entryPath, readable := entryFields(text, entry)
+		if readable && entryGitURL == string(gitURL) && entryPath == string(subPath) {
+			matched = i
 			break
 		}
 	}
-
-	if matchedEntry == nil {
+	if matched < 0 {
 		return false, nil // No match found, idempotent
 	}
 
-	if len(entries) == 1 {
-		// Last entry: remove entire requires block including surrounding blank lines
-		blockStart := startLine
-		blockEnd := endLine + 1
-
-		// Skip trailing blank line after the block
-		if blockEnd < len(lines) && strings.TrimSpace(lines[blockEnd]) == "" {
-			blockEnd++
-		}
-		// Skip preceding blank line before the block
-		if blockStart > 0 && strings.TrimSpace(lines[blockStart-1]) == "" {
-			blockStart--
-		}
-
-		newLines := make([]string, 0, len(lines))
-		newLines = append(newLines, lines[:blockStart]...)
-		newLines = append(newLines, lines[blockEnd:]...)
-		lines = newLines
+	var out string
+	if len(block.entries) == 1 {
+		out = removeRequiresField(text, block)
 	} else {
-		// Remove just the matching entry
-		lines = removeRequiresEntryLines(lines, *matchedEntry)
+		out = removeRequiresEntry(text, block.entries[matched])
 	}
 
-	if writeErr := fspath.AtomicWriteFile(pathStr, []byte(strings.Join(lines, "\n")), fspath.DefaultFilePerm); writeErr != nil {
+	if err := checkEditKeepsCUEValid(invowkmodPath, data, []byte(out)); err != nil {
+		return false, err
+	}
+	if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); writeErr != nil {
 		return false, writeErr
 	}
 	return true, nil
 }
 
-// findRequiresBlock locates the requires block boundaries in the file lines.
-// Returns the line index of "requires:", the line index of the closing "]",
-// and whether the block was found.
-func findRequiresBlock(lines []string) (startLine, endLine int, found bool) {
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
+// checkEditKeepsCUEValid refuses an edit that turns CUE which compiles into
+// CUE which does not: the lexer misreading a layout it does not know (for
+// example a top-level struct embedding) would otherwise leave invowkmod.cue
+// broken, and the caller rolls back only on an error. Input that does not
+// compile is not judged, so such a file is edited as before.
+//
+//goplint:ignore -- private guard over raw CUE bytes before and after an edit.
+func checkEditKeepsCUEValid(invowkmodPath types.FilesystemPath, before, after []byte) error {
+	ctx := cuecontext.New()
+	if !compilesAsCUE(ctx, before) {
+		return nil
+	}
+	if err := ctx.CompileBytes(after).Validate(); err != nil {
+		return fmt.Errorf("editing the requires field of %s would leave invalid CUE, so the file was not changed; edit it by hand: %w", invowkmodPath, err)
+	}
+	return nil
+}
 
-		if strings.HasPrefix(trimmed, "requires:") {
-			startLine = i
-			// Find matching closing bracket
-			bracketDepth := 0
-			for j := i; j < len(lines); j++ {
-				for _, ch := range lines[j] {
-					switch ch {
-					case '[':
-						bracketDepth++
-					case ']':
-						bracketDepth--
-						if bracketDepth == 0 {
-							return startLine, j, true
-						}
-					}
+// compilesAsCUE reports whether data compiles and validates as CUE, without
+// requiring concrete values.
+//
+//goplint:ignore -- private helper over raw CUE bytes.
+func compilesAsCUE(ctx *cue.Context, data []byte) bool {
+	return ctx.CompileBytes(data).Validate() == nil
+}
+
+// removeRequiresField removes the whole requires field after its last entry
+// is removed. When the field owns its lines (nothing but whitespace before the
+// label and after the "]" and an optional comma), those lines go, with one
+// blank line after and one before them; otherwise the field is cut out of its
+// line.
+//
+//goplint:ignore -- private source-text rewrite helper operates on raw CUE text.
+func removeRequiresField(text string, block requiresBlock) string {
+	end := block.close + 1
+	if !ownsStart(text, block.field) || !ownsEnd(text, end) {
+		cut := skipComma(text, end)
+		return text[:block.field] + strings.TrimLeft(text[cut:], " \t")
+	}
+	lines := strings.Split(text, "\n")
+	blockStart := lineIndex(text, block.field)
+	blockEnd := lineIndex(text, block.close) + 1
+
+	// Skip trailing blank line after the block
+	if blockEnd < len(lines) && strings.TrimSpace(lines[blockEnd]) == "" {
+		blockEnd++
+	}
+	// Skip preceding blank line before the block
+	if blockStart > 0 && strings.TrimSpace(lines[blockStart-1]) == "" {
+		blockStart--
+	}
+
+	newLines := make([]string, 0, len(lines))
+	newLines = append(newLines, lines[:blockStart]...)
+	newLines = append(newLines, lines[blockEnd:]...)
+	return strings.Join(newLines, "\n")
+}
+
+// removeRequiresEntry removes one entry of a list that keeps other entries.
+// An entry that owns its lines loses those lines, which keeps the multi-line
+// layout module add writes byte-identical. Otherwise the entry is cut with
+// the comma after it and the spaces up to the next token; when the line ends
+// there, the spaces before the entry go instead. An entry with no comma after
+// it (the last one before "]") is cut with the comma and spaces before it.
+//
+//goplint:ignore -- private source-text rewrite helper operates on raw CUE text.
+func removeRequiresEntry(text string, entry entrySpan) string {
+	startOwned := ownsStart(text, entry.start)
+	endOwned := ownsEnd(text, entry.end)
+	if startOwned && endOwned {
+		from := lineStart(text, entry.start)
+		to := lineEnd(text, entry.end)
+		if to < len(text) {
+			to++ // the newline
+		}
+		return text[:from] + text[to:]
+	}
+	cut := skipComma(text, entry.end)
+	if cut == entry.end && !startOwned {
+		before := strings.TrimRight(text[:entry.start], " \t")
+		before = strings.TrimRight(strings.TrimSuffix(before, ","), " \t")
+		return before + text[cut:]
+	}
+	rest := strings.TrimLeft(text[cut:], " \t")
+	if !startOwned && (rest == "" || rest[0] == '\n' || rest[0] == '\r') {
+		return strings.TrimRight(text[:entry.start], " \t") + rest
+	}
+	return text[:entry.start] + rest
+}
+
+// scanRequiresBlock finds the top-level requires field, its list and the
+// list's top-level entries, skipping string literals and comments.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func scanRequiresBlock(text string) (requiresBlock, bool) {
+	field, colon := -1, -1
+	depth := 0
+	forEachCode(text, 0, len(text), func(i int) bool {
+		switch text[i] {
+		case '{', '[', '(':
+			depth++
+		case '}', ']', ')':
+			depth--
+		default:
+			if depth == 0 {
+				if c, ok := labelAt(text, i, "requires"); ok {
+					field, colon = i, c
+					return false
 				}
 			}
-			break
 		}
+		return true
+	})
+	if field < 0 {
+		return requiresBlock{}, false
 	}
-	return 0, 0, false
-}
-
-// findEntryBounds finds the line ranges of each {} entry within the requires block.
-// Uses absolute line indices from the original file.
-func findEntryBounds(lines []string, blockStart, blockEnd int) []entryBounds {
-	var entries []entryBounds
-	braceDepth := 0
-	var currentStart int
-
-	for i := blockStart; i <= blockEnd; i++ {
-		for _, ch := range lines[i] {
-			switch ch {
-			case '{':
-				if braceDepth == 0 {
-					currentStart = i
-				}
-				braceDepth++
-			case '}':
-				braceDepth--
-				if braceDepth == 0 {
-					entries = append(entries, entryBounds{start: currentStart, end: i})
-				}
+	open := nextCode(text, colon+1)
+	if open >= len(text) || text[open] != '[' {
+		return requiresBlock{}, false
+	}
+	closeAt := -1
+	depth = 0
+	forEachCode(text, open, len(text), func(i int) bool {
+		switch text[i] {
+		case '{', '[', '(':
+			depth++
+		case '}', ']', ')':
+			depth--
+			if depth == 0 {
+				closeAt = i
+				return false
 			}
 		}
+		return true
+	})
+	if closeAt < 0 || text[closeAt] != ']' {
+		return requiresBlock{}, false
 	}
-
-	return entries
+	return requiresBlock{field: field, open: open, close: closeAt, entries: entrySpans(text, open+1, closeAt)}, true
 }
 
-// parseRequiresEntryFields extracts git_url and path values from a single entry's lines.
-// Reuses parseStringValue from lockfile.go since both parse CUE field: "value" lines.
-func parseRequiresEntryFields(entryLines []string) (gitURL, path string) {
-	for _, line := range entryLines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "git_url:") {
-			gitURL = parseStringValue(trimmed)
-		} else if strings.HasPrefix(trimmed, "path:") {
-			path = parseStringValue(trimmed)
+// entrySpans returns the {…} spans at brace depth zero in text[from:to].
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func entrySpans(text string, from, to int) []entrySpan {
+	var spans []entrySpan
+	depth, start := 0, 0
+	forEachCode(text, from, to, func(i int) bool {
+		switch text[i] {
+		case '{':
+			if depth == 0 {
+				start = i
+			}
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				spans = append(spans, entrySpan{start: start, end: i + 1})
+			}
+		}
+		return true
+	})
+	return spans
+}
+
+// entryFields reads the git_url and path string values of one entry: a label
+// at the entry's own depth, outside strings and comments, followed by a
+// string literal. readable is false when either label is present but its
+// value is not a string literal Go can unquote (a raw #"…"# string, or an
+// escape such as \/ that CUE accepts and Go does not): such an entry never
+// matches, so an unreadable path is never taken for an absent one.
+//
+//goplint:ignore -- private lexical helper returns raw CUE field text.
+func entryFields(text string, entry entrySpan) (gitURL, path string, readable bool) {
+	readable = true
+	depth := 0
+	forEachCode(text, entry.start+1, entry.end-1, func(i int) bool {
+		switch text[i] {
+		case '{', '[', '(':
+			depth++
+		case '}', ']', ')':
+			depth--
+		default:
+			if depth != 0 {
+				return true
+			}
+			var ok bool
+			if c, isLabel := labelAt(text, i, "git_url"); isLabel {
+				gitURL, ok = stringValueAt(text, c+1, entry.end)
+				readable = readable && ok
+			} else if c, isLabel := labelAt(text, i, "path"); isLabel {
+				path, ok = stringValueAt(text, c+1, entry.end)
+				readable = readable && ok
+			}
+		}
+		return true
+	})
+	return gitURL, path, readable
+}
+
+// stringValueAt parses the double-quoted string literal that starts after
+// spaces at from; ok is false when there is none or Go cannot unquote it.
+//
+//goplint:ignore -- private lexical helper returns raw CUE string text.
+func stringValueAt(text string, from, limit int) (value string, ok bool) {
+	i := skipBlanks(text, from, limit)
+	if i >= limit || text[i] != '"' {
+		return "", false
+	}
+	quoted, err := strconv.QuotedPrefix(text[i:limit])
+	if err != nil {
+		return "", false
+	}
+	value, err = strconv.Unquote(quoted)
+	if err != nil {
+		return "", false
+	}
+	return value, true
+}
+
+// labelAt reports whether a field label starts at i: the identifier, a word
+// boundary before it, then optional spaces and a colon. It returns the
+// colon's offset.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func labelAt(text string, i int, label string) (colon int, ok bool) {
+	if !strings.HasPrefix(text[i:], label) || (i > 0 && isIdentByte(text[i-1])) {
+		return 0, false
+	}
+	j := i + len(label)
+	if j < len(text) && isIdentByte(text[j]) {
+		return 0, false
+	}
+	j = skipBlanks(text, j, len(text))
+	if j >= len(text) || text[j] != ':' {
+		return 0, false
+	}
+	return j, true
+}
+
+func isIdentByte(c byte) bool {
+	return c == '_' || c == '#' || c == '$' || ('0' <= c && c <= '9') || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
+}
+
+// forEachCode calls visit for each byte of text[from:to] outside string
+// literals and // comments, until visit returns false.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func forEachCode(text string, from, to int, visit func(i int) bool) {
+	for i := skipNonCode(text, from); i < to; i = skipNonCode(text, i+1) {
+		if !visit(i) {
+			return
 		}
 	}
-	return
 }
 
-//goplint:ignore -- private source-text rewrite helper operates on raw CUE lines.
-func removeRequiresEntryLines(lines []string, entry entryBounds) []string {
-	replacement := compactEntrySharedLineReplacement(lines, entry)
-	var newLines []string
-	newLines = append(newLines, lines[:entry.start]...)
-	newLines = append(newLines, replacement...)
-	newLines = append(newLines, lines[entry.end+1:]...)
-	return newLines
-}
-
-//goplint:ignore -- private source-text rewrite helper operates on raw CUE lines.
-func compactEntrySharedLineReplacement(lines []string, entry entryBounds) []string {
-	var replacement []string
-
-	startLine := lines[entry.start]
-	if prefix, _, hasOpenBrace := strings.Cut(startLine, "{"); hasOpenBrace {
-		prefix = strings.TrimRight(prefix, " \t")
-		if strings.TrimSpace(prefix) != "" {
-			replacement = append(replacement, prefix)
+// nextCode returns the first offset at or after i that holds neither
+// whitespace nor a comment nor string-literal text.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func nextCode(text string, i int) int {
+	for i = skipNonCode(text, i); i < len(text); i = skipNonCode(text, i+1) {
+		if !strings.ContainsRune(" \t\r\n", rune(text[i])) {
+			return i
 		}
 	}
-
-	endLine := lines[entry.end]
-	if _, suffix, hasCloseBrace := strings.Cut(endLine, "}"); hasCloseBrace {
-		if _, nextEntry, hasNextEntry := strings.Cut(suffix, "{"); hasNextEntry {
-			replacement = append(replacement, leadingWhitespace(endLine)+"{"+nextEntry)
-		}
-	}
-
-	return replacement
+	return len(text)
 }
 
-//goplint:ignore -- private lexical helper returns raw indentation text.
-func leadingWhitespace(line string) string {
-	return strings.TrimSuffix(line, strings.TrimLeft(line, " \t"))
+// skipNonCode returns the first offset at or after i that is not inside a
+// string literal (double- or single-quoted, the triple-quoted multi-line
+// forms, and their #-delimited raw forms such as #"…"#) or a // comment; i
+// must be in code context. A comment ends before its newline.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func skipNonCode(text string, i int) int {
+	for i < len(text) {
+		rest := text[i:]
+		switch {
+		case strings.HasPrefix(rest, "//"):
+			nl := strings.IndexByte(rest, '\n')
+			if nl < 0 {
+				return len(text)
+			}
+			return i + nl
+		case strings.HasPrefix(rest, `"""`) || strings.HasPrefix(rest, "'''"):
+			end := strings.Index(rest[3:], rest[:3])
+			if end < 0 {
+				return len(text)
+			}
+			i += 3 + end + 3
+		case rest[0] == '"' || rest[0] == '\'':
+			i = skipQuoted(text, i)
+		case rest[0] == '#':
+			end, isString := skipRawString(text, i)
+			if !isString {
+				return i
+			}
+			i = end
+		default:
+			return i
+		}
+	}
+	return i
+}
+
+// skipRawString handles a CUE string with extended delimiters: n "#" then a
+// quote (or a triple quote), closed by the same quote followed by n "#".
+// Inside it, a quote not followed by the n "#" is text. It returns the offset
+// just after the closer (for an unterminated one-line form, the offset of its
+// newline; for an unterminated multi-line form, len(text)) and true, or false
+// when the "#" run starts a definition name instead (#Name).
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func skipRawString(text string, i int) (end int, isString bool) {
+	j := i
+	for j < len(text) && text[j] == '#' {
+		j++
+	}
+	if j >= len(text) || (text[j] != '"' && text[j] != '\'') {
+		return i, false
+	}
+	hashes := text[i:j]
+	rest := text[j:]
+	if strings.HasPrefix(rest, `"""`) || strings.HasPrefix(rest, "'''") {
+		closer := rest[:3] + hashes
+		k := strings.Index(rest[3:], closer)
+		if k < 0 {
+			return len(text), true
+		}
+		return j + 3 + k + len(closer), true
+	}
+	closer := rest[:1] + hashes
+	line := rest[1:]
+	if nl := strings.IndexByte(line, '\n'); nl >= 0 {
+		line = line[:nl]
+	}
+	if k := strings.Index(line, closer); k >= 0 {
+		return j + 1 + k + len(closer), true
+	}
+	return j + 1 + len(line), true
+}
+
+// skipQuoted returns the offset just after the one-line string literal that
+// starts at i, or the offset of the newline that ends an unterminated one.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func skipQuoted(text string, i int) int {
+	quote := text[i]
+	for j := i + 1; j < len(text); j++ {
+		switch text[j] {
+		case '\\':
+			j++
+		case quote:
+			return j + 1
+		case '\n':
+			return j
+		}
+	}
+	return len(text)
+}
+
+// ownsStart reports whether only whitespace precedes offset on its line.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func ownsStart(text string, offset int) bool {
+	return strings.TrimSpace(text[lineStart(text, offset):offset]) == ""
+}
+
+// ownsEnd reports whether only whitespace and one optional comma follow
+// offset on its line.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func ownsEnd(text string, offset int) bool {
+	rest := strings.TrimSpace(text[offset:lineEnd(text, offset)])
+	return rest == "" || rest == ","
+}
+
+// skipComma returns the offset after the spaces and one comma that follow
+// offset, or offset itself when no comma follows on the line.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func skipComma(text string, offset int) int {
+	if j := skipBlanks(text, offset, len(text)); j < len(text) && text[j] == ',' {
+		return j + 1
+	}
+	return offset
+}
+
+// skipBlanks returns the first offset at or after i, and before limit, that
+// is not a space or a tab.
+//
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func skipBlanks(text string, i, limit int) int {
+	for i < limit && (text[i] == ' ' || text[i] == '\t') {
+		i++
+	}
+	return i
+}
+
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func lineStart(text string, offset int) int {
+	return strings.LastIndexByte(text[:offset], '\n') + 1
+}
+
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func lineEnd(text string, offset int) int {
+	if nl := strings.IndexByte(text[offset:], '\n'); nl >= 0 {
+		return offset + nl
+	}
+	return len(text)
+}
+
+//goplint:ignore -- private lexical helper operates on raw CUE text.
+func lineIndex(text string, offset int) int {
+	return strings.Count(text[:offset], "\n")
 }
 
 // formatRequiresEntry formats a ModuleRef as CUE lines for insertion into a requires block.

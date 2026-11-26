@@ -561,14 +561,22 @@ func (f *GitFetcher) findTag(repo *git.Repository, version SemVer) (plumbing.Has
 
 // getRepoCachePath generates a cache path for a repository.
 func (f *GitFetcher) getRepoCachePath(gitURL GitURL) types.FilesystemPath {
-	// Convert git URL to path-safe format
-	// e.g., "https://github.com/user/repo.git" -> "github.com/user/repo"
-	urlStr := string(gitURL)
-	path := strings.TrimPrefix(urlStr, "https://")
+	return fspath.JoinStr(f.cacheDir, "sources", sourceCheckoutKey(gitURL))
+}
+
+// sourceCheckoutKey returns the cache-relative part of gitURL's checkout
+// path, in slash form: "https://github.com/user/repo.git" and
+// "git@github.com:user/repo.git" both give "github.com/user/repo". The
+// checkout path and the source lock (Resolver.lockSource, through
+// sourceLockKey, which also folds the cleaning and the letter case a
+// filesystem applies to the checkout path) both derive from it, so every URL
+// spelling that shares a checkout shares its lock.
+//
+//goplint:ignore -- internal path part, joined under the cache root or hashed into a lock file name.
+func sourceCheckoutKey(gitURL GitURL) string {
+	path := strings.TrimPrefix(string(gitURL), "https://")
 	path = strings.TrimPrefix(path, "git@")
 	path = strings.TrimPrefix(path, "ssh://")
 	path = strings.TrimSuffix(path, ".git")
-	path = strings.ReplaceAll(path, ":", "/")
-
-	return fspath.JoinStr(f.cacheDir, "sources", path)
+	return strings.ReplaceAll(path, ":", "/")
 }

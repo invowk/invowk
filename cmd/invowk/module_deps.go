@@ -170,7 +170,7 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	fmt.Printf("%s Resolving %s@%s...\n", moduleInfoIcon, gitURL, version)
 
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
-	result, err := modulesync.AddModuleDependency(ctx, types.FilesystemPath(invowkmodPath), req) //goplint:ignore -- relative path from current dir
+	result, err := modulesync.AddModuleDependency(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodPath), req) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		fmt.Printf("%s Failed to add module: %v\n", moduleErrorIcon, err)
 		printLockIntegrityHint(err)
@@ -188,13 +188,24 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	declaration := result.Declaration()
 	if declaration.Err() != nil {
 		fmt.Println()
-		fmt.Println(moduleAddDeclarationFailureLine(declaration.Err()))
-	} else {
-		fmt.Println(moduleAddLockLine(result.LockWritten()))
-		fmt.Printf("%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
+		fmt.Println(moduleAddDeclarationFailureLine(declaration))
+		return moduleDeclarationExitError(declaration)
 	}
+	fmt.Println(moduleAddLockLine(result.LockWritten()))
+	fmt.Printf("%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
 
 	return nil
+}
+
+// moduleDeclarationExitError returns the error module add and module remove
+// return after a rolled-back invowkmod.cue edit: exit status 1 (the "invowk
+// failed" class), carrying the declaration error so stderr shows it. It
+// returns nil when the edit did not roll back.
+func moduleDeclarationExitError(declaration modulesync.DeclarationEditResult) error {
+	if declaration.Rollback() == modulesync.DeclarationRollbackNone {
+		return nil
+	}
+	return &ExitError{Code: 1, Err: declaration.Err()}
 }
 
 func runModuleRemove(ctx context.Context, args []string) error {
@@ -204,7 +215,7 @@ func runModuleRemove(ctx context.Context, args []string) error {
 
 	fmt.Printf("%s Removing %s...\n", moduleInfoIcon, identifier)
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
-	result, err := modulesync.RemoveModuleDependency(ctx, types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
+	result, err := modulesync.RemoveModuleDependency(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		// Format ambiguous matches nicely
 		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {
@@ -217,20 +228,27 @@ func runModuleRemove(ctx context.Context, args []string) error {
 
 	declarations := result.Declarations()
 	removed := result.Removed()
+	var rollbackErr error
 	for i := range declarations {
 		if declarations[i].Err() != nil {
 			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, declarations[i].Err())
 		}
+		if rollbackErr == nil {
+			rollbackErr = moduleDeclarationExitError(declarations[i])
+		}
 	}
 
-	for i := range removed {
-		fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(string(removed[i].RemovedEntry.Namespace)))
+	// After a rollback nothing was removed: print only what persisted.
+	if rollbackErr == nil {
+		for i := range removed {
+			fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(string(removed[i].RemovedEntry.Namespace)))
+		}
 	}
 
 	fmt.Println()
 	fmt.Println(moduleRemoveSummaryLine(declarations, result.LockWritten()))
 
-	return nil
+	return rollbackErr
 }
 
 // moduleLockFileLine returns the line module sync and module update print
@@ -257,20 +275,21 @@ func moduleAddLockLine(lockWritten bool) string {
 }
 
 // moduleAddDeclarationFailureLine returns the line module add prints when its
-// invowkmod.cue edit failed and the use case rolled the lock back. The edit
-// error wraps the read error with %w and is joined with the restore errors, so
-// a missing invowkmod.cue is found through the error chain, not with
-// os.IsNotExist. The not-found line is printed only when every restore
-// succeeded; when one failed, the line says the rollback may be incomplete and
-// carries the whole error, so the restore failure stays visible.
+// invowkmod.cue edit failed and the use case rolled the lock back. The use
+// case reports the rollback outcome (Rollback); when a restore failed, the
+// line says the rollback may be incomplete and carries the whole error, so the
+// restore failure stays visible. Otherwise a missing invowkmod.cue, found
+// through the error chain (the edit error wraps the read error with %w), gets
+// the not-found line.
 //
 //plint:render
-func moduleAddDeclarationFailureLine(err error) string {
-	if errors.Is(err, fs.ErrNotExist) && !moduleDeclarationRestoreFailed(err) {
-		return moduleInfoIcon + " invowkmod.cue not found — dependency was not persisted"
-	}
-	if moduleDeclarationRestoreFailed(err) {
+func moduleAddDeclarationFailureLine(declaration modulesync.DeclarationEditResult) string {
+	err := declaration.Err()
+	if declaration.Rollback() == modulesync.DeclarationRollbackIncomplete {
 		return fmt.Sprintf("%s Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: %v", moduleInfoIcon, err)
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return moduleInfoIcon + " invowkmod.cue not found — dependency was not persisted"
 	}
 	return fmt.Sprintf("%s Could not auto-edit invowkmod.cue; lock file changes were rolled back: %v", moduleInfoIcon, err)
 }
@@ -286,11 +305,12 @@ func moduleAddDeclarationFailureLine(err error) string {
 func moduleRemoveSummaryLine(declarations []modulesync.DeclarationEditResult, lockWritten bool) string {
 	invowkmodWritten := false
 	for i := range declarations {
-		if err := declarations[i].Err(); err != nil {
-			if moduleDeclarationRestoreFailed(err) {
-				return moduleInfoIcon + " Lock file rollback may be incomplete; invowkmod.cue needs manual review"
-			}
+		switch declarations[i].Rollback() {
+		case modulesync.DeclarationRollbackIncomplete:
+			return moduleInfoIcon + " Lock file rollback may be incomplete; invowkmod.cue needs manual review"
+		case modulesync.DeclarationRollbackComplete:
 			return moduleInfoIcon + " Lock file changes were rolled back; invowkmod.cue needs manual review"
+		case modulesync.DeclarationRollbackNone:
 		}
 		invowkmodWritten = invowkmodWritten || declarations[i].Updated()
 	}
@@ -306,17 +326,6 @@ func moduleRemoveSummaryLine(declarations []modulesync.DeclarationEditResult, lo
 	}
 }
 
-// moduleDeclarationRestoreFailed reports whether the rollback after a failed
-// invowkmod.cue edit failed too. The add and remove use cases return
-// errors.Join(editErr, declarationRestoreErr, lockRestoreErr), and errors.Join
-// drops nil errors, so a top-level join with more than one part means a
-// restore failed. Only the top level is checked: a join inside the edit error
-// is not a restore failure.
-func moduleDeclarationRestoreFailed(err error) bool {
-	joined, ok := err.(interface{ Unwrap() []error })
-	return ok && len(joined.Unwrap()) > 1
-}
-
 // moduleNoUpdatesLines returns what module update prints when it had no module
 // to update: it still saved the lock, and may have created an empty one.
 //
@@ -329,7 +338,7 @@ func runModuleSync(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Sync Module Dependencies"))
 
 	invowkmodulePath := filepath.Join(".", invowkmodCueFileName)
-	result, err := modulesync.SyncModule(ctx, types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
+	result, err := modulesync.SyncModule(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		if missingErr, ok := errors.AsType[*modulesync.MissingTransitiveDepError](err); ok {
 			renderMissingTransitiveDeps(missingErr)
@@ -411,7 +420,7 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 	}
 
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
-	result, err := modulesync.UpdateModule(ctx, types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
+	result, err := modulesync.UpdateModule(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		// Format ambiguous matches nicely
 		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {

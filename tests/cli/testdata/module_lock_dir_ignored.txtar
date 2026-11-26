@@ -1,0 +1,47 @@
+# Test: the module lock directory inside a project is not a project input
+# Verifies design D5 of module-concurrency-rollback: HOME is $WORK, so an empty
+# `module sync` creates the module cache root at $WORK/.invowk/modules with
+# its locks directory and the project lock file inside the project. validate
+# and audit then give the same exit status and the same output as before.
+# audit's JSON carries a duration, so the audit runs compare its summary
+# counts instead of the whole output.
+
+cd $WORK
+! exists .invowk/modules
+
+# Before: no lock directory.
+exec invowk validate
+cp stdout validate.before
+exec invowk audit --format json
+stdout '"total": 0'
+stdout '"modules_scanned": 0'
+stdout '"invowkfiles_scanned": 1'
+stdout '"scripts_scanned": 1'
+
+# An empty sync takes the project lock, which creates the lock directory.
+exec invowk module sync
+stdout 'No requires field found'
+exists .invowk/modules/locks
+
+# After: the same exit status and output.
+exec invowk validate
+cmp stdout validate.before
+exec invowk audit --format json
+stdout '"total": 0'
+stdout '"modules_scanned": 0'
+stdout '"invowkfiles_scanned": 1'
+stdout '"scripts_scanned": 1'
+
+-- invowkmod.cue --
+module: "io.example.root"
+version: "1.0.0"
+-- invowkfile.cue --
+cmds: [{
+    name: "safe"
+    description: "Safe command"
+    implementations: [{
+        script: {content: "echo ok"}
+        runtimes: [{name: "virtual-sh"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}]

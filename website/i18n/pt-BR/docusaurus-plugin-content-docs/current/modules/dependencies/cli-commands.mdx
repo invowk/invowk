@@ -70,7 +70,7 @@ A saída se parece com:
 
 Quando o lock file já tinha o módulo com a mesma entrada, o salvamento não o altera e a linha do lock fica `✓ Module lock file unchanged`; a linha de `invowkmod.cue` continua informando a própria edição.
 
-Quando a edição de `invowkmod.cue` falha, o comando restaura o lock file e não imprime nenhuma dessas duas linhas. Se `invowkmod.cue` não existe, a última linha fica `invowkmod.cue not found — dependency was not persisted`; em qualquer outra falha (por exemplo, já existe uma entrada em `requires` para o módulo), ela fica `Could not auto-edit invowkmod.cue; lock file changes were rolled back: <error>`. Se a restauração de um arquivo também falha, a última linha fica `Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: <error>` mesmo quando `invowkmod.cue` não existe, e `<error>` informa a restauração que falhou.
+Quando a edição de `invowkmod.cue` falha, o comando restaura o lock file e não imprime nenhuma dessas duas linhas. Se `invowkmod.cue` não existe, a última linha fica `invowkmod.cue not found — dependency was not persisted`; em qualquer outra falha (por exemplo, já existe uma entrada em `requires` para o módulo), ela fica `Could not auto-edit invowkmod.cue; lock file changes were rolled back: <error>`. Se a restauração de um arquivo também falha, a última linha fica `Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: <error>` mesmo quando `invowkmod.cue` não existe, e `<error>` informa a restauração que falhou. Depois de um rollback, o comando termina com status 1 e imprime o erro em stderr.
 :::
 
 ## invowk module remove
@@ -100,11 +100,11 @@ Remove uma dependência de módulo do lock file e de `invowkmod.cue`.
 1. Remove o módulo do lock file
 2. Autoedita `invowkmod.cue` para remover a entrada correspondente em `requires`
 
-A saída termina com `✓ Lock file and invowkmod.cue updated`. O lock no disco só deixa de ter essas entradas quando outro processo as removeu entre a leitura deste comando e o salvamento; então o salvamento não o altera e a última linha fica `✓ Lock file unchanged; invowkmod.cue updated`.
+A saída termina com `✓ Lock file and invowkmod.cue updated`. Só quando o lock no disco já não tem as entradas removidas, porque foi editado fora do invowk, o salvamento não o altera; então a última linha fica `✓ Lock file unchanged; invowkmod.cue updated`. Outro comando de módulo do invowk não pode removê-las no meio do caminho: ele espera este terminar ([Comandos de Módulo Concorrentes](#comandos-de-módulo-concorrentes)).
 
 Quando `invowkmod.cue` não tem entrada em `requires` para o módulo removido, ou não existe, o comando não o altera e a última linha fica `✓ Lock file updated; invowkmod.cue unchanged` (ou `✓ Lock file and invowkmod.cue unchanged`, quando o salvamento do lock também não alterou o arquivo).
 
-Quando a edição de `invowkmod.cue` falha, o comando restaura o lock file. Ele imprime `Could not auto-edit invowkmod.cue: <error>`, e a última linha fica `Lock file changes were rolled back; invowkmod.cue needs manual review`. Se a restauração de um arquivo também falha, `<error>` informa a restauração que falhou e a última linha fica `Lock file rollback may be incomplete; invowkmod.cue needs manual review`.
+Quando a edição de `invowkmod.cue` falha, o comando restaura o lock file. Ele imprime `Could not auto-edit invowkmod.cue: <error>` e nenhuma linha `Removed <namespace>`, já que nada foi removido, e a última linha fica `Lock file changes were rolled back; invowkmod.cue needs manual review`. Se a restauração de um arquivo também falha, `<error>` informa a restauração que falhou e a última linha fica `Lock file rollback may be incomplete; invowkmod.cue needs manual review`. Depois de um rollback, o comando termina com status 1 e imprime o erro em stderr.
 
 Arquivos de cache não são deletados.
 :::
@@ -218,6 +218,31 @@ Faz vendor das dependências no diretório `invowk_modules/` para uso offline e 
 `invowk module vendor` resolve as dependências e as copia para `invowk_modules/`. Se `invowkmod.lock.cue` existir, o vendor usa por padrão as versões travadas. Use `--update` para forçar nova resolução e `--prune` para remover módulos vendorizados obsoletos.
 :::
 
+## Comandos de Módulo Concorrentes
+
+`invowk module add`, `remove`, `sync`, `update`, `tidy` e `vendor`, e `invowk agent mod change` quando escreve, editam um projeto um de cada vez. Cada um toma o lock do projeto antes de ler `invowkmod.cue` ou `invowkmod.lock.cue` e o libera depois da última escrita, então dois deles iniciados no mesmo projeto nunca perdem as edições um do outro: o segundo espera o primeiro terminar e então trabalha sobre os arquivos que o primeiro deixou. Enquanto espera, imprime uma vez, no stderr:
+
+```
+• Waiting for another invowk module command on this project (lock: <path>)
+```
+
+Um comando que busca um módulo também trava a origem Git desse módulo enquanto faz o checkout, então dois projetos que buscam a mesma origem se revezam ali:
+
+```
+• Waiting for another invowk module command on module source <git-url> (lock: <path>)
+```
+
+Um comando espera no máximo 5 minutos por um lock. Depois falha com status de saída 1 e um erro que nomeia o arquivo de lock; Ctrl+C interrompe a espera na hora. Nos dois casos, `invowkmod.cue` e `invowkmod.lock.cue` ficam como estavam.
+
+Os arquivos de lock ficam no diretório `locks` do cache de módulos (`INVOWK_MODULES_PATH`, ou `~/.invowk/modules`): `project-<hash>.lock` para um projeto e `source-<hash>.lock` para uma origem Git. Eles são vazios e o invowk nunca os apaga; removê-los enquanto nenhum comando de módulo roda é inofensivo. Como todo comando de edição toma o lock, `module remove` e um `module sync`, `tidy` ou `vendor` que não encontra `requires` agora criam o diretório do cache de módulos e o seu diretório `locks` quando eles não existem; o mesmo vale para `module sync`, `tidy`, `update` e `remove` executados em um diretório sem `invowkmod.cue`, que tomam o lock antes de descobrir que o arquivo não existe. Quando o diretório do cache não pode ser determinado ou criado, eles falham com um erro que nomeia o caminho e sugere apontar `INVOWK_MODULES_PATH` para um diretório gravável.
+
+Comandos somente leitura nunca esperam: `module deps`, `module list`, `validate`, `audit` e a execução de comandos não tomam o lock, e o diretório `locks` não é uma entrada do projeto, mesmo quando o cache de módulos fica dentro do projeto.
+
+Limites conhecidos:
+- Duas execuções com valores diferentes de `INVOWK_MODULES_PATH` usam diretórios `locks` diferentes e não esperam uma pela outra.
+- Em um volume do macOS que não diferencia maiúsculas de minúsculas, o mesmo projeto acessado por caminhos que diferem só nisso (`~/Proj` e `~/proj`) recebe dois arquivos de lock, então comandos iniciados pelas duas grafias não esperam um pelo outro. No Windows o caminho é normalizado, e em todo sistema um link simbólico (ou uma junction do Windows) para o projeto leva ao mesmo lock.
+- Os locks são locks consultivos entre processos do invowk em uma máquina. Eles não impedem um editor ou outra ferramenta de alterar os arquivos e, em um sistema de arquivos de rede, podem não excluir processos de outras máquinas.
+
 ## Workflows Comuns
 
 ### Configuração Inicial
@@ -255,4 +280,5 @@ Faz vendor das dependências no diretório `invowk_modules/` para uso offline e 
 | 1 | Nenhum invowkmod.cue encontrado (para sync) |
 | 1 | Falha na resolução de versão |
 | 1 | Falha ao clonar/buscar Git |
+| 1 | Tempo esgotado após 5 minutos esperando um lock de módulo |
 | 2 | Linha de comando rejeitada (subcomando ou flag desconhecido, número errado de argumentos) |

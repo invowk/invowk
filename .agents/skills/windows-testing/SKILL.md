@@ -104,7 +104,10 @@ loaded):
   children); Windows-only path forms belong in `_windows_test.go` files.
 - Account for NTFS case-insensitivity and 8.3 short-path aliases in string
   assertions. If only identity matters, compare `os.Stat` results with
-  `os.SameFile`.
+  `os.SameFile` — except across an `os.Rename` / atomic replace, where
+  `os.Stat` defers loading NTFS file IDs until `os.SameFile` (which then
+  re-opens the renamed path and compares the new file to itself); open the
+  file and call `f.Stat()` before and after the replace instead.
 
 Deep reference: `references/filesystem-pitfalls.md`.
 

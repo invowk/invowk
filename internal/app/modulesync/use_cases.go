@@ -4,30 +4,84 @@ package modulesync
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
+)
+
+const (
+	// snapshotMissing: nothing existed at the path; restore removes it.
+	snapshotMissing fileSnapshotKind = "missing"
+	// snapshotRegular: a regular file; restore writes its bytes back.
+	snapshotRegular fileSnapshotKind = "regular"
+	// snapshotSymlink: a symbolic link; restore recreates the same link.
+	snapshotSymlink fileSnapshotKind = "symlink"
+	// snapshotOther: a directory, device or other node; restore leaves it.
+	snapshotOther fileSnapshotKind = "other"
+
+	// DeclarationRollbackNone means no invowkmod.cue edit failed, so nothing
+	// was rolled back.
+	DeclarationRollbackNone DeclarationRollback = "none"
+	// DeclarationRollbackComplete means an invowkmod.cue edit failed and every
+	// restore of the rollback succeeded.
+	DeclarationRollbackComplete DeclarationRollback = "complete"
+	// DeclarationRollbackIncomplete means an invowkmod.cue edit failed and at
+	// least one restore failed too; Err carries the restore errors.
+	DeclarationRollbackIncomplete DeclarationRollback = "incomplete"
 )
 
 type (
 	fileSnapshotData []byte
 
+	// fileSnapshotKind is what a rollback snapshot found at its path, judged
+	// without following symbolic links (os.Lstat).
+	fileSnapshotKind string
+
+	// restoreFileWriter replaces a regular file during a rollback; the default
+	// is fspath.AtomicWriteFile (design D8).
+	//
+	//goplint:ignore -- seam mirrors the os.WriteFile-style primitive it replaces.
+	restoreFileWriter func(path string, data []byte, perm os.FileMode) error
+
+	// restoreLinkCreator creates a symbolic link during a rollback; the
+	// default is os.Symlink (design D8).
+	//
+	//goplint:ignore -- seam mirrors the os.Symlink primitive it replaces.
+	restoreLinkCreator func(target, link string) error
+
 	fileSnapshot struct {
-		path   *types.FilesystemPath
-		data   fileSnapshotData
-		mode   os.FileMode
-		exists bool
+		path *types.FilesystemPath
+		kind fileSnapshotKind
+		data fileSnapshotData
+		mode os.FileMode
+		// linkTarget is the os.Readlink target of a symbolic-link snapshot.
+		linkTarget *types.FilesystemPath
+		// writeFile and createLink are the Resolver's restore seams, carried
+		// into the snapshot when it is taken.
+		writeFile  restoreFileWriter
+		createLink restoreLinkCreator
 	}
+
+	// DeclarationRollback is the outcome of the rollback after a failed
+	// invowkmod.cue edit, reported by the use case instead of being inferred
+	// from the shape of its error.
+	DeclarationRollback string
 
 	// DeclarationEditResult describes the invowkmod.cue declaration mutation
 	// paired with a lock-file mutation.
 	DeclarationEditResult struct {
-		updated bool
-		err     error
+		updated  bool
+		err      error
+		rollback DeclarationRollback
 	}
 
 	// AddModuleDependencyResult is the structured result of adding one module
@@ -63,8 +117,10 @@ type (
 )
 
 // NewDeclarationEditResult constructs a structured declaration-edit result.
-func NewDeclarationEditResult(updated bool, err error) (DeclarationEditResult, error) {
-	result := DeclarationEditResult{updated: updated, err: err}
+// rollback is DeclarationRollbackNone when err is nil, and the rollback's
+// outcome when the edit failed.
+func NewDeclarationEditResult(updated bool, err error, rollback DeclarationRollback) (DeclarationEditResult, error) {
+	result := DeclarationEditResult{updated: updated, err: err, rollback: rollback}
 	if validateErr := result.Validate(); validateErr != nil {
 		return DeclarationEditResult{}, validateErr
 	}
@@ -115,12 +171,52 @@ func NewUpdateModuleResult(updated []*ResolvedModule, lockWritten bool) (UpdateM
 // Updated reports whether invowkmod.cue was edited.
 func (r DeclarationEditResult) Updated() bool { return r.updated }
 
-// Err returns the declaration edit error, if any.
+// Err returns the declaration edit error, if any, joined with the errors of
+// the restores that failed.
 func (r DeclarationEditResult) Err() error { return r.err }
 
-// Validate returns nil because declaration edit results contain only scalar
-// status and an optional underlying error.
-func (r DeclarationEditResult) Validate() error { return nil }
+// Rollback reports the rollback outcome: none when the edit succeeded or
+// never ran (the zero result an error return carries), complete or
+// incomplete after a failed edit.
+func (r DeclarationEditResult) Rollback() DeclarationRollback {
+	if r.rollback == "" {
+		return DeclarationRollbackNone
+	}
+	return r.rollback
+}
+
+// Validate returns an error when the rollback outcome is unknown or does not
+// match the error: a failed edit always rolls back, and a rollback always has
+// the edit error.
+// The zero result validates: its rollback reads as none, as Rollback says.
+func (r DeclarationEditResult) Validate() error {
+	if r.rollback != "" {
+		if err := r.rollback.Validate(); err != nil {
+			return err
+		}
+	}
+	rollback := r.Rollback()
+	if r.err != nil && rollback == DeclarationRollbackNone {
+		return errors.New("declaration edit failed but reports no rollback")
+	}
+	if r.err == nil && rollback != DeclarationRollbackNone {
+		return fmt.Errorf("declaration edit reports rollback %q without an edit error", rollback)
+	}
+	return nil
+}
+
+// String returns the rollback outcome name.
+func (r DeclarationRollback) String() string { return string(r) }
+
+// Validate returns an error when r is not one of the rollback outcomes.
+func (r DeclarationRollback) Validate() error {
+	switch r {
+	case DeclarationRollbackNone, DeclarationRollbackComplete, DeclarationRollbackIncomplete:
+		return nil
+	default:
+		return fmt.Errorf("invalid declaration rollback %q", string(r))
+	}
+}
 
 // Resolved returns the added resolved module.
 func (r AddModuleDependencyResult) Resolved() *ResolvedModule { return r.resolved }
@@ -170,12 +266,16 @@ func LoadRequirements(invowkmodPath types.FilesystemPath) ([]ModuleRef, error) {
 }
 
 // AddModuleDependency resolves req, updates the lock file, and adds the
-// corresponding requires entry to invowkmodPath.
-func AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, req ModuleRef) (AddModuleDependencyResult, error) {
+// corresponding requires entry to invowkmodPath, under the project lock of
+// locks.
+func AddModuleDependency(ctx context.Context, locks EditLocks, invowkmodPath types.FilesystemPath, req ModuleRef) (AddModuleDependencyResult, error) {
 	if err := req.ValidateDeclaration(); err != nil {
 		return AddModuleDependencyResult{}, fmt.Errorf("invalid requirement declaration: %w", err)
 	}
-	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
+	if err := locks.Validate(); err != nil {
+		return AddModuleDependencyResult{}, err
+	}
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath, locks)
 	if err != nil {
 		return AddModuleDependencyResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
@@ -183,30 +283,41 @@ func AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath
 }
 
 // AddModuleDependency resolves req with this resolver, updates the lock file,
-// and adds the corresponding requires entry to invowkmodPath.
-func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, req ModuleRef) (AddModuleDependencyResult, error) {
-	if err := req.ValidateDeclaration(); err != nil {
-		return AddModuleDependencyResult{}, fmt.Errorf("invalid requirement declaration: %w", err)
+// and adds the corresponding requires entry to invowkmodPath. It takes the
+// project lock before it reads either file and releases it after the
+// declaration edit or the last restore.
+func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, req ModuleRef) (result AddModuleDependencyResult, err error) {
+	if declErr := req.ValidateDeclaration(); declErr != nil {
+		return AddModuleDependencyResult{}, fmt.Errorf("invalid requirement declaration: %w", declErr)
 	}
+	unlock, err := m.LockProject(ctx)
+	if err != nil {
+		return AddModuleDependencyResult{}, err
+	}
+	defer func() { err = joinUnlock(err, unlock) }()
+
 	lockSnapshot, snapshotErr := m.readLockSnapshot()
 	if snapshotErr != nil {
 		return AddModuleDependencyResult{}, snapshotErr
 	}
-	declarationSnapshot, snapshotErr := readFileSnapshot(invowkmodPath)
+	declarationSnapshot, snapshotErr := m.readFileSnapshot(invowkmodPath)
 	if snapshotErr != nil {
 		return AddModuleDependencyResult{}, snapshotErr
 	}
-	resolved, lockWritten, err := m.Add(ctx, req)
-	if err != nil {
-		return AddModuleDependencyResult{}, err
+	resolved, lockWritten, addErr := m.Add(ctx, req)
+	if addErr != nil {
+		return AddModuleDependencyResult{}, addErr
 	}
 	editErr := invowkmod.AddRequirement(invowkmodPath, req)
+	rollback := DeclarationRollbackNone
 	if editErr != nil {
-		editErr = errors.Join(editErr, declarationSnapshot.restore(), lockSnapshot.restore())
+		// Built exactly as in Resolver.RemoveModuleDependency's rollback; keep
+		// the two in step (design D9).
+		rollback, editErr = rollBackDeclarationEdit(editErr, declarationSnapshot, lockSnapshot)
 	}
-	declaration, err := NewDeclarationEditResult(editErr == nil, editErr)
-	if err != nil {
-		return AddModuleDependencyResult{}, err
+	declaration, declarationErr := NewDeclarationEditResult(editErr == nil, editErr, rollback)
+	if declarationErr != nil {
+		return AddModuleDependencyResult{}, declarationErr
 	}
 	return NewAddModuleDependencyResult(resolved, lockWritten, declaration)
 }
@@ -215,8 +326,11 @@ func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.
 // removes their requires entries from invowkmodPath.
 //
 //goplint:ignore -- module remove identifier is a CLI-facing selector: URL, namespace, module name, or lock key.
-func RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (RemoveModuleDependencyResult, error) {
-	resolver, err := newLockOnlyResolverForInvowkmodPath(invowkmodPath)
+func RemoveModuleDependency(ctx context.Context, locks EditLocks, invowkmodPath types.FilesystemPath, identifier string) (RemoveModuleDependencyResult, error) {
+	if err := locks.Validate(); err != nil {
+		return RemoveModuleDependencyResult{}, err
+	}
+	resolver, err := newLockOnlyResolverForInvowkmodPath(invowkmodPath, WithEditLocks(locks))
 	if err != nil {
 		return RemoveModuleDependencyResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
@@ -224,34 +338,44 @@ func RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemP
 }
 
 // RemoveModuleDependency removes matching modules with this resolver and
-// removes their requires entries from invowkmodPath.
-func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (RemoveModuleDependencyResult, error) {
+// removes their requires entries from invowkmodPath. It takes the project
+// lock before it reads either file and releases it after the last edit or the
+// last restore.
+func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (result RemoveModuleDependencyResult, err error) {
+	unlock, err := m.LockProject(ctx)
+	if err != nil {
+		return RemoveModuleDependencyResult{}, err
+	}
+	defer func() { err = joinUnlock(err, unlock) }()
+
 	lockSnapshot, snapshotErr := m.readLockSnapshot()
 	if snapshotErr != nil {
 		return RemoveModuleDependencyResult{}, snapshotErr
 	}
-	declarationSnapshot, snapshotErr := readFileSnapshot(invowkmodPath)
+	declarationSnapshot, snapshotErr := m.readFileSnapshot(invowkmodPath)
 	if snapshotErr != nil {
 		return RemoveModuleDependencyResult{}, snapshotErr
 	}
-	removed, lockWritten, err := m.Remove(ctx, identifier)
-	if err != nil {
-		return RemoveModuleDependencyResult{}, err
+	removed, lockWritten, removeErr := m.Remove(ctx, identifier)
+	if removeErr != nil {
+		return RemoveModuleDependencyResult{}, removeErr
 	}
 
 	declarations := make([]DeclarationEditResult, 0, len(removed))
 	for i := range removed {
 		written, editErr := invowkmod.RemoveRequirementIfPresent(invowkmodPath, removed[i].RemovedEntry.GitURL, removed[i].RemovedEntry.Path)
 		if editErr != nil {
-			editErr = errors.Join(editErr, declarationSnapshot.restore(), lockSnapshot.restore())
-			declaration, declarationErr := NewDeclarationEditResult(false, editErr)
+			// Built exactly as in Resolver.AddModuleDependency's rollback; keep
+			// the two in step (design D9).
+			rollback, joinedErr := rollBackDeclarationEdit(editErr, declarationSnapshot, lockSnapshot)
+			declaration, declarationErr := NewDeclarationEditResult(false, joinedErr, rollback)
 			if declarationErr != nil {
 				return RemoveModuleDependencyResult{}, declarationErr
 			}
 			declarations = append(declarations, declaration)
 			return NewRemoveModuleDependencyResult(removed, lockWritten, declarations)
 		}
-		declaration, declarationErr := NewDeclarationEditResult(written, nil)
+		declaration, declarationErr := NewDeclarationEditResult(written, nil, DeclarationRollbackNone)
 		if declarationErr != nil {
 			return RemoveModuleDependencyResult{}, declarationErr
 		}
@@ -261,18 +385,45 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 	return NewRemoveModuleDependencyResult(removed, lockWritten, declarations)
 }
 
-func newFileSnapshot(path types.FilesystemPath, data fileSnapshotData, mode os.FileMode, exists bool) fileSnapshot {
-	return fileSnapshot{
-		path:   &path,
-		data:   data,
-		mode:   mode,
-		exists: exists,
+// rollBackDeclarationEdit restores invowkmod.cue and then the lock file after
+// a failed invowkmod.cue edit. The outcome is complete when both restores
+// succeeded and incomplete otherwise; joined is the edit error joined with the
+// restore errors, for display.
+func rollBackDeclarationEdit(editErr error, declarationSnapshot, lockSnapshot fileSnapshot) (rollback DeclarationRollback, joined error) {
+	restoreErr := errors.Join(declarationSnapshot.restore(), lockSnapshot.restore())
+	if restoreErr != nil {
+		return DeclarationRollbackIncomplete, errors.Join(editErr, restoreErr)
+	}
+	return DeclarationRollbackComplete, editErr
+}
+
+// String returns the snapshot kind name.
+func (k fileSnapshotKind) String() string { return string(k) }
+
+// Validate returns an error when k is not one of the snapshot kinds.
+func (k fileSnapshotKind) Validate() error {
+	switch k {
+	case snapshotMissing, snapshotRegular, snapshotSymlink, snapshotOther:
+		return nil
+	default:
+		return fmt.Errorf("invalid file snapshot kind %q", string(k))
 	}
 }
 
 func (s fileSnapshot) Validate() error {
 	if s.path == nil {
 		return errors.New("file snapshot path is required")
+	}
+	if err := s.kind.Validate(); err != nil {
+		return err
+	}
+	if s.kind == snapshotSymlink {
+		if s.linkTarget == nil {
+			return errors.New("file snapshot link target is required")
+		}
+		if err := s.linkTarget.Validate(); err != nil {
+			return fmt.Errorf("file snapshot link target: %w", err)
+		}
 	}
 	return s.path.Validate()
 }
@@ -282,57 +433,155 @@ func (m *Resolver) readLockSnapshot() (fileSnapshot, error) {
 	if err := lockPath.Validate(); err != nil {
 		return fileSnapshot{}, fmt.Errorf("validate lock file path: %w", err)
 	}
-	snapshot, err := readFileSnapshot(lockPath)
+	snapshot, err := m.readFileSnapshot(lockPath)
 	if err != nil {
 		return fileSnapshot{}, fmt.Errorf("snapshot lock file before dependency edit: %w", err)
 	}
 	return snapshot, nil
 }
 
+// readFileSnapshot takes the snapshot of path and carries the resolver's
+// restore seams into it.
+func (m *Resolver) readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
+	snapshot, err := readFileSnapshot(path)
+	if err != nil {
+		return fileSnapshot{}, err
+	}
+	snapshot.writeFile = m.restoreWriter
+	snapshot.createLink = m.restoreLinker
+	return snapshot, nil
+}
+
+// readFileSnapshot records what is at path without following a symbolic link:
+// a dangling link is a link, not a missing file, and a link to a regular file
+// is restored as that link (design D8).
 func readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
-	info, err := os.Stat(string(path))
+	snapshot := fileSnapshot{path: &path}
+	info, err := os.Lstat(string(path))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return newFileSnapshot(path, nil, 0, false), nil
+			snapshot.kind = snapshotMissing
+			return snapshot, nil
 		}
 		return fileSnapshot{}, fmt.Errorf("stat file before dependency edit: %w", err)
 	}
-	if !info.Mode().IsRegular() {
-		return newFileSnapshot(path, nil, info.Mode(), true), nil
+	snapshot.mode = info.Mode()
+	switch {
+	case info.Mode()&os.ModeSymlink != 0:
+		target, readErr := os.Readlink(string(path))
+		if readErr != nil {
+			return fileSnapshot{}, fmt.Errorf("read link before dependency edit: %w", readErr)
+		}
+		linkTarget := types.FilesystemPath(target) //goplint:ignore -- os.Readlink result, validated with the snapshot.
+		snapshot.kind = snapshotSymlink
+		snapshot.linkTarget = &linkTarget
+	case snapshotsBytes(info.Mode(), runtime.GOOS):
+		data, readErr := os.ReadFile(string(path))
+		if readErr != nil {
+			return fileSnapshot{}, fmt.Errorf("read file before dependency edit: %w", readErr)
+		}
+		snapshot.kind = snapshotRegular
+		snapshot.data = fileSnapshotData(data)
+	default:
+		snapshot.kind = snapshotOther
 	}
-	data, err := os.ReadFile(string(path))
-	if err != nil {
-		return fileSnapshot{}, fmt.Errorf("read file before dependency edit: %w", err)
-	}
-	return newFileSnapshot(path, fileSnapshotData(data), info.Mode(), true), nil
+	return snapshot, nil
 }
 
+// snapshotsBytes reports whether a file of mode is snapshotted by its bytes:
+// a regular file, and on Windows also a non-directory that os.Lstat reports
+// as ModeIrregular. Go 1.23+ gives that mode to every reparse point other
+// than a symbolic link, a Unix socket or a deduplicated file, which includes
+// ordinary data files such as cloud-file placeholders (OneDrive) that
+// os.Stat, the base's snapshot, read as regular; leaving them as
+// snapshotOther would let a rollback report complete without restoring them.
+//
+//goplint:ignore -- goos is runtime.GOOS, a parameter only so tests cover every platform.
+func snapshotsBytes(mode fs.FileMode, goos string) bool {
+	if mode.IsRegular() {
+		return true
+	}
+	return goos == "windows" && mode.Type() == fs.ModeIrregular
+}
+
+// restore puts the snapshot's path back as it was: a missing path is removed,
+// a regular file is replaced atomically (temporary file and rename) with its
+// bytes and permission bits, so a concurrent reader sees the whole old or the
+// whole new file and never a truncated one (finding F10), a symbolic link is
+// recreated with its target, and any other node is left alone.
 func (s fileSnapshot) restore() error {
 	if err := s.Validate(); err != nil {
 		return fmt.Errorf("invalid rollback snapshot: %w", err)
 	}
 	path := string(*s.path)
-	if !s.exists {
+	switch s.kind {
+	case snapshotMissing:
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("rollback remove %s: %w", *s.path, err)
 		}
 		return nil
+	case snapshotRegular:
+		if err := s.fileWriter()(path, []byte(s.data), s.mode.Perm()); err != nil {
+			return fmt.Errorf("rollback %s: %w", *s.path, err)
+		}
+		return nil
+	case snapshotSymlink:
+		return s.restoreLink()
+	case snapshotOther:
+		return nil
+	default:
+		return fmt.Errorf("rollback %s: invalid snapshot kind %q", *s.path, string(s.kind))
 	}
-	if !s.mode.IsRegular() {
+}
+
+// restoreLink recreates a symbolic-link snapshot. When the path is still the
+// same link it does nothing; otherwise it creates the link under a random name
+// in the same directory and renames it over the path, one atomic replace.
+func (s fileSnapshot) restoreLink() error {
+	path := string(*s.path)
+	if current, err := os.Readlink(path); err == nil && current == string(*s.linkTarget) {
 		return nil
 	}
-	if err := os.WriteFile(path, []byte(s.data), s.mode.Perm()); err != nil {
-		return fmt.Errorf("rollback %s: %w", *s.path, err)
+	suffix := make([]byte, 8)
+	if _, err := rand.Read(suffix); err != nil {
+		return fmt.Errorf("rollback link %s: %w", *s.path, err)
+	}
+	tmp := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+"."+hex.EncodeToString(suffix)+".link")
+	if err := s.linkCreator()(string(*s.linkTarget), tmp); err != nil {
+		return fmt.Errorf("rollback link %s: %w", *s.path, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return errors.Join(fmt.Errorf("rollback link %s: %w", *s.path, err), os.Remove(tmp))
 	}
 	return nil
 }
 
-func newResolverForInvowkmodPath(invowkmodPath types.FilesystemPath) (*Resolver, error) {
+func (s fileSnapshot) fileWriter() restoreFileWriter {
+	if s.writeFile != nil {
+		return s.writeFile
+	}
+	return fspath.AtomicWriteFile
+}
+
+func (s fileSnapshot) linkCreator() restoreLinkCreator {
+	if s.createLink != nil {
+		return s.createLink
+	}
+	return os.Symlink
+}
+
+func newResolverForInvowkmodPath(invowkmodPath types.FilesystemPath, locks EditLocks) (*Resolver, error) {
 	workingDir := types.FilesystemPath(filepath.Dir(string(invowkmodPath)))
 	if err := workingDir.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid module working directory: %w", err)
 	}
-	return NewResolver(workingDir, "")
+	return NewResolver(workingDir, "", WithEditLocks(locks))
+}
+
+// joinUnlock releases a lock taken by a use case and joins the release error
+// into the use case's error.
+func joinUnlock(err error, unlock func() error) error {
+	return errors.Join(err, unlock())
 }
 
 // Validate returns nil if the add result contains a valid resolved module and
@@ -401,31 +650,68 @@ func validateResolvedModules(modules []*ResolvedModule) error {
 }
 
 // SyncModule resolves the requirements declared in invowkmodPath and updates
-// the module lock file. With no requirements it saves nothing and the result
-// reports LockWritten() == false.
-func SyncModule(ctx context.Context, invowkmodPath types.FilesystemPath) (SyncModuleResult, error) {
-	requirements, err := LoadRequirements(invowkmodPath)
+// the module lock file, under the project lock of locks. With no requirements
+// it saves nothing and the result reports LockWritten() == false.
+func SyncModule(ctx context.Context, locks EditLocks, invowkmodPath types.FilesystemPath) (SyncModuleResult, error) {
+	if err := locks.Validate(); err != nil {
+		return SyncModuleResult{}, err
+	}
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath, locks)
+	if err != nil {
+		return SyncModuleResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
+	}
+	return resolver.SyncModule(ctx, invowkmodPath)
+}
+
+// SyncModule resolves the requirements declared in invowkmodPath and updates
+// the lock file. It takes the project lock before it reads invowkmod.cue and
+// releases it after the lock save, or after finding no requirements (then it
+// saves nothing and reports LockWritten() == false).
+func (m *Resolver) SyncModule(ctx context.Context, invowkmodPath types.FilesystemPath) (result SyncModuleResult, err error) {
+	unlock, err := m.LockProject(ctx)
 	if err != nil {
 		return SyncModuleResult{}, err
+	}
+	defer func() { err = joinUnlock(err, unlock) }()
+
+	requirements, loadErr := LoadRequirements(invowkmodPath)
+	if loadErr != nil {
+		return SyncModuleResult{}, loadErr
 	}
 	if len(requirements) == 0 {
 		return NewSyncModuleResult(requirements, nil, false)
 	}
-
-	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
-	if err != nil {
-		return SyncModuleResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
-	}
-	resolved, lockWritten, err := resolver.Sync(ctx, requirements)
-	if err != nil {
-		return SyncModuleResult{}, err
+	resolved, lockWritten, syncErr := m.Sync(ctx, requirements)
+	if syncErr != nil {
+		return SyncModuleResult{}, syncErr
 	}
 	return NewSyncModuleResult(requirements, resolved, lockWritten)
 }
 
 // TidyModule resolves declared requirements, adds missing transitive
-// requirements to invowkmodPath, and returns the added refs.
-func TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requirements, missing []ModuleRef, err error) {
+// requirements to invowkmodPath, and returns the added refs, under the
+// project lock of locks.
+func TidyModule(ctx context.Context, locks EditLocks, invowkmodPath types.FilesystemPath) (requirements, missing []ModuleRef, err error) {
+	if lockErr := locks.Validate(); lockErr != nil {
+		return nil, nil, lockErr
+	}
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath, locks)
+	if err != nil {
+		return nil, nil, fmt.Errorf(errFmtCreateModuleResolver, err)
+	}
+	return resolver.TidyModule(ctx, invowkmodPath)
+}
+
+// TidyModule resolves the requirements declared in invowkmodPath and adds the
+// missing transitive requirements to it. It takes the project lock before it
+// reads invowkmod.cue and releases it after the last AddRequirement.
+func (m *Resolver) TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requirements, missing []ModuleRef, err error) {
+	unlock, err := m.LockProject(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { err = joinUnlock(err, unlock) }()
+
 	requirements, err = LoadRequirements(invowkmodPath)
 	if err != nil {
 		return nil, nil, err
@@ -433,12 +719,7 @@ func TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requir
 	if len(requirements) == 0 {
 		return requirements, nil, nil
 	}
-
-	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf(errFmtCreateModuleResolver, err)
-	}
-	missing, err = resolver.Tidy(ctx, requirements)
+	missing, err = m.Tidy(ctx, requirements)
 	if err != nil {
 		return requirements, nil, err
 	}
@@ -450,17 +731,36 @@ func TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requir
 	return requirements, missing, nil
 }
 
-// UpdateModule updates resolved module dependencies in the lock file next to invowkmodPath.
+// UpdateModule updates resolved module dependencies in the lock file next to
+// invowkmodPath, under the project lock of locks.
 //
 //goplint:ignore -- module update identifier is a CLI-facing selector: URL, namespace, module name, or lock key.
-func UpdateModule(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (UpdateModuleResult, error) {
-	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
+func UpdateModule(ctx context.Context, locks EditLocks, invowkmodPath types.FilesystemPath, identifier string) (UpdateModuleResult, error) {
+	if err := locks.Validate(); err != nil {
+		return UpdateModuleResult{}, err
+	}
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath, locks)
 	if err != nil {
 		return UpdateModuleResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
-	updated, lockWritten, err := resolver.Update(ctx, identifier)
+	return resolver.UpdateModule(ctx, identifier)
+}
+
+// UpdateModule updates the resolved module dependencies in this resolver's
+// lock file. It takes the project lock before Update reads the lock file and
+// releases it after the lock save.
+//
+//goplint:ignore -- module update identifier is a CLI-facing selector: URL, namespace, module name, or lock key.
+func (m *Resolver) UpdateModule(ctx context.Context, identifier string) (result UpdateModuleResult, err error) {
+	unlock, err := m.LockProject(ctx)
 	if err != nil {
 		return UpdateModuleResult{}, err
+	}
+	defer func() { err = joinUnlock(err, unlock) }()
+
+	updated, lockWritten, updateErr := m.Update(ctx, identifier)
+	if updateErr != nil {
+		return UpdateModuleResult{}, updateErr
 	}
 	return NewUpdateModuleResult(updated, lockWritten)
 }
@@ -475,10 +775,10 @@ func ListModuleDependencies(ctx context.Context, invowkmodPath types.FilesystemP
 	return resolver.List(ctx)
 }
 
-func newLockOnlyResolverForInvowkmodPath(invowkmodPath types.FilesystemPath) (*Resolver, error) {
+func newLockOnlyResolverForInvowkmodPath(invowkmodPath types.FilesystemPath, opts ...ResolverOption) (*Resolver, error) {
 	workingDir := types.FilesystemPath(filepath.Dir(string(invowkmodPath)))
 	if err := workingDir.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid module working directory: %w", err)
 	}
-	return newLockOnlyResolver(workingDir)
+	return newLockOnlyResolver(workingDir, opts...)
 }

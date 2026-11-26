@@ -70,7 +70,7 @@ The output looks like:
 
 When the lock file already held the module with the same entry, the save leaves it untouched and the lock line reads `✓ Module lock file unchanged`; the `invowkmod.cue` line still reports its own edit.
 
-When the `invowkmod.cue` edit fails, the command restores the lock file and prints neither line. If `invowkmod.cue` does not exist, the last line reads `invowkmod.cue not found — dependency was not persisted`; for any other failure (for example, a `requires` entry for the module already exists) it reads `Could not auto-edit invowkmod.cue; lock file changes were rolled back: <error>`. If restoring a file fails as well, the last line reads `Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: <error>` even when `invowkmod.cue` is missing, and `<error>` names the failed restore.
+When the `invowkmod.cue` edit fails, the command restores the lock file and prints neither line. If `invowkmod.cue` does not exist, the last line reads `invowkmod.cue not found — dependency was not persisted`; for any other failure (for example, a `requires` entry for the module already exists) it reads `Could not auto-edit invowkmod.cue; lock file changes were rolled back: <error>`. If restoring a file fails as well, the last line reads `Could not auto-edit invowkmod.cue; lock file rollback may be incomplete: <error>` even when `invowkmod.cue` is missing, and `<error>` names the failed restore. After a rollback the command exits with status 1 and prints the error on stderr.
 :::
 
 ## invowk module remove
@@ -109,11 +109,11 @@ Remove Module Dependency
 ✓ Lock file and invowkmod.cue updated
 ```
 
-Only when another process removed the same entries from the lock file between this command's read and its save does the lock on disk already lack them; then the save leaves it untouched and the last line reads `✓ Lock file unchanged; invowkmod.cue updated`.
+Only when the lock file on disk already lacks the removed entries, because it was edited outside invowk, does the save leave it untouched; then the last line reads `✓ Lock file unchanged; invowkmod.cue updated`. Another invowk module command cannot remove them in between: it waits for this one ([Concurrent Module Commands](#concurrent-module-commands)).
 
 When `invowkmod.cue` has no `requires` entry for the removed module, or does not exist, the command leaves it untouched and the last line reads `✓ Lock file updated; invowkmod.cue unchanged` (or `✓ Lock file and invowkmod.cue unchanged` when the lock save was skipped as well).
 
-When the `invowkmod.cue` edit fails, the command restores the lock file. It prints `Could not auto-edit invowkmod.cue: <error>`, and the last line reads `Lock file changes were rolled back; invowkmod.cue needs manual review`. If restoring a file fails as well, `<error>` names the failed restore and the last line reads `Lock file rollback may be incomplete; invowkmod.cue needs manual review`.
+When the `invowkmod.cue` edit fails, the command restores the lock file. It prints `Could not auto-edit invowkmod.cue: <error>` and no `Removed <namespace>` line, since nothing was removed, and the last line reads `Lock file changes were rolled back; invowkmod.cue needs manual review`. If restoring a file fails as well, `<error>` names the failed restore and the last line reads `Lock file rollback may be incomplete; invowkmod.cue needs manual review`. After a rollback the command exits with status 1 and prints the error on stderr.
 
 Cached files are not deleted.
 :::
@@ -227,6 +227,31 @@ Vendor dependencies into the `invowk_modules/` directory for offline use and dis
 `invowk module vendor` resolves dependencies and copies them into `invowk_modules/`. If `invowkmod.lock.cue` exists, vendoring uses locked versions by default. Use `--update` to force re-resolution and `--prune` to remove stale vendored modules.
 :::
 
+## Concurrent Module Commands
+
+`invowk module add`, `remove`, `sync`, `update`, `tidy` and `vendor`, and `invowk agent mod change` when it writes, edit a project one at a time. Each takes the project's lock before it reads `invowkmod.cue` or `invowkmod.lock.cue` and releases it after its last write, so two of them started on the same project never lose each other's edits: the second waits until the first is done and then works on the files the first left. While it waits it prints, once, on stderr:
+
+```
+• Waiting for another invowk module command on this project (lock: <path>)
+```
+
+A command that fetches a module also locks that module's Git source while it checks it out, so two projects that fetch the same source take turns there:
+
+```
+• Waiting for another invowk module command on module source <git-url> (lock: <path>)
+```
+
+A command waits at most 5 minutes for a lock. Then it fails with exit status 1 and an error that names the lock file; Ctrl+C stops the wait at once. Either way it leaves `invowkmod.cue` and `invowkmod.lock.cue` as they were.
+
+The lock files live in the `locks` directory of the module cache (`INVOWK_MODULES_PATH`, or `~/.invowk/modules`): `project-<hash>.lock` for a project and `source-<hash>.lock` for a Git source. They are empty, and invowk never deletes them; removing them while no module command runs is harmless. Because every edit command takes the lock, `module remove` and a `module sync`, `tidy` or `vendor` that finds no `requires` now create the module cache directory and its `locks` directory when they are missing; so do `module sync`, `tidy`, `update` and `remove` run in a directory with no `invowkmod.cue`, which take the lock before they find the file missing. When the cache directory cannot be resolved or created, they fail with an error that names the path and suggests setting `INVOWK_MODULES_PATH` to a writable directory.
+
+Read-only commands never wait: `module deps`, `module list`, `validate`, `audit` and running commands do not take the lock, and the `locks` directory is not a project input, even when the module cache sits inside the project.
+
+Known limits:
+- Two runs with different `INVOWK_MODULES_PATH` values use different `locks` directories and do not wait for each other.
+- On a case-insensitive macOS volume, the same project reached through paths that differ only in letter case (`~/Proj` and `~/proj`) gets two lock files, so commands started through the two spellings do not wait for each other. On Windows the path is normalised, and on every system a symbolic link (or a Windows junction) to the project leads to the same lock.
+- The locks are advisory locks between invowk processes on one machine. They do not stop an editor or another tool from changing the files, and on a network file system they may not exclude processes on other machines.
+
 ## Common Workflows
 
 ### Initial Setup
@@ -264,4 +289,5 @@ Vendor dependencies into the `invowk_modules/` directory for offline use and dis
 | 1 | No invowkmod.cue found (for sync) |
 | 1 | Version resolution failed |
 | 1 | Git clone/fetch failed |
+| 1 | Timed out after 5 minutes waiting for a module lock |
 | 2 | Command line rejected (unknown subcommand or flag, wrong number of arguments) |

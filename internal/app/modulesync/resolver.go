@@ -39,6 +39,17 @@ type (
 		// semver handles version constraint resolution.
 		semver *SemverResolver
 
+		// restoreWriter and restoreLinker are the rollback's restore seams,
+		// carried into each snapshot; nil means fspath.AtomicWriteFile and
+		// os.Symlink (design D8).
+		restoreWriter restoreFileWriter
+		restoreLinker restoreLinkCreator
+
+		// locks takes the project and source locks; nil when the resolver
+		// was built without WithEditLocks, which the locking methods refuse
+		// (ErrEditLockerRequired).
+		locks *editLocks
+
 		// mu protects concurrent access to the resolver.
 		mu sync.Mutex
 	}
@@ -47,20 +58,41 @@ type (
 // NewResolver creates a new module resolver.
 //
 // workingDir is the directory containing invowkmod.cue (typically current working directory).
-// cacheDir can be empty to use the default (~/.invowk/modules or $INVOWK_MODULES_PATH).
-func NewResolver(workingDir, cacheDir types.FilesystemPath) (*Resolver, error) {
-	return newResolver(workingDir, cacheDir, nil, true)
+// cacheDir can be empty to use the default (~/.invowk/modules or $INVOWK_MODULES_PATH),
+// or the CacheDir of the edit locks given with WithEditLocks; when both are
+// set they must name the same directory, or NewResolver fails. With edit locks, the cache root is created by LockProject, under the
+// project lock's error handling, instead of here.
+func NewResolver(workingDir, cacheDir types.FilesystemPath, opts ...ResolverOption) (*Resolver, error) {
+	return newResolver(workingDir, cacheDir, nil, true, opts...)
 }
 
-func newResolverWithFetcher(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetcher) (*Resolver, error) {
-	return newResolver(workingDir, cacheDir, fetcher, true)
+func newResolverWithFetcher(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetcher, opts ...ResolverOption) (*Resolver, error) {
+	return newResolver(workingDir, cacheDir, fetcher, true, opts...)
 }
 
-func newLockOnlyResolver(workingDir types.FilesystemPath) (*Resolver, error) {
-	return newResolver(workingDir, "", nil, false)
+func newLockOnlyResolver(workingDir types.FilesystemPath, opts ...ResolverOption) (*Resolver, error) {
+	return newResolver(workingDir, "", nil, false, opts...)
 }
 
-func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetcher, ensureCacheDir bool) (*Resolver, error) {
+func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetcher, ensureCacheDir bool, opts ...ResolverOption) (*Resolver, error) {
+	var cfg resolverConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.editLocks != nil {
+		if cacheDir == "" {
+			cacheDir = cfg.editLocks.CacheDir
+		} else if err := sameCacheDir(cacheDir, cfg.editLocks.CacheDir); err != nil {
+			return nil, err
+		}
+		// LockProject creates the cache root with the lock directory's
+		// actionable error (design D5).
+		ensureCacheDir = false
+	}
+
 	wd := string(workingDir)
 	if wd == "" {
 		var err error
@@ -79,7 +111,7 @@ func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetche
 	if cd == "" {
 		cd, err = modulecache.DefaultDir()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get cache directory: %w", err)
+			return nil, fmt.Errorf("cannot determine the module cache directory: %w; set INVOWK_MODULES_PATH", err)
 		}
 	}
 
@@ -113,7 +145,31 @@ func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetche
 	if fetcher != nil {
 		resolver.fetcher = fetcher
 	}
+	if cfg.editLocks != nil {
+		resolver.locks = &editLocks{locks: *cfg.editLocks, cacheDir: absCachePath}
+		if err := resolver.locks.Validate(); err != nil {
+			return nil, err
+		}
+	}
 	return resolver, nil
+}
+
+// sameCacheDir returns an error when the edit locks name a cache root other
+// than cacheDir: the lock files live under the resolver's cache root, so two
+// callers that disagreed would lock one project in two places.
+func sameCacheDir(cacheDir, lockCacheDir types.FilesystemPath) error {
+	if lockCacheDir == "" {
+		return nil
+	}
+	a, errA := filepath.Abs(string(cacheDir))
+	b, errB := filepath.Abs(string(lockCacheDir))
+	if err := errors.Join(errA, errB); err != nil {
+		return fmt.Errorf("failed to resolve cache directory: %w", err)
+	}
+	if a != b {
+		return fmt.Errorf("cache directory %s differs from the edit locks' cache directory %s", cacheDir, lockCacheDir)
+	}
+	return nil
 }
 
 // CacheDir returns the root directory for the module cache.
