@@ -4,8 +4,10 @@ package discovery
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 
@@ -788,5 +790,64 @@ func TestDiscovery_CurrentDirModule_JunctionAncestorFailsClosed(t *testing.T) {
 		out := discoverFromBase(t, nil, tc.dir)
 		out.requireNothingLoaded(t, tc.name)
 		out.requireCode(t, tc.name, CodeModuleLoadSkipped)
+	}
+}
+
+func TestDiscovery_CurrentDirModule_ExecuteOnlyParentNotRead(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX execute-only directory bits are not enforced on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses directory read permission checks")
+	}
+
+	parent := filepath.Join(t.TempDir(), "exec-only")
+	child := filepath.Join(parent, "plain")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", child, err)
+	}
+	if err := os.Chmod(parent, 0o111); err != nil {
+		t.Fatalf("chmod 0o111 %s: %v", parent, err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(parent, 0o755)
+	})
+
+	childPath := types.FilesystemPath(child)
+	if err := childPath.Validate(); err != nil {
+		t.Fatalf("validate %s: %v", child, err)
+	}
+	isMod, files, diags := discoverCurrentDirModule(childPath)
+	if isMod || len(files) != 0 || len(diags) != 0 {
+		t.Fatalf("got isMod=%v files=%d diags=%v, want false/0/none", isMod, len(files), diags)
+	}
+
+	out := discoverFromBase(t, nil, child)
+	out.requireNothingLoaded(t, "execute-only parent")
+	if len(out.diags) != 0 {
+		t.Fatalf("diagnostics = %v, want none", out.diags)
+	}
+}
+
+func BenchmarkDiscoverCurrentDirModule_PlainDir(b *testing.B) {
+	parent := b.TempDir()
+	for i := range 500 {
+		dir := filepath.Join(parent, fmt.Sprintf("sibling-%03d", i))
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			b.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	targetDir := types.FilesystemPath(filepath.Join(parent, "sibling-250"))
+	if err := targetDir.Validate(); err != nil {
+		b.Fatalf("validate target dir: %v", err)
+	}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		isMod, files, diags := discoverCurrentDirModule(targetDir)
+		if isMod || len(files) != 0 || len(diags) != 0 {
+			b.Fatalf("unexpected module verdict: isMod=%v files=%d diags=%d", isMod, len(files), len(diags))
+		}
 	}
 }

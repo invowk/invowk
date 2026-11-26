@@ -91,6 +91,14 @@ func discoverCurrentDirModule(baseDir types.FilesystemPath) (isModuleDir bool, f
 		return true, nil, []Diagnostic{insideModuleSkipped(absPath, ancestorErr)}
 	}
 
+	// Non-link directories whose resolved physical path does not end in
+	// ".invowkmod" cannot match a stored module entry, so skip reading the
+	// parent directory. Links, candidates, and unresolved paths still inspect
+	// the parent entry.
+	if !isLinkEntry(info) && evalErr == nil && !anyModuleSuffixFold(names) {
+		return false, nil, nil
+	}
+
 	parentDir, parentErr := parentPath(absPath)
 	volumeRoot := parentErr == nil && isVolumeRoot(parentDir, absPath)
 	var stored os.DirEntry
