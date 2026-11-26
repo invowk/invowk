@@ -130,6 +130,10 @@ var (
 			testFile: "internal/runtime/virtual_path_walk_formal_test.go",
 			reason:   "classifies an os.Lstat file mode as a link the virtual path walk follows; it takes no path text",
 		},
+		"internal/runtime.isVirtualPathDisallowedComponent": {
+			testFile: "internal/runtime/virtual_path_resolution_windows_test.go",
+			reason:   "classifies a single split path component after the volume prefix on Windows; dialect and containment belong to walkVirtualPath and resolveNoFollow",
+		},
 		"internal/runtime.isVirtualPathMissingVolume": {
 			testFile: "internal/runtime/virtual_path_resolution_windows_test.go",
 			reason:   "classifies an os.Lstat error of a volume root as a missing drive or share; it takes no path text",
@@ -153,6 +157,10 @@ var (
 		"internal/uroot.HandlerContext.ResolveNoFollowPath": {
 			testFile: "internal/uroot/handler_nofollow_test.go",
 			reason:   "no-follow u-root resolution uses the virtual filesystem namespace and virtual working directory",
+		},
+		"internal/uroot.resolveTarOperandAbsPath": {
+			testFile: "internal/uroot/tar_test.go",
+			reason:   "joins relative tar -c operands onto baseDir and canonicalizes parent directories of absolute operands",
 		},
 		"internal/uroot.validateUrootCommandPathArgs": {
 			testFile: "internal/uroot/registry_preprocessing_test.go",

@@ -30,7 +30,14 @@ module-concurrency functions, so both held 637. The partial refresh of
 `tui-servers-acp-followups` (2026-11-25, redone on top of `29735d3d`)
 removed 5 and added 6 (deferred `binding-gap`); both held 638. The partial
 refresh of `w1b-discovery-f12` (2026-11-26) removed none and added 2 (`1`
-`equivalent`, `1` deferred `binding-gap`); both now hold 640.
+`equivalent`, `1` deferred `binding-gap`); both held 640. The partial refresh
+of W3 (`fix/w3-formal-followups`, 2026-11-26) removed 14 (6 `LoadEnvFile` gaps
+killed by binding `TestLoadEnvFile_ModuleContext` plus all 8 Linux-killable
+`virtualPathResolver.resolveNoFollow` and `virtualPathValidator.validateNoFollow`
+gaps) and added 21 (2 `LoadEnvFile` non-module branch, 3 `equivalent` in
+`walk`/`missingVirtualPathSuffix`, 4 Windows-only `resolveNoFollow`
+disallowed-component gaps, 9 `RemoveRequirementIfPresent`, 3
+`LockFile.SaveIfChanged`); both now hold 647.
 
 ## Rows whose binding does not reach the function
 
@@ -41,30 +48,30 @@ it escaped. The binding reach gate (`make formal-reach`, harden-formal-instrumen
 
 - `Invowkfile.GetEffectiveWorkDir` (`pkg/invowkfile/invowkfile.go`, 20 survivors until #181, 21 since: refresh-anchors-mutation-ledger (#181) added one `equivalent` entry): **rebound** to `TestModulePathContainment_ContainerWorkDirGolden`, which calls it through `getContainerWorkDir`.
 - `CustomCheckScript.ResolveWithFSAndModule` (`pkg/invowkfile/dependency.go`, 15 survivors until the 2026-11-19 refresh of module-read-physical-containment, 10 since): **rebound**; `TestModulePathContainment_GoldenVectors` replays it on every `ScriptRead` instance with a recording reader, F13 included. Calibration note (decision 11): the seeded defect "drop the `validateScriptPathContainment` call" survives, because it is redundant at this entry point, fully masked by `ScriptFilePath.Validate` (no input class is rejected only by `validateScriptPathContainment`; `TestModulePathContainment_ContainmentLayerGolden` binds that layer directly). The calibration seeds "resolve against the module's parent" instead, which the golden catches. This is not a ledger entry.
-- `LoadEnvFile` (`internal/runtime/dotenv.go`, 11 survivors until the 2026-11-19 refresh of module-read-physical-containment, 32 since): **rebound**; the golden calls it on every `EnvRead` instance of an admitted module that `ValidateEnvFilePath` accepts, F17 included.
-- `newVirtualPathResolverForFilesystem` (`internal/runtime/virtual_policy.go`, 12 survivors): **rebound** to `TestVirtualPathHarness_RootConstruction`.
+- `LoadEnvFile` (`internal/runtime/dotenv.go`, 11 survivors until the 2026-11-19 refresh of module-read-physical-containment, 32 since, 28 since W3): **rebound**; the golden calls it on every `EnvRead` instance of an admitted module that `ValidateEnvFilePath` accepts, F17 included.
+- `newVirtualPathResolverForFilesystem` (`internal/runtime/virtual_policy.go`, 12 survivors until 2026-11-24, 6 since: 4 `binding-gap`, 2 `equivalent`): **rebound** to `TestVirtualPathHarness_RootConstruction`.
 - `VirtualFilesystemConfig.EffectiveAccess` (`pkg/invowkfile/virtual_filesystem.go`, 1 survivor): **rebound** to `TestVirtualPathHarness_RootConstruction`.
 - `validateDestinationPath` (`internal/app/moduleops/packaging.go`, 12 survivors): **unbound** (decision 5). The model's destination check, `unpackInside[destCheck]`, transcribes `normalizeZIPPath` followed by this function; alone it accepts an `AbsPath` name, and after `normalizeZIPPath` its rejection is unreachable on POSIX.
 - `standardVirtualAnchorsForOS` (`internal/runtime/virtual_policy.go`, 22 survivors until 2026-11-19, 5 since): **rebound** to `TestVirtualPathHarness_RootConstruction` with the narrow claim "anchors are explicit allowed roots" (decision 14, superseding decision 8's unbinding): the reported `@config`, `@data`, `@cache`, `@state`, `@tmp`, and `@work` anchors are accepted and `@home/.ssh` is denied under restricted access. The anchor paths are inputs from the production resolver and are not verified; the model states no per-OS layout. The replay catches only an empty anchor, a reported anchor missing from the allowed roots where no other root encloses it, and an anchor covering `@home/.ssh` (decision 17). Two drops are masked (decision 31): `@work` is always the workdir root, so dropping it is an equivalent defect, and dropping `@tmp` is masked off Windows while `TMPDIR` lies under `/tmp`, by `defaultTempRoots()`, which is the case on the Linux reach lane; an `@tmp` probe with `TMPDIR` outside `/tmp` would close it. Its 22 baselined survivors are planned again, but bound is not covered: most mutate the per-OS layout and the environment overrides, which the replay does not assert. Rerun and retriage them; the ledger is unchanged (D9). **Retriaged by require-absolute-base-dirs (S4, 2026-11-15):** S4 moved the per-OS layout and the environment overrides into `internal/basedir` (`Dirs.ConfigHome`, `DataHome`, `CacheHome`, `StateHome`, which no correspondence row names) and rewrote this function to read them, so all 22 baselined survivors mutate a body that no longer exists (`getenv`, `firstNonEmpty`, the darwin case). A `make mutation-formal` run on the rebased S4 tree (report only, baseline untouched) generated 14 mutants in the new body: 9 killed (the three cleared literal fields, the four dropped default-case assignments, the default-case no-op, `return nil`) and 5 escaped, all in the `windows` case (the case no-op and its four dropped assignments), which the binding reaches only on a Windows host. They are binding gaps, not untested code: `TestStandardVirtualAnchorsMatchLegacy` (not a killer) passes `goos = "windows"` on every host and compares each anchor with the frozen pre-change oracle. The S4-changed lines of `internal/app/modulecache/cache.go` and `internal/runtime/container_provision.go` produced no mutant in a planned function. The ledger and the baseline were unchanged (D9). **Refreshed by refresh-anchors-mutation-ledger (2026-11-19, decision 35):** a fresh report-only `make mutation-formal` run on 567e7b00 generated the same 14 mutants (9 killed, 5 escaped, all 5 in the `case goosWindows` block, lines 165-169). Of the 22 old ids, 19 no longer exist and 3 (`virtualAnchorTmp`/`virtualAnchorWork` field-clear, `return anchors`) regenerate in the new body and are killed; all 22 left the ledger and the baseline. The 5 Windows-case survivors entered as `binding-gap`, with two reruns each and their own evidence `digest` (857457136e35…). `TestStandardVirtualAnchorsMatchLegacy` stays a unit test, not a killer.
 - `Server.ValidateToken` (`internal/sshserver/server_auth.go`, 8 survivors): **unbound** (decision 1). It has no production caller; the model's `Auth` is implemented by `Server.admitConn` (row `Auth/End atomicity`).
 
 Retriage flags:
-- The six rebound functions hold 81 survivors in the ledger at fa70957b (`GetEffectiveWorkDir` 21, `ResolveWithFSAndModule` 10, `LoadEnvFile` 32, `newVirtualPathResolverForFilesystem` 12, `EffectiveAccess` 1, `standardVirtualAnchorsForOS` 5). 33 of them keep their now-stale reason ("never calls ..."): `GetEffectiveWorkDir` 20, `newVirtualPathResolverForFilesystem` 12 and `EffectiveAccess` 1; rerun and retriage them. The other 48 carry reasons written by the refreshes above (refresh-anchors-mutation-ledger in #181, module-read-physical-containment in #188).
+- The six rebound functions hold 71 survivors in the ledger after W3 (`GetEffectiveWorkDir` 21, `ResolveWithFSAndModule` 10, `LoadEnvFile` 28, `newVirtualPathResolverForFilesystem` 6, `EffectiveAccess` 1, `standardVirtualAnchorsForOS` 5). 33 of them still keep their baseline-digest reason ("never calls ..."): `GetEffectiveWorkDir` 20, `newVirtualPathResolverForFilesystem` 6 (`4` baseline + `2` equivalent refreshed in 2026-11-24 — check exact digests if needed; overall 33 across original baseline entries), and `EffectiveAccess` 1, plus `LoadEnvFile` entries refreshed in W3.
 - The 20 survivors of the two unbound rows (`validateDestinationPath` 12, `ValidateToken` 8) name functions the plan no longer targets. They are listed in `[triage] orphaned_survivors` in `formal/manifest.toml`, which `triage --check --base` keeps from growing.
-- The baseline carries one plan-inputs digest, and the change edited killer-test files many functions share, so by the digest convention the rerun evidence of the 391 survivors still at the baseline's digest is stale (fa70957b: 432 baseline ids, of which 41 carry their own evidence digest from a partial refresh; 397 of 403 after #181, before #188 merged the module-read-physical-containment refresh). The tree's plan-inputs digest at fa70957b (c7bc8354…) matches none of the three recorded digests (baseline 7c0bfca91bee…, per-mutant 83fa6108536c… and 857457136e35…). That check compares the baseline digest with the rerun records, not with the tree; since refresh-anchors-mutation-ledger, a separate per-entry anchor check fails when an entry's mutated lines leave its function.
-- The 2026-11-19 run on 567e7b00 regenerated 380 of the 419 then-baselined ids: 350 escaped and 30 killed (3 of them the anchors ids above). The 27 other now-killed survivors stay in the ledger until the full refresh: the anchor check finds dead mutants, not killed ones.
+- At fa70957b, 391 of 432 baselined survivors carried the original baseline digest while partial refreshes added per-mutant evidence `digest`s (`formal-bindings` ledger has since grown to 647 survivors across 89 planned functions via partial refreshes). That check compares the baseline digest with the rerun records; a separate per-entry anchor check fails whenever an entry's mutated lines leave its function.
+- The 2026-11-19 run on 567e7b00 regenerated 380 of the 419 then-baselined ids: 350 escaped and 30 killed (3 of them the anchors ids above).
 
 ## Future work: survivor triage
 
 One follow-up change owns all of this:
-- triage the 391 survivors left at the old digest and refresh the baseline (new reruns at the new digest), which also drops the 27 survivors now killed and the per-mutant digests;
+- triage the remaining old-digest survivors and refresh the baseline cleanly (dropping stale per-mutant digests);
 - empty `[triage] stale_survivors` (seeded empty on 2026-11-19; keep it empty: a change that rewrites a bound function refreshes its entries instead);
 - re-point the `Auth` row to `Server.admitConn`;
 - add a `normalizeZIPPath` row for `unpackInside`;
 - model per-OS anchors in `VirtualPathHarness.als` (decision 8), then widen the `anchors` row past its narrow claim (decision 14);
 - reconcile the Alloy-only "`validateDestinationPath` omitted" calibration claim in `module-path-containment-model` ("Seeded copy, discovery, hash, unpack, and harness calibration defects"), which no Go test detects;
-- rename the 34 unresolved model elements, re-key their ledger survivors, and empty `[correspondence] unresolved_elements` (decision 7);
-- empty `[triage] orphaned_survivors` (decision 9) and bind the 19 `[triage] binding_gaps` (decision 15).
+- rename the 18 remaining unresolved model elements, re-key their ledger survivors, and empty `[correspondence] unresolved_elements` (reduced from 34 originally; decision 7);
+- empty `[triage] orphaned_survivors` (decision 9, 20 survivors) and bind the 11 remaining `[triage] binding_gaps` (reduced from 19 originally; 30 total unbound rows including by-design rows; decision 15).
 - re-point the type-symbol rows whose claim a function implements (decision 18). They are by design today, so the `[triage]` lists do not carry them:
   - `Watch` `backend` (`watcherBackend`, `formal/tla/Watch.tla:22`): "closed channels modelled as fatal errors" is implemented by `Watcher.Run` (`internal/watch/watcher.go:432-433`, `:471-472`), which the `loop` row already binds;
   - `ScopeConstruction` `globalChildren` (`IsGlobalModule`, `formal/alloy/ScopeConstruction.als:25`): vendored children inherit the global flag in `Discovery.appendModulesWithVendored` (`internal/discovery/discovery_files.go:760-765`), and `Discovery.mergeDuplicateModule` (`internal/discovery/discovery_module_dedupe.go:93-98`) keeps the claim when a global duplicate of an appended module directory is merged into it: a re-pointed row binds both;
@@ -166,19 +173,23 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### LoadEnvFile
 
-`internal/runtime/dotenv.go`, 32 survivors (11 before 2026-11-19). Refreshed by module-read-physical-containment (2026-11-19): the golden replay calls LoadEnvFile with the module root on every admitted, validated `EnvRead` vector, so its verdict binds the contained read. Its remaining binding gaps are branches the golden never reaches: the absolute and lexical pre-checks (masked by `ValidateEnvFilePath`), the `filepath.Rel` failure, the `OpenRoot` error branches (the golden module roots always exist), the optional skip, and the read-error wrapping. `TestLoadEnvFile_ModuleContext`, `TestLoadEnvFile_ModuleRootMissing` and `TestLoadEnvFile_ModuleRootNotADirectory` kill most of them; binding them to the `readOp | LoadEnvFile` row would close the gaps (`TestLoadEnvFile_ModuleNoSearchPermission` would first need its skips moved to an fstree-style helper). The lexical pre-check mutants are not equivalent: os.Root's own escape rejection masks them only while the module root opens. With a missing module root, or one that is not a directory, a leaving path (`..`, `../x`) or a `filepath.Rel` failure no longer returns `ErrEnvFileOutsideModule`: an optional file is skipped and a required one fails with a read error (a plain read error for both when the root is not a directory). No content is read, so this is verdict drift, not a leak. They stay deferred binding gaps until bound tests cover those cases: lexical-escape cases (`..` and `../x`, optional and required) for a missing module root and for a module root that is not a directory, and a `filepath.Rel`-failure case (a relative `basePath` under an absolute module root). The read-error wrapping mutant is already killed by `TestLoadEnvFile_ModuleContext/required_missing_file`, which the `readOp | LoadEnvFile` row does not name.
+`internal/runtime/dotenv.go`, 28 `binding-gap` survivors (11 before 2026-11-19, 32 until W3). Refreshed by module-read-physical-containment (2026-11-19) and W3 (2026-11-26): W3 bound `TestLoadEnvFile_ModuleContext` on `readOp` (closing 6 module-context gaps including `a84e6876`) while adding 2 gaps in the non-module `os.ReadFile` branch (`moduleRoot == ""`), which no `ModulePathContainment` binding enters. Its remaining binding gaps are branches the golden never reaches: the absolute and lexical pre-checks (masked by `ValidateEnvFilePath`), the `filepath.Rel` failure, the `OpenRoot` error branches (the golden module roots always exist), the optional skip, and the non-module branch. Remaining cases not yet covered by bound tests: lexical-escape cases (`..` and `../x`, optional and required) for a missing module root and for a module root that is not a directory, and a `filepath.Rel`-failure case (a relative `basePath` under an absolute module root).
+
+### classifyModuleEnvFileError
+
+`internal/runtime/dotenv.go`, 1 `equivalent` survivor (bound by module-read-physical-containment): the `errors.Is(err, fs.ErrNotExist)` conjunct decides no production call made by `readModuleEnvFileWith`.
 
 ### readModuleEnvFileWith
 
-`internal/runtime/dotenv.go`, bound by module-read-physical-containment's review (2026-11-19). The ReadFile-error classification after a successful Stat is reached only for a directory (EISDIR, returned unchanged) or under a race; a bound test injecting a readFile that returns an escape error would close the gap.
+`internal/runtime/dotenv.go`, 1 `binding-gap` survivor (bound by module-read-physical-containment, 2026-11-19). The ReadFile-error classification after a successful Stat is reached only for a directory (EISDIR, returned unchanged) or under a race; a bound test injecting a readFile that returns an escape error would close the gap.
 
 ### checkModuleFilePhysicalContainment
 
-`pkg/invowkfile/module_file_containment.go`, bound by module-read-physical-containment. Gaps: the `filepath.Rel` failure (`TestCheckModuleFilePhysicalContainment_RelFailure` kills it; add it to the `physContains` binding), the OpenRoot error wrapping (`_RootIsFile` does not assert the wrapped OS error), the Windows-only os.Root panic branch (killed on windows-latest only), and the default OS-error case (`_NoSearchPermission`, which skips directly). The not-exist conjunct mutants are `equivalent`: Stat and Lstat report not-exist together.
+`pkg/invowkfile/module_file_containment.go`, 11 survivors (8 `binding-gap`, 3 `equivalent`), bound by module-read-physical-containment. Gaps: the `filepath.Rel` failure (`TestCheckModuleFilePhysicalContainment_RelFailure` kills it; add it to the `physContains` binding), the OpenRoot error wrapping (`_RootIsFile` does not assert the wrapped OS error), the Windows-only os.Root panic branch (killed on windows-latest only), and the default OS-error case (`_NoSearchPermission`, which skips directly). The not-exist conjunct mutants are `equivalent`: Stat and Lstat report not-exist together.
 
 ### newVirtualPathResolverForFilesystem
 
-`internal/runtime/virtual_policy.go`, 4 survivors (12 before virtual-path-physical-normalisation, 2026-11-24, whose refresh found 8 of them killed). The harness golden builds its validator over materialised roots directly and never calls the resolver constructor.
+`internal/runtime/virtual_policy.go`, 6 survivors (4 `binding-gap`, 2 `equivalent`; 12 before virtual-path-physical-normalisation, 2026-11-24). The harness golden builds its validator over materialised roots directly and never calls the resolver constructor.
 
 ### normalizeExistingOrParent
 
@@ -186,19 +197,35 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### walkVirtualPath
 
-`internal/runtime/virtual_policy.go`, 1 survivor, added by virtual-path-physical-normalisation (2026-11-24). Returning the zero walk when the canonical step fails drops `unresolvedLink`. Strict callers deny on that error either way; only the full-access fallback form changes, and no killer makes the canonical step fail after a walk that ended inside a link target. A `TestVirtualPathHarness_WalkOverFakeFilesystem` case with a `canonErr` on a dangling link's target directory that asserts `unresolvedLink` would close it.
+`internal/runtime/virtual_policy.go`, 1 `binding-gap` survivor, added by virtual-path-physical-normalisation (2026-11-24). Returning the zero walk when the canonical step fails drops `unresolvedLink`. Strict callers deny on that error either way; only the full-access fallback form changes, and no killer makes the canonical step fail after a walk that ended inside a link target. A `TestVirtualPathHarness_WalkOverFakeFilesystem` case with a `canonErr` on a dangling link's target directory that asserts `unresolvedLink` would close it.
+
+### missingVirtualPathSuffix
+
+`internal/runtime/virtual_policy.go`, 1 `equivalent` survivor (W3, 2026-11-26): the nil guard `isDisallowed != nil` always holds because `virtualPathWalker.walk` is the sole caller and always passes `w.isDisallowedComponent`.
+
+### virtualPathWalker.next
+
+`internal/runtime/virtual_policy.go`, 1 `equivalent` survivor (`virtual-path-no-follow-operands`, 2026-11-24): switching `>` to `>=` leaves `inLink` and subsequent component counts identical because the first pop is always an own component.
+
+### virtualPathWalker.walk
+
+`internal/runtime/virtual_policy.go`, 3 `equivalent` survivors (1 from 2026-11-24 in `case virtualPathParent`, plus 2 from W3 in `case "."`): falling through to `filepath.Join(w.prefix, ".")` inspects the existing physical non-link directory prefix and leaves `w.prefix` unchanged.
 
 ### virtualPathWalker.follow
 
-`internal/runtime/virtual_policy.go`, 10 survivors, added by virtual-path-no-follow-operands (2026-11-24), when the walk's helpers got rows of their own. Every one sits in a Windows-only branch: a link target with a volume name, a rooted target without one, a bare volume, a drive-relative target (refused), or a missing drive in a target. Off Windows `filepath.VolumeName` is always empty, so the formal-bindings lane, which runs on Linux, cannot generate those targets. `TestVirtualPathHarness_WalkOverFakeFilesystem` has a Windows-only drive-relative case; closing these needs a Windows mutation lane, or fake-filesystem cases whose volume handling does not depend on the host `filepath`.
+`internal/runtime/virtual_policy.go`, 10 `binding-gap` survivors, added by virtual-path-no-follow-operands (2026-11-24), when the walk's helpers got rows of their own. Every one sits in a Windows-only branch: a link target with a volume name, a rooted target without one, a bare volume, a drive-relative target (refused), or a missing drive in a target. Off Windows `filepath.VolumeName` is always empty, so the formal-bindings lane, which runs on Linux, cannot generate those targets. `TestVirtualPathHarness_WalkOverFakeFilesystem` has a Windows-only drive-relative case; closing these needs a Windows mutation lane, or fake-filesystem cases whose volume handling does not depend on the host `filepath`.
 
 ### virtualPathResolver.resolveNoFollow
 
-`internal/runtime/virtual_path_nofollow.go`, 6 deferred survivors and 1 equivalent, added by virtual-path-no-follow-operands (2026-11-24). No killer gives a no-follow request whose anchor expansion fails, a request that names a directory by its form and whose full resolution fails, or a volume root (`/`) as the request. A `TestVirtualPathNoFollowValidatorDirectoryCheck` or `TestVirtualPathHarness_NoFollowOperands` case for each (an unknown `@anchor`, `@unknown/`, and `/` under both access modes, asserting the error or the returned path) would close them. The removal of the whole volume-root branch is equivalent (the general path gives the same result).
+`internal/runtime/virtual_path_nofollow.go`, 6 survivors (5 `binding-gap`, 1 `equivalent`). W3 (2026-11-26) closed the 5 Linux-killable gaps from `virtual-path-no-follow-operands` via `TestVirtualPathNoFollowValidatorDirectoryCheck`, leaving only Windows-only branches on the Linux formal-bindings lane: the volume-root resolution failure (`d8bf67ee`) and the 4 disallowed-component checks (`isVirtualPathDisallowedComponent` returns `false` off Windows; covered on Windows by `TestVirtualPathWindowsColonComponentRefused`). The removal of the whole volume-root branch stays `equivalent` (the general path gives the same result).
 
 ### virtualPathValidator.validateNoFollow
 
-`internal/runtime/virtual_path_nofollow.go`, 3 deferred survivors and 1 equivalent, added by virtual-path-no-follow-operands (2026-11-24). No killer checks the returned path of a request whose last element is `.` or `..`, or of one whose resolved path already ends in a separator (a volume root). Cases asserting `validateNoFollow(work, "dirlink/.")` returns the target with no separator, and `/` returns `/`, would close them.
+`internal/runtime/virtual_path_nofollow.go`, 1 `equivalent` survivor (no `binding-gap` survivors). W3 (2026-11-26) closed all 3 Linux-killable gaps from `virtual-path-no-follow-operands` via `TestVirtualPathNoFollowValidatorDirectoryCheck`; only the `equivalent` loop break remains.
+
+### virtualWorkdirFor
+
+`internal/runtime/virtual_workdir.go`, 1 `equivalent` survivor (`module-workdir-roots`, 2026-11-25): the default fallback matches the trusted empty-moduleRoot behavior.
 
 ### pathWithin
 
@@ -280,9 +307,19 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 `pkg/invowkmod/content_hash.go`, 17 survivors. The golden asserts only that hashing does not fail; the hash value itself is never compared.
 
+### RemoveRequirementIfPresent
+
+`pkg/invowkmod/invowkmod_edit.go`, 9 survivors (7 `binding-gap`, 2 `equivalent`), added when W3 (2026-11-26) moved `ConcurrentModuleEdits: WriteMod remove` from `RemoveRequirement` to `RemoveRequirementIfPresent`:
+- 2 `equivalent`: `matched := -1` -> `-2` (`matched` is only set `>= 0` or checked with `matched < 0`), and dropping the early `!hasBlock` return (when `!hasBlock`, `block.entries` is empty so the loop runs 0 iterations and returns the same `(false, nil)`).
+- 7 `binding-gap`: `%w` vs `%v` error wrapping on unreadable files, `checkEditKeepsCUEValid` failure branches (edit leaving invalid CUE), and `fspath.AtomicWriteFile` failure propagation not asserted/exercised by the bound tests.
+
 ### LockedModule.ExpectedContentHash
 
 `pkg/invowkmod/lock_integrity.go`, 7 survivors. TestSyncRejectsRepointedTag checks one commit mismatch; the returned hash and other branches are unasserted.
+
+### LockFile.SaveIfChanged
+
+`pkg/invowkmod/lockfile.go`, 3 `binding-gap` survivors, added when W3 (2026-11-26) moved `AtomicWrite: Next` and `ConcurrentModuleEdits: WriteLock` from `LockFile.Save` to `LockFile.SaveIfChanged`: when `os.MkdirAll` fails, skipping/ignoring that error causes the subsequent `fspath.AtomicWriteFile` call to fail and also return `(false, non-nil err)`, and the bound test (`TestLockFileSaveIfChangedMkdirErrorIsNotAWrite`) does not assert the `"failed to create directory"` wrapper or `errors.Is` on `mkdirErr`.
 
 ### inspectModuleEntry
 
@@ -327,4 +364,4 @@ before any revocation, plus the race) would make both stable.
 
 - Sharding the profile across workers (go-mutesting forces one worker with
   `--exec`); the first run took 28 minutes locally, within the 90-minute job.
-- An opt-in `--include-unbound` to measure the 51 unbound rows.
+- An opt-in `--include-unbound` to measure the 30 unbound rows (11 `binding-gap`, 19 by-design).

@@ -7,6 +7,7 @@ package runtime
 import (
 	"errors"
 	"io/fs"
+	"strings"
 	"syscall"
 )
 
@@ -19,4 +20,13 @@ const errBadNetName = syscall.Errno(67)
 // root, means that the volume does not exist: a missing drive, server or share.
 func isVirtualPathMissingVolume(err error) bool {
 	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, errBadNetName)
+}
+
+// isVirtualPathDisallowedComponent reports whether a path component after the
+// volume prefix contains a disallowed character on Windows (a colon names an
+// alternate data stream or drive-like suffix).
+//
+//goplint:ignore -- raw OS path component.
+func isVirtualPathDisallowedComponent(name string) bool {
+	return strings.ContainsRune(name, ':')
 }

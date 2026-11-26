@@ -40,10 +40,11 @@ type (
 	// not exist" reliable on Windows, where the system reports a path through
 	// a junction as missing.
 	fakePathFS struct {
-		t        *testing.T
-		entries  map[string]fakePathEntry
-		canon    map[string]string
-		canonErr map[string]error
+		t                   *testing.T
+		entries             map[string]fakePathEntry
+		canon               map[string]string
+		canonErr            map[string]error
+		disallowedComponent func(string) bool
 	}
 
 	fakePathInfo struct {
@@ -95,7 +96,12 @@ func newFakePathFS(t *testing.T, dirs []string, entries map[string]fakePathEntry
 }
 
 func (f *fakePathFS) vfs() virtualPathFS {
-	return virtualPathFS{lstat: f.lstat, readlink: f.readlink, canonical: f.canonical}
+	return virtualPathFS{
+		lstat:               f.lstat,
+		readlink:            f.readlink,
+		canonical:           f.canonical,
+		disallowedComponent: f.disallowedComponent,
+	}
 }
 
 // checkAncestors fails the test when the walk looks below a link or below a
@@ -300,10 +306,19 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 	// same code there, so the fake reports it too): the walk ends at the file,
 	// and the request is judged by where the file is (design D2).
 	fileUsedAsDirectory := walkCase{name: "file used as a directory", request: fakePath("root", "x", "below"), wantErr: syscall.ENOTDIR}
+	standardStreamPipe := walkCase{
+		name: "standard stream on a pipe", request: fakePath("dev", "stdout"),
+		wantPrefix: fakePath("proc", "4242", "fd"), wantSuffix: []string{"pipe:[7]"}, wantLink: fakePath("dev", "stdout"),
+	}
 	if runtime.GOOS == goosWindows {
 		fileUsedAsDirectory.wantErr = nil
 		fileUsedAsDirectory.wantPrefix = fakePath("root", "x")
 		fileUsedAsDirectory.wantSuffix = []string{"below"}
+		// Windows rejects ':' in non-volume components (F20), including a
+		// Linux procfs pipe target like "pipe:[7]".
+		standardStreamPipe.wantPrefix = ""
+		standardStreamPipe.wantSuffix = nil
+		standardStreamPipe.wantErr = errVirtualPathDisallowedComponent
 	}
 	tests := []walkCase{
 		{name: "existing path with no link", request: fakePath("root", "in", "f"), wantPrefix: fakePath("root", "in", "f")},
@@ -357,10 +372,7 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 		{name: "lstat error inside a link target", request: fakePath("root", "tolocked"), wantErr: fs.ErrPermission, wantLink: fakePath("root", "tolocked")},
 		fileUsedAsDirectory,
 		{name: "unreadable link inside a link target", request: fakePath("root", "tobroken"), wantErr: syscall.ENOENT, wantLink: fakePath("root", "tobroken")},
-		{
-			name: "standard stream on a pipe", request: fakePath("dev", "stdout"),
-			wantPrefix: fakePath("proc", "4242", "fd"), wantSuffix: []string{"pipe:[7]"}, wantLink: fakePath("dev", "stdout"),
-		},
+		standardStreamPipe,
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -471,6 +483,75 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 			fake.entries[fakePath("root", "driverel")] = link("C:outside")
 			if _, err := walkVirtualPath(fake.vfs(), fakePath("root", "driverel")); !errors.Is(err, errVirtualPathLinkTarget) {
 				t.Fatalf("error = %v, want errVirtualPathLinkTarget", err)
+			}
+		})
+	}
+
+	// Disallowed components (e.g. ':' outside a Windows volume prefix) are
+	// refused before inspecting any directory entry or keeping them in a suffix.
+	t.Run("disallowed component rejected", func(t *testing.T) {
+		t.Parallel()
+		runFakeWalkDisallowedComponentCases(t, dirs, entries)
+	})
+}
+
+func runFakeWalkDisallowedComponentCases(t *testing.T, dirs []string, entries map[string]fakePathEntry) {
+	t.Helper()
+	for _, tc := range []struct {
+		name    string
+		setup   func(fake *fakePathFS) string
+		wantErr error
+	}{
+		{
+			name: "colon on link name",
+			setup: func(_ *fakePathFS) string {
+				return fakePath("root", "j:stream")
+			},
+			wantErr: errVirtualPathDisallowedComponent,
+		},
+		{
+			name: "colon in missing suffix",
+			setup: func(_ *fakePathFS) string {
+				return fakePath("root", "missing", "a:b")
+			},
+			wantErr: errVirtualPathDisallowedComponent,
+		},
+		{
+			name: "colon in link target",
+			setup: func(fake *fakePathFS) string {
+				fake.entries[fakePath("root", "colontarget")] = fakePathEntry{
+					mode:   fs.ModeSymlink | 0o777,
+					link:   true,
+					target: rawLinkTarget("in", "target:stream"),
+				}
+				return fakePath("root", "colontarget")
+			},
+			wantErr: errVirtualPathDisallowedComponent,
+		},
+		{
+			name: "plain component below volume succeeds",
+			setup: func(_ *fakePathFS) string {
+				return fakePath("root", "in", "f")
+			},
+			wantErr: nil,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fake := newFakePathFS(t, dirs, entries)
+			fake.disallowedComponent = func(name string) bool {
+				return strings.ContainsRune(name, ':')
+			}
+			request := tc.setup(fake)
+			_, err := walkVirtualPath(fake.vfs(), request)
+			if tc.wantErr == nil {
+				if err != nil {
+					t.Fatalf("walkVirtualPath(%s) unexpected error: %v", request, err)
+				}
+				return
+			}
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("walkVirtualPath(%s) error = %v, want %v", request, err, tc.wantErr)
 			}
 		})
 	}

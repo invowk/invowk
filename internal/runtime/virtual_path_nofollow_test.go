@@ -323,6 +323,56 @@ func TestVirtualPathNoFollowValidatorDirectoryCheck(t *testing.T) {
 	if got, err := validator.validateNoFollow(work, "missing"+string(filepath.Separator)); err != nil || got != filepath.Join(work, "missing")+string(filepath.Separator) {
 		t.Errorf("validateNoFollow(missing/) = (%q, %v), want the path with its separator", got, err)
 	}
+	if got, err := validator.validateNoFollow(work, "dirlink"+string(filepath.Separator)+"."); err != nil || got != filepath.Join(work, "tdir") {
+		t.Errorf("validateNoFollow(dirlink/.) = (%q, %v), want %q without trailing separator", got, err, filepath.Join(work, "tdir"))
+	}
+	assertNoFollowAnchorCases(t, work, validator)
+}
+
+func assertNoFollowAnchorCases(t *testing.T, work string, validator virtualPathValidator) {
+	t.Helper()
+	volumeRoot := filepath.VolumeName(work) + string(filepath.Separator)
+	fullValidator := virtualPathValidator{resolver: virtualPathResolver{
+		access:  invowkfile.VirtualFilesystemAccessFull,
+		anchors: map[string]string{"@root": volumeRoot},
+	}}
+	if got, err := fullValidator.validateNoFollow(work, "@root"); err != nil || got != volumeRoot {
+		t.Errorf("validateNoFollow(@root) = (%q, %v), want %q", got, err, volumeRoot)
+	}
+	if got, err := fullValidator.validateNoFollow(work, volumeRoot); err != nil || got != volumeRoot {
+		t.Errorf("validateNoFollow(%q) = (%q, %v), want %q without doubled separator", volumeRoot, got, err, volumeRoot)
+	}
+	for _, req := range []string{"@unknown", "@unknown" + string(filepath.Separator)} {
+		for _, v := range []virtualPathValidator{validator, fullValidator} {
+			if _, err := v.validateNoFollow(work, req); err == nil || !strings.Contains(err.Error(), "unknown") || errors.Is(err, errVirtualPathDenied) {
+				t.Errorf("validateNoFollow(%q, access=%s) error = %v, want unknown-anchor error", req, v.resolver.access, err)
+			}
+		}
+	}
+}
+
+func TestVirtualPathNoFollowRmRefusesDotOperands(t *testing.T) {
+	t.Parallel()
+	for _, access := range virtualPathBothAccessModes {
+		t.Run(string(access), func(t *testing.T) {
+			t.Parallel()
+			work := harnessPhysicalDir(t, t.TempDir())
+			sub := mustMkdir(t, filepath.Join(work, "sub"))
+			keep := filepath.Join(sub, "keep.txt")
+			if err := os.WriteFile(keep, []byte("stay"), 0o644); err != nil {
+				t.Fatalf("write %s: %v", keep, err)
+			}
+			for _, op := range []string{".", "./", "..", "../", "sub/.", "sub/.."} {
+				run := runVirtualShTest(t, sub, "rm -rf keep.txt "+op, access)
+				if run.exit == 0 {
+					t.Errorf("%s rm -rf %s exited 0, want refusal", access, op)
+				}
+				if _, err := os.Stat(keep); err != nil {
+					t.Errorf("%s rm -rf %s deleted keep.txt: %v", access, op, err)
+				}
+			}
+		})
+	}
 }
 
 func TestVirtualPathNoFollowLua(t *testing.T) {

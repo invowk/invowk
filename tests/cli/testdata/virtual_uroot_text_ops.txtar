@@ -32,48 +32,48 @@ cmds: [
 		implementations: [{
 			script: {content: """
 				# Setup test files
-				mkdir -p /tmp/invowk-uroot-textops
+				mkdir -p "$WORK/invowk-uroot-textops"
 
 				# Create test file with lines
-				echo 'line 1' > /tmp/invowk-uroot-textops/lines.txt
-				echo 'line 2' >> /tmp/invowk-uroot-textops/lines.txt
-				echo 'line 3' >> /tmp/invowk-uroot-textops/lines.txt
-				echo 'line 4' >> /tmp/invowk-uroot-textops/lines.txt
-				echo 'line 5' >> /tmp/invowk-uroot-textops/lines.txt
+				echo 'line 1' > "$WORK/invowk-uroot-textops/lines.txt"
+				echo 'line 2' >> "$WORK/invowk-uroot-textops/lines.txt"
+				echo 'line 3' >> "$WORK/invowk-uroot-textops/lines.txt"
+				echo 'line 4' >> "$WORK/invowk-uroot-textops/lines.txt"
+				echo 'line 5' >> "$WORK/invowk-uroot-textops/lines.txt"
 
 				# Create test file with fruits
-				echo 'cherry' > /tmp/invowk-uroot-textops/fruits.txt
-				echo 'apple' >> /tmp/invowk-uroot-textops/fruits.txt
-				echo 'banana' >> /tmp/invowk-uroot-textops/fruits.txt
-				echo 'apple' >> /tmp/invowk-uroot-textops/fruits.txt
-				echo 'cherry' >> /tmp/invowk-uroot-textops/fruits.txt
+				echo 'cherry' > "$WORK/invowk-uroot-textops/fruits.txt"
+				echo 'apple' >> "$WORK/invowk-uroot-textops/fruits.txt"
+				echo 'banana' >> "$WORK/invowk-uroot-textops/fruits.txt"
+				echo 'apple' >> "$WORK/invowk-uroot-textops/fruits.txt"
+				echo 'cherry' >> "$WORK/invowk-uroot-textops/fruits.txt"
 
 				# Test head
 				echo '=== Testing head ==='
-				head -n 3 /tmp/invowk-uroot-textops/lines.txt
+				head -n 3 "$WORK/invowk-uroot-textops/lines.txt"
 
 				# Test tail
 				echo '=== Testing tail ==='
-				tail -n 2 /tmp/invowk-uroot-textops/lines.txt
+				tail -n 2 "$WORK/invowk-uroot-textops/lines.txt"
 
 				# Test wc
 				echo '=== Testing wc ==='
-				wc -l /tmp/invowk-uroot-textops/lines.txt
+				wc -l "$WORK/invowk-uroot-textops/lines.txt"
 
 				# Test grep
 				echo '=== Testing grep ==='
-				grep apple /tmp/invowk-uroot-textops/fruits.txt
+				grep apple "$WORK/invowk-uroot-textops/fruits.txt"
 
 				# Test sort
 				echo '=== Testing sort ==='
-				sort /tmp/invowk-uroot-textops/fruits.txt
+				sort "$WORK/invowk-uroot-textops/fruits.txt"
 
 				# Test sort | uniq
 				echo '=== Testing sort | uniq ==='
-				sort /tmp/invowk-uroot-textops/fruits.txt | uniq
+				sort "$WORK/invowk-uroot-textops/fruits.txt" | uniq
 
 				# Cleanup
-				rm -rf /tmp/invowk-uroot-textops
+				rm -rf "$WORK/invowk-uroot-textops"
 
 				echo '=== uroot text ops test complete ==='
 				"""}

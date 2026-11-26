@@ -19,13 +19,13 @@ cmds: [
 		description: "Test basic u-root file operations"
 		implementations: [{
 			script: {content: """
-				mkdir -p /tmp/invowk-uroot-test
-				echo 'Hello from u-root!' > /tmp/invowk-uroot-test/test.txt
+				mkdir -p "$WORK/invowk-uroot-test"
+				echo 'Hello from u-root!' > "$WORK/invowk-uroot-test/test.txt"
 				echo '=== cat output ==='
-				cat /tmp/invowk-uroot-test/test.txt
+				cat "$WORK/invowk-uroot-test/test.txt"
 				echo '=== ls output ==='
-				ls /tmp/invowk-uroot-test
-				rm -rf /tmp/invowk-uroot-test
+				ls "$WORK/invowk-uroot-test"
+				rm -rf "$WORK/invowk-uroot-test"
 				echo '=== uroot basic test complete ==='
 				"""}
 			runtimes: [{name: "virtual-sh"}]

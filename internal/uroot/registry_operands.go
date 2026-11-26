@@ -161,6 +161,13 @@ func urootCommandOperands(ctx context.Context, hc *HandlerContext, cmd Command, 
 	if err != nil {
 		return nil, err
 	}
+	if name == "rm" {
+		// Check raw operands after resolveUrootArgs so outside-root operands
+		// still report virtual path denied and live/. still reports ENOTDIR.
+		if err := checkRmDotOperands(parsed.operands); err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+	}
 	if name == "gzip" {
 		if err := checkGzipOutputPaths(hc, resolved); err != nil {
 			return nil, err

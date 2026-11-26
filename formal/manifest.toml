@@ -149,7 +149,6 @@ unresolved_elements = [
     "Serverbase: State",
     "AtomicWrite: steps",
     "AtomicWrite: cleanup",
-    "AtomicWrite: caller",
     "HostCallbackToken: Generate",
     "HostCallbackToken: Revoke",
     "Watch: fire goroutine",
@@ -189,10 +188,8 @@ unresolved_elements = [
 # refreshes its survivors (formal-verification skill) instead of listing them.
 [triage]
 binding_gaps = [
-    { model = "AtomicWrite", element = "caller", symbol = "LockFile.Save" },
     { model = "ConcurrentModuleEdits", element = "VendorRemove, VendorCopy", symbol = "VendorModules" },
     { model = "ConcurrentModuleEdits", element = "WriteMod add", symbol = "AddRequirement" },
-    { model = "ConcurrentModuleEdits", element = "WriteMod remove", symbol = "RemoveRequirement" },
     { model = "DependencyClosure", element = "Mod.key", symbol = "ModuleRef.Key" },
     { model = "DependencyClosure", element = "resolved", symbol = "Resolver.resolveAll" },
     { model = "HostCallbackToken", element = "Auth", symbol = "Server.ValidateToken" },

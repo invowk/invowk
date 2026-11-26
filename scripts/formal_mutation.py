@@ -112,7 +112,8 @@ FOLLOW_UP_CLASSES = {"binding-gap", "model-gap", "defect"}
 SURVIVOR_KEYS = {"id", "file", "symbol", "model", "element", "class", "reason", "follow_up", "removed", "added", "context"}
 # The anchor fields (refresh-anchors-mutation-ledger design D1): the removed and
 # added lines of the mutant's diff, which go-mutesting hashes into its id, and,
-# for a mutant that removes no line, the unchanged line its insertion follows.
+# for a mutant that removes no line, the nearest preceding non-blank unchanged
+# line its insertion follows.
 # Their absence is reported as an unanchored entry, not as a field error.
 OPTIONAL_SURVIVOR_KEYS = {"follow_up", "removed", "added", "context"}
 CLOSED_KEYS = {"id", "model"}
@@ -396,6 +397,12 @@ def build_plan(
     packages = resolve(killer_dirs | target_dirs)
     inputs = {entry["file"] for entry in functions.values()}
     inputs.update(path.as_posix() for entry in functions.values() for t in entry["killers"] for path in declaring_files[t])
+    planned_models = {r["model"] for entry in functions.values() for r in entry["rows"]}
+    inputs.update(
+        str(model.golden["output"])
+        for model in models
+        if model.name in planned_models and model.golden.get("output")
+    )
     ordered = []
     for key in sorted(functions):
         entry = functions[key]
@@ -409,8 +416,9 @@ def build_plan(
         "root": str(root.resolve()),
         "files": sorted({entry["file"] for entry in ordered}),
         "groups": groups,
-        # What decides a mutant's outcome: the target files and the files that
-        # declare their killer tests. Its digest identifies rerun evidence.
+        # What decides a mutant's outcome: the target files, the files that
+        # declare their killer tests, and any planned model golden-vector data
+        # files. Its digest identifies rerun evidence.
         "inputs": sorted(inputs),
         "functions": ordered,
         # Killer test -> the import path of the package that declares it.
@@ -891,7 +899,7 @@ def anchor_problem(survivor: dict, mutator: str | None, source: Callable[[str], 
     context = survivor.get("context")
     if context is not None and (removed or not isinstance(context, str) or "\n" in context):
         return "unanchored: context is one line, only for a mutant that removes no line"
-    if not removed and not context:
+    if not removed and (not context or not context.strip()):
         return "unanchored: it removes no line and has no context"
     file, symbol = survivor["file"], survivor["symbol"]
     if mutator is not None and mutant_id(file, mutator, removed, added) != survivor["id"]:
@@ -1418,7 +1426,8 @@ class Mutant(NamedTuple):
 def diff_anchor(diff: str) -> tuple[str, str, str | None]:
     """The removed and added lines of a go-mutesting diff exactly as its
     MutantID hashes them (each followed by a newline), and, for a mutant that
-    removes no line, the unchanged line before its first added line."""
+    removes no line, the nearest preceding non-blank unchanged line before its
+    first added line."""
     removed, added = [], []
     context = last = None
     for line in diff.split("\n"):
@@ -1431,18 +1440,22 @@ def diff_anchor(diff: str) -> tuple[str, str, str | None]:
                 context = last
             added.append(line[1:])
         elif line.startswith(" "):
-            last = line[1:]
+            text = line[1:]
+            if text.strip():
+                last = text
+            elif last is None:
+                last = ""
     removed_text = "".join(f"{line}\n" for line in removed)
     return removed_text, "".join(f"{line}\n" for line in added), None if removed_text else context
 
 
 def unanchorable(mutant: Mutant) -> str | None:
     """Why the ledger cannot anchor a reported mutant: an insertion-only
-    mutant needs a context line, and a blank one cannot anchor (anchor_problem
-    treats an empty context as none)."""
-    if mutant.removed or mutant.context:
+    mutant needs a non-blank context line, and a blank one cannot anchor
+    (anchor_problem rejects empty context)."""
+    if mutant.removed or (mutant.context and mutant.context.strip()):
         return None
-    what = "a blank context line" if mutant.context == "" else "no context line"
+    what = "a blank context line" if mutant.context is not None else "no context line"
     return (f"insertion-only {mutant.mutator} mutant at :{mutant.line} has {what}, which the ledger's anchor "
             "cannot hold; anchor its entry by hand")
 
@@ -2109,12 +2122,14 @@ def refresh(
     if not ledger_text.endswith("\n\n") and new_ledger.endswith("\n\n"):
         new_ledger = new_ledger.rstrip("\n") + "\n"
 
-    mutants = [m for m in baseline["mutants"] if m["id"] not in gone]
+    kept_lines = {entry["id"]: attr.escaped[key][entry["id"]].line for key, entry in kept}
+    mutants = [
+        ({**m, "line": kept_lines[m["id"]]} if m["id"] in kept_lines and m["line"] != kept_lines[m["id"]] else m)
+        for m in baseline["mutants"] if m["id"] not in gone
+    ]
     for mid, (key, _entry, mutant) in added.items():
-        record = {"id": mid, "file": key[0], "mutator": mutant.mutator, "line": mutant.line, "digest": digest}
-        sort_key = (record["file"], record["line"], record["mutator"], mid)
-        at = next((i for i, m in enumerate(mutants) if (m["file"], m["line"], m["mutator"], m["id"]) > sort_key), len(mutants))
-        mutants.insert(at, record)
+        mutants.append({"id": mid, "file": key[0], "mutator": mutant.mutator, "line": mutant.line, "digest": digest})
+    mutants.sort(key=lambda m: (m["file"], m["line"], m["mutator"], m["id"]))
     new_baseline_data = {**baseline, "mutants": mutants}
     new_baseline = json.dumps(new_baseline_data, indent=2) + "\n"
     leaving = listed_stale & {s["id"] for key in chosen for s in entries_of[key]}
@@ -2161,6 +2176,7 @@ def refresh(
     awaiting = sorted({e["id"] for _key, e in remaining if e["id"] in by_mutant})
     untriaged = sum(1 for _key, e in remaining if is_untriaged(e))
     line_of = {m["id"]: m for m in baseline["mutants"]}
+    new_line_of = {m["id"]: m for m in mutants}
     out = []
     for key in sorted(removal):
         out.append(f"removal-only {key[0]}:{key[1]}: the function is gone; {len(entries_of[key])} entr"
@@ -2178,7 +2194,8 @@ def refresh(
         out.append(f"added {mid} {key[1]} {mutant.mutator} :{mutant.line}{extra}")
     for key, entry in kept:
         label = "re-anchored" if entry["id"] in reanchor else "kept"
-        out.append(f"{label} {entry['id']} {key[1]} {line_of[entry['id']]['mutator']} :{line_of[entry['id']]['line']}")
+        cur = new_line_of[entry["id"]]
+        out.append(f"{label} {entry['id']} {key[1]} {cur['mutator']} :{cur['line']}")
     for mid, key, held in shared:
         out.append(f"shared {mid} {key[1]}: ledgered under {held}, left with its owner")
     unattributed = sorted({(m.file, m.line, m.mutator, m.id, m.status) for m in attr.unattributed})
@@ -2578,7 +2595,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.action == "rerun-record":
             status = summary_status(json.loads(args.summary.read_text()))
             digest = plan_digest(load_plan(args.plan))
-            record = append_rerun(args.reruns, args.id, status, digest, git("rev-parse", "HEAD"))
+            record = append_rerun(args.reruns, args.id, status, digest)
             print(f"rerun evidence: {record['id']} {record['status']} at inputs {digest[:12]}")
         elif args.action == "rerun-scope":
             for mutant, group, file in rerun_scope(load_plan(args.plan), args.ids, args.hint):

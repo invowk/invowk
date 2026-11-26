@@ -333,3 +333,52 @@ func TestCpCommand_Run_RelativePaths(t *testing.T) {
 		t.Errorf("destination content = %q, want %q", string(got), content)
 	}
 }
+
+func TestCpCommand_RefusesRecursiveSelfCopy(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	dirD := filepath.Join(tmpDir, "d")
+	existingSub := filepath.Join(dirD, "existing")
+	if err := os.MkdirAll(existingSub, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", existingSub, err)
+	}
+	if err := os.WriteFile(filepath.Join(dirD, "x.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("write x.txt: %v", err)
+	}
+
+	for _, args := range [][]string{
+		{"cp", "-r", "d", "d"},
+		{"cp", "-r", "d", "d/missing"},
+		{"cp", "-r", "d", "d/existing"},
+		{"cp", "-P", "-r", "d", "d/missing"},
+	} {
+		var stdout, stderr bytes.Buffer
+		ctx := WithHandlerContext(t.Context(), &HandlerContext{
+			Stdin:     strings.NewReader(""),
+			Stdout:    &stdout,
+			Stderr:    &stderr,
+			Dir:       tmpDir,
+			LookupEnv: os.LookupEnv,
+		})
+		err := newCpCommand().Run(ctx, args)
+		if err == nil || !strings.Contains(err.Error(), errCpCannotCopyIntoSelf.Error()) {
+			t.Fatalf("%v error = %v, want %v", args, err, errCpCannotCopyIntoSelf)
+		}
+	}
+
+	// Copying d onto "." is not self-nesting recursion and must keep working (with or without -P).
+	for _, args := range [][]string{{"cp", "-r", "d", "."}, {"cp", "-P", "-r", "d", "."}} {
+		var stdout, stderr bytes.Buffer
+		ctx := WithHandlerContext(t.Context(), &HandlerContext{
+			Stdin:     strings.NewReader(""),
+			Stdout:    &stdout,
+			Stderr:    &stderr,
+			Dir:       tmpDir,
+			LookupEnv: os.LookupEnv,
+		})
+		if err := newCpCommand().Run(ctx, args); err != nil {
+			t.Fatalf("%v error = %v", args, err)
+		}
+	}
+}

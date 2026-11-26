@@ -274,3 +274,39 @@ func TestRmCommand_Run_RelativePath(t *testing.T) {
 		t.Error("file should have been removed")
 	}
 }
+
+func TestRmCommand_RefusesDotAndDotDot(t *testing.T) {
+	t.Parallel()
+
+	parent := t.TempDir()
+	work := filepath.Join(parent, "work")
+	sub := filepath.Join(work, "sub")
+	keep := filepath.Join(work, "keep.txt")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", sub, err)
+	}
+	if err := os.WriteFile(keep, []byte("keep"), 0o644); err != nil {
+		t.Fatalf("write %s: %v", keep, err)
+	}
+
+	for _, op := range []string{".", "..", "./", "../", "sub/.", "sub/.."} {
+		t.Run(op, func(t *testing.T) {
+			t.Parallel()
+			var stdout, stderr bytes.Buffer
+			ctx := WithHandlerContext(t.Context(), &HandlerContext{
+				Stdin:     strings.NewReader(""),
+				Stdout:    &stdout,
+				Stderr:    &stderr,
+				Dir:       work,
+				LookupEnv: os.LookupEnv,
+			})
+			cmd := newRmCommand()
+			if err := cmd.Run(ctx, []string{"rm", "-rf", "keep.txt", op}); err == nil {
+				t.Fatalf("rm -rf keep.txt %s succeeded, want error", op)
+			}
+			if _, err := os.Stat(keep); err != nil {
+				t.Fatalf("keep.txt was deleted on refused command: %v", err)
+			}
+		})
+	}
+}

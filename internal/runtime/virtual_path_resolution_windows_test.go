@@ -173,3 +173,74 @@ func TestVirtualPathWindowsDeviceNames(t *testing.T) {
 		t.Errorf("close %s: %v", validated, closeErr)
 	}
 }
+
+// TestVirtualPathWindowsDriveLessRootedPath verifies that a separator-led
+// path with no drive volume ("/shared", "\shared") resolves via filepath.Abs
+// against the current drive root rather than joining under cwd.
+func TestVirtualPathWindowsDriveLessRootedPath(t *testing.T) {
+	t.Parallel()
+	someCwd := filepath.Join(t.TempDir(), "nested", "work")
+	if err := os.MkdirAll(someCwd, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", someCwd, err)
+	}
+	wantAbs, err := filepath.Abs("/shared")
+	if err != nil {
+		t.Fatalf("filepath.Abs(/shared): %v", err)
+	}
+
+	for _, tc := range []struct {
+		name string
+		path string
+		cwd  string
+	}{
+		{name: "forward slash empty cwd", path: "/shared", cwd: ""},
+		{name: "backslash empty cwd", path: `\shared`, cwd: ""},
+		{name: "forward slash explicit cwd", path: "/shared", cwd: someCwd},
+		{name: "backslash explicit cwd", path: `\shared`, cwd: someCwd},
+	} {
+		got, err := absoluteVirtualPath(tc.path, tc.cwd)
+		if err != nil {
+			t.Fatalf("%s: absoluteVirtualPath(%q, %q) error = %v", tc.name, tc.path, tc.cwd, err)
+		}
+		if got != wantAbs {
+			t.Fatalf("%s: absoluteVirtualPath(%q, %q) = %q, want %q", tc.name, tc.path, tc.cwd, got, wantAbs)
+		}
+	}
+
+	// Trusted workdir "/invowk-nonexistent-drive-root" must not add <cwd>\... as an allowed root.
+	relWork := filepath.Join(someCwd, "invowk-nonexistent-drive-root")
+	for _, root := range normalizedRoots([]string{"/invowk-nonexistent-drive-root"}) {
+		if strings.EqualFold(root, relWork) {
+			t.Fatalf("normalizedRoots(/invowk-nonexistent-drive-root) unexpectedly added cwd-relative root %q", root)
+		}
+	}
+}
+
+// TestVirtualPathWindowsColonComponentRefused verifies that under restricted
+// access a colon-bearing path component outside the volume prefix is refused
+// for both follow and no-follow resolution, while a normal drive-prefixed path
+// remains accepted.
+func TestVirtualPathWindowsColonComponentRefused(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapJunction)
+	work := mustMkdir(t, filepath.Join(fstree.TempRoot(t), "work"))
+	outside := mustMkdir(t, filepath.Join(outsideVirtualRootsDir(t), "target"))
+	fstree.MustJunction(t, outside, filepath.Join(work, "j"))
+
+	validator := pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, work)
+
+	if got, err := validator.validate(work, "j:stream"); err == nil {
+		t.Errorf("validate(j:stream) unexpectedly succeeded: %q", got)
+	}
+	if got, err := validator.validateNoFollow(work, "j:stream"); err == nil {
+		t.Errorf("validateNoFollow(j:stream) unexpectedly succeeded: %q", got)
+	}
+
+	okPath := filepath.Join(work, "ok.txt")
+	if _, err := validator.validate(work, okPath); err != nil {
+		t.Errorf("validate(%s) unexpected error: %v", okPath, err)
+	}
+	if _, err := validator.validateNoFollow(work, okPath); err != nil {
+		t.Errorf("validateNoFollow(%s) unexpected error: %v", okPath, err)
+	}
+}

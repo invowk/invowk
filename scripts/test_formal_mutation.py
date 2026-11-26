@@ -183,6 +183,24 @@ class PlanTests(Fixture):
         self.assertEqual([(r["element"], r["killers"]) for r in decide["rows"]],
                          [("decide", ["TestCrossPackage", "TestDecide"]), ("decide again", ["TestStop"])])
 
+    def test_plan_inputs_include_planned_golden_only(self) -> None:
+        (self.root / "gold_m.json.gz").write_bytes(b"m-golden")
+        (self.root / "gold_u.json.gz").write_bytes(b"unplanned-golden")
+        elements = {cells[0].split()[0] for cells in formal.correspondence_rows(HEADER + self.BASE_ROWS)}
+        (self.root / "m.als").write_text(HEADER + self.BASE_ROWS + "".join(f"pred {e} {{}}\n" for e in sorted(elements)))
+        (self.root / "u.als").write_text(HEADER + row("unused", "Helper", "b/b.go", "-", "-") + "pred unused {}\n")
+        m = formal.Model(name="M", tool="alloy", file="m.als", commands=(), calibration="seeded",
+                         golden={"command": "golden", "output": "gold_m.json.gz"})
+        u = formal.Model(name="U", tool="alloy", file="u.als", commands=(), calibration="seeded",
+                         golden={"command": "golden", "output": "gold_u.json.gz"})
+        plan = fm.build_plan([m, u], root=self.root, suites=self.suites,
+                             resolve_packages=lambda dirs: {d: f"example.com/{d}" for d in dirs})
+        self.assertIn("gold_m.json.gz", plan["inputs"])
+        self.assertNotIn("gold_u.json.gz", plan["inputs"])
+        d1 = fm.plan_digest(plan)
+        (self.root / "gold_m.json.gz").write_bytes(b"m-golden-v2")
+        self.assertNotEqual(fm.plan_digest(plan), d1)
+
     def test_plan_version_1_is_rejected(self) -> None:
         path = self.root / "old.json"
         path.write_text(json.dumps({"version": 1}))
@@ -1557,6 +1575,10 @@ class RefreshTests(Fixture):
         self.assertEqual(fm.diff_anchor(spread), ("\tif x > 0 {\n\t}\n", "\tif true {\n", None))
         insertion = "--- Original\n+++ New\n@@ -1,2 +1,3 @@\n \tfor x := range xs {\n+\t\tbreak\n \t}\n"
         self.assertEqual(fm.diff_anchor(insertion), ("", "\t\tbreak\n", "\tfor x := range xs {"))
+        after_blank = "--- Original\n+++ New\n@@ -1,4 +1,5 @@\n \tif x > 0 {\n \n+\t\tbreak\n \t}\n"
+        self.assertEqual(fm.diff_anchor(after_blank), ("", "\t\tbreak\n", "\tif x > 0 {"))
+        only_blank = "--- Original\n+++ New\n@@ -1,2 +1,3 @@\n \n+\t\tbreak\n \t}\n"
+        self.assertEqual(fm.diff_anchor(only_blank), ("", "\t\tbreak\n", ""))
         # go-mutesting v2.8.3's MutantID of a real formal-bindings survivor.
         real = ("--- Original\n+++ New\n@@ -262,3 +262,3 @@\n \tmoduleID := x\n"
                 "-\tif cmdInfo.ModuleID != nil {\n+\tif cmdInfo.ModuleID == nil {\n \t\treturn\n")
@@ -2223,6 +2245,28 @@ class RefreshTests(Fixture):
                                build=self.build)
         self.assertIn(f"removed {deleted_spec.id} OldHelper conditional/negated :24 (not generated; the function is gone)",
                       rem_lines)
+
+    def test_kept_survivor_updates_shifted_line_and_rerun_record_omits_commit(self) -> None:
+        self.write_data([self.entry(KEEP, line=21), self.entry(DECIDE, line=8)])
+        (self.root / "rerun-plan.json").write_text(json.dumps(self.build()))
+        (self.root / "summary.json").write_text(
+            json.dumps({"escapedCount": 1, "killedCount": 0, "skippedCount": 0, "errorCount": 0}))
+        reruns_path = self.paths.reruns
+        rc = fm.main(["rerun-record", "--plan", str(self.root / "rerun-plan.json"),
+                      "--id", KEEP.id, "--summary", str(self.root / "summary.json"),
+                      "--reruns", str(reruns_path)])
+        self.assertEqual(rc, 0)
+        rec = json.loads(reruns_path.read_text().splitlines()[-1])
+        self.assertNotIn("commit", rec)
+
+        # Keep reports KEEP shifted from line 21 -> line 24 (within Evaluate).
+        self.write_run([self.rep(KEEP, line=24)])
+        lines = self.refresh(["Evaluate"])
+        self.assertIn(f"kept {KEEP.id} Evaluate {KEEP.mutator} :24", lines)
+        bl = json.loads(self.paths.baseline.read_text())
+        kept_rec = next(m for m in bl["mutants"] if m["id"] == KEEP.id)
+        self.assertEqual(kept_rec["line"], 24)
+        self.assertEqual(self.refresh(["Evaluate"]), lines)
 
 
 if __name__ == "__main__":

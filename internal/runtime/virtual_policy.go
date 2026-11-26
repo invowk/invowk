@@ -51,9 +51,10 @@ var (
 	errVirtualPathParentOfMissing = errors.New("virtual path has \"..\" after a missing component")
 	// errVirtualPathNoExistingAncestor: the path's volume root does not exist
 	// (a missing drive or UNC share).
-	errVirtualPathNoExistingAncestor = errors.New("virtual path has no existing ancestor")
-	errVirtualPathTooManyLinks       = errors.New("virtual path crosses too many links")
-	errVirtualPathLinkTarget         = errors.New("virtual path link target is relative to a drive")
+	errVirtualPathNoExistingAncestor  = errors.New("virtual path has no existing ancestor")
+	errVirtualPathTooManyLinks        = errors.New("virtual path crosses too many links")
+	errVirtualPathLinkTarget          = errors.New("virtual path link target is relative to a drive")
+	errVirtualPathDisallowedComponent = errors.New("virtual path component contains disallowed character")
 )
 
 type (
@@ -78,7 +79,8 @@ type (
 		readlink func(name string) (string, error)
 		// canonical puts an existing path that holds no link in the platform's
 		// canonical form (on Windows: on-disk case, long names, drive letter).
-		canonical func(path string) (string, error)
+		canonical           func(path string) (string, error)
+		disallowedComponent func(name string) bool
 	}
 
 	// virtualPathWalk is the result of walkVirtualPath.
@@ -477,7 +479,10 @@ func normalizeVirtualPathForAccess(path, cwd string, access invowkfile.VirtualFi
 }
 
 // absoluteVirtualPath cleans path and makes it absolute against cwd, or
-// against the process working directory when cwd is empty. A relative cwd is
+// against the process working directory when cwd is empty. On Windows, a
+// separator-led path without a volume (such as "/shared" or "\shared") is
+// resolved via filepath.Abs against the current drive root rather than
+// joined onto cwd, matching OS and shell resolution. A relative cwd is
 // itself taken against the process working directory, so the walk never reads
 // a relative path as one rooted at the volume root.
 //
@@ -489,6 +494,13 @@ func absoluteVirtualPath(path, cwd string) (string, error) {
 	cleaned := filepath.Clean(path)
 	if filepath.IsAbs(cleaned) {
 		return cleaned, nil
+	}
+	if filepath.VolumeName(cleaned) == "" && os.IsPathSeparator(cleaned[0]) {
+		absolute, err := filepath.Abs(cleaned)
+		if err != nil {
+			return "", fmt.Errorf("make path absolute: %w", err)
+		}
+		return absolute, nil
 	}
 	if cwd == "" {
 		var err error
@@ -510,7 +522,12 @@ func absoluteVirtualPath(path, cwd string) (string, error) {
 
 // hostVirtualPathFS reads the host filesystem.
 func hostVirtualPathFS() virtualPathFS {
-	return virtualPathFS{lstat: os.Lstat, readlink: os.Readlink, canonical: filepath.EvalSymlinks}
+	return virtualPathFS{
+		lstat:               os.Lstat,
+		readlink:            os.Readlink,
+		canonical:           filepath.EvalSymlinks,
+		disallowedComponent: isVirtualPathDisallowedComponent,
+	}
 }
 
 // walkVirtualPath resolves a cleaned absolute path physically. It walks the
@@ -575,10 +592,13 @@ func (w *virtualPathWalker) walk(volume string) ([]string, error) {
 			w.prefix = filepath.Dir(w.prefix)
 			continue
 		}
+		if w.isDisallowedComponent(name) {
+			return nil, virtualPolicyDenyError(errVirtualPathDisallowedComponent, name)
+		}
 		path := filepath.Join(w.prefix, name)
 		info, err := w.fs.lstat(path)
 		if errors.Is(err, fs.ErrNotExist) {
-			return missingVirtualPathSuffix(name, w.queue)
+			return missingVirtualPathSuffix(name, w.queue, w.isDisallowedComponent)
 		}
 		if err != nil {
 			return nil, err
@@ -683,11 +703,22 @@ func (w *virtualPathWalker) unresolvedLink() string {
 	return filepath.Join(append([]string{dir, w.linkName}, w.linkRest...)...)
 }
 
+// isDisallowedComponent reports whether name contains a character refused by
+// the filesystem walk (or platform rule when no override is supplied).
+//
+//goplint:ignore -- raw OS path component.
+func (w *virtualPathWalker) isDisallowedComponent(name string) bool {
+	if w.fs.disallowedComponent != nil {
+		return w.fs.disallowedComponent(name)
+	}
+	return isVirtualPathDisallowedComponent(name)
+}
+
 // missingVirtualPathSuffix returns the missing component and the components
 // after it as plain names.
 //
 //goplint:ignore -- raw path components of one walk.
-func missingVirtualPathSuffix(missing string, rest []string) ([]string, error) {
+func missingVirtualPathSuffix(missing string, rest []string, isDisallowed func(string) bool) ([]string, error) {
 	suffix := []string{missing}
 	for _, name := range rest {
 		switch name {
@@ -695,6 +726,9 @@ func missingVirtualPathSuffix(missing string, rest []string) ([]string, error) {
 		case virtualPathParent:
 			return nil, errVirtualPathParentOfMissing
 		default:
+			if isDisallowed != nil && isDisallowed(name) {
+				return nil, virtualPolicyDenyError(errVirtualPathDisallowedComponent, name)
+			}
 			suffix = append(suffix, name)
 		}
 	}
@@ -765,6 +799,7 @@ func (v virtualPathValidator) statHandler(next interp.StatHandlerFunc) interp.St
 		}
 		normalized, err := check(hc.Dir, path)
 		if err != nil {
+			recordVirtualShDirDenial(ctx, err)
 			return nil, &os.PathError{Op: "stat", Path: path, Err: err}
 		}
 		return next(ctx, normalized, followSymlinks)
