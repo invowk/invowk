@@ -84,10 +84,7 @@ func checkCpIntoSelf(hc *HandlerContext, raw []string) error {
 
 //goplint:ignore -- raw OS path strings.
 func cpDstIsSelfEntry(srcInfo os.FileInfo, dst string, noFollow bool) bool {
-	if noFollow {
-		return false
-	}
-	dstInfo, ok := cpStat(dst, false)
+	dstInfo, ok := cpStat(dst, noFollow)
 	return ok && os.SameFile(srcInfo, dstInfo)
 }
 
@@ -95,7 +92,8 @@ func cpDstIsSelfEntry(srcInfo os.FileInfo, dst string, noFollow bool) bool {
 func cpDstInsideSourceDir(srcInfo os.FileInfo, dst string) bool {
 	anc := cpDeepestExistingAncestor(dst)
 	for anc != "" {
-		if ancInfo, err := os.Stat(anc); err == nil && os.SameFile(srcInfo, ancInfo) {
+		ancInfo, err := os.Stat(anc)
+		if err == nil && os.SameFile(srcInfo, ancInfo) {
 			return true
 		}
 		parent := filepath.Dir(anc)

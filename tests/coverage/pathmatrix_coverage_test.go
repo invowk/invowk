@@ -158,6 +158,10 @@ var (
 			testFile: "internal/uroot/handler_nofollow_test.go",
 			reason:   "no-follow u-root resolution uses the virtual filesystem namespace and virtual working directory",
 		},
+		"internal/uroot.resolveTarOperandAbsPath": {
+			testFile: "internal/uroot/tar_test.go",
+			reason:   "joins relative tar -c operands onto baseDir and canonicalizes parent directories of absolute operands",
+		},
 		"internal/uroot.validateUrootCommandPathArgs": {
 			testFile: "internal/uroot/registry_preprocessing_test.go",
 			reason:   "dispatcher validation routes utility arguments into the virtual filesystem policy",

@@ -593,7 +593,7 @@ func (w *virtualPathWalker) walk(volume string) ([]string, error) {
 			continue
 		}
 		if w.isDisallowedComponent(name) {
-			return nil, fmt.Errorf("%w: %s", errVirtualPathDisallowedComponent, name)
+			return nil, virtualPolicyDenyError(errVirtualPathDisallowedComponent, name)
 		}
 		path := filepath.Join(w.prefix, name)
 		info, err := w.fs.lstat(path)
@@ -727,7 +727,7 @@ func missingVirtualPathSuffix(missing string, rest []string, isDisallowed func(s
 			return nil, errVirtualPathParentOfMissing
 		default:
 			if isDisallowed != nil && isDisallowed(name) {
-				return nil, fmt.Errorf("%w: %s", errVirtualPathDisallowedComponent, name)
+				return nil, virtualPolicyDenyError(errVirtualPathDisallowedComponent, name)
 			}
 			suffix = append(suffix, name)
 		}

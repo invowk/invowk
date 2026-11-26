@@ -3,7 +3,6 @@
 package runtime
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,7 +81,7 @@ func (r virtualPathResolver) resolveNoFollow(path, cwd string) (resolved string,
 	}
 	base := filepath.Base(cleaned)
 	if r.access != invowkfile.VirtualFilesystemAccessFull && isVirtualPathDisallowedComponent(base) {
-		return "", false, fmt.Errorf("%w: %s", errVirtualPathDisallowedComponent, base)
+		return "", false, virtualPolicyDenyError(errVirtualPathDisallowedComponent, base)
 	}
 	return filepath.Join(resolvedParent, base), false, nil
 }

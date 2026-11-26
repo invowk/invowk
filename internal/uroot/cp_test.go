@@ -351,6 +351,7 @@ func TestCpCommand_RefusesRecursiveSelfCopy(t *testing.T) {
 		{"cp", "-r", "d", "d"},
 		{"cp", "-r", "d", "d/missing"},
 		{"cp", "-r", "d", "d/existing"},
+		{"cp", "-P", "-r", "d", "d/missing"},
 	} {
 		var stdout, stderr bytes.Buffer
 		ctx := WithHandlerContext(t.Context(), &HandlerContext{
@@ -366,16 +367,18 @@ func TestCpCommand_RefusesRecursiveSelfCopy(t *testing.T) {
 		}
 	}
 
-	// Copying d onto "." is not self-nesting recursion and must keep working.
-	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(t.Context(), &HandlerContext{
-		Stdin:     strings.NewReader(""),
-		Stdout:    &stdout,
-		Stderr:    &stderr,
-		Dir:       tmpDir,
-		LookupEnv: os.LookupEnv,
-	})
-	if err := newCpCommand().Run(ctx, []string{"cp", "-r", "d", "."}); err != nil {
-		t.Fatalf("cp -r d . error = %v", err)
+	// Copying d onto "." is not self-nesting recursion and must keep working (with or without -P).
+	for _, args := range [][]string{{"cp", "-r", "d", "."}, {"cp", "-P", "-r", "d", "."}} {
+		var stdout, stderr bytes.Buffer
+		ctx := WithHandlerContext(t.Context(), &HandlerContext{
+			Stdin:     strings.NewReader(""),
+			Stdout:    &stdout,
+			Stderr:    &stderr,
+			Dir:       tmpDir,
+			LookupEnv: os.LookupEnv,
+		})
+		if err := newCpCommand().Run(ctx, args); err != nil {
+			t.Fatalf("%v error = %v", args, err)
+		}
 	}
 }

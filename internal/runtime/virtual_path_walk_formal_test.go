@@ -485,59 +485,68 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 	// refused before inspecting any directory entry or keeping them in a suffix.
 	t.Run("disallowed component rejected", func(t *testing.T) {
 		t.Parallel()
-		for _, tc := range []struct {
-			name    string
-			setup   func(fake *fakePathFS) string
-			wantErr error
-		}{
-			{
-				name: "colon on link name",
-				setup: func(_ *fakePathFS) string {
-					return fakePath("root", "j:stream")
-				},
-				wantErr: errVirtualPathDisallowedComponent,
-			},
-			{
-				name: "colon in missing suffix",
-				setup: func(_ *fakePathFS) string {
-					return fakePath("root", "missing", "a:b")
-				},
-				wantErr: errVirtualPathDisallowedComponent,
-			},
-			{
-				name: "colon in link target",
-				setup: func(fake *fakePathFS) string {
-					fake.entries[fakePath("root", "colontarget")] = link(rawLinkTarget("in", "target:stream"))
-					return fakePath("root", "colontarget")
-				},
-				wantErr: errVirtualPathDisallowedComponent,
-			},
-			{
-				name: "plain component below volume succeeds",
-				setup: func(_ *fakePathFS) string {
-					return fakePath("root", "in", "f")
-				},
-				wantErr: nil,
-			},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				t.Parallel()
-				fake := newFakePathFS(t, dirs, entries)
-				fake.disallowedComponent = func(name string) bool {
-					return strings.ContainsRune(name, ':')
-				}
-				request := tc.setup(fake)
-				_, err := walkVirtualPath(fake.vfs(), request)
-				if tc.wantErr == nil {
-					if err != nil {
-						t.Fatalf("walkVirtualPath(%s) unexpected error: %v", request, err)
-					}
-					return
-				}
-				if !errors.Is(err, tc.wantErr) {
-					t.Fatalf("walkVirtualPath(%s) error = %v, want %v", request, err, tc.wantErr)
-				}
-			})
-		}
+		runFakeWalkDisallowedComponentCases(t, dirs, entries)
 	})
+}
+
+func runFakeWalkDisallowedComponentCases(t *testing.T, dirs []string, entries map[string]fakePathEntry) {
+	t.Helper()
+	for _, tc := range []struct {
+		name    string
+		setup   func(fake *fakePathFS) string
+		wantErr error
+	}{
+		{
+			name: "colon on link name",
+			setup: func(_ *fakePathFS) string {
+				return fakePath("root", "j:stream")
+			},
+			wantErr: errVirtualPathDisallowedComponent,
+		},
+		{
+			name: "colon in missing suffix",
+			setup: func(_ *fakePathFS) string {
+				return fakePath("root", "missing", "a:b")
+			},
+			wantErr: errVirtualPathDisallowedComponent,
+		},
+		{
+			name: "colon in link target",
+			setup: func(fake *fakePathFS) string {
+				fake.entries[fakePath("root", "colontarget")] = fakePathEntry{
+					mode:   fs.ModeSymlink | 0o777,
+					link:   true,
+					target: rawLinkTarget("in", "target:stream"),
+				}
+				return fakePath("root", "colontarget")
+			},
+			wantErr: errVirtualPathDisallowedComponent,
+		},
+		{
+			name: "plain component below volume succeeds",
+			setup: func(_ *fakePathFS) string {
+				return fakePath("root", "in", "f")
+			},
+			wantErr: nil,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fake := newFakePathFS(t, dirs, entries)
+			fake.disallowedComponent = func(name string) bool {
+				return strings.ContainsRune(name, ':')
+			}
+			request := tc.setup(fake)
+			_, err := walkVirtualPath(fake.vfs(), request)
+			if tc.wantErr == nil {
+				if err != nil {
+					t.Fatalf("walkVirtualPath(%s) unexpected error: %v", request, err)
+				}
+				return
+			}
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("walkVirtualPath(%s) error = %v, want %v", request, err, tc.wantErr)
+			}
+		})
+	}
 }

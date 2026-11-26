@@ -75,6 +75,7 @@ func TestVirtualShCdDenialNamesTheDenial(t *testing.T) {
 		want   string
 	}{
 		{name: "operand", script: "cd " + shQuote(outside), want: "cd: virtual path denied"},
+		{name: "dashdash", script: "cd -- " + shQuote(outside), want: "cd: virtual path denied"},
 		{name: "home", script: "HOME=" + shQuote(outside) + "; cd", want: "cd: virtual path denied"},
 		{name: "oldpwd", script: "OLDPWD=" + shQuote(outside) + "; cd -", want: "cd: virtual path denied"},
 		{name: "builtin_cd", script: "builtin cd " + shQuote(outside), want: "cd: virtual path denied"},
@@ -87,42 +88,60 @@ func TestVirtualShCdDenialNamesTheDenial(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			work := t.TempDir()
-			run := runVirtualShTest(t, work, tt.script+"\necho \"status=$?\"\npwd", restricted)
-			if !strings.Contains(run.stdout, "status=1") {
-				t.Errorf("status: stdout %q, want status=1", run.stdout)
-			}
-			if !strings.Contains(run.stderr, tt.want) {
-				t.Errorf("stderr %q does not contain %q", run.stderr, tt.want)
-			}
-			if strings.Contains(run.stderr, "no such file or directory") {
-				t.Errorf("stderr %q unexpectedly included mvdan second error line", run.stderr)
-			}
-			if strings.Count(strings.TrimSpace(run.stderr), "\n") != 0 {
-				t.Errorf("stderr %q has more than one line", run.stderr)
-			}
-			if !strings.Contains(run.stdout, work) {
-				t.Errorf("the working directory changed: stdout %q, want %s", run.stdout, work)
-			}
+			assertVirtualShCdSingleLineDenial(t, work, tt.script, tt.want, restricted)
 		})
 	}
 
 	t.Run("stack_popd_after_pushd_n", func(t *testing.T) {
 		t.Parallel()
 		work := t.TempDir()
-		run := runVirtualShTest(t, work, "pushd -n "+shQuote(outside)+"\npopd\necho \"status=$?\"", restricted)
-		if !strings.Contains(run.stdout, "status=1") || !strings.Contains(run.stderr, "popd: virtual path denied") {
-			t.Errorf("stack popd = (stdout %q, stderr %q), want status=1 and popd: virtual path denied", run.stdout, run.stderr)
-		}
+		assertVirtualShCdStackDenial(t, work, "pushd -n "+shQuote(outside)+"\npopd", "popd: virtual path denied", restricted)
 	})
 
 	t.Run("stack_pushd_swap_after_pushd_n", func(t *testing.T) {
 		t.Parallel()
 		work := t.TempDir()
-		run := runVirtualShTest(t, work, "pushd -n "+shQuote(outside)+"\npushd\necho \"status=$?\"", restricted)
-		if !strings.Contains(run.stdout, "status=1") || !strings.Contains(run.stderr, "pushd: virtual path denied") {
-			t.Errorf("stack pushd = (stdout %q, stderr %q), want status=1 and pushd: virtual path denied", run.stdout, run.stderr)
-		}
+		assertVirtualShCdStackDenial(t, work, "pushd -n "+shQuote(outside)+"\npushd", "pushd: virtual path denied", restricted)
 	})
+}
+
+func assertVirtualShCdStackDenial(
+	t *testing.T,
+	work, script, want string,
+	access invowkfile.VirtualFilesystemAccess,
+) {
+	t.Helper()
+	run := runVirtualShTest(t, work, script+"\necho \"status=$?\"\npwd", access)
+	if !strings.Contains(run.stdout, "status=1") || !strings.Contains(run.stderr, want) {
+		t.Errorf("stack denial = (stdout %q, stderr %q), want status=1 and %q", run.stdout, run.stderr, want)
+	}
+	if !strings.Contains(run.stdout, work) {
+		t.Errorf("the working directory changed: stdout %q, want %s", run.stdout, work)
+	}
+}
+
+func assertVirtualShCdSingleLineDenial(
+	t *testing.T,
+	work, script, want string,
+	access invowkfile.VirtualFilesystemAccess,
+) {
+	t.Helper()
+	run := runVirtualShTest(t, work, script+"\necho \"status=$?\"\npwd", access)
+	if !strings.Contains(run.stdout, "status=1") {
+		t.Errorf("status: stdout %q, want status=1", run.stdout)
+	}
+	if !strings.Contains(run.stderr, want) {
+		t.Errorf("stderr %q does not contain %q", run.stderr, want)
+	}
+	if strings.Contains(run.stderr, "no such file or directory") {
+		t.Errorf("stderr %q unexpectedly included mvdan second error line", run.stderr)
+	}
+	if strings.Count(strings.TrimSpace(run.stderr), "\n") != 0 {
+		t.Errorf("stderr %q has more than one line", run.stderr)
+	}
+	if !strings.Contains(run.stdout, work) {
+		t.Errorf("the working directory changed: stdout %q, want %s", run.stdout, work)
+	}
 }
 
 func TestVirtualShCdQuietCases(t *testing.T) {

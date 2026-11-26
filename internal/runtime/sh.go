@@ -500,15 +500,9 @@ func validateShInterpreter(script invowkfile.ImplementationScript, scriptContent
 func (r *ShRuntime) execHandler(policy *virtualHostBinaryPolicy, pathValidator virtualPathValidator) func(interp.ExecHandlerFunc) interp.ExecHandlerFunc {
 	return func(next interp.ExecHandlerFunc) interp.ExecHandlerFunc {
 		return func(ctx context.Context, args []string) error {
-			if handled, err := handleVirtualShDirBuiltin(ctx, args); handled {
+			if handled, err := r.tryVirtualBuiltin(ctx, args, pathValidator); handled {
 				return err
 			}
-			if r.enableUrootUtils {
-				if handled, err := r.tryUrootBuiltin(ctx, args, pathValidator); handled {
-					return err
-				}
-			}
-
 			if len(args) == 0 {
 				return nil
 			}
@@ -521,6 +515,17 @@ func (r *ShRuntime) execHandler(policy *virtualHostBinaryPolicy, pathValidator v
 			return next(ctx, resolvedArgs)
 		}
 	}
+}
+
+//goplint:ignore -- mvdan/sh execHandler dispatches raw command argv strings.
+func (r *ShRuntime) tryVirtualBuiltin(ctx context.Context, args []string, pathValidator virtualPathValidator) (bool, error) {
+	if handled, err := handleVirtualShDirBuiltin(ctx, args); handled {
+		return true, err
+	}
+	if r.enableUrootUtils {
+		return r.tryUrootBuiltin(ctx, args, pathValidator)
+	}
+	return false, nil
 }
 
 // tryUrootBuiltin attempts to handle a command with u-root builtins.

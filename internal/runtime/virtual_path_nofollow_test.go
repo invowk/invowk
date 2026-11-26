@@ -326,7 +326,11 @@ func TestVirtualPathNoFollowValidatorDirectoryCheck(t *testing.T) {
 	if got, err := validator.validateNoFollow(work, "dirlink"+string(filepath.Separator)+"."); err != nil || got != filepath.Join(work, "tdir") {
 		t.Errorf("validateNoFollow(dirlink/.) = (%q, %v), want %q without trailing separator", got, err, filepath.Join(work, "tdir"))
 	}
+	assertNoFollowAnchorCases(t, work, validator)
+}
 
+func assertNoFollowAnchorCases(t *testing.T, work string, validator virtualPathValidator) {
+	t.Helper()
 	volumeRoot := filepath.VolumeName(work) + string(filepath.Separator)
 	fullValidator := virtualPathValidator{resolver: virtualPathResolver{
 		access:  invowkfile.VirtualFilesystemAccessFull,

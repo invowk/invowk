@@ -114,29 +114,52 @@ func createTarArchive(ctx context.Context, hc *HandlerContext, opts tarCreateOpt
 	outInfo, _ := outFile.Stat()
 	tw := tar.NewWriter(outFile)
 	defer func() {
-		if closeErr := tw.Close(); closeErr != nil && retErr == nil {
-			retErr = fmt.Errorf("close tar writer %s: %w", archivePath, closeErr)
-		}
-		if closeErr := outFile.Close(); closeErr != nil && retErr == nil {
-			retErr = fmt.Errorf("close archive %s: %w", archivePath, closeErr)
-		}
+		retErr = closeTarArchive(tw, outFile, archivePath, retErr)
 	}()
 
 	for _, op := range opts.operands {
-		if ctx != nil {
-			if err := ctx.Err(); err != nil {
-				return fmt.Errorf("tar create canceled: %w", err)
-			}
+		if err := tarCtxErr(ctx); err != nil {
+			return err
 		}
-		absOp := op
-		if !filepath.IsAbs(absOp) && baseDir != "" {
-			absOp = filepath.Join(baseDir, absOp)
-		}
+		absOp := resolveTarOperandAbsPath(baseDir, op)
 		if err := addTarOperand(ctx, tw, baseDir, absOp, opts, outInfo, hc.Stdout); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+//goplint:ignore -- raw archive path string.
+func closeTarArchive(tw *tar.Writer, outFile *os.File, archivePath string, retErr error) error {
+	if closeErr := tw.Close(); closeErr != nil && retErr == nil {
+		retErr = fmt.Errorf("close tar writer %s: %w", archivePath, closeErr)
+	}
+	if closeErr := outFile.Close(); closeErr != nil && retErr == nil {
+		retErr = fmt.Errorf("close archive %s: %w", archivePath, closeErr)
+	}
+	return retErr
+}
+
+func tarCtxErr(ctx context.Context) error {
+	if ctx == nil {
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("tar create canceled: %w", err)
+	}
+	return nil
+}
+
+//goplint:ignore -- raw OS operand and directory paths.
+func resolveTarOperandAbsPath(baseDir, op string) string {
+	if !filepath.IsAbs(op) {
+		if baseDir != "" {
+			return filepath.Join(baseDir, op)
+		}
+		return op
+	}
+	dir := resolveTarBaseDir(filepath.Dir(op))
+	return filepath.Join(dir, filepath.Base(op))
 }
 
 //goplint:ignore -- raw OS directory path string.
@@ -169,14 +192,27 @@ func addTarOperand(
 		}
 		return writeTarEntry(tw, absOp, tarMemberName(baseDir, absOp), info, outInfo, opts.verbose, stdout)
 	}
-	err := filepath.WalkDir(absOp, func(path string, _ fs.DirEntry, walkErr error) error {
+	if err := walkTarTree(ctx, tw, baseDir, absOp, opts, outInfo, stdout); err != nil {
+		return fmt.Errorf("walk %s: %w", absOp, err)
+	}
+	return nil
+}
+
+//goplint:ignore -- raw OS directory and operand path strings.
+func walkTarTree(
+	ctx context.Context,
+	tw *tar.Writer,
+	baseDir, absOp string,
+	opts tarCreateOptions,
+	outInfo fs.FileInfo,
+	stdout io.Writer,
+) error {
+	return filepath.WalkDir(absOp, func(path string, _ fs.DirEntry, walkErr error) error { //nolint:wrapcheck // caller adds operand context.
 		if walkErr != nil {
 			return walkErr
 		}
-		if ctx != nil {
-			if err := ctx.Err(); err != nil {
-				return fmt.Errorf("tar create canceled: %w", err)
-			}
+		if err := tarCtxErr(ctx); err != nil {
+			return err
 		}
 		info, err := os.Lstat(path)
 		if err != nil {
@@ -188,10 +224,6 @@ func addTarOperand(
 		}
 		return writeTarEntry(tw, path, name, info, outInfo, opts.verbose, stdout)
 	})
-	if err != nil {
-		return fmt.Errorf("walk %s: %w", absOp, err)
-	}
-	return nil
 }
 
 //goplint:ignore -- raw OS paths and tar member name string.

@@ -162,10 +162,11 @@ func parseVirtualShDirCall(args []string) (cmdName string, operands []string, ok
 func virtualShDirDirectTarget(cmdName string, env expand.Environ, operands []string) (target string, direct bool) {
 	switch cmdName {
 	case virtualShCdBuiltin:
-		if len(operands) > 1 {
+		stripped := stripVirtualShCdFlags(operands)
+		if len(stripped) > 1 {
 			return "", true
 		}
-		return virtualShCdTarget(env, operands), true
+		return virtualShCdTarget(env, stripped), true
 	case virtualShPushdBuiltin:
 		if slices.Contains(operands, "-n") {
 			// pushd -n pushes without changing directories; mvdan checks
@@ -190,6 +191,21 @@ func virtualShDirDirectTarget(cmdName string, env expand.Environ, operands []str
 	default:
 		return "", true
 	}
+}
+
+//goplint:ignore -- raw shell operand strings.
+func stripVirtualShCdFlags(operands []string) []string {
+	for len(operands) > 0 {
+		op := operands[0]
+		if op == "--" {
+			return operands[1:]
+		}
+		if len(op) < 2 || op[0] != '-' || strings.Trim(op[1:], "LP") != "" {
+			return operands
+		}
+		operands = operands[1:]
+	}
+	return operands
 }
 
 // virtualShCdTarget returns the directory mvdan's `cd` changes into for the
