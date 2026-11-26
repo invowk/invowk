@@ -9,6 +9,7 @@ import (
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func depsMutationHostCommand(dependsOn *invowkfile.DependsOn) *invowkfile.Command {
@@ -46,7 +47,10 @@ func depsMutationCommandInfo(cmd *invowkfile.Command, inv *invowkfile.Invowkfile
 	}
 }
 
-func depsMutationRequirementAndLock() (invowkmod.ModuleRequirement, *invowkmod.LockFile) {
+func depsMutationRequirementAndLock(t *testing.T) (invowkmod.ModuleRequirement, *invowkmod.LockFile, types.FilesystemPath) {
+	t.Helper()
+
+	moduleDir, hash := writeLockedScopeModuleDir(t, "cmds: {}")
 	req := invowkmod.ModuleRequirement{
 		GitURL:  depsMutationGitURL,
 		Version: depsMutationVersion,
@@ -62,8 +66,9 @@ func depsMutationRequirementAndLock() (invowkmod.ModuleRequirement, *invowkmod.L
 		Namespace:       invowkmod.ModuleNamespace(depsMutationSource),
 		ModuleID:        depsMutationModuleID,
 		CommandSourceID: invowkmod.ModuleSourceID(depsMutationSource),
+		ContentHash:     hash,
 	}
-	return req, lock
+	return req, lock, moduleDir
 }
 
 func requireDependencyError(t *testing.T, err error) *DependencyError {

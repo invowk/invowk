@@ -328,6 +328,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			Path:    "modules/io.example.dep.invowkmod",
 		}
 		moduleDir := t.TempDir()
+		depDir, depHash := writeLockedScopeModuleDir(t, "cmds: {}")
 		lock := invowkmod.NewLockFile()
 		lock.Modules[invowkmod.ModuleRef(req).Key()] = invowkmod.LockedModule{
 			GitURL:          req.GitURL,
@@ -338,6 +339,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			Namespace:       "io.example.dep@1.2.3",
 			ModuleID:        depID,
 			CommandSourceID: invowkmod.ModuleSourceID(depID),
+			ContentHash:     depHash,
 		}
 		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:   "io.example.caller",
@@ -355,6 +357,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 				SimpleName: "test",
 				SourceID:   discovery.SourceID(depID),
 				ModuleID:   &depID,
+				Invowkfile: &invowkfile.Invowkfile{ModulePath: depDir},
 			}},
 		}
 		disc := &stubCommandSetProvider{
@@ -381,6 +384,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		moduleDir := t.TempDir()
 		depID := invowkmod.ModuleID("io.example.tools")
+		depDir, depHash := writeLockedScopeModuleDir(t, "cmds: {}")
 		lock := invowkmod.NewLockFile()
 		lock.Modules[invowkmod.ModuleRef(req).Key()] = invowkmod.LockedModule{
 			GitURL:          req.GitURL,
@@ -390,6 +394,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			Alias:           req.Alias,
 			Namespace:       "allowed-tools",
 			ModuleID:        depID,
+			ContentHash:     depHash,
 		}
 		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:   "io.example.caller",
@@ -407,6 +412,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 				SimpleName: "test",
 				SourceID:   discovery.SourceID("other-tools"),
 				ModuleID:   &depID,
+				Invowkfile: &invowkfile.Invowkfile{ModulePath: depDir},
 			}},
 		}
 		disc := &stubCommandSetProvider{
@@ -441,6 +447,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			Alias:   "tools",
 		}
 		moduleDir := t.TempDir()
+		depDir, depHash := writeLockedScopeModuleDir(t, "cmds: {}")
 		lock := invowkmod.NewLockFile()
 		lock.Modules[invowkmod.ModuleRef(req).Key()] = invowkmod.LockedModule{
 			GitURL:          req.GitURL,
@@ -451,6 +458,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			Alias:           req.Alias,
 			Namespace:       "tools",
 			ModuleID:        "io.example.expected",
+			ContentHash:     depHash,
 		}
 		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:   "io.example.caller",
@@ -469,6 +477,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 				SimpleName: "build",
 				SourceID:   discovery.SourceID("tools"),
 				ModuleID:   &unrelatedID,
+				Invowkfile: &invowkfile.Invowkfile{ModulePath: depDir},
 			}},
 		}
 		disc := &stubCommandSetProvider{

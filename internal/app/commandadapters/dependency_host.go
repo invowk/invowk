@@ -198,6 +198,12 @@ func (dependencyLockProvider) LoadCommandScopeLock(inv *invowkfile.Invowkfile) (
 			Err:  err,
 		}
 	}
+	if err := lock.RequireV2(); err != nil {
+		return nil, &deps.CommandScopeLockError{
+			Path: lockPath,
+			Err:  err,
+		}
+	}
 	return lock, nil
 }
 

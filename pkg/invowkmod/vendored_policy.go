@@ -106,8 +106,9 @@ func declaredLockedModuleEntryMatches(requirements []ModuleRequirement, lock *Lo
 
 // IsDeclaredLockedCommandSource reports whether the discovered command source
 // is a direct requirement whose lock entry resolves to the same module identity
-// and command namespace, and whose locked content hash, when recorded, matches
-// the module directory the commands were discovered in.
+// and command namespace, and whose recorded content hash matches the module
+// directory the commands were discovered in. Hashless entries are rejected
+// (finding F12 in formal/README.md).
 //
 // The content check matters when the discovered copy is not the caller's own:
 // a sibling module may vendor a different version of the same module, verified
@@ -125,9 +126,6 @@ func IsDeclaredLockedCommandSource(requirements []ModuleRequirement, lock *LockF
 		}
 		if locked.IdentityModuleID() != moduleID || locked.EffectiveCommandSourceID() != sourceID {
 			continue
-		}
-		if locked.ContentHash == "" {
-			return true
 		}
 		return EvaluateModuleContentHash(key, moduleID, modulePath, locked.ContentHash).Status == VendoredHashMatched
 	}

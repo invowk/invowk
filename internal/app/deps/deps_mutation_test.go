@@ -324,13 +324,13 @@ func testCommandScopeLockFallback(t *testing.T) {
 func testCommandScopeDirectRequirementMatching(t *testing.T) {
 	t.Helper()
 
-	req, lock := depsMutationRequirementAndLock()
+	req, lock, moduleDir := depsMutationRequirementAndLock(t)
 	if !invowkmod.IsDeclaredLockedCommandSource(
 		[]invowkmod.ModuleRequirement{req},
 		lock,
 		depsMutationModuleID,
 		invowkmod.ModuleSourceID(depsMutationSource),
-		"",
+		moduleDir,
 	) {
 		t.Fatal("IsDeclaredLockedCommandSource() = false, want true for matching lock identity")
 	}
@@ -339,7 +339,7 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 		nil,
 		depsMutationModuleID,
 		invowkmod.ModuleSourceID(depsMutationSource),
-		"",
+		moduleDir,
 	) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with nil lock")
 	}
@@ -348,7 +348,7 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 		lock,
 		"",
 		invowkmod.ModuleSourceID(depsMutationSource),
-		"",
+		moduleDir,
 	) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with empty module ID")
 	}
@@ -357,7 +357,7 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 		lock,
 		depsMutationModuleID,
 		"",
-		"",
+		moduleDir,
 	) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with empty source ID")
 	}
@@ -367,7 +367,7 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 		lock,
 		otherID,
 		invowkmod.ModuleSourceID(depsMutationSource),
-		"",
+		moduleDir,
 	) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true for mismatched module ID")
 	}

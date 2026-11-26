@@ -14,6 +14,7 @@ import (
 
 	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -456,5 +457,43 @@ func assertCapabilityErrorType(t *testing.T, err error) {
 	}
 	if _, ok := errors.AsType[*invowkfile.CapabilityError](err); !ok {
 		t.Errorf("errors.As(*CapabilityError) = false for %T", err)
+	}
+}
+
+func TestDependencyLockProvider_LoadCommandScopeLock(t *testing.T) {
+	t.Parallel()
+
+	provider := dependencyLockProvider{}
+	if lock, err := provider.LoadCommandScopeLock(nil); err != nil || lock == nil {
+		t.Fatalf("LoadCommandScopeLock(nil) = (%v, %v), want empty lock", lock, err)
+	}
+
+	missingDir := t.TempDir()
+	if lock, err := provider.LoadCommandScopeLock(&invowkfile.Invowkfile{ModulePath: types.FilesystemPath(missingDir)}); err != nil || lock == nil {
+		t.Fatalf("LoadCommandScopeLock(missing lock) = (%v, %v), want empty lock", lock, err)
+	}
+
+	v1Dir := t.TempDir()
+	v1Lock := invowkmod.NewLockFile()
+	v1Lock.Version = invowkmod.LockFileVersionV1
+	if err := v1Lock.Save(filepath.Join(v1Dir, invowkmod.LockFileName)); err != nil {
+		t.Fatalf("Save(v1) error = %v", err)
+	}
+	_, err := provider.LoadCommandScopeLock(&invowkfile.Invowkfile{ModulePath: types.FilesystemPath(v1Dir)})
+	if !errors.Is(err, invowkmod.ErrLockFileV1UpgradeRequired) {
+		t.Fatalf("LoadCommandScopeLock(v1) error = %v, want ErrLockFileV1UpgradeRequired", err)
+	}
+	if !strings.Contains(err.Error(), "invowk module sync") {
+		t.Fatalf("LoadCommandScopeLock(v1) error = %q, want invowk module sync guidance", err.Error())
+	}
+
+	v2Dir := t.TempDir()
+	v2Lock := invowkmod.NewLockFile()
+	if saveErr := v2Lock.Save(filepath.Join(v2Dir, invowkmod.LockFileName)); saveErr != nil {
+		t.Fatalf("Save(v2) error = %v", saveErr)
+	}
+	got, err := provider.LoadCommandScopeLock(&invowkfile.Invowkfile{ModulePath: types.FilesystemPath(v2Dir)})
+	if err != nil || got == nil {
+		t.Fatalf("LoadCommandScopeLock(v2) = (%v, %v), want v2 lock", got, err)
 	}
 }

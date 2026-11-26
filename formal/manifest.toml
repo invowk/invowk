@@ -752,7 +752,7 @@ Go replay tests confirm both behaviours in the real code."""
 FixedSync = "TRUE"
 RejectUnhashed = "TRUE"
 CheckCallerHash = "TRUE"
-AdmitRequiresCallerHash = "FALSE"
+AdmitRequiresCallerHash = "TRUE"
 LegacyLock = "FALSE"
 Mutant = "\"none\""
 
@@ -821,7 +821,7 @@ expect = "counterexample"
 property = "SiblingCallTrusted"
 mutant_of = "f6CheckCallerHash"
 
-# Finding F12 (open): a caller entry without a hash admits a sibling's copy.
+# Finding F12 (fixed): a caller entry without a hash is rejected.
 [[model.command]]
 name = "f12AdmitRequiresCallerHash"
 constants = { AdmitRequiresCallerHash = "TRUE", LegacyLock = "TRUE" }
@@ -830,9 +830,8 @@ property = "SiblingCallTrusted"
 distinct_states = 732
 
 [[model.command]]
-name = "findingF12HashlessSiblingAdmission"
-finding = "F12"
-constants = { LegacyLock = "TRUE" }
+name = "mutantPreFixF12HashlessSiblingAdmission"
+constants = { AdmitRequiresCallerHash = "FALSE", LegacyLock = "TRUE" }
 expect = "counterexample"
 property = "SiblingCallTrusted"
 mutant_of = "f12AdmitRequiresCallerHash"
