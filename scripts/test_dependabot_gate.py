@@ -3397,8 +3397,8 @@ class GateWorkflowTests(unittest.TestCase):
         self.assertEqual(required, set(GATE.WORKFLOW_FILES))
         self.assertEqual(set(trigger), {"workflows", "types"})
 
-    def test_mode_is_a_constant_and_decide_only(self) -> None:
-        self.assertEqual(self.doc["env"], {"GATE_MODE": "decide-only"})
+    def test_mode_is_a_constant_and_merge(self) -> None:
+        self.assertEqual(self.doc["env"], {"GATE_MODE": "merge"})
         self.assertIn(self.doc["env"]["GATE_MODE"], GATE.MODES)
         self.assertNotIn("env", self.job)
         for step in self.job["steps"]:
@@ -3492,7 +3492,6 @@ class GateWorkflowTests(unittest.TestCase):
                 self.assertNotIn(needle, dumped, name)
         for name in names[2:]:
             self.assertEqual(self.steps[name]["if"], GUARD, name)
-        self.assertNotEqual(self.doc["env"]["GATE_MODE"], "merge")
         mint, merge = self.steps[names[2]], self.steps[names[3]]
         self.assertEqual(mint["id"], "app-token")
         self.assertEqual(
