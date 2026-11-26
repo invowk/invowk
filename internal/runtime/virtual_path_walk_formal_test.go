@@ -306,10 +306,19 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 	// same code there, so the fake reports it too): the walk ends at the file,
 	// and the request is judged by where the file is (design D2).
 	fileUsedAsDirectory := walkCase{name: "file used as a directory", request: fakePath("root", "x", "below"), wantErr: syscall.ENOTDIR}
+	standardStreamPipe := walkCase{
+		name: "standard stream on a pipe", request: fakePath("dev", "stdout"),
+		wantPrefix: fakePath("proc", "4242", "fd"), wantSuffix: []string{"pipe:[7]"}, wantLink: fakePath("dev", "stdout"),
+	}
 	if runtime.GOOS == goosWindows {
 		fileUsedAsDirectory.wantErr = nil
 		fileUsedAsDirectory.wantPrefix = fakePath("root", "x")
 		fileUsedAsDirectory.wantSuffix = []string{"below"}
+		// Windows rejects ':' in non-volume components (F20), including a
+		// Linux procfs pipe target like "pipe:[7]".
+		standardStreamPipe.wantPrefix = ""
+		standardStreamPipe.wantSuffix = nil
+		standardStreamPipe.wantErr = errVirtualPathDisallowedComponent
 	}
 	tests := []walkCase{
 		{name: "existing path with no link", request: fakePath("root", "in", "f"), wantPrefix: fakePath("root", "in", "f")},
@@ -363,10 +372,7 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 		{name: "lstat error inside a link target", request: fakePath("root", "tolocked"), wantErr: fs.ErrPermission, wantLink: fakePath("root", "tolocked")},
 		fileUsedAsDirectory,
 		{name: "unreadable link inside a link target", request: fakePath("root", "tobroken"), wantErr: syscall.ENOENT, wantLink: fakePath("root", "tobroken")},
-		{
-			name: "standard stream on a pipe", request: fakePath("dev", "stdout"),
-			wantPrefix: fakePath("proc", "4242", "fd"), wantSuffix: []string{"pipe:[7]"}, wantLink: fakePath("dev", "stdout"),
-		},
+		standardStreamPipe,
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
