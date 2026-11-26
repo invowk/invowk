@@ -25,8 +25,8 @@
 #   none); scripts/test_dependabot_gate.py checks that and lists every
 #   exemption with its reason.
 #
-# GATE_MODE is a constant in this file, not a repository variable: moving from
-# `decide-only` to `merge` is a reviewed pull request.
+# GATE_MODE is a constant in this file, not a repository variable: moving
+# between `decide-only` and `merge` is a reviewed pull request.
 
 name: Dependabot Gate
 
@@ -52,7 +52,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  GATE_MODE: decide-only
+  GATE_MODE: merge
 
 jobs:
   gate:
