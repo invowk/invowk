@@ -477,7 +477,10 @@ func normalizeVirtualPathForAccess(path, cwd string, access invowkfile.VirtualFi
 }
 
 // absoluteVirtualPath cleans path and makes it absolute against cwd, or
-// against the process working directory when cwd is empty. A relative cwd is
+// against the process working directory when cwd is empty. On Windows, a
+// separator-led path without a volume (such as "/shared" or "\shared") is
+// resolved via filepath.Abs against the current drive root rather than
+// joined onto cwd, matching OS and shell resolution. A relative cwd is
 // itself taken against the process working directory, so the walk never reads
 // a relative path as one rooted at the volume root.
 //
@@ -489,6 +492,13 @@ func absoluteVirtualPath(path, cwd string) (string, error) {
 	cleaned := filepath.Clean(path)
 	if filepath.IsAbs(cleaned) {
 		return cleaned, nil
+	}
+	if filepath.VolumeName(cleaned) == "" && os.IsPathSeparator(cleaned[0]) {
+		absolute, err := filepath.Abs(cleaned)
+		if err != nil {
+			return "", fmt.Errorf("make path absolute: %w", err)
+		}
+		return absolute, nil
 	}
 	if cwd == "" {
 		var err error

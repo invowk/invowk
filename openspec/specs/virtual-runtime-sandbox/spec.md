@@ -183,6 +183,10 @@ Wherever a containment decision is made, a path that cannot be resolved SHALL be
 - **WHEN** a selected-platform `virtual.filesystem.paths` entry cannot be resolved, and filesystem access is `restricted`
 - **THEN** the command SHALL fail before the script runs, with an error that names the entry
 
+#### Scenario: Windows separator-led path without drive letter resolves to drive root
+- **WHEN** a virtual path or trusted workdir on Windows begins with `/` or `\` with no drive volume (for example `/shared`)
+- **THEN** the resolver SHALL resolve it against the current drive root via OS absolute-path rules rather than joining it under the current working directory
+
 #### Scenario: Standard-stream device link on a pipe
 - **WHEN** a restricted virtual script on Linux opens `/dev/stdout`, `/dev/stderr` or `/dev/stdin` while that stream is a pipe or a socket, and `/dev` is a declared path
 - **THEN** Invowk SHALL judge the link by its target like any other link, and SHALL NOT accept the path because the link itself lies in `/dev`
