@@ -161,7 +161,7 @@ func TestVirtualShCdQuietCases(t *testing.T) {
 	t.Run("full_cd_pushd_popd", func(t *testing.T) {
 		t.Parallel()
 		work := t.TempDir()
-		run := runVirtualShTest(t, work, "pushd "+shQuote(outside)+" >/dev/null && popd >/dev/null && cd "+shQuote(outside)+" && pwd", invowkfile.VirtualFilesystemAccessFull)
+		run := runVirtualShTest(t, work, "pushd "+shQuote(outside)+" && popd && cd "+shQuote(outside)+" && pwd", invowkfile.VirtualFilesystemAccessFull)
 		if run.exit != 0 || run.stderr != "" {
 			t.Errorf("full-access cd/pushd/popd = (exit %d, stderr %q), want (0, \"\")", run.exit, run.stderr)
 		}
