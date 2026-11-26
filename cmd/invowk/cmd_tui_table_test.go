@@ -281,3 +281,21 @@ func assertNoAsyncError(t *testing.T, asyncErrs <-chan error) {
 	default:
 	}
 }
+
+// TestRunTuiTablePlainTextInvalidUTF8 covers the scenario "Invalid UTF-8 in a
+// cell" in process: a txtar file cannot carry the byte portably.
+func TestRunTuiTablePlainTextInvalidUTF8(t *testing.T) {
+	t.Parallel()
+
+	cmd := newTUITableCommand()
+	cmd.SetIn(strings.NewReader("name\na\xffb\n"))
+	var output strings.Builder
+	cmd.SetOut(&output)
+
+	if err := runTuiTable(cmd, nil); err != nil {
+		t.Fatalf("runTuiTable(): %v", err)
+	}
+	if want := "name\na�b\n"; output.String() != want {
+		t.Fatalf("stdout = %q, want %q", output.String(), want)
+	}
+}

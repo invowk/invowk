@@ -61,6 +61,10 @@ property tests that bind them to code, use `formal-verification`.
   distinction under test.
 - Use existing `internal/testutil` helpers. Inspect their live API instead of
   relying on copied inventories.
+- `testutil.PollUntil` only returns a bool; an assertion uses
+  `testutil.RequirePollUntil` or checks the result. A helper that dropped it
+  asserted nothing until a formal-bindings mutant survived it
+  (tui-servers-acp-followups).
 - For home-dependent tests use `testutil.SetHomeDir(t, dir)`, which sets the
   platform home variable (`USERPROFILE` on Windows, `HOME` elsewhere); register
   its returned restore func (`t.Cleanup(testutil.SetHomeDir(t, dir))`) and keep

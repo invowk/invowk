@@ -3,8 +3,6 @@
 package sshserver
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -20,10 +18,6 @@ import (
 const (
 	// tokenTraceCloseBound bounds the wait for a revoked or closed connection.
 	tokenTraceCloseBound = 5 * time.Second
-	// tokenTraceStopSettle is the fixed settle after Stop. Under finding F11
-	// Stop closes no connection, so the long close bound would only add wall
-	// time; the fix switches Stop back to tokenTraceCloseBound.
-	tokenTraceStopSettle = 200 * time.Millisecond
 	// tokenTraceStagger separates token issue times so exactly one token can
 	// expire per step (a merged expiry is a record the spec rejects).
 	tokenTraceStagger = time.Second
@@ -109,7 +103,7 @@ func tokenTraceSequences() []string {
 		"S1 S2 X1 X2",             // staggered expiry
 		"S1 S2 A1 X1 A2 X2 E1 E2", // expiry closes nothing; revocation does
 		"S1 S2 X2 A2 A1 E1",       // e2 expires first: a login with it fails
-		"S1 S2 A1 A2 P",           // Stop with both executions active (F11)
+		"S1 S2 A1 A2 P",           // Stop with both executions active
 		"S1 S2 A1 P C1 E2 S2 A2",  // after Stop: no new execution, no new login
 		"S1 A1 S2 E1 P E2 X2",     // Stop after one execution ended
 	)
@@ -236,18 +230,16 @@ func (r *tokenTraceRun) expire(e *tokenTraceExec) {
 	}
 }
 
-// stop stops the server. Shutdown closes the listener and waits for open
-// connections until its deadline, closing none (finding F11), so Stop returns
-// context.DeadlineExceeded while an authenticated client is connected.
+// stop stops the server, which closes every connection, and waits up to
+// tokenTraceCloseBound for every client to see its connection close. On
+// timeout the still-open state is recorded, and validation rejects the trace.
 func (r *tokenTraceRun) stop() {
 	r.t.Helper()
-	open := openClients(r.execs[0]) + openClients(r.execs[1])
-	if err := r.srv.Stop(); err != nil && !errors.Is(err, context.DeadlineExceeded) {
-		r.t.Fatalf("Stop() error = %v", err)
+	if err := r.srv.Stop(); err != nil {
+		r.t.Fatalf("Stop() error = %v, want nil", err)
 	}
-	if open > 0 {
-		time.Sleep(tokenTraceStopSettle) // observe then cross-checks the connection map
-	}
+	r.awaitClosed(r.execs[0])
+	r.awaitClosed(r.execs[1])
 }
 
 // awaitClosed waits up to tokenTraceCloseBound for every client of e to see
@@ -313,8 +305,7 @@ func (r *tokenTraceRun) observe() {
 }
 
 // tokenTraceMutations edits accepted traces one step at a time into
-// behaviours HostCallbackToken.tla forbids. A connection left open after Stop
-// is not among them: the base configuration accepts it (open finding F11).
+// behaviours HostCallbackToken.tla forbids.
 func tokenTraceMutations(t *testing.T, recorded *tlatrace.Recorded) [][]tlatrace.Record {
 	t.Helper()
 	trace := func(sequence string) []tlatrace.Record { return recorded.Base(t, sequence) }
@@ -332,6 +323,8 @@ func tokenTraceMutations(t *testing.T, recorded *tlatrace.Recorded) [][]tlatrace
 		tlatrace.Extend(trace("S1 E1"), tlatrace.Record{"e1_usable": yes}),
 		// Two tokens expire in one record.
 		tlatrace.Edit(trace("S1 S2 X1 X2"), 3, tlatrace.Record{"e2_usable": no}),
+		// NoSessionAfterStop: the pre-fix F11 behaviour, a connection open after Stop.
+		tlatrace.Edit(trace("S1 S2 A1 A2 P"), -1, tlatrace.Record{"e1_session": yes}),
 		// A stopped server issues a token for a new execution.
 		tlatrace.Extend(trace("S1 P"), tlatrace.Record{"e2_exec": tlatrace.Str(tokenPhaseRunning), "e2_usable": yes}),
 	}

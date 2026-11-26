@@ -4,6 +4,7 @@
 Define the dormant internal Agent Client Protocol foundation for future stateful agent-session features while preserving current user-facing behavior.
 
 ## Requirements
+
 ### Requirement: Dormant ACP foundation
 Invowk SHALL provide an internal ACP foundation for future stateful agent-session features without changing any current user-facing behavior.
 
@@ -49,6 +50,10 @@ Invowk SHALL mediate ACP agent callbacks through explicit internal policy interf
 #### Scenario: Unsupported terminal callback is explicit
 - **WHEN** an ACP agent requests terminal functionality and the configured policy does not support terminals
 - **THEN** the ACP foundation SHALL return an unsupported-operation error to the ACP agent
+
+#### Scenario: Elicitation is not offered
+- **WHEN** the ACP foundation initializes a connection, and an ACP agent later sends an elicitation request or an elicitation-complete notification
+- **THEN** the foundation SHALL NOT advertise the elicitation capability, SHALL answer the elicitation request with a method-not-found error, SHALL send no reply to the notification (a notification has none), SHALL ask the user nothing, and SHALL keep the session usable
 
 ### Requirement: Dependency isolation and deterministic tests
 Invowk SHALL keep the ACP SDK isolated to the internal ACP foundation and verify the foundation without real external agent tools.

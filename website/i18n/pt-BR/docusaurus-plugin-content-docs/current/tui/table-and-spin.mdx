@@ -42,7 +42,7 @@ Alice  30   NYC
 Bob    25   LA
 ```
 
-A primeira linha traz os títulos das colunas (a linha de cabeçalho ou `--columns`), depois uma linha por registro. As células ficam alinhadas à esquerda e preenchidas até a célula mais larga da coluna, as colunas são separadas por dois espaços, e não há borda nem cor. Uma quebra de linha, tabulação ou outro caractere de controle numa célula sai como espaço, então cada registro fica numa linha só. Todas as linhas são mostradas: `--height` e `--widths` não se aplicam. Uma tabela selecionável continua desenhando no terminal, então `row=$(invowk tui table --selectable ...)` funciona como antes.
+A primeira linha traz os títulos das colunas (a linha de cabeçalho ou `--columns`), depois uma linha por registro. As células ficam alinhadas à esquerda e preenchidas até a célula mais larga da coluna, as colunas são separadas por dois espaços, e não há borda nem cor. Uma quebra de linha, tabulação ou outro caractere de controle numa célula sai como espaço, assim como um caractere de formatação (por exemplo, uma marca de direção bidirecional ou um espaço de largura zero) e o separador de linha ou de parágrafo U+2028 ou U+2029, então cada registro fica numa linha só e se lê na ordem em que foi gravado. Uma sequência de bytes que não é UTF-8 válido sai como U+FFFD (�). Todas as linhas são mostradas: `--height` e `--widths` não se aplicam. Uma tabela selecionável continua desenhando no terminal, então `row=$(invowk tui table --selectable ...)` funciona como antes.
 
 ### Tabelas Selecionáveis
 

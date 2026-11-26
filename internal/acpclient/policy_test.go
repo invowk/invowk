@@ -5,6 +5,7 @@ package acpclient
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 
 	acp "github.com/coder/acp-go-sdk"
@@ -31,18 +32,14 @@ func TestCallbackClientDelegatesPermissionRequester(t *testing.T) {
 
 	policy := &recordingPermissionRequester{}
 	client := &callbackClient{policies: Policies{Permission: policy}.Normalize()}
-	title := "Edit config"
-	kind := acp.ToolKindEdit
-	status := acp.ToolCallStatusPending
-
 	resp, err := client.RequestPermission(t.Context(), acp.RequestPermissionRequest{
 		SessionId: "session-1",
 		ToolCall: acp.ToolCallUpdate{
 			ToolCallId: "tool-1",
-			Title:      &title,
-			Kind:       &kind,
-			Status:     &status,
-			Locations:  []acp.ToolCallLocation{{Path: "/tmp/config.cue"}},
+			Title:      acp.PatchSet("Edit config"),
+			Kind:       acp.PatchSet(acp.ToolKindEdit),
+			Status:     acp.PatchSet(acp.ToolCallStatusPending),
+			Locations:  acp.PatchSet([]acp.ToolCallLocation{{Path: "/tmp/config.cue"}}),
 		},
 		Options: []acp.PermissionOption{
 			{OptionId: "allow", Kind: acp.PermissionOptionKindAllowOnce, Name: "Allow"},
@@ -74,8 +71,8 @@ func TestCallbackClientDelegatesFilesystemPolicy(t *testing.T) {
 
 	policy := &recordingFilesystemPolicy{}
 	client := &callbackClient{policies: Policies{Filesystem: policy}.Normalize()}
-	line := 2
-	limit := 3
+	line := int64(2)
+	limit := int64(3)
 
 	readResp, err := client.ReadTextFile(t.Context(), acp.ReadTextFileRequest{
 		SessionId: "session-1",
@@ -176,4 +173,47 @@ func (p *recordingFilesystemPolicy) WriteTextFile(
 ) (WriteTextFileResponse, error) {
 	p.writeRequest = request
 	return WriteTextFileResponse{}, nil
+}
+
+func TestInt64FieldsAreClamped(t *testing.T) {
+	t.Parallel()
+
+	huge := int64(math.MaxInt64)
+	negative := int64(-5)
+	line, err := lineNumberFromPtr(&huge)
+	if err != nil {
+		t.Fatalf("lineNumberFromPtr(MaxInt64) error = %v", err)
+	}
+	if got, ok := line.Value(); !ok || got != LineNumber(math.MaxInt) {
+		t.Fatalf("lineNumberFromPtr(MaxInt64) = %d, %t; want MaxInt, true", got, ok)
+	}
+	if _, err := lineNumberFromPtr(&negative); err == nil {
+		t.Fatal("lineNumberFromPtr(-5) error = nil, want an invalid line number")
+	}
+	if _, err := lineLimitFromPtr(&negative); err == nil {
+		t.Fatal("lineLimitFromPtr(-5) error = nil, want an invalid line limit")
+	}
+	if got := terminalOutputLimitFromPtr(&negative); got == nil || *got != 0 {
+		t.Fatalf("terminalOutputLimitFromPtr(-5) = %v, want 0", got)
+	}
+	if got := terminalOutputLimitFromPtr(&huge); got == nil || *got != TerminalOutputLimit(math.MaxInt) {
+		t.Fatalf("terminalOutputLimitFromPtr(MaxInt64) = %v, want MaxInt", got)
+	}
+}
+
+func TestToolCallUpdateNullFieldsReadAsUnset(t *testing.T) {
+	t.Parallel()
+
+	event := eventFromSessionUpdate(acp.SessionUpdate{ToolCallUpdate: &acp.SessionToolCallUpdate{
+		ToolCallId: "tool-1",
+		Title:      acp.PatchNull[string](),
+		Content:    acp.PatchNull[[]acp.ToolCallContent](),
+		Status:     acp.PatchSet(acp.ToolCallStatusCompleted),
+	}})
+	if event.ToolTitle != "" || event.Text != "" {
+		t.Fatalf("null title/content read as %q/%q, want empty", event.ToolTitle, event.Text)
+	}
+	if event.ToolStatus != ToolStatus(acp.ToolCallStatusCompleted) {
+		t.Fatalf("ToolStatus = %q, want completed", event.ToolStatus)
+	}
 }

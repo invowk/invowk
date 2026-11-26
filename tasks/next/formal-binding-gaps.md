@@ -26,7 +26,9 @@ virtual-path-no-follow-operands (2026-11-24) removed none and added 23 (4
 after subsequent refreshes). The partial refresh of
 `module-concurrency-rollback` (2026-11-25) removed none and added 198
 deferred `binding-gap` entries across the newly bound and rewritten
-module-concurrency functions, so both now hold 637.
+module-concurrency functions, so both held 637. The partial refresh of
+`tui-servers-acp-followups` (2026-11-25, redone on top of `29735d3d`)
+removed 5 and added 6 (deferred `binding-gap`); both now hold 638.
 
 ## Rows whose binding does not reach the function
 
@@ -138,7 +140,7 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### Base.TransitionToStarting
 
-`internal/core/serverbase/base.go`, 6 survivors. The sequential model test compares states; error values, the lock scope and the stored context are unasserted.
+`internal/core/serverbase/base.go`, 6 survivors until the partial refresh of tui-servers-acp-followups (2026-11-25), 1 since. The guard of decision 120 rewrote the function and the row now also binds the three direct `TransitionToStarting` tests, which assert the returned error, `LastError()` and the delivery on `Err()`: of the six, three were not generated again and two are killed. The one left is the lock scope (`defer b.stateMu.Unlock()` made immediate), which no sequential test observes.
 
 ### Base.TransitionToStopped
 
@@ -219,6 +221,14 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 ### Server.admitConn
 
 `internal/sshserver/server_conns.go`, 3 survivors. The race test asserts only that an admitted connection is closed after revocation, so never admitting passes.
+
+### Server.closeAcceptedConns
+
+`internal/sshserver/server_conns.go`, 2 survivors (bound by tui-servers-acp-followups, 2026-11-25, for the F11 fix). Both drop `acceptClosed = true`. The bindings close connections the library already handed to the ConnCallback; none delivers a connection to the ConnCallback after teardown began, which needs a hook between the library's Accept and the callback, so the refusal is never exercised.
+
+### Server.Stop
+
+`internal/sshserver/server_lifecycle.go`, 4 survivors (the row is measured since tui-servers-acp-followups, 2026-11-25, when it stopped being a characterisation of F11). `TestHostCallbackToken_StopClosesAuthenticatedConnection` stops a running server once, so the losing branch (`WaitForShutdown` and its early return), the `stopMu` scope and the test-only `stopEntered` hook are not observed. The lifecycle tests `TestServerDoubleStop` and `TestServerConcurrentStopsDuringStart` exercise them but are not bound to this row, whose claim is the closing of connections.
 
 ### Watcher.Run
 

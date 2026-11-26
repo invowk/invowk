@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines when the host-callback SSH server counts as started, how it stops, how a failed start is torn down, and what happens when a stop arrives while a start is still in progress. Start, stop, a failed start and their overlap never leak a listener or a goroutine, and the server never shuts the SSH library down before the library has registered its listener (the listener-registration race of charm.land/ssh v0.4.3, https://github.com/charmbracelet/ssh/issues/61). Races inside the SSH library itself are out of scope: the connection-registration race between a handshake that completes while `Stop` runs and the library's graceful shutdown (https://github.com/gliderlabs/ssh/issues/117) stays a known upstream residual, because closing it would drop the graceful shutdown that keeps authenticated connections open.
+Defines when the host-callback SSH server counts as started, how it stops, how a failed start is torn down, and what happens when a stop arrives while a start is still in progress. Start, stop, a failed start and their overlap never leak a listener or a goroutine, and the server never shuts the SSH library down before the library has registered its listener (the listener-registration race of charm.land/ssh v0.4.3, https://github.com/charmbracelet/ssh/issues/61). `Stop` closes every connection the server accepted, authenticated or not, and waits for their handling with the server's own count instead of the library's graceful shutdown, so the connection-registration race between a handshake that completes while `Stop` runs and that shutdown (https://github.com/gliderlabs/ssh/issues/117) no longer applies; other races inside the SSH library itself are out of scope.
 
 ## Requirements
 
@@ -19,7 +19,7 @@ Defines when the host-callback SSH server counts as started, how it stops, how a
 - **THEN** `Start` SHALL NOT return while the serve goroutine is held, and SHALL return `nil` once it is released and the serve loop is reached
 
 ### Requirement: Stop shuts the SSH library down only after its serve loop has registered the listener or exited
-`Stop` SHALL close the listener first and SHALL ask the SSH library for its graceful shutdown only after the serve loop has registered the listener or the serve goroutine has exited. That wait SHALL be bounded by the configured `ShutdownTimeout`; when it expires, `Stop` SHALL skip the graceful shutdown and SHALL return an error.
+`Stop` SHALL close the listener first and SHALL shut the SSH library's server down only after the serve loop has registered the listener or the serve goroutine has exited. That wait SHALL be bounded by the configured `ShutdownTimeout`; when it expires, `Stop` SHALL skip the library's shutdown and SHALL return an error. The library's shutdown SHALL be one that does not wait for the library's own connection tracking, so no handshake that completes during `Stop` races it.
 
 #### Scenario: Stop while the serve loop has not started
 - **GIVEN** the serve goroutine is held before the SSH library's serve loop
@@ -29,7 +29,7 @@ Defines when the host-callback SSH server counts as started, how it stops, how a
 #### Scenario: Serve loop never reached within the shutdown timeout
 - **GIVEN** the serve goroutine is held before the serve loop for longer than `ShutdownTimeout`
 - **WHEN** `Stop` runs
-- **THEN** `Stop` SHALL stop waiting at `ShutdownTimeout`, SHALL NOT call the graceful shutdown, and SHALL return an error after the serve goroutine has exited
+- **THEN** `Stop` SHALL stop waiting at `ShutdownTimeout`, SHALL NOT call the library's shutdown, and SHALL return an error after the serve goroutine has exited
 
 #### Scenario: Serve loop fails before accepting
 - **WHEN** the SSH library's serve call returns an error before it accepts any connection, or the serve goroutine returns early because the server or listener is missing, including when a concurrent `Stop` took them before the serve goroutine read them
@@ -49,7 +49,7 @@ When `Start` fails after it has bound a listener, on its startup timeout, a canc
 - **THEN** `Start` SHALL return an error wrapping the context cancellation error, a TCP connection to the bound port SHALL be refused, and a later `Stop` and `Wait` SHALL each return within a bounded time
 
 ### Requirement: Stop during Start leaves nothing running
-A `Stop` that runs at any point of a concurrent `Start` SHALL leave no listener open and no server goroutine running once both calls have returned. Every `Stop` call, including one that loses to a concurrent `Stop`, SHALL return only after every goroutine that `Start` launched has exited. These guarantees cover a server started at most once; a second `Start` with an already-cancelled context is outside them. A `Start` that a concurrent `Stop` overtook SHALL return a non-nil error.
+A `Stop` that runs at any point of a concurrent `Start` SHALL leave no listener open and no server goroutine running once both calls have returned. Every `Stop` call, including one that loses to a concurrent `Stop`, SHALL return only after every goroutine that `Start` launched has exited. These guarantees SHALL hold whatever further `Start` calls reach the server, since a `Start` on a server that is not in Created changes nothing (capability `server-lifecycle-base`). A `Start` that a concurrent `Stop` overtook SHALL return a non-nil error.
 
 #### Scenario: Stop before Start has launched its goroutines
 - **WHEN** `Stop` begins its shutdown while `Start` is still configuring the host key, binding the listener or creating the SSH server
@@ -67,6 +67,11 @@ A `Stop` that runs at any point of a concurrent `Start` SHALL leave no listener 
 - **GIVEN** `Stop` runs on a server that was never started, before or concurrently with a `Start` whose context is already cancelled
 - **WHEN** `Start` finds the server already stopped
 - **THEN** `Start` SHALL bind no listener and launch no server goroutine, SHALL return a non-nil error, and `Stop` and a later `Wait` SHALL each return within a bounded time
+
+#### Scenario: Second Start with a cancelled context during the first Start
+- **GIVEN** a `Start` is still in progress
+- **WHEN** a second `Start` with an already-cancelled context returns, and `Stop` then runs
+- **THEN** the second `Start` SHALL return a non-nil error without binding or tearing anything down, and `Stop` SHALL return only after every goroutine that the first `Start` launched has exited, leaving no listener open
 
 #### Scenario: Port after Stop
 - **WHEN** `Stop` has returned and so has any `Start` that overlapped it
@@ -89,3 +94,29 @@ Short-lived servers that are started and stopped back to back, or stopped while 
 #### Scenario: Bounded loop of Stop racing Start
 - **WHEN** a test starts a fresh server in a goroutine and stops it concurrently, a bounded number of times under `-race`
 - **THEN** after both calls return, `Start` SHALL have returned `nil` only if the server reached the running state, any error SHALL be acceptable when it never did, every `Stop` SHALL return `nil` well inside `ShutdownTimeout`, `Wait` SHALL return within a bounded time, no server goroutine SHALL be left, a TCP connection to the port SHALL be refused whenever a listener was bound, and no data race SHALL be reported
+
+### Requirement: Stop closes every connection
+`Stop` SHALL close every connection the server accepted, whether or not it has authenticated, and SHALL accept no new connection once it has begun; a login that completes after `Stop` closed its connection SHALL NOT be admitted. When `Stop` returns, no SSH client SHALL still be able to use a connection to the server.
+
+#### Scenario: Authenticated connection open at Stop
+- **GIVEN** a running server and an SSH client that logged in with a valid token and keeps its connection open
+- **WHEN** `Stop` is called
+- **THEN** `Stop` SHALL return `nil` well inside `ShutdownTimeout`, the client SHALL see its connection closed, and opening a new session on it SHALL fail
+
+#### Scenario: Revocation and Stop together
+- **GIVEN** a running server and an authenticated client
+- **WHEN** the client's token is revoked and `Stop` runs concurrently
+- **THEN** the connection SHALL be closed exactly once, both calls SHALL return, and `-race` SHALL report no data race
+
+### Requirement: Stop waits for connection handling, bounded by the shutdown timeout
+`Stop` SHALL return only after the server's handling of every accepted connection has ended, bounded by `ShutdownTimeout`. A connection that a client keeps open SHALL NOT make `Stop` wait, since `Stop` closes it; `Stop` SHALL then return `nil`. When the handling of a closed connection has not ended at `ShutdownTimeout`, for example because a login check has not returned, `Stop` SHALL return an error.
+
+#### Scenario: Connection still authenticating at Stop
+- **GIVEN** a running server and an SSH client whose authentication is held inside the server's password check
+- **WHEN** `Stop` runs, and the hold is released while `Stop` is still waiting, after `Stop` has closed the connections
+- **THEN** the client's login SHALL fail, the server SHALL track no connection for it, `Stop` SHALL return `nil` well inside `ShutdownTimeout`, and `-race` SHALL report no data race
+
+#### Scenario: Login check that does not return before the shutdown timeout
+- **GIVEN** a running server and an SSH client whose authentication is held inside the server's password check
+- **WHEN** `Stop` runs and the hold is released only after `ShutdownTimeout`
+- **THEN** `Stop` SHALL return an error at `ShutdownTimeout`, the client's connection SHALL be closed, and after the release the login SHALL fail

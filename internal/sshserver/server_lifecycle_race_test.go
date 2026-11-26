@@ -628,8 +628,8 @@ func TestServerStartAfterStopWithCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	err := srv.Start(ctx)
-	if !errors.Is(err, errStoppedDuringStartup) {
-		t.Errorf("Start() error = %v, want errStoppedDuringStartup", err)
+	if !errors.Is(err, serverbase.ErrStartNotCreated) {
+		t.Errorf("Start() error = %v, want serverbase.ErrStartNotCreated", err)
 	}
 	if _, ok := errors.AsType[*net.OpError](err); ok {
 		t.Errorf("Start() error = %v, want no bind attempt", err)
@@ -681,6 +681,9 @@ func TestServerStopRacesStartWithCancelledContext(t *testing.T) {
 		}
 		if stopErr != nil {
 			t.Errorf("iteration %d: Stop() error = %v, want nil", i, stopErr)
+		}
+		if st := srv.State(); st != serverbase.StateFailed && st != serverbase.StateStopped {
+			t.Errorf("iteration %d: State() = %s, want Failed or Stopped", i, st)
 		}
 		if n := capture.fired.Load(); n != 0 {
 			t.Errorf("iteration %d: beforePublish fired %d times, want 0", i, n)

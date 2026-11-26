@@ -187,6 +187,7 @@ func (s *Server) passwordHandler(ctx ssh.Context, password string) bool {
 		s.logger.Warn("Rejecting authentication on an untracked connection", "user", ctx.User())
 		return false
 	}
+	s.hooks.callBeforeAdmit()
 	token, valid := s.admitConn(tv, conn)
 	if !valid {
 		s.logger.Warn("Invalid token authentication attempt", "user", ctx.User())

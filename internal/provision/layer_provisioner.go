@@ -56,6 +56,12 @@ type (
 		hostArch  container.ImageArchitecture
 		// imageArchitecture replaces the engine query in tests when set.
 		imageArchitecture func(context.Context, container.ImageTag) container.ImageArchitecture
+		// afterBinaryCheck runs in tests after Provision resolved (and
+		// checked) the binary, before the cache key hashes it.
+		afterBinaryCheck func()
+		// beforeBinaryCopy runs in tests after the cache key hashed the
+		// binary, before the build context copies it.
+		beforeBinaryCopy func()
 	}
 )
 
@@ -112,41 +118,21 @@ func (p *LayerProvisioner) Provision(ctx context.Context, req Request) (*Result,
 	if err != nil {
 		return nil, err
 	}
-
-	// Calculate cache key
-	cacheKey, err := p.calculateCacheKey(ctx, req.BaseImage, binary.path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate cache key: %w", err)
+	if p.afterBinaryCheck != nil {
+		p.afterBinaryCheck()
 	}
 
-	provisionedTag := container.ImageTag(p.buildProvisionedTag(cacheKey[:12]))
-	if validateErr := provisionedTag.Validate(); validateErr != nil {
-		return nil, fmt.Errorf("provisioned image tag: %w", validateErr)
+	result, err := p.provisionResolved(ctx, req, binary)
+	changed, isChanged := errors.AsType[*binaryChangedError](err)
+	if !isChanged {
+		return result, err
 	}
-
-	// Check if cached image exists (skip if ForceRebuild is set)
-	if !req.ForceRebuild && !p.config.ForceRebuild {
-		exists, _ := p.engine.ImageExists(ctx, provisionedTag) //nolint:errcheck // Error treated as "not found"
-		if exists {
-			return &Result{
-				ImageTag: provisionedTag,
-				EnvVars:  p.buildEnvVars(binary.path),
-				Warnings: binary.warnings(),
-			}, nil
-		}
+	if binary.explicit {
+		return nil, changedBinaryError(binary.path, changed)
 	}
-
-	// Build the provisioned image
-	warnings, err := p.buildProvisionedImage(ctx, req, provisionedTag, binary.path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build provisioned image: %w", err)
-	}
-
-	return &Result{
-		ImageTag: provisionedTag,
-		EnvVars:  p.buildEnvVars(binary.path),
-		Warnings: append(binary.warnings(), warnings...),
-	}, nil
+	// The default binary changed: provision as for any unusable default
+	// binary, under the key of an image without it.
+	return p.provisionResolved(ctx, req, binaryResolution{warning: changedDefaultBinaryWarning(binary.path, changed)})
 }
 
 // CleanupProvisionedImages removes all cached provisioned images.
@@ -172,7 +158,7 @@ func (p *LayerProvisioner) GetProvisionedImageTag(ctx context.Context, baseImage
 	if err != nil {
 		return "", err
 	}
-	cacheKey, err := p.calculateCacheKey(ctx, baseImage, binary.path)
+	cacheKey, _, err := p.calculateCacheKey(ctx, baseImage, binary.path)
 	if err != nil {
 		return "", err
 	}
@@ -192,6 +178,46 @@ func (p *LayerProvisioner) IsImageProvisioned(ctx context.Context, baseImage con
 	return p.engine.ImageExists(ctx, imgTag)
 }
 
+// provisionResolved reuses or builds the image for a resolved binary. A
+// build returns a *binaryChangedError when the binary's copy fails its check
+// or its hash.
+func (p *LayerProvisioner) provisionResolved(ctx context.Context, req Request, binary binaryResolution) (*Result, error) {
+	cacheKey, binaryHash, err := p.calculateCacheKey(ctx, req.BaseImage, binary.path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate cache key: %w", err)
+	}
+	binary.hash = binaryHash
+
+	provisionedTag := container.ImageTag(p.buildProvisionedTag(cacheKey[:12]))
+	if validateErr := provisionedTag.Validate(); validateErr != nil {
+		return nil, fmt.Errorf("provisioned image tag: %w", validateErr)
+	}
+
+	// Check if cached image exists (skip if ForceRebuild is set)
+	if !req.ForceRebuild && !p.config.ForceRebuild {
+		exists, _ := p.engine.ImageExists(ctx, provisionedTag) //nolint:errcheck // Error treated as "not found"
+		if exists {
+			return &Result{
+				ImageTag: provisionedTag,
+				EnvVars:  p.buildEnvVars(binary.path),
+				Warnings: binary.warnings(),
+			}, nil
+		}
+	}
+
+	// Build the provisioned image
+	warnings, err := p.buildProvisionedImage(ctx, req, provisionedTag, binary)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build provisioned image: %w", err)
+	}
+
+	return &Result{
+		ImageTag: provisionedTag,
+		EnvVars:  p.buildEnvVars(binary.path),
+		Warnings: append(binary.warnings(), warnings...),
+	}, nil
+}
+
 // buildProvisionedTag constructs the image tag with optional suffix.
 // When TagSuffix is set, the tag format is "invowk-provisioned:<hash>-<suffix>".
 // This enables test isolation by making each test's images unique.
@@ -205,7 +231,7 @@ func (p *LayerProvisioner) buildProvisionedTag(hash string) string {
 // calculateCacheKey generates a unique key based on all provisioned layer
 // resources. binaryPath is the resolved invowk binary, empty when none is
 // installed, so an image without the binary has its own key.
-func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage container.ImageTag, binaryPath types.FilesystemPath) (string, error) {
+func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage container.ImageTag, binaryPath types.FilesystemPath) (key, binaryHash string, err error) {
 	h := sha256.New()
 
 	h.Write([]byte("provision_layer_version:" + provisionedLayerCacheVersion))
@@ -221,9 +247,9 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage cont
 
 	// Include invowk binary hash
 	if binaryPath != "" {
-		binaryHash, err := CalculateFileHash(string(binaryPath))
+		binaryHash, err = CalculateFileHash(string(binaryPath))
 		if err != nil {
-			return "", fmt.Errorf("failed to hash invowk binary: %w", err)
+			return "", "", fmt.Errorf("failed to hash invowk binary: %w", err)
 		}
 		h.Write([]byte("binary:" + binaryHash))
 		h.Write([]byte("binary_mount:" + string(p.config.BinaryMountPath)))
@@ -250,7 +276,7 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage cont
 		h.Write([]byte("global_module:" + string(module.CommandNamespace) + ":" + string(module.DestinationPath) + ":" + moduleHash))
 	}
 
-	return hex.EncodeToString(h.Sum(nil)), nil
+	return hex.EncodeToString(h.Sum(nil)), binaryHash, nil
 }
 
 // getImageIdentifier tries to get a stable identifier for an image.
@@ -261,9 +287,9 @@ func (p *LayerProvisioner) getImageIdentifier(_ context.Context, image container
 }
 
 // buildProvisionedImage creates the ephemeral image layer.
-func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, req Request, tag container.ImageTag, binaryPath types.FilesystemPath) ([]Warning, error) {
+func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, req Request, tag container.ImageTag, binary binaryResolution) ([]Warning, error) {
 	// Create temporary build context
-	buildCtx, warnings, cleanup, err := p.prepareBuildContext(req.BaseImage, binaryPath)
+	buildCtx, warnings, cleanup, err := p.prepareBuildContext(req.BaseImage, binary)
 	if err != nil {
 		return nil, err
 	}
@@ -301,8 +327,10 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, req Reques
 }
 
 // prepareBuildContext creates a temporary directory with all resources
-// needed to build the provisioned image. binaryPath is the resolved invowk
-// binary, empty when none is installed.
+// needed to build the provisioned image. binary is the resolved invowk
+// binary, with no path when none is installed; its copy must pass the
+// resolution's check and match the cache key's hash, or prepareBuildContext
+// returns a *binaryChangedError.
 //
 // The build-context parent is resolved by resolveBuildContextParent: a
 // configured or defaulted CacheDir wins; otherwise ~/invowk-build under an
@@ -313,7 +341,7 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, req Reques
 // - Cannot access /tmp (different namespace)
 // - Cannot access hidden directories like ~/.cache (home interface restriction)
 // - CAN access visible directories in the home like ~/invowk-build
-func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag, binaryPath types.FilesystemPath) (buildContextDir string, warnings []Warning, cleanup func(), err error) {
+func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag, binary binaryResolution) (buildContextDir string, warnings []Warning, cleanup func(), err error) {
 	buildContextParent, parentCleanup, err := p.resolveBuildContextParent()
 	if err != nil {
 		return "", nil, nil, err
@@ -337,14 +365,15 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag, bin
 	}
 
 	// Copy invowk binary
-	if binaryPath != "" {
-		binaryDst := filepath.Join(tmpDir, "invowk")
-		if err := CopyFile(string(binaryPath), binaryDst); err != nil {
-			cleanup()
-			return "", nil, nil, fmt.Errorf("failed to copy invowk binary: %w", err)
+	if binary.path != "" {
+		if p.beforeBinaryCopy != nil {
+			p.beforeBinaryCopy()
 		}
-		// Ensure binary is executable
-		_ = os.Chmod(binaryDst, 0o755) // Best-effort; execution may still work
+		//goplint:ignore -- build context path is created above.
+		if err := copyCheckedBinary(binary, types.FilesystemPath(filepath.Join(tmpDir, "invowk"))); err != nil {
+			cleanup()
+			return "", nil, nil, err
+		}
 	}
 
 	// Copy modules
@@ -368,7 +397,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag, bin
 	warnings = append(warnings, p.copyProvisionedModules(globalModules, types.FilesystemPath(globalModulesDir))...)
 
 	// Generate Dockerfile
-	dockerfile := p.generateDockerfile(string(baseImage), binaryPath)
+	dockerfile := p.generateDockerfile(string(baseImage), binary.path)
 	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
 	if err := os.WriteFile(dockerfilePath, []byte(dockerfile), 0o644); err != nil {
 		cleanup()
@@ -376,6 +405,49 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag, bin
 	}
 
 	return tmpDir, warnings, cleanup, nil
+}
+
+// copyCheckedBinary copies the resolved binary to dst once, hashing the bytes
+// it writes, then checks the copy as the resolution checked the original and
+// compares its hash with the cache key's. The image installs the copy, so
+// what it installs is what was checked and hashed, even when the file at the
+// binary's path is replaced meanwhile. Opening the path follows a symlink, as
+// the check and the hash do; the opened file must be regular. A failed check,
+// an irregular file or a different hash is a *binaryChangedError.
+func copyCheckedBinary(binary binaryResolution, dst types.FilesystemPath) error {
+	src, err := os.Open(string(binary.path))
+	if err != nil {
+		return &binaryChangedError{reason: fmt.Sprintf("it can no longer be opened: %v", err)}
+	}
+	defer func() { _ = src.Close() }() // Read-only file; close error non-critical
+	info, err := src.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to stat invowk binary: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return &binaryChangedError{reason: "it is no longer a regular file"}
+	}
+
+	out, err := os.OpenFile(string(dst), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to copy invowk binary: %w", err)
+	}
+	h := sha256.New()
+	_, copyErr := io.Copy(io.MultiWriter(out, h), src)
+	if closeErr := out.Close(); copyErr == nil {
+		copyErr = closeErr
+	}
+	if copyErr != nil {
+		return fmt.Errorf("failed to copy invowk binary: %w", copyErr)
+	}
+
+	if rejection := checkLinuxBinary(dst, binary.arch.arch); rejection != nil {
+		return &binaryChangedError{reason: rejection.String()}
+	}
+	if hex.EncodeToString(h.Sum(nil)) != binary.hash {
+		return &binaryChangedError{reason: "its content differs from the binary invowk checked and hashed"}
+	}
+	return nil
 }
 
 func (p *LayerProvisioner) copyProvisionedModules(modules []provisionedModuleCopy, modulesDir types.FilesystemPath) []Warning {

@@ -531,7 +531,7 @@ func TestLayerProvisioner_PrepareBuildContext(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), resolvedTestBinary(t, provisioner))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -591,7 +591,7 @@ func TestLayerProvisioner_PrepareBuildContextPreservesModuleEntryNamespaces(t *t
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), resolvedTestBinary(t, provisioner))
 	if err != nil {
 		t.Fatalf("prepareBuildContext() error = %v", err)
 	}
@@ -666,7 +666,7 @@ func TestLayerProvisioner_PrepareBuildContext_NoBinary(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), resolvedTestBinary(t, provisioner))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -715,7 +715,7 @@ func TestLayerProvisioner_PrepareBuildContext_UsesCacheDir(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), resolvedTestBinary(t, provisioner))
 	if err != nil {
 		t.Fatalf("prepareBuildContext() error = %v", err)
 	}
@@ -751,7 +751,7 @@ func TestLayerProvisioner_PrepareBuildContext_Cleanup(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), resolvedTestBinary(t, provisioner))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -795,7 +795,7 @@ func TestLayerProvisioner_PrepareBuildContext_ModuleCopyWarnings(t *testing.T) {
 		return errors.New("copy failed")
 	}
 
-	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), provisioner.config.InvowkBinaryPath)
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"), resolvedTestBinary(t, provisioner))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

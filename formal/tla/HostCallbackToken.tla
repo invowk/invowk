@@ -13,12 +13,12 @@
   also closes the connections the token authenticated (the fix for finding
   F7); login and revocation are atomic with respect to each other.
 
-  Stopping the server closes its listener but no open connection
-  (ssh.Server.Shutdown waits for them and returns at its deadline), so a
-  session opened before Stop stays open: finding F11, with StopClosesSessions
-  as the fix configuration. Production stops the server after executions
-  end, when revocation has already closed their connections, so F11 matters
-  only for executions still running at Stop.
+  Stopping the server closes its listener and every open connection, so no
+  session outlives Stop (the fix for finding F11, StopClosesSessions = TRUE;
+  the pre-fix Stop, whose ssh.Server.Shutdown closed no connection, is the
+  mutant with StopClosesSessions = FALSE). Production stops the server after
+  executions end, when revocation has already closed their connections, so
+  F11 mattered only for executions still running at Stop.
 *)
 \* Correspondence (checked by `scripts/formal.py correspondence`):
 \*
@@ -28,9 +28,10 @@
 \* | Auth | Server.ValidateToken | internal/sshserver/server_auth.go | - | TTL expiry is a nondeterministic action; not gated (decision 1): ValidateToken has no production caller (server_auth.go:49 is the only non-test reference), the model's Auth is implemented by Server.admitConn (row Auth/End atomicity), and re-pointing the row is the survivor-triage follow-up |
 \* | Start/Auth/End/EndSession/Expire/Stop | Server.GetConnectionInfo | internal/sshserver/server_auth.go | TestHostCallbackToken_TraceHarness | two executions; real SSH clients over loopback on a fake clock |
 \* | Revoke | Server.RevokeToken | internal/sshserver/server_auth.go | TestRevokeTokenClosesAuthenticatedConnection | sessions abstracted to the connection that carries them |
-\* | Auth/End atomicity | Server.admitConn | internal/sshserver/server_conns.go | TestRevocationRacesAuthenticationSafely | login and revocation are single atomic actions |
+\* | Auth/End atomicity | Server.admitConn | internal/sshserver/server_conns.go | TestRevocationRacesAuthenticationSafely, TestServerStopDuringHandshake | login and revocation are single atomic actions; the model's Stop is atomic, so the handshake window in which teardown closes a connection before its login completes (admitConn refuses a closed connection) is abstracted away |
 \* | End paths | ContainerRuntime.prepareContainerExecution | internal/runtime/container_exec.go | - | success, error, and cancel all run the deferred revoke |
-\* | Stop | Server.Stop | internal/sshserver/server_lifecycle.go | TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen | characterisation: closes the listener; open connections stay open (F11) |
+\* | Stop | Server.Stop | internal/sshserver/server_lifecycle.go | TestHostCallbackToken_StopClosesAuthenticatedConnection | closes the listener and every accepted connection |
+\* | Stop | Server.closeAcceptedConns | internal/sshserver/server_conns.go | TestHostCallbackToken_StopClosesAuthenticatedConnection, TestServerStopDuringHandshake | the closing of every accepted connection inside teardown; the listener close, the library Close and the bounded wait for connection handling (Server.teardown, Server.waitConns) are checked by the lifecycle tests, not by this row |
 EXTENDS Naturals
 
 CONSTANTS Execs, Mutant, RevokeClosesSessions, StopClosesSessions

@@ -89,7 +89,7 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 190
+command_count = 194
 
 # Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
 # every killer test of every bound correspondence row must execute at least one
@@ -553,7 +553,13 @@ tool = "tla"
 file = "formal/tla/Serverbase.tla"
 budget_seconds = 58  # 1.5 x 38.3s CI max (3 dispatch runs)
 budget_source = "ci"
-calibration = """2026-09-25: findings F1 and F2 are fixed; the base configuration now mirrors \\
+calibration = """2026-11-25: the cancelled-start guard (decision 120) is fixed: a Start whose \\
+context is already cancelled changes only a Created server (FixStartGuard, property \\
+CancelledStartChangesOnlyCreated); the pre-fix code, which failed any non-terminal \\
+state, is kept as mutantPreFixCancelledStartFailsAny; mutantCancelCASAnyState mutates the \\
+fixed CAS itself, and witnessCancelledStartOnNotCreated shows that a cancelled Start \\
+reaches it on a server that is no longer Created. \\
+2026-09-25: findings F1 and F2 are fixed; the base configuration now mirrors \\
 the fixed code, and the pre-fix code is kept as two regression mutants. \\
 2026-09-24: TLC reproduced findings F1 and F2 with exactly the interleavings \\
 predicted by reading internal/core/serverbase/base.go (F1: Start CAS, Stop CAS, \\
@@ -568,13 +574,14 @@ Procs = "{p1, p2}"
 Mutant = "\"none\""
 FixStartOrdering = "TRUE"
 FixTerminalCAS = "TRUE"
+FixStartGuard = "TRUE"
 
 [[model.command]]
 name = "errClosedOnce"
 expect = "pass"
 property = "ErrClosedAtMostOnce"
 dead_actions = ["RunCloseLoser", "StartStore"]
-distinct_states = 585
+distinct_states = 629
 
 [[model.command]]
 name = "mutantCloseTwice"
@@ -588,7 +595,7 @@ name = "noSendAfterClose"
 expect = "pass"
 property = "NoSendAfterClose"
 dead_actions = ["RunCloseLoser", "StartStore"]
-distinct_states = 585
+distinct_states = 629
 
 [[model.command]]
 name = "mutantSendWithoutCheck"
@@ -602,7 +609,7 @@ name = "startedByWinner"
 expect = "pass"
 property = "StartedClosedByWinner"
 dead_actions = ["RunCloseLoser", "StartStore"]
-distinct_states = 585
+distinct_states = 629
 
 [[model.command]]
 name = "mutantCloseStartedUnconditionally"
@@ -618,7 +625,7 @@ constants = { FixTerminalCAS = "TRUE" }
 expect = "pass"
 property = "TerminalAbsorbing"
 dead_actions = ["RunCloseLoser", "StartStore"]
-distinct_states = 585
+distinct_states = 629
 
 [[model.command]]
 name = "mutantPreFixF2BlindStore"
@@ -642,7 +649,7 @@ constants = { FixStartOrdering = "TRUE" }
 expect = "pass"
 property = "StopCancelsContext"
 dead_actions = ["RunCloseLoser", "StartStore"]
-distinct_states = 585
+distinct_states = 629
 
 [[model.command]]
 name = "mutantPreFixF1UnlockedStart"
@@ -658,6 +665,30 @@ constants = { FixStartOrdering = "TRUE", Mutant = "\"stop_skips_cancel\"" }
 expect = "counterexample"
 property = "StopCancelsContext"
 mutant_of = "stopCancelsContextFixed"
+
+# Decision 120 (fixed): the pre-fix cancelled start failed any non-terminal
+# state, so a second Start with a cancelled context failed a server another
+# Start owned. No finding number is assigned (design D3).
+[[model.command]]
+name = "cancelledStartGuardFixed"
+expect = "pass"
+property = "CancelledStartChangesOnlyCreated"
+dead_actions = ["RunCloseLoser", "StartStore"]
+distinct_states = 629
+
+[[model.command]]
+name = "mutantPreFixCancelledStartFailsAny"
+constants = { FixStartGuard = "FALSE" }
+expect = "counterexample"
+property = "CancelledStartChangesOnlyCreated"
+mutant_of = "cancelledStartGuardFixed"
+
+[[model.command]]
+name = "mutantCancelCASAnyState"
+constants = { Mutant = "\"cancel_cas_any_state\"" }
+expect = "counterexample"
+property = "CancelledStartChangesOnlyCreated"
+mutant_of = "cancelledStartGuardFixed"
 
 [[model.command]]
 name = "witnessConcurrentStop"
@@ -675,6 +706,12 @@ witness = true
 name = "witnessStartedClosed"
 expect = "counterexample"
 property = "WitnessNeverStartedClosed"
+witness = true
+
+[[model.command]]
+name = "witnessCancelledStartOnNotCreated"
+expect = "counterexample"
+property = "WitnessCancelledStartOnlyOnCreated"
 witness = true
 
 [[model]]
@@ -938,10 +975,19 @@ tool = "tla"
 file = "formal/tla/HostCallbackToken.tla"
 budget_seconds = 27  # 1.5 x 18.0s CI max (3 dispatch runs)
 budget_source = "ci"
-calibration = """2026-09-25 (trace validation): TestHostCallbackToken_TraceHarness drives a \
+calibration = """2026-11-25: finding F11 is fixed: Stop closes every accepted connection, \
+authenticated or not, and waits for their handling with the server's own count \
+instead of the library's graceful Shutdown (gliderlabs/ssh#117 no longer applies). \
+The base configuration now mirrors the code (StopClosesSessions = TRUE), the \
+pre-fix behaviour is the regression mutant mutantPreFixF11StopKeepsSessions, the \
+Go replay is inverted (TestHostCallbackToken_StopClosesAuthenticatedConnection), \
+and the token harness requires Stop to return nil and rejects the targeted \
+mutation "a connection stays open after Stop" (36 unique accepted traces, 8 \
+targeted mutations). \
+2026-09-25 (trace validation): TestHostCallbackToken_TraceHarness drives a \
 started Server on a fake clock with real SSH clients: 165 sequences, 37 unique \
 accepted traces, 7 targeted mutations. TLC and a Go replay reproduce finding \
-F11 (open): Stop closes the listener but no connection, and returns \
+F11 (open then; fixed 2026-11-25): Stop closed the listener but no connection, and returned \
 context.DeadlineExceeded while a client is connected; the base configuration \
 mirrors that (StopClosesSessions = FALSE), noSessionAfterStopFixed passes, and \
 mutantListenerLeftOpen now guards the fix configuration. Seeded defects: \
@@ -962,13 +1008,13 @@ ignored)."""
 Execs = "{e1, e2}"
 Mutant = "\"none\""
 RevokeClosesSessions = "TRUE"
-StopClosesSessions = "FALSE"
+StopClosesSessions = "TRUE"
 
 [[model.command]]
 name = "noAuthAfterExecution"
 expect = "pass"
 property = "NoAuthAfterExecution"
-distinct_states = 146
+distinct_states = 122
 
 [[model.command]]
 name = "mutantNoRevokeOnSuccess"
@@ -977,17 +1023,16 @@ expect = "counterexample"
 property = "NoAuthAfterExecution"
 mutant_of = "noAuthAfterExecution"
 
-# Finding F11 (open): Stop closes the listener but no open connection.
+# Fixed finding F11: Stop closes every connection.
 [[model.command]]
 name = "noSessionAfterStopFixed"
-constants = { StopClosesSessions = "TRUE" }
 expect = "pass"
 property = "NoSessionAfterStop"
 distinct_states = 122
 
 [[model.command]]
-name = "findingF11StopKeepsSessions"
-finding = "F11"
+name = "mutantPreFixF11StopKeepsSessions"
+constants = { StopClosesSessions = "FALSE" }
 expect = "counterexample"
 property = "NoSessionAfterStop"
 mutant_of = "noSessionAfterStopFixed"
@@ -1004,7 +1049,7 @@ mutant_of = "noSessionAfterStopFixed"
 name = "sessionLifetimeWithRevokeClosing"
 expect = "pass"
 property = "NoSessionAfterExecution"
-distinct_states = 146
+distinct_states = 122
 
 [[model.command]]
 name = "mutantPreFixF7RevokeKeepsSessions"

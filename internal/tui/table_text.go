@@ -21,8 +21,12 @@ const tableTextGap = "  "
 //   - columns are separated by two spaces, trailing spaces are trimmed, and
 //     every line ends with "\n";
 //   - a row with fewer cells than the widest row gets empty cells;
-//   - every control character in a cell (a newline, a tab, an escape) is
-//     written as a space, so a row stays on one line;
+//   - every control character in a cell (a newline, a tab, an escape), every
+//     format character (Unicode category Cf, such as a bidirectional override
+//     or a zero-width space) and the line and paragraph separators U+2028 and
+//     U+2029 are written as a space, so a row stays on one line and its text
+//     reads in the order it is stored;
+//   - every byte sequence that is not valid UTF-8 is written as U+FFFD;
 //   - there is no border, header rule or control sequence, and no row or cell
 //     is cut.
 //
@@ -65,19 +69,26 @@ func WriteTableText(w io.Writer, headers []string, rows [][]string) error {
 	return err
 }
 
-// tableTextCells returns a copy of cells with every control character written
-// as a space.
+// tableTextCells returns a copy of cells with every control character,
+// format character and line or paragraph separator written as a space, and
+// every invalid UTF-8 byte as U+FFFD (strings.Map decodes it as RuneError).
 //
 //goplint:ignore -- display cells are transient CLI data, like TableOptions.Rows.
 func tableTextCells(cells []string) []string {
 	out := make([]string, len(cells))
 	for i, cell := range cells {
-		out[i] = strings.Map(func(r rune) rune {
-			if unicode.IsControl(r) {
-				return ' '
-			}
-			return r
-		}, cell)
+		out[i] = strings.Map(tableTextRune, cell)
 	}
 	return out
+}
+
+// tableTextRune maps a control character, a format character (Cf) and the
+// line and paragraph separators U+2028 (Zl) and U+2029 (Zp) to a space.
+//
+//goplint:ignore -- strings.Map takes a plain rune mapping.
+func tableTextRune(r rune) rune {
+	if unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp) {
+		return ' '
+	}
+	return r
 }

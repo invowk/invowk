@@ -2,7 +2,9 @@
 
 ## Purpose
 Defines the terminal that interactive mode (`invowk cmd … -i`) gives a command: which terminal the command owns, how signals reach it, how its output is drawn and kept, how its terminal queries and the user's keys are handled, and when the completion banner appears.
+
 ## Requirements
+
 ### Requirement: The viewer's terminal is the command's controlling terminal
 On Unix, a command run with `-i` SHALL start in a new session whose controlling terminal is the viewer's pseudo-terminal, which is also its stdin, stdout and stderr. A process of the command that opens `/dev/tty` SHALL get that pseudo-terminal, never the terminal invowk itself runs in, and SHALL read no key from the outer terminal.
 
@@ -48,11 +50,16 @@ The command's terminal size SHALL equal the viewer's command area (the viewer's 
 - **THEN** the command SHALL print the new command-area size
 
 ### Requirement: Leaving the viewer early hangs up the command
-On Unix, when the viewer ends before the command does, by Ctrl+\ or by invowk being cancelled, the command's terminal SHALL be hung up, so its session receives SIGHUP, and the viewer SHALL return to the outer terminal without waiting for the command. For a container command the session is the engine CLI's: the hang-up SHALL reach the engine CLI, and what then happens to the processes inside the container is the engine's behavior.
+On Unix, when the viewer ends before the command does, by Ctrl+\ or by invowk being cancelled, the command's terminal SHALL be hung up, so its session receives SIGHUP, and the viewer SHALL return to the outer terminal without waiting for the command. The hang-up SHALL happen when the viewer ends, also when the command never read the input the viewer sent it, and not only when invowk exits. For a container command the session is the engine CLI's: the hang-up SHALL reach the engine CLI, and what then happens to the processes inside the container is the engine's behavior.
 
 #### Scenario: Force quit
 - **WHEN** a native command `sleep 3011 & echo SLEEP_PID=$!; wait` runs with `-i` and the user presses Ctrl+\
 - **THEN** invowk SHALL exit, and the process with the printed `SLEEP_PID` SHALL no longer be running shortly after
+
+#### Scenario: Force quit of a command that never reads its input
+- **GIVEN** an interactive session whose command runs `stty raw -echo; trap 'echo HUP > hup.txt; exit 1' HUP; while :; do sleep 1; done`, which never reads its input
+- **WHEN** enough keys and terminal replies are sent to fill the command's input, the viewer is ended by Ctrl+\, and the process that hosted the viewer keeps running
+- **THEN** the session SHALL return, `hup.txt` SHALL appear and the command SHALL exit shortly after, while that process is still running
 
 ### Requirement: Background jobs end with the command
 On Unix, when the command's main process exits, the command's terminal SHALL send SIGHUP to its foreground job, so a job the command started in the background without detaching it (for example with `&` in a shell script) SHALL end with the command unless it ignores SIGHUP or left the session (`nohup`, `setsid`), as when a terminal window closes. A run without `-i` is not affected.

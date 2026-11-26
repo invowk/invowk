@@ -65,6 +65,17 @@ exec notty invowk tui table --separator '|'
 cmp stdout want-table.txt
 ! stderr .
 
+# Test 7: plain-text cells stay on one line: a quoted CSV field with a newline
+# prints the newline as a space, and so do format characters (U+202E, U+200B)
+# and the line separator U+2028 (decisions 99 and 125.4).
+exec notty invowk tui table --file rows-quoted.csv
+cmp stdout want-quoted.txt
+! stderr .
+
+exec notty invowk tui table --file rows-format.csv
+cmp stdout want-format.txt
+! stderr .
+
 -- want-count.log --
 run
 -- pager-input.txt --
@@ -81,3 +92,16 @@ Bob|25|LA
 name   age  city
 Alice  30   NYC
 Bob    25   LA
+-- rows-quoted.csv --
+name,notes
+Alice,"line1
+line2"
+-- want-quoted.txt --
+name   notes
+Alice  line1 line2
+-- rows-format.csv --
+cell
+a‮b​c d
+-- want-format.txt --
+cell
+a b c d

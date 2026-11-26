@@ -50,8 +50,14 @@ type (
 		rows      [][]string
 		done      bool
 		cancelled bool
-		width     TerminalDimension
-		height    TerminalDimension
+		// width is the configured width (opts.Width or SetSize); 0 means none.
+		width  TerminalDimension
+		height TerminalDimension
+		// naturalWidth is the width one rendered row measures.
+		naturalWidth TerminalDimension
+		// termWidth is the terminal width of the last tea.WindowSizeMsg; it
+		// limits the drawn width only when no width is configured.
+		termWidth TerminalDimension
 	}
 
 	// TableBuilder provides a fluent API for building Table displays.
@@ -76,6 +82,21 @@ func (m *tableModel) Init() tea.Cmd {
 }
 
 func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// A table without a configured width is as wide as its columns, cut at
+	// the terminal edge so a row never wraps. A configured width (opts.Width
+	// or an overlay's SetSize) always wins, whatever the order of the two. A
+	// terminal width of 0 (a pty whose size is unset) is unknown, not a limit:
+	// a row viewport of width 0 would draw no rows at all.
+	if sizeMsg, ok := msg.(tea.WindowSizeMsg); ok && m.width == 0 && !m.done {
+		m.termWidth, _ = validatedWindowDimensions(sizeMsg)
+		width := m.naturalWidth
+		if m.termWidth > 0 {
+			width = min(width, m.termWidth)
+		}
+		m.table.SetWidth(int(width))
+		return m, nil
+	}
+
 	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 		switch keyMsg.String() {
 		case keyCtrlC, "esc", "q":
@@ -99,8 +120,12 @@ func (m *tableModel) View() tea.View {
 	}
 	// Constrain the table view to the configured width to prevent overflow in modal overlays
 	view := m.table.View()
-	if m.width > 0 {
-		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
+	maxWidth := m.width
+	if maxWidth == 0 {
+		maxWidth = m.termWidth
+	}
+	if maxWidth > 0 {
+		view = lipgloss.NewStyle().MaxWidth(int(maxWidth)).Render(view)
 	}
 	return tea.NewView(view)
 }
@@ -421,14 +446,38 @@ func newTableModelWithStyles(opts TableOptions, forModal bool) *tableModel {
 
 	t.SetStyles(s)
 
+	// The bubbles table renders its rows in a viewport that draws nothing
+	// while its width is 0, so a table drawn without an overlay's SetSize
+	// showed only its header (decision 98a). Give it a width from the start.
+	naturalWidth := tableNaturalWidth(columns, s)
+	if opts.Width > 0 {
+		t.SetWidth(int(opts.Width))
+	} else {
+		t.SetWidth(int(naturalWidth))
+	}
+
 	if opts.SelectedIndex >= 0 && int(opts.SelectedIndex) < len(opts.Rows) {
 		t.SetCursor(int(opts.SelectedIndex))
 	}
 
 	return &tableModel{
-		table:  t,
-		rows:   opts.Rows,
-		width:  opts.Width,
-		height: TerminalDimension(tableHeight),
+		table:        t,
+		rows:         opts.Rows,
+		width:        opts.Width,
+		height:       TerminalDimension(tableHeight),
+		naturalWidth: naturalWidth,
 	}
+}
+
+// tableNaturalWidth returns the width one rendered row of the table measures:
+// every drawn column's width plus the cell style's horizontal frame, plus the
+// selected-row style's frame, which wraps the whole row.
+func tableNaturalWidth(columns []table.Column, s table.Styles) TerminalDimension {
+	width := s.Selected.GetHorizontalFrameSize()
+	for _, col := range columns {
+		if col.Width > 0 {
+			width += col.Width + s.Cell.GetHorizontalFrameSize()
+		}
+	}
+	return TerminalDimension(width)
 }

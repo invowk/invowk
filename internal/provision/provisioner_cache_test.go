@@ -33,12 +33,12 @@ func TestLayerProvisioner_CalculateCacheKey_Determinism(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key1, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
+	key1, _, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	key2, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
+	key2, _, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -121,11 +121,11 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewLayerProvisioner(second) error = %v", err)
 			}
-			key1, err := p1.calculateCacheKey(t.Context(), image1, p1.config.InvowkBinaryPath)
+			key1, _, err := p1.calculateCacheKey(t.Context(), image1, p1.config.InvowkBinaryPath)
 			if err != nil {
 				t.Fatalf("calculateCacheKey(first) error = %v", err)
 			}
-			key2, err := p2.calculateCacheKey(t.Context(), image2, p2.config.InvowkBinaryPath)
+			key2, _, err := p2.calculateCacheKey(t.Context(), image2, p2.config.InvowkBinaryPath)
 			if err != nil {
 				t.Fatalf("calculateCacheKey(second) error = %v", err)
 			}
@@ -162,14 +162,14 @@ func TestLayerProvisioner_CalculateCacheKey_IgnoresWorkspaceContent(t *testing.T
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key1, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
+	key1, _, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if writeErr := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("changed workspace content"), 0o644); writeErr != nil {
 		t.Fatalf("failed to write workspace file: %v", writeErr)
 	}
-	key2, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
+	key2, _, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestLayerProvisioner_CalculateCacheKey_NoBinary(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
+	key, _, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage, provisioner.config.InvowkBinaryPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

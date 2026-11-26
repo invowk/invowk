@@ -3,8 +3,6 @@
 package sshserver
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -123,17 +121,17 @@ func TestHostCallbackToken_LifecycleMatchesModel(t *testing.T) {
 	})
 }
 
-// TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen replays finding
-// F11 (HostCallbackToken.findingF11StopKeepsSessions) with a real SSH client:
-// Stop closes the listener, but ssh.Server.Shutdown only waits for open
-// connections and closes none, so an authenticated client stays connected
-// after Stop returns, and Stop reports the shutdown deadline. The fix inverts
-// this test.
-func TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen(t *testing.T) {
+// TestHostCallbackToken_StopClosesAuthenticatedConnection is the regression
+// test of the fixed finding F11 (HostCallbackToken.noSessionAfterStopFixed;
+// the pre-fix code is kept as mutantPreFixF11StopKeepsSessions) with a real
+// SSH client: Stop closes the authenticated connection and returns nil well
+// inside ShutdownTimeout, and the client can open no new session. The base
+// closed no connection, and Stop returned context.DeadlineExceeded.
+func TestHostCallbackToken_StopClosesAuthenticatedConnection(t *testing.T) {
 	t.Parallel()
 
 	cfg := DefaultConfig()
-	cfg.ShutdownTimeout = 100 * time.Millisecond
+	cfg.ShutdownTimeout = 5 * time.Second
 	srv := mustNew(t, cfg)
 	if err := srv.Start(t.Context()); err != nil {
 		t.Fatalf("Start() error = %v", err)
@@ -148,20 +146,28 @@ func TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen(t *testing.T) {
 	closed := closedSignal(client)
 	waitUntilServerTracksConn(t, client)
 
-	stopErr := srv.Stop()
-	if !errors.Is(stopErr, context.DeadlineExceeded) {
-		t.Fatalf("Stop() error = %v, want context.DeadlineExceeded while a connection is open", stopErr)
+	began := time.Now()
+	if err := srv.Stop(); err != nil {
+		t.Fatalf("Stop() error = %v, want nil with an authenticated connection open", err)
+	}
+	if elapsed := time.Since(began); elapsed >= cfg.ShutdownTimeout/2 {
+		t.Errorf("Stop() took %v, want well inside ShutdownTimeout %v", elapsed, cfg.ShutdownTimeout)
 	}
 	select {
 	case <-closed:
-		t.Fatal("Stop() closed the authenticated connection; F11 is fixed, invert this test")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(5 * time.Second):
+		t.Fatal("the client's connection is still open 5s after Stop returned (F11)")
 	}
-	session, err := client.NewSession()
-	if err != nil {
-		t.Fatalf("NewSession() after Stop error = %v, want the connection still usable (F11)", err)
+	if session, err := client.NewSession(); err == nil {
+		_ = session.Close()
+		t.Fatal("NewSession() after Stop succeeded, want the connection closed (F11)")
 	}
-	_ = session.Close()
+	srv.tokenMu.RLock()
+	tracked := len(srv.conns)
+	srv.tokenMu.RUnlock()
+	if tracked != 0 {
+		t.Errorf("server indexes connections of %d tokens after Stop, want 0", tracked)
+	}
 }
 
 // dialToken logs in to srv over loopback with a real SSH client.

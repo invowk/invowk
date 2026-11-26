@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -97,6 +98,71 @@ func TestWatcherBackendFiltersAndDebouncesEvents(t *testing.T) {
 	}
 	if !backend.closed {
 		t.Fatal("backend was not closed")
+	}
+}
+
+// TestWatcherBackendCoalescesBurst is the exact debounce contract on the
+// fake backend with a manual timer: three events inside one window give
+// exactly one callback naming all three paths, and no second callback.
+func TestWatcherBackendCoalescesBurst(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	backend := newFakeWatcherBackend()
+	callbacks := make(chan []string, 4)
+	w, err := newWithBackend(Config{
+		BaseDir:  types.FilesystemPath(dir),
+		Debounce: time.Hour,
+		Stdout:   &bytes.Buffer{},
+		Stderr:   &bytes.Buffer{},
+		OnChange: func(_ context.Context, changed []string) error {
+			callbacks <- slices.Clone(changed)
+			return nil
+		},
+	}, backend, types.FilesystemPath(dir))
+	if err != nil {
+		t.Fatalf("newWithBackend() error = %v", err)
+	}
+	scheduler := newManualDebounceScheduler()
+	w.schedule = scheduler.Schedule
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- w.Run(ctx) }()
+
+	select {
+	case <-w.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher event loop did not become ready")
+	}
+
+	for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
+		backend.events <- fsnotify.Event{Name: filepath.Join(dir, name), Op: fsnotify.Write}
+	}
+	timer := scheduler.requireTimer(t)
+	// The second and third events re-arm the one pending timer.
+	timer.waitForResetCount(t, 2)
+	waitForManualFire(t, timer.fireAsync())
+
+	select {
+	case changed := <-callbacks:
+		slices.Sort(changed)
+		if !slices.Equal(changed, []string{"a.txt", "b.txt", "c.txt"}) {
+			t.Fatalf("changed = %v, want [a.txt b.txt c.txt]", changed)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for the debounced callback")
+	}
+
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	select {
+	case changed := <-callbacks:
+		t.Fatalf("second callback %v, want exactly one for the burst", changed)
+	default:
 	}
 }
 
@@ -192,33 +258,22 @@ func (b *fakeWatcherBackend) Errors() <-chan error {
 	return b.errors
 }
 
-// TestWatcherDebounce verifies that multiple rapid filesystem events are
-// coalesced into a single callback invocation containing all changed paths.
+// TestWatcherDebounce checks the debounce on the real filesystem: three
+// rapid writes reach the callbacks, and the callbacks name nothing else.
 func TestWatcherDebounce(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
+	const debounce = 100 * time.Millisecond
 
-	var (
-		mu        sync.Mutex
-		calls     int
-		collected []string
-	)
-
-	done := make(chan struct{})
-	var doneOnce sync.Once
-
+	callbacks := make(chan []string, 16)
 	w, err := New(Config{
 		BaseDir:  types.FilesystemPath(dir),
-		Debounce: 100 * time.Millisecond,
+		Debounce: debounce,
 		Stdout:   &bytes.Buffer{},
 		Stderr:   &bytes.Buffer{},
 		OnChange: func(_ context.Context, changed []string) error {
-			mu.Lock()
-			defer mu.Unlock()
-			calls++
-			collected = append(collected, changed...)
-			doneOnce.Do(func() { close(done) })
+			callbacks <- slices.Clone(changed)
 			return nil
 		},
 	})
@@ -239,7 +294,8 @@ func TestWatcherDebounce(t *testing.T) {
 	}
 
 	// Write three files in rapid succession — well within the debounce window.
-	for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
+	files := []string{"a.txt", "b.txt", "c.txt"}
+	for _, name := range files {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("data"), 0o644); err != nil {
 			t.Fatalf("write %s: %v", name, err)
 		}
@@ -249,41 +305,45 @@ func TestWatcherDebounce(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 
-	// Wait for the debounced callback to fire.
+	// The real filesystem cannot promise one callback: an OS that reports a
+	// change after the debounce window closed (Windows did, run 45517294042,
+	// "Test (windows)" on PR #208) correctly starts a second window. So this
+	// test asserts what the OS guarantees: the first callback arrives, every
+	// callback names only the written files, and the callbacks received until
+	// the watcher has been quiet for two debounce periods name all three. The
+	// exact one-callback contract is TestWatcherBackendCoalescesBurst.
+	union := map[string]struct{}{}
+	collect := func(changed []string) {
+		for _, path := range changed {
+			if !slices.Contains(files, path) {
+				t.Errorf("callback named %q, want only %v (got %v)", path, files, changed)
+			}
+			union[path] = struct{}{}
+		}
+	}
 	select {
-	case <-done:
+	case changed := <-callbacks:
+		collect(changed)
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for callback")
 	}
-
-	// Negative-condition check: verify no spurious callbacks fire after the
-	// initial debounced callback. Poll long enough for a full debounce cycle
-	// to confirm the callback count stays at 1.
-	testutil.AssertNeverTrue(t, 300*time.Millisecond, 10*time.Millisecond,
-		"spurious callback fired after initial debounced callback",
-		func() bool {
-			mu.Lock()
-			defer mu.Unlock()
-			return calls > 1
-		})
+	for quiet := false; !quiet; {
+		select {
+		case changed := <-callbacks:
+			collect(changed)
+		case <-time.After(2 * debounce):
+			quiet = true
+		}
+	}
 
 	cancel()
 	if err := <-errCh; err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
-
-	if calls != 1 {
-		t.Errorf("expected 1 debounced callback, got %d", calls)
-	}
-
-	// All three files must appear in the collected set.
-	slices.Sort(collected)
-	for _, want := range []string{"a.txt", "b.txt", "c.txt"} {
-		if !slices.Contains(collected, want) {
-			t.Errorf("expected %q in changed files, got %v", want, collected)
+	for _, want := range files {
+		if _, ok := union[want]; !ok {
+			t.Errorf("expected %q in the changed files of the callbacks, got %v", want, slices.Sorted(maps.Keys(union)))
 		}
 	}
 }

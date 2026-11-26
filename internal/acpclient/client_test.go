@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -19,9 +20,13 @@ const (
 	fakeAgentScenarioEnv   = "INVOWK_ACPCLIENT_FAKE_SCENARIO"
 	fakeAgentStartFileEnv  = "INVOWK_ACPCLIENT_FAKE_START_FILE"
 	fakeAgentCancelFileEnv = "INVOWK_ACPCLIENT_FAKE_CANCEL_FILE"
+	fakeAgentReportFileEnv = "INVOWK_ACPCLIENT_FAKE_REPORT_FILE"
 
 	fakeAgentScenarioSuccess = "success"
 	fakeAgentScenarioCancel  = "cancel"
+	// fakeAgentScenarioElicitation asks the client for a URL elicitation
+	// during the prompt turn and reports the answer, then ends the turn.
+	fakeAgentScenarioElicitation = "elicitation"
 )
 
 var _ acp.Agent = (*fakeAgent)(nil)
@@ -32,6 +37,10 @@ type fakeAgent struct {
 	scenario     string
 	startMarker  types.FilesystemPath
 	cancelMarker types.FilesystemPath
+	reportFile   types.FilesystemPath
+	// offersElicitation records whether the client's Initialize advertised
+	// the elicitation capability.
+	offersElicitation bool
 }
 
 func TestMain(m *testing.M) {
@@ -99,6 +108,34 @@ func TestRunPromptCancellationForwardsCancel(t *testing.T) {
 	waitForFile(t, cancelFile)
 }
 
+// TestRunPromptDeclinesElicitation checks that the client does not offer
+// elicitation, answers an elicitation request with method-not-found, and
+// still completes the prompt turn.
+func TestRunPromptDeclinesElicitation(t *testing.T) {
+	reportFile := types.FilesystemPath(filepath.Join(t.TempDir(), "report"))
+	t.Setenv(fakeAgentEnv, "1")
+	t.Setenv(fakeAgentScenarioEnv, fakeAgentScenarioElicitation)
+	t.Setenv(fakeAgentReportFileEnv, reportFile.String())
+
+	result, err := RunPrompt(t.Context(), fakeOptions(t), Prompt{Text: PromptText("ask me")})
+	if err != nil {
+		t.Fatalf("RunPrompt() error = %v", err)
+	}
+	if result.StopReason != StopReason(acp.StopReasonEndTurn) {
+		t.Fatalf("StopReason = %q, want %q", result.StopReason, acp.StopReasonEndTurn)
+	}
+	if len(result.Events) != 1 || result.Events[0].Text != "hello from fake agent" {
+		t.Fatalf("Events = %+v, want the one agent message after the elicitation", result.Events)
+	}
+	report, err := os.ReadFile(reportFile.String())
+	if err != nil {
+		t.Fatalf("read fake agent report: %v", err)
+	}
+	if want := "capability=false code=-32601"; string(report) != want {
+		t.Fatalf("fake agent report = %q, want %q", report, want)
+	}
+}
+
 func fakeOptions(t *testing.T) Options {
 	t.Helper()
 	return Options{
@@ -116,6 +153,7 @@ func runFakeAgentProcess() int {
 		scenario:     os.Getenv(fakeAgentScenarioEnv),
 		startMarker:  types.FilesystemPath(os.Getenv(fakeAgentStartFileEnv)),
 		cancelMarker: types.FilesystemPath(os.Getenv(fakeAgentCancelFileEnv)),
+		reportFile:   types.FilesystemPath(os.Getenv(fakeAgentReportFileEnv)),
 	}
 	conn := acp.NewAgentSideConnection(agent, os.Stdout, os.Stdin)
 	agent.conn = conn
@@ -128,7 +166,8 @@ func (a *fakeAgent) Authenticate(context.Context, acp.AuthenticateRequest) (acp.
 	return acp.AuthenticateResponse{}, nil
 }
 
-func (a *fakeAgent) Initialize(context.Context, acp.InitializeRequest) (acp.InitializeResponse, error) {
+func (a *fakeAgent) Initialize(_ context.Context, params acp.InitializeRequest) (acp.InitializeResponse, error) {
+	a.offersElicitation = params.ClientCapabilities.Elicitation != nil
 	return acp.InitializeResponse{
 		ProtocolVersion: acp.ProtocolVersionNumber,
 		AgentInfo: &acp.Implementation{
@@ -158,6 +197,10 @@ func (a *fakeAgent) CloseSession(context.Context, acp.CloseSessionRequest) (acp.
 	return acp.CloseSessionResponse{}, nil
 }
 
+func (a *fakeAgent) DeleteSession(context.Context, acp.DeleteSessionRequest) (acp.DeleteSessionResponse, error) {
+	return acp.DeleteSessionResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionDelete)
+}
+
 func (a *fakeAgent) ListSessions(context.Context, acp.ListSessionsRequest) (acp.ListSessionsResponse, error) {
 	return acp.ListSessionsResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionList)
 }
@@ -180,6 +223,11 @@ func (a *fakeAgent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.P
 		conn, err := a.connection(ctx)
 		if err != nil {
 			return acp.PromptResponse{}, err
+		}
+		if a.scenario == fakeAgentScenarioElicitation {
+			if err := a.elicit(ctx, conn, params.SessionId); err != nil {
+				return acp.PromptResponse{}, err
+			}
 		}
 		if err := conn.SessionUpdate(ctx, acp.SessionNotification{
 			SessionId: params.SessionId,
@@ -204,6 +252,31 @@ func (a *fakeAgent) SetSessionConfigOption(
 
 func (a *fakeAgent) SetSessionMode(context.Context, acp.SetSessionModeRequest) (acp.SetSessionModeResponse, error) {
 	return acp.SetSessionModeResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionSetMode)
+}
+
+// elicit sends a URL elicitation and a completion notification, and writes
+// the advertised capability and the request's error code to the report file.
+func (a *fakeAgent) elicit(ctx context.Context, conn *acp.AgentSideConnection, sessionID acp.SessionId) error {
+	_, elicitErr := conn.CreateElicitation(ctx, acp.CreateElicitationRequest{
+		Url: &acp.CreateElicitationUrl{
+			ElicitationId: "fake-elicitation",
+			Message:       "open this page",
+			Mode:          "url",
+			Url:           "https://example.invalid/authorize",
+			Session:       &acp.ElicitationSessionScope{SessionId: sessionID},
+		},
+	})
+	code := 0
+	if reqErr, ok := errors.AsType[*acp.RequestError](elicitErr); ok {
+		code = reqErr.Code
+	} else if elicitErr == nil {
+		return errors.New("fake elicitation succeeded, want an error")
+	}
+	if err := conn.CompleteElicitation(ctx, acp.CompleteElicitationNotification{ElicitationId: "fake-elicitation"}); err != nil {
+		return fmt.Errorf("send fake elicitation completion: %w", err)
+	}
+	report := fmt.Sprintf("capability=%t code=%d", a.offersElicitation, code)
+	return os.WriteFile(a.reportFile.String(), []byte(report), 0o600)
 }
 
 func (a *fakeAgent) connection(ctx context.Context) (*acp.AgentSideConnection, error) {

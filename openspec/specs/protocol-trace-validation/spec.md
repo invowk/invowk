@@ -1,7 +1,7 @@
 # protocol-trace-validation Specification
 
 ## Purpose
-Specifies how Invowk checks that real Go code behaves as its TLA+ protocol models describe, by recording projected state traces from test harnesses and validating them with TLC. It covers the trace-validated models (`Serverbase`, `AtomicWrite`, `Watch`, `HostCallbackToken`, `LockIntegrity`), the harness and manifest conventions, the token and lock-integrity harnesses, targeted mutations that the validation must reject, and how open findings F11 and F12 are characterised. Trace validation shows only that the recorded, bounded executions conform to the model; it is not a proof that the code is correct.
+Specifies how Invowk checks that real Go code behaves as its TLA+ protocol models describe, by recording projected state traces from test harnesses and validating them with TLC. It covers the trace-validated models (`Serverbase`, `AtomicWrite`, `Watch`, `HostCallbackToken`, `LockIntegrity`), the harness and manifest conventions, the token and lock-integrity harnesses, targeted mutations that the validation must reject, and how the fixed finding F11 and the open finding F12 are characterised. Trace validation shows only that the recorded, bounded executions conform to the model; it is not a proof that the code is correct.
 
 ## Requirements
 
@@ -15,7 +15,7 @@ Invowk SHALL trace-validate these TLA+ models against real code: `Serverbase`, `
 
 #### Scenario: Ordinary test runs
 - **WHEN** `make test` runs without `INVOWK_FORMAL_TRACE_DIR`
-- **THEN** both new harnesses SHALL skip, while the F11 and F12 replay tests and the characterisation tests SHALL run
+- **THEN** both new harnesses SHALL skip, while the F11 regression test, the F12 replay test and the characterisation tests SHALL run
 
 ### Requirement: Trace manifest entry and harness conventions
 Each trace-validated model SHALL have a `[[trace]]` entry in `formal/manifest.toml` that names the model and its harness package, and its harness SHALL follow the naming, recording and skip conventions below.
@@ -93,7 +93,7 @@ The projection of `TestHostCallbackToken_TraceHarness` SHALL have, for each of t
 - **THEN** it SHALL:
 - read token admissibility under `tokenMu`, without side effects;
 - read connection liveness from the client side of the transport, and cross-check it against the server's connection map;
-- accept a `context.DeadlineExceeded` error from `Stop`, and record `server = "stopped"` once `State()` is Stopped.
+- require `Stop` to return `nil`, wait for every client to see its connection closed after `Stop`, and record `server = "stopped"` once `State()` is Stopped.
 
 #### Scenario: Targeted token mutations rejected
 - **WHEN** the harness emits its mutations
@@ -103,15 +103,19 @@ The projection of `TestHostCallbackToken_TraceHarness` SHALL have, for each of t
   - expiry closing a connection;
   - revoking one execution closing another execution's connection;
   - a token that becomes admissible again after revocation;
-  - two tokens expiring in one record
+  - two tokens expiring in one record;
+  - a connection that stays open after `Stop` (the pre-fix behaviour of F11)
 
 #### Scenario: Finding F11, Stop keeps authenticated connections open
+- **WHEN** `make formal` checks the pre-fix configuration of finding F11, in which `Stop` keeps authenticated connections open
+- **THEN** `mutantPreFixF11StopKeepsSessions` (`StopClosesSessions = FALSE`, `mutant_of = "noSessionAfterStopFixed"`, no `finding` key) SHALL produce a counterexample of `NoSessionAfterStop`
+- **THEN** `formal/README.md` SHALL record F11 as fixed, naming that mutant as the one that keeps the pre-fix behaviour
+
+#### Scenario: Fixed finding F11, Stop closes every connection
 - **WHEN** a real client stays connected through `Stop`
-- **THEN** `HostCallbackToken.tla` SHALL mirror the code with `StopClosesSessions = FALSE` in its base constants
-- **THEN** `findingF11StopKeepsSessions` SHALL produce a counterexample of `NoSessionAfterStop`, and `noSessionAfterStopFixed` (`StopClosesSessions = TRUE`) SHALL pass, guarded by `mutantListenerLeftOpen`
-- **THEN** the Go replay test `TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen` SHALL reproduce the finding in the real code
-- **THEN** `formal/README.md` SHALL record F11 as open, with its production reachability
-- **THEN** the product fix SHALL be left to a separate change
+- **THEN** `HostCallbackToken.tla` SHALL mirror the code with `StopClosesSessions = TRUE` in its base constants
+- **THEN** `noSessionAfterStopFixed` SHALL pass, and `mutantListenerLeftOpen` SHALL still produce a counterexample of `NoSessionAfterStop`
+- **THEN** the Go regression test `TestHostCallbackToken_StopClosesAuthenticatedConnection` SHALL show in the real code that `Stop` returns `nil` and the client's connection is closed
 
 ### Requirement: Lock-integrity trace
 `TestLockIntegrity_TraceHarness` SHALL live in the external test package of `internal/app/modulesync`. It SHALL use the resolver's fake-fetcher seam, which `export_test.go` exports to tests. Each of its operations SHALL stand for the model action given in the "Lock operations map to model actions" scenario.
@@ -194,11 +198,15 @@ The harness SHALL:
 - **THEN** the harness SHALL fail before any trace is written
 
 ### Requirement: Open findings are not mutations
-A behaviour that the base constants accept because of an open finding SHALL NOT be declared as a mutation. This covers a connection open after `Stop` (F11) and a hashless-entry sibling admission (F12).
+A behaviour that the base constants accept because of an open finding SHALL NOT be declared as a mutation. This covers a hashless-entry sibling admission (F12). Once a finding is fixed and the base constants no longer accept its behaviour, that behaviour MAY be declared as a targeted mutation, as a connection open after `Stop` is after the fix of F11.
 
 #### Scenario: Behaviour accepted because of an open finding
-- **WHEN** a behaviour is accepted by the base constants because of an open finding, such as a connection open after `Stop` (F11) or a hashless-entry sibling admission (F12)
+- **WHEN** a behaviour is accepted by the base constants because of an open finding, such as a hashless-entry sibling admission (F12)
 - **THEN** it SHALL NOT be declared as a mutation
+
+#### Scenario: Behaviour of a fixed finding
+- **WHEN** the base constants reject a behaviour because its finding was fixed, such as a connection open after `Stop` (F11)
+- **THEN** a targeted mutation of an accepted trace MAY declare that behaviour, and validation SHALL reject it
 
 ### Requirement: Suite constant overrides
 A `[[trace]]` entry SHALL allow only the keys `name`, `package`, and `constants`, where `constants` is an inline table. The runner SHALL merge constants in this order:

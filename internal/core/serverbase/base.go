@@ -4,10 +4,15 @@ package serverbase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 )
+
+// ErrStartNotCreated is matched by the error of a TransitionToStarting on a
+// server that is not in Created: only a never-started server can start.
+var ErrStartNotCreated = errors.New("cannot start server")
 
 // Base provides common fields and lifecycle infrastructure for servers.
 // Concrete server implementations embed this struct.
@@ -86,17 +91,36 @@ func (b *Base) LastError() error {
 // --- Lifecycle helpers for concrete implementations ---
 
 // TransitionToStarting attempts to transition from Created to Starting.
-// Returns an error if the current state is not Created or if the context
-// is already cancelled.
+// Only a server in Created changes state: on any other state it returns an
+// error naming that state (matching ErrStartNotCreated) and changes nothing,
+// whatever ctx says. On Created with an already-cancelled ctx it moves the
+// server to Failed and returns an error wrapping ctx's error.
 // Must be called at the beginning of Start().
 func (b *Base) TransitionToStarting(ctx context.Context) error {
-	// Check for already-cancelled context BEFORE any setup.
-	// This prevents a TOCTOU race where the serve goroutine could transition
-	// to StateRunning before the cancelled context is detected.
-	select {
-	case <-ctx.Done():
-		return b.TransitionToFailed(fmt.Errorf("context cancelled before start: %w", ctx.Err()))
-	default:
+	// Both branches change the state only by one compare-and-swap from
+	// Created, inside one stateMu critical section, so the state check
+	// precedes every effect of the context check: a second Start with a
+	// cancelled ctx can no longer fail a server another Start owns, and a
+	// lock-free TransitionToStopping that moved Created -> Stopped meanwhile
+	// only makes the CAS lose (decision 120; formal/tla/Serverbase.tla,
+	// CancelledStartChangesOnlyCreated). The cancelled branch does not use
+	// TransitionToFailed: its CAS loop fails any non-terminal state, and its
+	// lost CAS returns the recorded error, nil after Created -> Stopped.
+	b.stateMu.Lock()
+	defer b.stateMu.Unlock()
+
+	// Check for an already-cancelled context BEFORE any setup, so the serve
+	// goroutine can never reach StateRunning on a cancelled start.
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		if !b.state.CompareAndSwap(int32(StateCreated), int32(StateFailed)) {
+			return b.notCreatedErrorLocked()
+		}
+		// No server context exists yet, so there is nothing to cancel.
+		err := fmt.Errorf("context cancelled before start: %w", ctxErr)
+		b.lastErr = err
+		b.sendErrorLocked(err)
+		b.closeErrChannelLocked()
+		return err
 	}
 
 	// The Created -> Starting CAS and the ctx/cancel store happen in one
@@ -109,10 +133,8 @@ func (b *Base) TransitionToStarting(ctx context.Context) error {
 	// The internal context is a child of the caller's context so that parent
 	// cancellation (e.g., Ctrl+C) propagates to server goroutines. Shutdown
 	// (Stop) uses its own independent context for graceful cleanup.
-	b.stateMu.Lock()
-	defer b.stateMu.Unlock()
 	if !b.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {
-		return fmt.Errorf("cannot start server in state %s", b.State())
+		return b.notCreatedErrorLocked()
 	}
 	b.ctx, b.cancel = context.WithCancel(ctx)
 	return nil
@@ -260,6 +282,13 @@ func (b *Base) CloseErrChannel() {
 // The channel is closed when the server transitions to Running.
 func (b *Base) StartedChannel() <-chan struct{} {
 	return b.startedCh
+}
+
+// notCreatedErrorLocked is the error of a TransitionToStarting that found the
+// server out of Created. The state it names is never Created again: no
+// transition returns to Created. The caller holds stateMu.
+func (b *Base) notCreatedErrorLocked() error {
+	return fmt.Errorf("%w in state %s", ErrStartNotCreated, b.State())
 }
 
 // casToTerminalLocked moves a non-terminal state to target and reports

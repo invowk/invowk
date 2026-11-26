@@ -30,13 +30,13 @@ const (
 	// tui.SpinCancelWait: a negative constant does not convert to uint64.
 	_ = uint64(tui.SpinCancelWait - tuiSpinCommandWaitDelay - 1)
 
-	// errTUISpinNotRunMsg is the message of errTUISpinNotRun.
-	errTUISpinNotRunMsg = "spin: the command did not run"
+	// tuiSpinNotRunErrMsg is the message of errTUISpinNotRun.
+	tuiSpinNotRunErrMsg = "spin: the command did not run"
 )
 
 // errTUISpinNotRun reports a spin function that returned without running the
 // command and without an error; tui.SpinWithAction never does that.
-var errTUISpinNotRun = errors.New(errTUISpinNotRunMsg)
+var errTUISpinNotRun = errors.New(tuiSpinNotRunErrMsg)
 
 type (
 	tuiSpinRunner interface {
