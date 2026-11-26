@@ -2968,38 +2968,6 @@ added = '''
 '''
 
 [[survivor]]
-id = "2e6c63b68811286e1fc50e10eea15eac"
-file = "internal/runtime/dotenv.go"
-symbol = "LoadEnvFile"
-model = "ModulePathContainment"
-element = "readOp"
-class = "binding-gap"
-reason = "branch/if (Changes: `return envFileOutsideModuleError(path, moduleRoot, \"is an absolute path outside\", nil)` → `_, _ = path, moduleRoot`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so an absolute path never reaches the check; TestLoadEnvFile_ModuleContext (\"absolute path built in Go\") kills it but is not in the row's binding"
-follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
-removed = '''
-			return envFileOutsideModuleError(path, moduleRoot, "is an absolute path outside", nil)
-'''
-added = '''
-			_, _ = path, moduleRoot
-'''
-
-[[survivor]]
-id = "c63587d52d6dd8097397c545cf4111c3"
-file = "internal/runtime/dotenv.go"
-symbol = "LoadEnvFile"
-model = "ModulePathContainment"
-element = "readOp"
-class = "binding-gap"
-reason = "statement/return (Changes: `return envFileOutsideModuleError(path, moduleRoot, \"is an absolute path outside\", nil)` → `return nil`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so an absolute path never reaches the check; TestLoadEnvFile_ModuleContext (\"absolute path built in Go\") kills it but is not in the row's binding"
-follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
-removed = '''
-			return envFileOutsideModuleError(path, moduleRoot, "is an absolute path outside", nil)
-'''
-added = '''
-			return nil
-'''
-
-[[survivor]]
 id = "069d17a0520728bfda8dd12349721377"
 file = "internal/runtime/dotenv.go"
 symbol = "LoadEnvFile"
@@ -3125,22 +3093,6 @@ removed = '''
 '''
 added = '''
 			_, _, _ = path, moduleRoot, relErr
-'''
-
-[[survivor]]
-id = "c3ed4846009afebb70b119b4551aeee3"
-file = "internal/runtime/dotenv.go"
-symbol = "LoadEnvFile"
-model = "ModulePathContainment"
-element = "readOp"
-class = "binding-gap"
-reason = "statement/return (Changes: `return envFileOutsideModuleError(path, moduleRoot, \"resolves outside\", relErr)` → `return nil`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so a lexically leaving path never reaches the check; TestLoadEnvFile_ModuleContext (\"lexical escape\", \"basePath outside moduleRoot\") kills it but is not in the row's binding"
-follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
-removed = '''
-			return envFileOutsideModuleError(path, moduleRoot, "resolves outside", relErr)
-'''
-added = '''
-			return nil
 '''
 
 [[survivor]]
@@ -3277,51 +3229,35 @@ added = '''
 '''
 
 [[survivor]]
-id = "eb14d7d22e7eadebf73cd7cf208f6dbf"
+id = "37715aeafd76b51b812f1cb2a6cf4086"
 file = "internal/runtime/dotenv.go"
 symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "expression/remove (Changes: `if optional && absent {` → `if true && absent {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden env verdict is denied only on ErrEnvFileOutsideModule, so skipping a missing required file and failing a missing optional one are both \"accepted\"; TestLoadEnvFile_ModuleContext (\"required missing file\", \"optional missing file\") asserts the skip but is not in the row's binding"
+reason = "expression/error-guard (Changes: `if err != nil {` → `if false {`) survives TestLoadEnvFile_ModuleContext, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: mutates the non-module os.ReadFile branch (moduleRoot == \"\"), which no ModulePathContainment binding test enters"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
-			if optional && absent {
+	if err != nil {
 '''
 added = '''
-			if true && absent {
+	if false {
 '''
 
 [[survivor]]
-id = "7624f7c08bd582c1d349ebab1421498f"
+id = "d2d82b32b0a732c04bfadd8c06cef6ac"
 file = "internal/runtime/dotenv.go"
 symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "branch/if (Changes: `return nil // Optional file missing is OK` → `// Optional file missing is OK`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden env verdict is denied only on ErrEnvFileOutsideModule, so skipping a missing required file and failing a missing optional one are both \"accepted\"; TestLoadEnvFile_ModuleContext (\"required missing file\", \"optional missing file\") asserts the skip but is not in the row's binding"
+reason = "conditional/negated (Changes: `if err != nil {` → `if err == nil {`) survives TestLoadEnvFile_ModuleContext, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: mutates the non-module os.ReadFile branch (moduleRoot == \"\"), which no ModulePathContainment binding test enters"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
-				return nil // Optional file missing is OK
+	if err != nil {
 '''
 added = '''
-				// Optional file missing is OK
-'''
-
-[[survivor]]
-id = "a84e68766110f1c6da6416aca54b3634"
-file = "internal/runtime/dotenv.go"
-symbol = "LoadEnvFile"
-model = "ModulePathContainment"
-element = "readOp"
-class = "binding-gap"
-reason = "expression/errorf-wrap (Changes: `return fmt.Errorf(\"failed to read env file '%s': %w\", path, readErr)` → `return fmt.Errorf(\"failed to read env file '%s': %v\", path, readErr)`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden env verdict only tests ErrEnvFileOutsideModule, not the wrapped read error. TestLoadEnvFile_ModuleContext/required_missing_file kills it (it asserts errors.Is(fs.ErrNotExist) on the read error; go test -overlay probe, 2026-11-23), and so does TestLoadEnvFile_ModuleNoSearchPermission where it does not skip, but TestLoadEnvFile_ModuleContext is bound only to the physContains rows of the env helpers, not to the `readOp | LoadEnvFile` row; naming it in that row closes the gap"
-follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
-removed = '''
-			return fmt.Errorf("failed to read env file '%s': %w", path, readErr)
-'''
-added = '''
-			return fmt.Errorf("failed to read env file '%s': %v", path, readErr)
+	if err == nil {
 '''
 
 [[survivor]]
@@ -3733,6 +3669,38 @@ added = '''
 '''
 
 [[survivor]]
+id = "f0d93428e306a0750ac25ae422d0220b"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.walk"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "equivalent"
+reason = "loop/break (Changes: `continue` → `break`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: inside the switch on name, break only exits the switch (not the outer for loop), so control falls through to filepath.Join(w.prefix, \".\") == w.prefix, whose Lstat succeeds on the existing physical non-link directory prefix and leaves w.prefix unchanged"
+follow_up = ""
+removed = '''
+			continue
+'''
+added = '''
+			break
+'''
+
+[[survivor]]
+id = "fcf04d08e5216769f93c22fb33b390ed"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.walk"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "equivalent"
+reason = "branch/case (Replaces a switch case body with a noop, making that branch a no-op) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: with case \".\": a no-op, name == \".\" falls through to filepath.Join(w.prefix, \".\") == w.prefix, whose Lstat succeeds on the existing physical non-link directory prefix and leaves w.prefix unchanged"
+follow_up = ""
+removed = '''
+			continue
+'''
+added = '''
+
+'''
+
+[[survivor]]
 id = "a05beefe6636cc59c78daf93882fd8e8"
 file = "internal/runtime/virtual_policy.go"
 symbol = "virtualPathWalker.next"
@@ -3906,6 +3874,22 @@ removed = '''
 '''
 added = '''
 		return nil
+'''
+
+[[survivor]]
+id = "c5478deb42aac7a7266277af37ccedf9"
+file = "internal/runtime/virtual_policy.go"
+symbol = "missingVirtualPathSuffix"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "equivalent"
+reason = "expression/remove (Changes: `if isDisallowed != nil && isDisallowed(name) {` → `if true && isDisallowed(name) {`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: missingVirtualPathSuffix is unexported and has a single caller (virtualPathWalker.walk), which always passes the bound method value w.isDisallowedComponent (never nil)"
+follow_up = ""
+removed = '''
+			if isDisallowed != nil && isDisallowed(name) {
+'''
+added = '''
+			if true && isDisallowed(name) {
 '''
 
 [[survivor]]
@@ -7210,70 +7194,6 @@ added = '''
 '''
 
 [[survivor]]
-id = "ea2a85e07d21205dc907fcfb66e02784"
-file = "internal/runtime/virtual_path_nofollow.go"
-symbol = "virtualPathResolver.resolveNoFollow"
-model = "VirtualPathHarness"
-element = "normalized"
-class = "binding-gap"
-reason = "statement/return (Changes: `return resolved, true, err` → `return resolved, true, nil`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a request that names a directory by its form (a final separator, \".\" or \"..\") and whose full resolution fails (an unknown anchor, an unresolvable path under restricted access); the mutant then returns an empty path with no error, which validateNoFollow denies under restricted access with a different error and, under full access, turns into the volume root when the request ended in a separator"
-follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
-removed = '''
-		return resolved, true, err
-'''
-added = '''
-		return resolved, true, nil
-'''
-
-[[survivor]]
-id = "9b03c754fcc1340c254a8f76391b37ad"
-file = "internal/runtime/virtual_path_nofollow.go"
-symbol = "virtualPathResolver.resolveNoFollow"
-model = "VirtualPathHarness"
-element = "normalized"
-class = "binding-gap"
-reason = "branch/if (Changes: `return \"\", false, err` → `_ = err`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a no-follow request whose anchor expansion fails; the mutant goes on with the empty expansion, which absoluteVirtualPath refuses with a different error"
-follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
-removed = '''
-		return "", false, err
-'''
-added = '''
-		_ = err
-'''
-
-[[survivor]]
-id = "e93231af5869936068838cc391bccbc8"
-file = "internal/runtime/virtual_path_nofollow.go"
-symbol = "virtualPathResolver.resolveNoFollow"
-model = "VirtualPathHarness"
-element = "normalized"
-class = "binding-gap"
-reason = "statement/return (Changes: `return \"\", false, err` → `return \"\", false, nil`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a no-follow request whose anchor expansion fails; the mutant returns an empty path with no error, which validateNoFollow denies under restricted access and returns under full access"
-follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
-removed = '''
-		return "", false, err
-'''
-added = '''
-		return "", false, nil
-'''
-
-[[survivor]]
-id = "031466843c969ad9d5be565a82e52f9c"
-file = "internal/runtime/virtual_path_nofollow.go"
-symbol = "virtualPathResolver.resolveNoFollow"
-model = "VirtualPathHarness"
-element = "normalized"
-class = "binding-gap"
-reason = "statement/remove (Changes: `resolved, err = normalizeVirtualPathForAccess(cleaned, \"\", r.access)` → `_, _, _, _ = resolved, err, cleaned, r.access`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a volume root (\"/\") as a no-follow request; the mutant returns an empty path for it"
-follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
-removed = '''
-		resolved, err = normalizeVirtualPathForAccess(cleaned, "", r.access)
-'''
-added = '''
-		_, _, _, _ = resolved, err, cleaned, r.access
-'''
-
-[[survivor]]
 id = "9e7a9b80410241ad049233a9da37f233"
 file = "internal/runtime/virtual_path_nofollow.go"
 symbol = "virtualPathResolver.resolveNoFollow"
@@ -7289,22 +7209,6 @@ removed = '''
 added = '''
 		_, _, _, _, _, _ = resolved, err, cleaned, r.access, resolved, err
 
-'''
-
-[[survivor]]
-id = "7533d3edb7d4f0beeb64f5f75a8c3d89"
-file = "internal/runtime/virtual_path_nofollow.go"
-symbol = "virtualPathResolver.resolveNoFollow"
-model = "VirtualPathHarness"
-element = "normalized"
-class = "binding-gap"
-reason = "statement/return (Changes: `return resolved, false, err` → `return \"\", false, err`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a volume root (\"/\") as a no-follow request; the mutant returns an empty path for it"
-follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
-removed = '''
-		return resolved, false, err
-'''
-added = '''
-		return "", false, err
 '''
 
 [[survivor]]
@@ -7324,6 +7228,70 @@ added = '''
 '''
 
 [[survivor]]
+id = "00452cbddc465f8a3608e4dc6ad9fbea"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "expression/remove (Changes: `if r.access != invowkfile.VirtualFilesystemAccessFull && isVirtualPathDisallowedComponent(base) {` → `if true && isVirtualPathDisallowedComponent(base) {`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: isVirtualPathDisallowedComponent returns false off Windows, so the Linux formal-bindings lane never reaches this Windows-only branch (covered on Windows by TestVirtualPathWindowsColonComponentRefused)"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
+removed = '''
+	if r.access != invowkfile.VirtualFilesystemAccessFull && isVirtualPathDisallowedComponent(base) {
+'''
+added = '''
+	if true && isVirtualPathDisallowedComponent(base) {
+'''
+
+[[survivor]]
+id = "2a7e16a0d588f60499e0cad98daa26ce"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "conditional/negated (Changes: `if r.access != invowkfile.VirtualFilesystemAccessFull && isVirtualPathDisallowedComponent(base) {` → `if r.access == invowkfile.VirtualFilesystemAccessFull && isVirtualPathDisallowedComponent(base) {`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: isVirtualPathDisallowedComponent returns false off Windows, so the Linux formal-bindings lane never reaches this Windows-only branch (covered on Windows by TestVirtualPathWindowsColonComponentRefused)"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
+removed = '''
+	if r.access != invowkfile.VirtualFilesystemAccessFull && isVirtualPathDisallowedComponent(base) {
+'''
+added = '''
+	if r.access == invowkfile.VirtualFilesystemAccessFull && isVirtualPathDisallowedComponent(base) {
+'''
+
+[[survivor]]
+id = "1bf24850d0cf5dc5bc4d5984ce71bffb"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "branch/if (Changes: `return \"\", false, virtualPolicyDenyError(errVirtualPathDisallowedComponent, base)` → `_, _ = errVirtualPathDisallowedComponent, base`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: isVirtualPathDisallowedComponent returns false off Windows, so the Linux formal-bindings lane never reaches this Windows-only branch (covered on Windows by TestVirtualPathWindowsColonComponentRefused)"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
+removed = '''
+		return "", false, virtualPolicyDenyError(errVirtualPathDisallowedComponent, base)
+'''
+added = '''
+		_, _ = errVirtualPathDisallowedComponent, base
+'''
+
+[[survivor]]
+id = "7b3c804a29c781e71505b9eea825a9e0"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "statement/return (Changes: `return \"\", false, virtualPolicyDenyError(errVirtualPathDisallowedComponent, base)` → `return \"\", false, nil`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: isVirtualPathDisallowedComponent returns false off Windows, so the Linux formal-bindings lane never reaches this Windows-only branch (covered on Windows by TestVirtualPathWindowsColonComponentRefused)"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
+removed = '''
+		return "", false, virtualPolicyDenyError(errVirtualPathDisallowedComponent, base)
+'''
+added = '''
+		return "", false, nil
+'''
+
+[[survivor]]
 id = "cc87be715cb8339d1d2179705b9ae14d"
 file = "internal/runtime/virtual_path_nofollow.go"
 symbol = "virtualPathValidator.validateNoFollow"
@@ -7337,54 +7305,6 @@ removed = '''
 '''
 added = '''
 				continue
-'''
-
-[[survivor]]
-id = "59811827fe04e815d9c65f1cefc77340"
-file = "internal/runtime/virtual_path_nofollow.go"
-symbol = "virtualPathValidator.validateNoFollow"
-model = "VirtualPathHarness"
-element = "accepts"
-class = "binding-gap"
-reason = "expression/logical (Changes: `if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {` → `if endsInVirtualPathSeparator(path) || !endsInVirtualPathSeparator(resolved) {`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer checks the returned path of a request whose last element is \".\" or \"..\" (dirCheck without a final separator); the mutant appends a separator to it"
-follow_up = "tasks/next/formal-binding-gaps.md#virtualpathvalidatorvalidatenofollow"
-removed = '''
-	if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {
-'''
-added = '''
-	if endsInVirtualPathSeparator(path) || !endsInVirtualPathSeparator(resolved) {
-'''
-
-[[survivor]]
-id = "c4395e502cfb8909856c231fefc02d3c"
-file = "internal/runtime/virtual_path_nofollow.go"
-symbol = "virtualPathValidator.validateNoFollow"
-model = "VirtualPathHarness"
-element = "accepts"
-class = "binding-gap"
-reason = "expression/remove (Changes: `if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {` → `if true && !endsInVirtualPathSeparator(resolved) {`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer checks the returned path of a request whose last element is \".\" or \"..\" (dirCheck without a final separator); the mutant appends a separator to it"
-follow_up = "tasks/next/formal-binding-gaps.md#virtualpathvalidatorvalidatenofollow"
-removed = '''
-	if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {
-'''
-added = '''
-	if true && !endsInVirtualPathSeparator(resolved) {
-'''
-
-[[survivor]]
-id = "d5ae8094eea16b9273233f25d9ff35b9"
-file = "internal/runtime/virtual_path_nofollow.go"
-symbol = "virtualPathValidator.validateNoFollow"
-model = "VirtualPathHarness"
-element = "accepts"
-class = "binding-gap"
-reason = "expression/remove (Changes: `if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {` → `if endsInVirtualPathSeparator(path) && true {`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a request whose resolved path already ends in a separator (a volume root written with its separator); the mutant appends a second one"
-follow_up = "tasks/next/formal-binding-gaps.md#virtualpathvalidatorvalidatenofollow"
-removed = '''
-	if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {
-'''
-added = '''
-	if endsInVirtualPathSeparator(path) && true {
 '''
 
 [[survivor]]
@@ -10271,6 +10191,198 @@ removed = '''
 '''
 added = '''
 		_ = s.base.WaitForShutdown
+'''
+
+[[survivor]]
+id = "f814aed4e4ffdd8dec027adf4ca4f007"
+file = "pkg/invowkmod/invowkmod_edit.go"
+symbol = "RemoveRequirementIfPresent"
+model = "ConcurrentModuleEdits"
+element = "WriteMod remove"
+class = "binding-gap"
+reason = "expression/errorf-wrap (Changes: `return false, fmt.Errorf(\"failed to read %s: %w\", invowkmodPath, err)` → `return false, fmt.Errorf(\"failed to read %s: %v\", invowkmodPath, err)`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: the bound unreadable-file test asserts a non-nil error and untouched file without asserting errors.Is on the wrapped OS error"
+follow_up = "tasks/next/formal-binding-gaps.md#removerequirementifpresent"
+removed = '''
+		return false, fmt.Errorf("failed to read %s: %w", invowkmodPath, err)
+'''
+added = '''
+		return false, fmt.Errorf("failed to read %s: %v", invowkmodPath, err)
+'''
+
+[[survivor]]
+id = "9c308403b858fe662d537369185e6e05"
+file = "pkg/invowkmod/invowkmod_edit.go"
+symbol = "RemoveRequirementIfPresent"
+model = "ConcurrentModuleEdits"
+element = "WriteMod remove"
+class = "equivalent"
+reason = "branch/if (Changes: `return false, nil // No requires block, nothing to remove` → `// No requires block, nothing to remove`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: when !hasBlock, block.entries is empty, so the match loop runs zero times, matched stays -1, and the matched < 0 guard immediately returns the same (false, nil)"
+follow_up = ""
+removed = '''
+		return false, nil // No requires block, nothing to remove
+'''
+added = '''
+		// No requires block, nothing to remove
+'''
+
+[[survivor]]
+id = "01ca242ae2a0dbc2295294cea23c341c"
+file = "pkg/invowkmod/invowkmod_edit.go"
+symbol = "RemoveRequirementIfPresent"
+model = "ConcurrentModuleEdits"
+element = "WriteMod remove"
+class = "equivalent"
+reason = "numbers/incrementer (Changes: `matched := -1` → `matched := -2`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: matched is only overwritten with slice index i >= 0 or checked by matched < 0, so -1 and -2 are indistinguishable"
+follow_up = ""
+removed = '''
+	matched := -1
+'''
+added = '''
+	matched := -2
+'''
+
+[[survivor]]
+id = "4358f1a88f1ec59e8ed1fba4e7ae89fa"
+file = "pkg/invowkmod/invowkmod_edit.go"
+symbol = "RemoveRequirementIfPresent"
+model = "ConcurrentModuleEdits"
+element = "WriteMod remove"
+class = "binding-gap"
+reason = "expression/error-guard (Changes: `if err := checkEditKeepsCUEValid(invowkmodPath, data, []byte(out)); err != nil {` → `if err := checkEditKeepsCUEValid(invowkmodPath, data, []byte(out)); false {`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: no bound edit test on RemoveRequirementIfPresent feeds a case whose edit fails CUE validation"
+follow_up = "tasks/next/formal-binding-gaps.md#removerequirementifpresent"
+removed = '''
+	if err := checkEditKeepsCUEValid(invowkmodPath, data, []byte(out)); err != nil {
+'''
+added = '''
+	if err := checkEditKeepsCUEValid(invowkmodPath, data, []byte(out)); false {
+'''
+
+[[survivor]]
+id = "612b9a41f4a07432973a00ffde6d95c4"
+file = "pkg/invowkmod/invowkmod_edit.go"
+symbol = "RemoveRequirementIfPresent"
+model = "ConcurrentModuleEdits"
+element = "WriteMod remove"
+class = "binding-gap"
+reason = "statement/return (Changes: `return false, err` → `return false, nil`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: no bound edit test on RemoveRequirementIfPresent feeds a case whose edit fails checkEditKeepsCUEValid"
+follow_up = "tasks/next/formal-binding-gaps.md#removerequirementifpresent"
+removed = '''
+		return false, err
+'''
+added = '''
+		return false, nil
+'''
+
+[[survivor]]
+id = "ad32097b52c820b328ece732515c59d4"
+file = "pkg/invowkmod/invowkmod_edit.go"
+symbol = "RemoveRequirementIfPresent"
+model = "ConcurrentModuleEdits"
+element = "WriteMod remove"
+class = "binding-gap"
+reason = "branch/if (Changes: `return false, err` → `_ = err`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: no bound edit test on RemoveRequirementIfPresent feeds a case whose edit fails checkEditKeepsCUEValid"
+follow_up = "tasks/next/formal-binding-gaps.md#removerequirementifpresent"
+removed = '''
+		return false, err
+'''
+added = '''
+		_ = err
+'''
+
+[[survivor]]
+id = "d5485f0c3291923bb27eaf76f745b5f7"
+file = "pkg/invowkmod/invowkmod_edit.go"
+symbol = "RemoveRequirementIfPresent"
+model = "ConcurrentModuleEdits"
+element = "WriteMod remove"
+class = "binding-gap"
+reason = "expression/error-guard (Changes: `if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); writeErr != nil {` → `if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); false {`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: no bound edit test exercises an atomic-write failure after reading invowkmod.cue"
+follow_up = "tasks/next/formal-binding-gaps.md#removerequirementifpresent"
+removed = '''
+	if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); writeErr != nil {
+'''
+added = '''
+	if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); false {
+'''
+
+[[survivor]]
+id = "83e11a247b2732f29a6ac0b2c1b8d64a"
+file = "pkg/invowkmod/invowkmod_edit.go"
+symbol = "RemoveRequirementIfPresent"
+model = "ConcurrentModuleEdits"
+element = "WriteMod remove"
+class = "binding-gap"
+reason = "statement/return (Changes: `return false, writeErr` → `return false, nil`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: no bound edit test exercises an atomic-write failure after reading invowkmod.cue"
+follow_up = "tasks/next/formal-binding-gaps.md#removerequirementifpresent"
+removed = '''
+		return false, writeErr
+'''
+added = '''
+		return false, nil
+'''
+
+[[survivor]]
+id = "b7cd353addad0732c6fc989b70583b88"
+file = "pkg/invowkmod/invowkmod_edit.go"
+symbol = "RemoveRequirementIfPresent"
+model = "ConcurrentModuleEdits"
+element = "WriteMod remove"
+class = "binding-gap"
+reason = "branch/if (Changes: `return false, writeErr` → `_ = writeErr`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: no bound edit test exercises an atomic-write failure after reading invowkmod.cue"
+follow_up = "tasks/next/formal-binding-gaps.md#removerequirementifpresent"
+removed = '''
+		return false, writeErr
+'''
+added = '''
+		_ = writeErr
+'''
+
+[[survivor]]
+id = "9beb0f9a5f0939b4b70e559dd8ed9e9d"
+file = "pkg/invowkmod/lockfile.go"
+symbol = "LockFile.SaveIfChanged"
+model = "AtomicWrite"
+element = "Next"
+class = "binding-gap"
+reason = "expression/error-guard (Changes: `if mkdirErr := os.MkdirAll(filepath.Dir(path), 0o755); mkdirErr != nil {` → `if mkdirErr := os.MkdirAll(filepath.Dir(path), 0o755); false {`) survives TestConcurrentEdits_VendorFromStaleLock, TestLockFileSaveCreatesMissingFile, TestLockFileSaveDelegatesSkipToSaveIfChanged, TestLockFileSaveIfChangedAtomicWriteErrorIsNotAWrite, TestLockFileSaveIfChangedFailedSaveIsNotAWrite, TestLockFileSaveIfChangedMkdirErrorIsNotAWrite, TestLockFileSaveReplacesOversizedFile, TestLockFileSaveReplacesUnknownVersionFile, TestLockFileSaveReplacesUnparseableFile, TestLockFileSaveSkipsEquivalentEmptyLock, TestLockFileSaveSkipsEquivalentNonCanonicalFile, TestLockFileSaveWritesChangedContent, TestLockFileSaveWritesVersionChange: when MkdirAll fails, falling through to fspath.AtomicWriteFile also fails and returns (false, err), and the bound test asserts (false, non-nil err) without inspecting the error message"
+follow_up = "tasks/next/formal-binding-gaps.md#lockfilesaveifchanged"
+removed = '''
+	if mkdirErr := os.MkdirAll(filepath.Dir(path), 0o755); mkdirErr != nil {
+'''
+added = '''
+	if mkdirErr := os.MkdirAll(filepath.Dir(path), 0o755); false {
+'''
+
+[[survivor]]
+id = "bc0fa89534de3881805c1195c35d7da6"
+file = "pkg/invowkmod/lockfile.go"
+symbol = "LockFile.SaveIfChanged"
+model = "AtomicWrite"
+element = "Next"
+class = "binding-gap"
+reason = "branch/if (Changes: `return false, fmt.Errorf(\"failed to create directory: %w\", mkdirErr)` → `_, _ = fmt.Errorf, mkdirErr`) survives TestConcurrentEdits_VendorFromStaleLock, TestLockFileSaveCreatesMissingFile, TestLockFileSaveDelegatesSkipToSaveIfChanged, TestLockFileSaveIfChangedAtomicWriteErrorIsNotAWrite, TestLockFileSaveIfChangedFailedSaveIsNotAWrite, TestLockFileSaveIfChangedMkdirErrorIsNotAWrite, TestLockFileSaveReplacesOversizedFile, TestLockFileSaveReplacesUnknownVersionFile, TestLockFileSaveReplacesUnparseableFile, TestLockFileSaveSkipsEquivalentEmptyLock, TestLockFileSaveSkipsEquivalentNonCanonicalFile, TestLockFileSaveWritesChangedContent, TestLockFileSaveWritesVersionChange: when MkdirAll fails, falling through to fspath.AtomicWriteFile also fails and returns (false, err), and the bound test asserts (false, non-nil err) without inspecting the error message"
+follow_up = "tasks/next/formal-binding-gaps.md#lockfilesaveifchanged"
+removed = '''
+		return false, fmt.Errorf("failed to create directory: %w", mkdirErr)
+'''
+added = '''
+		_, _ = fmt.Errorf, mkdirErr
+'''
+
+[[survivor]]
+id = "c686ba6ad4651eba4c44fd6237351609"
+file = "pkg/invowkmod/lockfile.go"
+symbol = "LockFile.SaveIfChanged"
+model = "AtomicWrite"
+element = "Next"
+class = "binding-gap"
+reason = "expression/errorf-wrap (Changes: `return false, fmt.Errorf(\"failed to create directory: %w\", mkdirErr)` → `return false, fmt.Errorf(\"failed to create directory: %v\", mkdirErr)`) survives TestConcurrentEdits_VendorFromStaleLock, TestLockFileSaveCreatesMissingFile, TestLockFileSaveDelegatesSkipToSaveIfChanged, TestLockFileSaveIfChangedAtomicWriteErrorIsNotAWrite, TestLockFileSaveIfChangedFailedSaveIsNotAWrite, TestLockFileSaveIfChangedMkdirErrorIsNotAWrite, TestLockFileSaveReplacesOversizedFile, TestLockFileSaveReplacesUnknownVersionFile, TestLockFileSaveReplacesUnparseableFile, TestLockFileSaveSkipsEquivalentEmptyLock, TestLockFileSaveSkipsEquivalentNonCanonicalFile, TestLockFileSaveWritesChangedContent, TestLockFileSaveWritesVersionChange: no bound test asserts errors.Is on mkdirErr"
+follow_up = "tasks/next/formal-binding-gaps.md#lockfilesaveifchanged"
+removed = '''
+		return false, fmt.Errorf("failed to create directory: %w", mkdirErr)
+'''
+added = '''
+		return false, fmt.Errorf("failed to create directory: %v", mkdirErr)
 '''
 
 [[closed]]
