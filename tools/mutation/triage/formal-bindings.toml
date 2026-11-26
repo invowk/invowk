@@ -2216,22 +2216,6 @@ added = '''
 '''
 
 [[survivor]]
-id = "4345d7975e55009534356c11c229d95f"
-file = "internal/core/serverbase/base.go"
-symbol = "Base.TransitionToStarting"
-model = "Serverbase"
-element = "Starting steps"
-class = "binding-gap"
-reason = "expression/errorf-wrap (Changes: `return b.TransitionToFailed(fmt.Errorf(\"context cancelled before start: %w\", ctx.Err()))` → `return b.TransitionToFailed(fmt.Er...) survives TestServerbase_SequentialMatchesModel: the sequential model test compares states; error values, the lock scope and the stored context are unasserted"
-follow_up = "tasks/next/formal-binding-gaps.md#basetransitiontostarting"
-removed = '''
-		return b.TransitionToFailed(fmt.Errorf("context cancelled before start: %w", ctx.Err()))
-'''
-added = '''
-		return b.TransitionToFailed(fmt.Errorf("context cancelled before start: %v", ctx.Err()))
-'''
-
-[[survivor]]
 id = "bf90884fa793206366dc236b0a466af5"
 file = "internal/core/serverbase/base.go"
 symbol = "Base.TransitionToStarting"
@@ -2245,70 +2229,6 @@ removed = '''
 '''
 added = '''
 	b.stateMu.Unlock()
-'''
-
-[[survivor]]
-id = "32dab0e50d125815e84ee0ddb7ddb25e"
-file = "internal/core/serverbase/base.go"
-symbol = "Base.TransitionToStarting"
-model = "Serverbase"
-element = "Starting steps"
-class = "binding-gap"
-reason = "conditional/not (Changes: `if !b.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {` → `if b.state.CompareAndSwap(int32(StateCreated), int3...) survives TestServerbase_SequentialMatchesModel: the sequential model test compares states; error values, the lock scope and the stored context are unasserted"
-follow_up = "tasks/next/formal-binding-gaps.md#basetransitiontostarting"
-removed = '''
-	if !b.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {
-'''
-added = '''
-	if b.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {
-'''
-
-[[survivor]]
-id = "42ade3c2729221c83cae66708b2b5a99"
-file = "internal/core/serverbase/base.go"
-symbol = "Base.TransitionToStarting"
-model = "Serverbase"
-element = "Starting steps"
-class = "binding-gap"
-reason = "branch/if (Changes: `return fmt.Errorf(\"cannot start server in state %s\", b.State())` → `_, _ = fmt.Errorf, b.State`) survives TestServerbase_SequentialMatchesModel: the sequential model test compares states; error values, the lock scope and the stored context are unasserted"
-follow_up = "tasks/next/formal-binding-gaps.md#basetransitiontostarting"
-removed = '''
-		return fmt.Errorf("cannot start server in state %s", b.State())
-'''
-added = '''
-		_, _ = fmt.Errorf, b.State
-'''
-
-[[survivor]]
-id = "c788281adcf64b75dbaf128e37002f06"
-file = "internal/core/serverbase/base.go"
-symbol = "Base.TransitionToStarting"
-model = "Serverbase"
-element = "Starting steps"
-class = "binding-gap"
-reason = "statement/return (Changes: `return fmt.Errorf(\"cannot start server in state %s\", b.State())` → `return nil`) survives TestServerbase_SequentialMatchesModel: the sequential model test compares states; error values, the lock scope and the stored context are unasserted"
-follow_up = "tasks/next/formal-binding-gaps.md#basetransitiontostarting"
-removed = '''
-		return fmt.Errorf("cannot start server in state %s", b.State())
-'''
-added = '''
-		return nil
-'''
-
-[[survivor]]
-id = "606156dc3925ede856c34507759deeb6"
-file = "internal/core/serverbase/base.go"
-symbol = "Base.TransitionToStarting"
-model = "Serverbase"
-element = "Starting steps"
-class = "binding-gap"
-reason = "statement/remove (Changes: `b.ctx, b.cancel = context.WithCancel(ctx)` → `_, _, _, _ = b.ctx, b.cancel, context.WithCancel, ctx`) survives TestServerbase_SequentialMatchesModel: the sequential model test compares states; error values, the lock scope and the stored context are unasserted"
-follow_up = "tasks/next/formal-binding-gaps.md#basetransitiontostarting"
-removed = '''
-	b.ctx, b.cancel = context.WithCancel(ctx)
-'''
-added = '''
-	_, _, _, _ = b.ctx, b.cancel, context.WithCancel, ctx
 '''
 
 [[survivor]]
@@ -4337,6 +4257,38 @@ removed = '''
 '''
 added = '''
 	return nil, true
+'''
+
+[[survivor]]
+id = "202dc27cda135bb94419f319a750b242"
+file = "internal/sshserver/server_conns.go"
+symbol = "Server.closeAcceptedConns"
+model = "HostCallbackToken"
+element = "Stop"
+class = "binding-gap"
+reason = "statement/remove (Changes: `s.acceptClosed = true` → `_ = s.acceptClosed`) survives TestHostCallbackToken_StopClosesAuthenticatedConnection, TestServerStopDuringHandshake: the bindings close connections the library had already handed to the ConnCallback; none accepts a connection between closeAcceptedConns and the listener's close taking effect, so a ConnCallback admitted after teardown began (which acceptClosed refuses) is never exercised"
+follow_up = "tasks/next/formal-binding-gaps.md#servercloseacceptedconns"
+removed = '''
+	s.acceptClosed = true
+'''
+added = '''
+	_ = s.acceptClosed
+'''
+
+[[survivor]]
+id = "e4fcd179607e25af99f7eedc17d3430c"
+file = "internal/sshserver/server_conns.go"
+symbol = "Server.closeAcceptedConns"
+model = "HostCallbackToken"
+element = "Stop"
+class = "binding-gap"
+reason = "conditional/bool-literal (Changes: `s.acceptClosed = true` → `s.acceptClosed = false`) survives TestHostCallbackToken_StopClosesAuthenticatedConnection, TestServerStopDuringHandshake: the bindings close connections the library had already handed to the ConnCallback; none accepts a connection between closeAcceptedConns and the listener's close taking effect, so a ConnCallback admitted after teardown began (which acceptClosed refuses) is never exercised"
+follow_up = "tasks/next/formal-binding-gaps.md#servercloseacceptedconns"
+removed = '''
+	s.acceptClosed = true
+'''
+added = '''
+	s.acceptClosed = false
 '''
 
 [[survivor]]
@@ -10220,6 +10172,72 @@ removed = '''
 '''
 added = '''
 		_ = updateErr
+'''
+
+[[survivor]]
+id = "b5f65a578309ca5715ed731c29bb8126"
+file = "internal/sshserver/server_lifecycle.go"
+symbol = "Server.Stop"
+model = "HostCallbackToken"
+element = "Stop"
+class = "binding-gap"
+reason = "statement/remove (Changes: `s.hooks.callStopEntered()` → `_ = s.hooks.callStopEntered`) survives TestHostCallbackToken_StopClosesAuthenticatedConnection: the binding stops a running server once; a second or concurrent Stop (stopMu serialisation, the losing Stop's wait for the server goroutines) and the test-only stopEntered hook are not exercised by it"
+follow_up = "tasks/next/formal-binding-gaps.md#serverstop"
+removed = '''
+	s.hooks.callStopEntered()
+'''
+added = '''
+	_ = s.hooks.callStopEntered
+'''
+
+[[survivor]]
+id = "4a52dfd35da747ae699a6ec8098f633a"
+file = "internal/sshserver/server_lifecycle.go"
+symbol = "Server.Stop"
+model = "HostCallbackToken"
+element = "Stop"
+class = "binding-gap"
+reason = "statement/defer-remove (Changes: `defer s.stopMu.Unlock()` → `s.stopMu.Unlock()`) survives TestHostCallbackToken_StopClosesAuthenticatedConnection: the binding stops a running server once; a second or concurrent Stop (stopMu serialisation, the losing Stop's wait for the server goroutines) and the test-only stopEntered hook are not exercised by it"
+follow_up = "tasks/next/formal-binding-gaps.md#serverstop"
+removed = '''
+	defer s.stopMu.Unlock()
+'''
+added = '''
+	s.stopMu.Unlock()
+'''
+
+[[survivor]]
+id = "6aeed3851fbba68ec6b790ecd9894bd8"
+file = "internal/sshserver/server_lifecycle.go"
+symbol = "Server.Stop"
+model = "HostCallbackToken"
+element = "Stop"
+class = "binding-gap"
+reason = "branch/if (Removes an if-block body so the condition becomes a no-op) survives TestHostCallbackToken_StopClosesAuthenticatedConnection: the binding stops a running server once; a second or concurrent Stop (stopMu serialisation, the losing Stop's wait for the server goroutines) and the test-only stopEntered hook are not exercised by it"
+follow_up = "tasks/next/formal-binding-gaps.md#serverstop"
+removed = '''
+		s.base.WaitForShutdown()
+		return nil
+'''
+added = '''
+		_ = s.base.WaitForShutdown
+
+'''
+
+[[survivor]]
+id = "73ac369d536af9cd543e19207759dc01"
+file = "internal/sshserver/server_lifecycle.go"
+symbol = "Server.Stop"
+model = "HostCallbackToken"
+element = "Stop"
+class = "binding-gap"
+reason = "statement/remove (Changes: `s.base.WaitForShutdown()` → `_ = s.base.WaitForShutdown`) survives TestHostCallbackToken_StopClosesAuthenticatedConnection: the binding stops a running server once; a second or concurrent Stop (stopMu serialisation, the losing Stop's wait for the server goroutines) and the test-only stopEntered hook are not exercised by it"
+follow_up = "tasks/next/formal-binding-gaps.md#serverstop"
+removed = '''
+		s.base.WaitForShutdown()
+'''
+added = '''
+		_ = s.base.WaitForShutdown
 '''
 
 [[closed]]

@@ -2089,40 +2089,10 @@
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
-      "id": "4345d7975e55009534356c11c229d95f",
-      "file": "internal/core/serverbase/base.go",
-      "mutator": "expression/errorf-wrap",
-      "line": 98
-    },
-    {
       "id": "bf90884fa793206366dc236b0a466af5",
       "file": "internal/core/serverbase/base.go",
       "mutator": "statement/defer-remove",
       "line": 113
-    },
-    {
-      "id": "32dab0e50d125815e84ee0ddb7ddb25e",
-      "file": "internal/core/serverbase/base.go",
-      "mutator": "conditional/not",
-      "line": 114
-    },
-    {
-      "id": "42ade3c2729221c83cae66708b2b5a99",
-      "file": "internal/core/serverbase/base.go",
-      "mutator": "branch/if",
-      "line": 115
-    },
-    {
-      "id": "c788281adcf64b75dbaf128e37002f06",
-      "file": "internal/core/serverbase/base.go",
-      "mutator": "statement/return",
-      "line": 115
-    },
-    {
-      "id": "606156dc3925ede856c34507759deeb6",
-      "file": "internal/core/serverbase/base.go",
-      "mutator": "statement/remove",
-      "line": 117
     },
     {
       "id": "102f2579ed371df61b3c6e42092dffe6",
@@ -3019,6 +2989,48 @@
       "file": "internal/sshserver/server_conns.go",
       "mutator": "statement/return",
       "line": 87
+    },
+    {
+      "id": "e4fcd179607e25af99f7eedc17d3430c",
+      "file": "internal/sshserver/server_conns.go",
+      "mutator": "conditional/bool-literal",
+      "line": 101,
+      "digest": "74495fbbabc4e9196dc25ba8f52b8c8107755a10b5a697a411f5333d11100395"
+    },
+    {
+      "id": "202dc27cda135bb94419f319a750b242",
+      "file": "internal/sshserver/server_conns.go",
+      "mutator": "statement/remove",
+      "line": 101,
+      "digest": "74495fbbabc4e9196dc25ba8f52b8c8107755a10b5a697a411f5333d11100395"
+    },
+    {
+      "id": "b5f65a578309ca5715ed731c29bb8126",
+      "file": "internal/sshserver/server_lifecycle.go",
+      "mutator": "statement/remove",
+      "line": 189,
+      "digest": "74495fbbabc4e9196dc25ba8f52b8c8107755a10b5a697a411f5333d11100395"
+    },
+    {
+      "id": "4a52dfd35da747ae699a6ec8098f633a",
+      "file": "internal/sshserver/server_lifecycle.go",
+      "mutator": "statement/defer-remove",
+      "line": 195,
+      "digest": "74495fbbabc4e9196dc25ba8f52b8c8107755a10b5a697a411f5333d11100395"
+    },
+    {
+      "id": "6aeed3851fbba68ec6b790ecd9894bd8",
+      "file": "internal/sshserver/server_lifecycle.go",
+      "mutator": "branch/if",
+      "line": 199,
+      "digest": "74495fbbabc4e9196dc25ba8f52b8c8107755a10b5a697a411f5333d11100395"
+    },
+    {
+      "id": "73ac369d536af9cd543e19207759dc01",
+      "file": "internal/sshserver/server_lifecycle.go",
+      "mutator": "statement/remove",
+      "line": 199,
+      "digest": "74495fbbabc4e9196dc25ba8f52b8c8107755a10b5a697a411f5333d11100395"
     },
     {
       "id": "4ee4e45c91d977b8c184ca6e82c3b6e8",
