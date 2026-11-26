@@ -200,8 +200,6 @@ func (s *countingDiscoveryService) GetCommand(ctx context.Context, name string) 
 }
 
 func TestVerifyGeneratedCommand_SharesDiscoveryCache(t *testing.T) { //nolint:paralleltest // subtests mutate process cwd via t.Chdir.
-	const cmdCUE = `cmds: [{name: "lint", implementations: [{script: {content: "echo ok"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]`
-
 	tests := []struct {
 		name       string
 		dirName    string
@@ -215,73 +213,90 @@ func TestVerifyGeneratedCommand_SharesDiscoveryCache(t *testing.T) { //nolint:pa
 	//nolint:paralleltest // subtests mutate process cwd via t.Chdir.
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dir := filepath.Join(t.TempDir(), tt.dirName)
-			if err := os.MkdirAll(dir, 0o755); err != nil {
-				t.Fatalf("mkdir %s: %v", dir, err)
-			}
-			if tt.moduleName != "" {
-				if err := os.WriteFile(filepath.Join(dir, "invowkmod.cue"), []byte("module: \""+tt.moduleName+"\"\nversion: \"1.0.0\"\n"), 0o644); err != nil {
-					t.Fatalf("write invowkmod.cue: %v", err)
-				}
-			}
-			targetPath := filepath.Join(dir, agentInvowkfileName)
-			if err := os.WriteFile(targetPath, []byte(cmdCUE), 0o644); err != nil {
-				t.Fatalf("write %s: %v", targetPath, err)
-			}
-
-			// ensureCurrentInvowkfileTarget resolves "." against process cwd.
-			t.Chdir(dir)
-
-			cfgProvider := &countingDefaultErrorConfigProvider{err: errors.New("broken default config")}
-			basePath := types.FilesystemPath(dir)
-			if err := basePath.Validate(); err != nil {
-				t.Fatalf("validate dir path: %v", err)
-			}
-			innerDisc, err := commandadapters.NewDiscoveryServiceWithDirs(cfgProvider, basePath, "")
-			if err != nil {
-				t.Fatalf("NewDiscoveryServiceWithDirs() error = %v", err)
-			}
-			discSvc := &countingDiscoveryService{DiscoveryService: innerDisc}
-
-			var stdout, stderr bytes.Buffer
-			app, err := NewApp(Dependencies{
-				Config:    cfgProvider,
-				Discovery: discSvc,
-				Stdout:    &stdout,
-				Stderr:    &stderr,
-				Getenv:    func(string) string { return "" },
-			})
-			if err != nil {
-				t.Fatalf("NewApp() error = %v", err)
-			}
-
-			cmd := &cobra.Command{Use: "create"}
-			cmd.SetContext(t.Context())
-			result := &agentcmd.CreateResult{
-				CommandName: "lint",
-				TargetPath:  targetPath,
-			}
-
-			if err := verifyGeneratedCommand(cmd, app, &rootFlagValues{}, result); err != nil {
-				t.Fatalf("verifyGeneratedCommand() error = %v\nstderr:\n%s", err, stderr.String())
-			}
-
-			if cfgProvider.loads != 1 {
-				t.Fatalf("Config.Load count = %d, want 1 (cache must be shared with executeRequest)", cfgProvider.loads)
-			}
-			// verifyGeneratedCommand calls DiscoverCommandSet once for source resolution,
-			// then ResolveFromSource inside executeRequest calls DiscoverCommandSet again
-			// and hits the shared request cache (zero additional Config.Load or GetCommand calls).
-			if discSvc.discoverSetCalls != 2 || discSvc.discoverValidateCalls != 0 || discSvc.getCommandCalls != 0 {
-				t.Fatalf("discovery calls = (set=%d, validate=%d, get=%d), want (2, 0, 0)",
-					discSvc.discoverSetCalls, discSvc.discoverValidateCalls, discSvc.getCommandCalls)
-			}
-			if got := strings.Count(stderr.String(), "broken default config"); got != 1 {
-				t.Fatalf("fallback config warning count = %d, want 1\nstderr:\n%s", got, stderr.String())
-			}
-			if !strings.Contains(stdout.String(), "lint") || !strings.Contains(stdout.String(), tt.wantSource) {
-				t.Fatalf("dry-run stdout missing command %q or source %q:\n%s", "lint", tt.wantSource, stdout.String())
-			}
+			runVerifyGeneratedCommandCacheCase(t, tt.dirName, tt.moduleName, tt.wantSource)
 		})
+	}
+}
+
+func runVerifyGeneratedCommandCacheCase(t *testing.T, dirName, moduleName, wantSource string) {
+	t.Helper()
+	const cmdCUE = `cmds: [{name: "lint", implementations: [{script: {content: "echo ok"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]`
+
+	dir := filepath.Join(t.TempDir(), dirName)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", dir, err)
+	}
+	if moduleName != "" {
+		if err := os.WriteFile(filepath.Join(dir, "invowkmod.cue"), []byte("module: \""+moduleName+"\"\nversion: \"1.0.0\"\n"), 0o644); err != nil {
+			t.Fatalf("write invowkmod.cue: %v", err)
+		}
+	}
+	targetPath := filepath.Join(dir, agentInvowkfileName)
+	if err := os.WriteFile(targetPath, []byte(cmdCUE), 0o644); err != nil {
+		t.Fatalf("write %s: %v", targetPath, err)
+	}
+
+	// ensureCurrentInvowkfileTarget resolves "." against process cwd.
+	t.Chdir(dir)
+
+	cfgProvider := &countingDefaultErrorConfigProvider{err: errors.New("broken default config")}
+	basePath := types.FilesystemPath(dir)
+	if err := basePath.Validate(); err != nil {
+		t.Fatalf("validate dir path: %v", err)
+	}
+	innerDisc, err := commandadapters.NewDiscoveryServiceWithDirs(cfgProvider, basePath, "")
+	if err != nil {
+		t.Fatalf("NewDiscoveryServiceWithDirs() error = %v", err)
+	}
+	discSvc := &countingDiscoveryService{DiscoveryService: innerDisc}
+
+	var stdout, stderr bytes.Buffer
+	app, err := NewApp(Dependencies{
+		Config:    cfgProvider,
+		Discovery: discSvc,
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Getenv:    func(string) string { return "" },
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+
+	cmd := &cobra.Command{Use: "create"}
+	cmd.SetContext(t.Context())
+	result := &agentcmd.CreateResult{
+		CommandName: "lint",
+		TargetPath:  targetPath,
+	}
+
+	if err := verifyGeneratedCommand(cmd, app, &rootFlagValues{}, result); err != nil {
+		t.Fatalf("verifyGeneratedCommand() error = %v\nstderr:\n%s", err, stderr.String())
+	}
+
+	assertVerifyCacheTelemetry(t, cfgProvider, discSvc, stderr.String(), stdout.String(), wantSource)
+}
+
+func assertVerifyCacheTelemetry(
+	t *testing.T,
+	cfgProvider *countingDefaultErrorConfigProvider,
+	discSvc *countingDiscoveryService,
+	stderrText, stdoutText, wantSource string,
+) {
+	t.Helper()
+	if cfgProvider.loads != 1 {
+		t.Fatalf("Config.Load count = %d, want 1 (cache must be shared with executeRequest)", cfgProvider.loads)
+	}
+	// verifyGeneratedCommand calls DiscoverCommandSet once for source resolution,
+	// then ResolveFromSource inside executeRequest calls DiscoverCommandSet again
+	// and hits the shared request cache (zero additional Config.Load or GetCommand calls).
+	if discSvc.discoverSetCalls != 2 || discSvc.discoverValidateCalls != 0 || discSvc.getCommandCalls != 0 {
+		t.Fatalf("discovery calls = (set=%d, validate=%d, get=%d), want (2, 0, 0)",
+			discSvc.discoverSetCalls, discSvc.discoverValidateCalls, discSvc.getCommandCalls)
+	}
+	if got := strings.Count(stderrText, "broken default config"); got != 1 {
+		t.Fatalf("fallback config warning count = %d, want 1\nstderr:\n%s", got, stderrText)
+	}
+	if !strings.Contains(stdoutText, "lint") || !strings.Contains(stdoutText, wantSource) {
+		t.Fatalf("dry-run stdout missing command %q or source %q:\n%s", "lint", wantSource, stdoutText)
 	}
 }
