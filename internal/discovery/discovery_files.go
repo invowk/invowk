@@ -158,9 +158,9 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	// because the working directory was deleted). This prevents filepath.Abs("")
 	// from silently resolving to the process working directory, which may not exist.
 	if d.baseDir != "" {
-		// The invowkfile of a module directory is always loaded as part of that
-		// module: a current directory that is a module directory is loaded as
-		// that module, and nothing in it is read as a plain invowkfile.
+		// The invowkfile and subdirectories of a module directory belong strictly
+		// to that module: a current directory that is a module directory (or
+		// strictly inside one) loads nothing as a plain invowkfile or child scan.
 		isModuleDir, moduleFiles, moduleDiags := discoverCurrentDirModule(d.baseDir)
 		if !isModuleDir {
 			if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {

@@ -669,3 +669,124 @@ func TestUnstoredEntryVerdict(t *testing.T) {
 		})
 	}
 }
+
+func TestDiscovery_CurrentDirModule_InsideSubdirectoriesFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	ws := t.TempDir()
+	modDir := filepath.Join(ws, "tools.invowkmod")
+	createTestModule(t, modDir, "tools", "hello")
+
+	// Plain invowkfile and child module inside a subdirectory must never load
+	// when running directly inside that subdirectory.
+	const plainSubCue = `cmds: [{name: "subcmd", implementations: [{script: "echo SUB", runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]`
+	subDir := filepath.Join(modDir, "sub")
+	writeTreeFile(t, filepath.Join(subDir, "invowkfile.cue"), plainSubCue)
+	childMod := filepath.Join(subDir, "child.invowkmod")
+	createTestModule(t, childMod, "child", "childcmd")
+
+	vendRoot := filepath.Join(modDir, "invowk_modules")
+	vendMod := filepath.Join(vendRoot, "vend.invowkmod")
+	createTestModule(t, vendMod, "vend", "vendcmd")
+
+	for _, tc := range []struct {
+		name string
+		dir  string
+	}{
+		{name: "subdir", dir: subDir},
+		{name: "nested child module", dir: childMod},
+		{name: "invowk_modules", dir: vendRoot},
+		{name: "vendored module root", dir: vendMod},
+		{name: "nonexistent subdir", dir: filepath.Join(modDir, "missing")},
+	} {
+		out := discoverFromBase(t, nil, tc.dir)
+		out.requireNothingLoaded(t, tc.name)
+		out.requireCode(t, tc.name, CodeModuleLoadSkipped)
+	}
+
+	// Uppercase ancestor suffix also fails closed.
+	upperMod := filepath.Join(ws, "UPPER.INVOWKMOD")
+	upperSub := filepath.Join(upperMod, "sub")
+	writeTreeFile(t, filepath.Join(upperSub, "invowkfile.cue"), plainSubCue)
+	upperOut := discoverFromBase(t, nil, upperSub)
+	upperOut.requireNothingLoaded(t, "uppercase ancestor")
+	upperOut.requireCode(t, "uppercase ancestor", CodeModuleLoadSkipped)
+
+	// Control: a module root directory and an unrelated sibling plain dir still load normally.
+	cleanMod := filepath.Join(ws, "clean.invowkmod")
+	createTestModule(t, cleanMod, "clean", "hello")
+	rootOut := discoverFromBase(t, nil, cleanMod)
+	if rootOut.err != nil || !slices.Equal(rootOut.moduleNames(), []string{"clean"}) {
+		t.Fatalf("module root load failed: err=%v modules=%v diags=%v", rootOut.err, rootOut.moduleNames(), rootOut.diags)
+	}
+	plainSub := filepath.Join(ws, "plain", "sub")
+	writeTreeFile(t, filepath.Join(plainSub, "invowkfile.cue"), plainSubCue)
+	plainOut := discoverFromBase(t, nil, plainSub)
+	if plainOut.err != nil || len(plainOut.plainFiles()) != 1 {
+		t.Fatalf("plain subdir load failed: err=%v plain=%d", plainOut.err, len(plainOut.plainFiles()))
+	}
+}
+
+func TestDiscovery_CurrentDirModule_LinkIntoModuleSubdirFailsClosed(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+
+	ws := fstree.TempRoot(t)
+	modDir := filepath.Join(ws, "tools.invowkmod")
+	createTestModule(t, modDir, "tools", "hello")
+	subDir := filepath.Join(modDir, "sub")
+	writeTreeFile(t, filepath.Join(subDir, "invowkfile.cue"), `cmds: [{name: "subcmd", implementations: [{script: "echo SUB", runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]`)
+	vendMod := filepath.Join(modDir, "invowk_modules", "vend.invowkmod")
+	createTestModule(t, vendMod, "vend", "vendcmd")
+
+	links := fstree.TempRoot(t)
+	modAlias := filepath.Join(links, "mod_alias")
+	fstree.MustSymlink(t, modDir, modAlias)
+	subLink := filepath.Join(links, "sub_link")
+	fstree.MustSymlink(t, subDir, subLink)
+	vendLink := filepath.Join(links, "vend_link")
+	fstree.MustSymlink(t, vendMod, vendLink)
+
+	for _, tc := range []struct {
+		name string
+		dir  string
+	}{
+		{name: "symlink ancestor sub", dir: filepath.Join(modAlias, "sub")},
+		{name: "symlink ancestor missing", dir: filepath.Join(modAlias, "missing")},
+		{name: "direct symlink to sub", dir: subLink},
+		{name: "direct symlink to vendored module", dir: vendLink},
+	} {
+		out := discoverFromBase(t, nil, tc.dir)
+		out.requireNothingLoaded(t, tc.name)
+		out.requireCode(t, tc.name, CodeModuleLoadSkipped)
+	}
+}
+
+func TestDiscovery_CurrentDirModule_JunctionAncestorFailsClosed(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapJunction)
+
+	ws := t.TempDir()
+	modDir := filepath.Join(ws, "tools.invowkmod")
+	createTestModule(t, modDir, "tools", "hello")
+	subDir := filepath.Join(modDir, "sub")
+	writeTreeFile(t, filepath.Join(subDir, "invowkfile.cue"), `cmds: [{name: "subcmd", implementations: [{script: "echo SUB", runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]`)
+
+	links := t.TempDir()
+	modJunc := filepath.Join(links, "mod_junc")
+	fstree.MustJunction(t, modDir, modJunc)
+	subJunc := filepath.Join(links, "sub_junc")
+	fstree.MustJunction(t, subDir, subJunc)
+
+	for _, tc := range []struct {
+		name string
+		dir  string
+	}{
+		{name: "junction ancestor sub", dir: filepath.Join(modJunc, "sub")},
+		{name: "direct junction to sub", dir: subJunc},
+	} {
+		out := discoverFromBase(t, nil, tc.dir)
+		out.requireNothingLoaded(t, tc.name)
+		out.requireCode(t, tc.name, CodeModuleLoadSkipped)
+	}
+}

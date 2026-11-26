@@ -243,6 +243,42 @@ stdout 'PROJECT-BUILD'
 exec invowk cmd @invowkfile build
 stdout 'PROJECT-BUILD'
 
+# --- subdirectories and vendored modules inside a module fail closed -------------
+cd $WORK/ws/tools.invowkmod/sub
+! exec invowk validate
+stderr 'module_load_skipped'
+! exec invowk cmd subcmd
+! stdout 'SUB-PLAIN'
+
+cd $WORK/wsv/tools.invowkmod/invowk_modules
+! exec invowk validate
+stderr 'module_load_skipped'
+exec invowk module list
+stdout 'No modules found'
+stderr 'inside a module directory'
+
+cd $WORK/wsv/tools.invowkmod/invowk_modules/vend.invowkmod
+! exec invowk validate
+stderr 'module_load_skipped'
+! exec invowk cmd vhello
+! stdout 'VEND-HELLO'
+
+[!windows] symlink $WORK/wss/sub_link -> $WORK/ws/tools.invowkmod/sub
+[!windows] cd $WORK/wss/sub_link
+[!windows] ! exec invowk validate
+[!windows] stderr 'module_load_skipped'
+[!windows] ! exec invowk cmd subcmd
+[!windows] ! stdout 'SUB-PLAIN'
+
+-- ws/tools.invowkmod/sub/invowkfile.cue --
+cmds: [{
+	name: "subcmd"
+	implementations: [
+		{script: {content: "echo SUB-PLAIN"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+		{script: {content: "Write-Output 'SUB-PLAIN'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+	]
+}]
+
 -- gen/invowkfile.cue --
 cmds: [{
 	name: "genconfig"

@@ -38,6 +38,13 @@ func TestDiscovery_CurrentDirModule_ShortNameCwd(t *testing.T) {
 	if plain := out.plainFiles(); len(plain) != 0 {
 		t.Fatalf("read plain invowkfile %s", plain[0].Path)
 	}
+
+	subDir := filepath.Join(moduleDir, "sub")
+	writeTreeFile(t, filepath.Join(subDir, "invowkfile.cue"), `cmds: [{name: "subcmd", implementations: [{script: "Write-Output 'SUB'", runtimes: [{name: "native"}], platforms: [{name: "windows"}]}]}]`)
+	shortSub := filepath.Join(short, "sub")
+	subOut := discoverFromBase(t, nil, shortSub)
+	subOut.requireNothingLoaded(t, "short ancestor subdir")
+	subOut.requireCode(t, "short ancestor subdir", CodeModuleLoadSkipped)
 }
 
 func shortPathName(t *testing.T, path string) string {
