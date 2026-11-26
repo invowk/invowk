@@ -347,6 +347,30 @@ func TestVirtualPathNoFollowValidatorDirectoryCheck(t *testing.T) {
 	}
 }
 
+func TestVirtualPathNoFollowRmRefusesDotOperands(t *testing.T) {
+	t.Parallel()
+	for _, access := range virtualPathBothAccessModes {
+		t.Run(string(access), func(t *testing.T) {
+			t.Parallel()
+			work := harnessPhysicalDir(t, t.TempDir())
+			sub := mustMkdir(t, filepath.Join(work, "sub"))
+			keep := filepath.Join(sub, "keep.txt")
+			if err := os.WriteFile(keep, []byte("stay"), 0o644); err != nil {
+				t.Fatalf("write %s: %v", keep, err)
+			}
+			for _, op := range []string{".", "./", "..", "../", "sub/.", "sub/.."} {
+				run := runVirtualShTest(t, sub, "rm -rf keep.txt "+op, access)
+				if run.exit == 0 {
+					t.Errorf("%s rm -rf %s exited 0, want refusal", access, op)
+				}
+				if _, err := os.Stat(keep); err != nil {
+					t.Errorf("%s rm -rf %s deleted keep.txt: %v", access, op, err)
+				}
+			}
+		})
+	}
+}
+
 func TestVirtualPathNoFollowLua(t *testing.T) {
 	t.Parallel()
 	for _, access := range virtualPathBothAccessModes {

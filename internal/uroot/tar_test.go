@@ -213,3 +213,73 @@ func TestTarCommand_Run_NoFlags(t *testing.T) {
 		t.Error("tar with no flags should error")
 	}
 }
+
+func TestTarCommand_CreateRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	srcDir := filepath.Join(tmpDir, "src")
+	subDir := filepath.Join(srcDir, "sub")
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", subDir, err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "top.txt"), []byte("top-body"), 0o644); err != nil {
+		t.Fatalf("write top.txt: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("nested-body"), 0o644); err != nil {
+		t.Fatalf("write nested.txt: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       tmpDir,
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newTarCommand()
+	if err := cmd.Run(ctx, []string{"tar", "-c", "-v", "-f", "out.tar", "src"}); err != nil {
+		t.Fatalf("tar -c failed: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "src/sub/nested.txt") {
+		t.Errorf("verbose stdout = %q, want src/sub/nested.txt", stdout.String())
+	}
+
+	stdout.Reset()
+	if err := cmd.Run(ctx, []string{"tar", "-t", "-f", "out.tar"}); err != nil {
+		t.Fatalf("tar -t failed: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "src/top.txt") || !strings.Contains(stdout.String(), "src/sub/nested.txt") {
+		t.Errorf("tar -t stdout = %q, want relative member names", stdout.String())
+	}
+
+	extractDir := filepath.Join(tmpDir, "extracted")
+	if err := os.MkdirAll(extractDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", extractDir, err)
+	}
+	if err := cmd.Run(ctx, []string{"tar", "-x", "-f", "out.tar", "extracted"}); err != nil {
+		t.Fatalf("tar -x failed: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(extractDir, "src", "sub", "nested.txt"))
+	if err != nil {
+		t.Fatalf("read extracted nested.txt: %v", err)
+	}
+	if string(got) != "nested-body" {
+		t.Errorf("extracted nested.txt = %q, want nested-body", string(got))
+	}
+
+	// --no-recursion archives only the directory header, not its children.
+	stdout.Reset()
+	if err := cmd.Run(ctx, []string{"tar", "-c", "--no-recursion", "-f", "flat.tar", "src"}); err != nil {
+		t.Fatalf("tar -c --no-recursion failed: %v", err)
+	}
+	stdout.Reset()
+	if err := cmd.Run(ctx, []string{"tar", "-t", "-f", "flat.tar"}); err != nil {
+		t.Fatalf("tar -t flat.tar failed: %v", err)
+	}
+	if strings.Contains(stdout.String(), "top.txt") {
+		t.Errorf("flat.tar unexpectedly recursed: %q", stdout.String())
+	}
+}

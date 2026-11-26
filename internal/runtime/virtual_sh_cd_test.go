@@ -69,26 +69,60 @@ func TestVirtualShCdDenialNamesTheDenial(t *testing.T) {
 	outside := outsideVirtualRootsDir(t)
 	restricted := invowkfile.VirtualFilesystemAccessRestricted
 
-	for name, script := range map[string]string{
-		"operand": "cd " + shQuote(outside),
-		"home":    "HOME=" + shQuote(outside) + "; cd",
-		"oldpwd":  "OLDPWD=" + shQuote(outside) + "; cd -",
+	for _, tt := range []struct {
+		name   string
+		script string
+		want   string
+	}{
+		{name: "operand", script: "cd " + shQuote(outside), want: "cd: virtual path denied"},
+		{name: "home", script: "HOME=" + shQuote(outside) + "; cd", want: "cd: virtual path denied"},
+		{name: "oldpwd", script: "OLDPWD=" + shQuote(outside) + "; cd -", want: "cd: virtual path denied"},
+		{name: "builtin_cd", script: "builtin cd " + shQuote(outside), want: "cd: virtual path denied"},
+		{name: "command_cd", script: "command cd " + shQuote(outside), want: "cd: virtual path denied"},
+		{name: "command_dashdash_cd", script: "command -- cd " + shQuote(outside), want: "cd: virtual path denied"},
+		{name: "pushd_operand", script: "pushd " + shQuote(outside), want: "pushd: virtual path denied"},
+		{name: "builtin_pushd", script: "builtin pushd " + shQuote(outside), want: "pushd: virtual path denied"},
+		{name: "command_pushd", script: "command pushd " + shQuote(outside), want: "pushd: virtual path denied"},
 	} {
-		t.Run(name, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			work := t.TempDir()
-			run := runVirtualShTest(t, work, script+"\necho \"status=$?\"\npwd", restricted)
+			run := runVirtualShTest(t, work, tt.script+"\necho \"status=$?\"\npwd", restricted)
 			if !strings.Contains(run.stdout, "status=1") {
-				t.Errorf("cd status: stdout %q, want status=1", run.stdout)
+				t.Errorf("status: stdout %q, want status=1", run.stdout)
 			}
-			if !strings.Contains(run.stderr, "cd: virtual path denied") {
-				t.Errorf("stderr %q does not contain %q", run.stderr, "cd: virtual path denied")
+			if !strings.Contains(run.stderr, tt.want) {
+				t.Errorf("stderr %q does not contain %q", run.stderr, tt.want)
+			}
+			if strings.Contains(run.stderr, "no such file or directory") {
+				t.Errorf("stderr %q unexpectedly included mvdan second error line", run.stderr)
+			}
+			if strings.Count(strings.TrimSpace(run.stderr), "\n") != 0 {
+				t.Errorf("stderr %q has more than one line", run.stderr)
 			}
 			if !strings.Contains(run.stdout, work) {
 				t.Errorf("the working directory changed: stdout %q, want %s", run.stdout, work)
 			}
 		})
 	}
+
+	t.Run("stack_popd_after_pushd_n", func(t *testing.T) {
+		t.Parallel()
+		work := t.TempDir()
+		run := runVirtualShTest(t, work, "pushd -n "+shQuote(outside)+"\npopd\necho \"status=$?\"", restricted)
+		if !strings.Contains(run.stdout, "status=1") || !strings.Contains(run.stderr, "popd: virtual path denied") {
+			t.Errorf("stack popd = (stdout %q, stderr %q), want status=1 and popd: virtual path denied", run.stdout, run.stderr)
+		}
+	})
+
+	t.Run("stack_pushd_swap_after_pushd_n", func(t *testing.T) {
+		t.Parallel()
+		work := t.TempDir()
+		run := runVirtualShTest(t, work, "pushd -n "+shQuote(outside)+"\npushd\necho \"status=$?\"", restricted)
+		if !strings.Contains(run.stdout, "status=1") || !strings.Contains(run.stderr, "pushd: virtual path denied") {
+			t.Errorf("stack pushd = (stdout %q, stderr %q), want status=1 and pushd: virtual path denied", run.stdout, run.stderr)
+		}
+	})
 }
 
 func TestVirtualShCdQuietCases(t *testing.T) {
@@ -105,6 +139,13 @@ func TestVirtualShCdQuietCases(t *testing.T) {
 			t.Errorf("stderr = %q, want only mvdan's empty-path message", run.stderr)
 		}
 	})
+	t.Run("command_v_cd", func(t *testing.T) {
+		t.Parallel()
+		run := runVirtualShTest(t, t.TempDir(), "command -v cd", invowkfile.VirtualFilesystemAccessRestricted)
+		if run.exit != 0 || strings.TrimSpace(run.stdout) != "cd" || run.stderr != "" {
+			t.Errorf("command -v cd = (exit %d, stdout %q, stderr %q)", run.exit, run.stdout, run.stderr)
+		}
+	})
 	t.Run("inside", func(t *testing.T) {
 		t.Parallel()
 		work := t.TempDir()
@@ -117,11 +158,12 @@ func TestVirtualShCdQuietCases(t *testing.T) {
 			t.Errorf("pwd after cd sub = %q", run.stdout)
 		}
 	})
-	t.Run("full", func(t *testing.T) {
+	t.Run("full_cd_pushd_popd", func(t *testing.T) {
 		t.Parallel()
-		run := runVirtualShTest(t, t.TempDir(), "cd "+shQuote(outside)+" && pwd", invowkfile.VirtualFilesystemAccessFull)
+		work := t.TempDir()
+		run := runVirtualShTest(t, work, "pushd "+shQuote(outside)+" >/dev/null && popd >/dev/null && cd "+shQuote(outside)+" && pwd", invowkfile.VirtualFilesystemAccessFull)
 		if run.exit != 0 || run.stderr != "" {
-			t.Errorf("full-access cd = (exit %d, stderr %q), want (0, \"\")", run.exit, run.stderr)
+			t.Errorf("full-access cd/pushd/popd = (exit %d, stderr %q), want (0, \"\")", run.exit, run.stderr)
 		}
 	})
 }

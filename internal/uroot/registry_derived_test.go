@@ -440,9 +440,7 @@ func TestUrootDerivedPathsCpIntoSource(t *testing.T) {
 			args: []string{"cp", "-r", "d", "d/sub"}, refused: errCpIntoSource,
 		},
 		{
-			// Under full access u-root walks each copy it has just made and
-			// copies the tree into it again, until the path length limit.
-			name: "directory copied into an existing directory below itself", restrictedOnly: true,
+			name: "directory copied into an existing directory below itself",
 			setup: func(t *testing.T, tr derivedTestTree) {
 				t.Helper()
 				dSetup(t, tr)

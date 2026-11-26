@@ -5,6 +5,7 @@ package runtime
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
@@ -521,4 +522,37 @@ func TestVirtualPathDerivedPathsLua(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVirtualPathDerivedPathsTarCreate(t *testing.T) {
+	t.Parallel()
+	for _, access := range virtualPathBothAccessModes {
+		t.Run(string(access), func(t *testing.T) {
+			t.Parallel()
+			work := harnessPhysicalDir(t, t.TempDir())
+			derivedWrite(t, filepath.Join(work, "src", "file.txt"), "hello-tar")
+			mustMkdir(t, filepath.Join(work, "ex"))
+			run := runVirtualShTest(t, work, "tar -c -f a.tar src && tar -t -f a.tar && tar -x -f a.tar ex", access)
+			derivedAssertSuccess(t, run)
+			if !strings.Contains(run.stdout, "src/file.txt") {
+				t.Errorf("tar -t stdout = %q, want src/file.txt", run.stdout)
+			}
+			derivedAssertFile(t, filepath.Join(work, "ex", "src", "file.txt"), "hello-tar")
+		})
+	}
+
+	t.Run("outside archive refused under restricted access", func(t *testing.T) {
+		t.Parallel()
+		work := harnessPhysicalDir(t, t.TempDir())
+		outside := harnessPhysicalDir(t, outsideVirtualRootsDir(t))
+		derivedWrite(t, filepath.Join(work, "src", "file.txt"), "hello-tar")
+		outTar := filepath.Join(outside, "out.tar")
+		run := runVirtualShTest(t, work, "tar -c -f "+shQuote(outTar)+" src", invowkfile.VirtualFilesystemAccessRestricted)
+		if run.exit == 0 || !strings.Contains(run.stderr, derivedDeniedText) {
+			t.Fatalf("restricted tar -c outside = (exit %d, stderr %q), want denial", run.exit, run.stderr)
+		}
+		if _, err := os.Stat(outTar); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("outside archive created unexpectedly: stat err = %v", err)
+		}
+	})
 }

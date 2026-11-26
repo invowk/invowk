@@ -500,6 +500,9 @@ func validateShInterpreter(script invowkfile.ImplementationScript, scriptContent
 func (r *ShRuntime) execHandler(policy *virtualHostBinaryPolicy, pathValidator virtualPathValidator) func(interp.ExecHandlerFunc) interp.ExecHandlerFunc {
 	return func(next interp.ExecHandlerFunc) interp.ExecHandlerFunc {
 		return func(ctx context.Context, args []string) error {
+			if handled, err := handleVirtualShDirBuiltin(ctx, args); handled {
+				return err
+			}
 			if r.enableUrootUtils {
 				if handled, err := r.tryUrootBuiltin(ctx, args, pathValidator); handled {
 					return err

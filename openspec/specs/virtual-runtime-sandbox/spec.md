@@ -402,11 +402,15 @@ Each validated wrapper's declared options SHALL equal the options its u-root com
 - **THEN** a unit test SHALL fail until the wrapper's declared options match again
 
 ### Requirement: Restricted cd outside the allowed roots names the denial
-Under `restricted` access, a `virtual-sh` `cd` to a directory whose resolved path is outside every allowed root SHALL fail with exit status 1 and SHALL write a line to standard error that contains `virtual path denied` and the path. A `cd` to an empty directory path SHALL get no line beyond the shell's own message. `cd` and the file tests SHALL NOT crash the runtime.
+Under `restricted` access, a `virtual-sh` `cd`, `pushd`, or `popd` (including via `builtin` or `command`) to a directory whose resolved path is outside every allowed root SHALL fail with exit status 1 and SHALL write a line to standard error that contains `virtual path denied` and the path, without a misleading host-style "no such file or directory" line on direct-target `cd` or `pushd`. A `cd` to an empty directory path SHALL get no line beyond the shell's own message. `cd`, `pushd`, `popd`, and the file tests SHALL NOT crash the runtime.
 
 #### Scenario: cd outside the roots
-- **WHEN** a restricted `virtual-sh` script runs `cd` to an existing directory outside every allowed root
-- **THEN** the command SHALL fail with exit status 1, standard error SHALL contain `cd: virtual path denied`, and the working directory SHALL NOT change
+- **WHEN** a restricted `virtual-sh` script runs `cd`, `builtin cd`, or `command cd` to an existing directory outside every allowed root
+- **THEN** the command SHALL fail with exit status 1, standard error SHALL contain `cd: virtual path denied` without a second `no such file or directory` line, and the working directory SHALL NOT change
+
+#### Scenario: pushd and popd outside the roots
+- **WHEN** a restricted `virtual-sh` script runs `pushd <outside>`, `pushd -n <outside>; popd`, or swaps to an outside stack entry via `pushd`
+- **THEN** the command SHALL fail with exit status 1, standard error SHALL contain `virtual path denied` naming the builtin, and the working directory SHALL NOT change
 
 #### Scenario: cd and file tests inside the roots
 - **WHEN** a `virtual-sh` script under `restricted` or `full` access runs `cd` into a directory inside the allowed roots, and evaluates `test -f`, `[ -e ]`, `[ -d ]` and `[[ -f ]]` on paths there
@@ -454,9 +458,9 @@ Under `restricted` access, before `cp` runs, every path it will create or write 
 - **WHEN** a restricted virtual script runs `cp f d` or `cp -r src dst`, where the destination paths cross symbolic links or Windows junctions whose targets lie inside the allowed roots
 - **THEN** the copy SHALL succeed and write through those links, as on a host shell
 
-#### Scenario: Full access is unchanged
-- **WHEN** a virtual script with `virtual.filesystem.access: "full"` runs any `cp` command
-- **THEN** Invowk SHALL NOT compute or check derived paths, and `cp` SHALL behave as the u-root command does
+#### Scenario: Full access runs cp directly except recursive self-copy
+- **WHEN** a virtual script with `virtual.filesystem.access: "full"` runs `cp` on non-self-nesting operands
+- **THEN** Invowk SHALL NOT compute or check derived paths, and `cp` SHALL behave as the u-root command does (while recursive copies into the source directory itself are refused to prevent unbounded recursion)
 
 ### Requirement: cp checks the source links it follows before it runs
 Under `restricted` access, without `-P`, before `cp -r` runs, every entry of the source tree that is a link (a symbolic link or, on Windows, a junction or another reparse point) SHALL be resolved in full and checked against the allowed roots, because `cp` follows it. One denial SHALL refuse the whole command with `virtual path denied` before anything is written. With `-P`, a source link SHALL NOT be followed and its target SHALL NOT be checked.
@@ -496,7 +500,7 @@ Under `restricted` access, with or without `-r`, `cp` SHALL refuse a command wit
 - **THEN** no `virtual path denied` refusal SHALL occur and the result SHALL be the u-root command's: `cp missing d` SHALL fail with its own "no such file or directory" error naming `missing`, and `cp missing f d` SHALL copy `f` to `d/f` (u-root reports only the last source's error)
 
 ### Requirement: cp -r does not write into a source tree of the same command
-Under `restricted` access, `cp -r` SHALL refuse, before anything is written, a destination whose resolved path, or an existing ancestor of that path, is the same file as any source operand of the command, whatever its spelling, unless the destination, read without following its last component, is the same file as the source entry it copies. Under `full` access such a command SHALL run as the u-root command does.
+Under `restricted` access, `cp -r` SHALL refuse, before anything is written, a destination whose resolved path, or an existing ancestor of that path, is the same file as any source operand of the command, whatever its spelling, unless the destination, read without following its last component, is the same file as the source entry it copies. Under `full` access, recursive `cp` SHALL likewise refuse copying a directory into itself or below itself (rather than running unbounded), while leaving non-self copies unchanged.
 
 #### Scenario: Directory copied into itself
 - **WHEN** a restricted virtual script runs `cp -r d d` or `cp -r d d/sub`, where `d` is a directory inside an allowed root
@@ -563,6 +567,20 @@ Under `restricted` access, before `tar -x` runs, the archive SHALL be read once 
 #### Scenario: Full access is unchanged
 - **WHEN** a virtual script with `virtual.filesystem.access: "full"` runs `tar -x`
 - **THEN** Invowk SHALL NOT read the archive ahead or check derived paths, and `tar` SHALL behave as the u-root command does
+
+### Requirement: tar -c creates portable relative archives under both access modes
+Under both `restricted` and `full` access, `tar -c` SHALL write archives using slash-normalized relative member paths so created archives list via `tar -t` and extract cleanly via `tar -x`, without following internal symbolic links or junctions or failing on resolved absolute operands. Under `restricted` access, the archive destination `-f` and source operands remain checked against the allowed roots.
+
+#### Scenario: tar -c round-trips with tar -t and tar -x
+- **WHEN** a virtual script under `restricted` or `full` access runs `tar -c -f a.tar src`, `tar -t -f a.tar`, and `tar -x -f a.tar ex`
+- **THEN** each command SHALL succeed and `ex/src` SHALL contain the archived entries with matching contents
+
+### Requirement: rm refuses '.' and '..' final path components under both access modes
+Under both `restricted` and `full` access, `rm` SHALL refuse any operand whose final path component after stripping trailing path separators is `.` or `..` (even alongside `-r` or `-f`), leaving all files untouched, while preserving `virtual path denied` for outside-root operands under `restricted` access and `not a directory` when stripping `/.` off a file symlink.
+
+#### Scenario: rm -r on dot or dot-dot operands fails closed
+- **WHEN** a virtual script under `restricted` or `full` access runs `rm -r .`, `rm -r ..`, `rm -rf ./`, or `rm -r sub/..`
+- **THEN** `rm` SHALL fail before deleting any entry and existing files SHALL remain intact
 
 ### Requirement: tar -x reads its archive ahead only from a regular file
 Under `restricted` access, `tar -x` SHALL refuse an archive whose resolved path exists and is not a regular file (for example a named pipe or a device), with `virtual path denied` and an error that names the archive, before anything is extracted, because its first reading would not be repeated by the second. The archive SHALL always be a named file, never standard input: u-root's argument preprocessing drops a lone `-`, so `-f -` leaves `tar` without its operand, and `--file=-` names the file `-` in the working directory.

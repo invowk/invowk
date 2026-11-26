@@ -775,6 +775,7 @@ func (v virtualPathValidator) statHandler(next interp.StatHandlerFunc) interp.St
 		}
 		normalized, err := check(hc.Dir, path)
 		if err != nil {
+			recordVirtualShDirDenial(ctx, err)
 			return nil, &os.PathError{Op: "stat", Path: path, Err: err}
 		}
 		return next(ctx, normalized, followSymlinks)
