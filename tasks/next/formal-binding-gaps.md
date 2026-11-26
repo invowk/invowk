@@ -28,7 +28,9 @@ after subsequent refreshes). The partial refresh of
 deferred `binding-gap` entries across the newly bound and rewritten
 module-concurrency functions, so both held 637. The partial refresh of
 `tui-servers-acp-followups` (2026-11-25, redone on top of `29735d3d`)
-removed 5 and added 6 (deferred `binding-gap`); both now hold 638.
+removed 5 and added 6 (deferred `binding-gap`); both held 638. The partial
+refresh of `w1b-discovery-f12` (2026-11-26) removed none and added 2 (`1`
+`equivalent`, `1` deferred `binding-gap`); both now hold 640.
 
 ## Rows whose binding does not reach the function
 
@@ -292,7 +294,7 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### IsDeclaredLockedCommandSource
 
-`pkg/invowkmod/vendored_policy.go`, 6 survivors. Bindings compare admission outcomes; branches no golden or rapid instance reaches stay unasserted.
+`pkg/invowkmod/vendored_policy.go`, 7 `binding-gap` survivors (plus 1 `equivalent`). Bindings compare admission outcomes; branches no golden or rapid instance reaches stay unasserted.
 
 ### EvaluateVendoredModuleHash
 
