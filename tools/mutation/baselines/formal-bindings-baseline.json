@@ -4029,6 +4029,20 @@
       "line": 117
     },
     {
+      "id": "0df6bce14fd1c75b9dafb071f8bb4b38",
+      "file": "pkg/invowkmod/vendored_policy.go",
+      "mutator": "branch/if",
+      "line": 119,
+      "digest": "63ff8bda7f4f49cad52998de515424060a1e9469e7d8bc170746f0cf45c800f3"
+    },
+    {
+      "id": "075e3adc8b97e66e1ef8803209caa2ec",
+      "file": "pkg/invowkmod/vendored_policy.go",
+      "mutator": "branch/if",
+      "line": 125,
+      "digest": "63ff8bda7f4f49cad52998de515424060a1e9469e7d8bc170746f0cf45c800f3"
+    },
+    {
       "id": "e68f0adf96fd0b11f93b18c331b05d07",
       "file": "pkg/invowkmod/verify.go",
       "mutator": "expression/logical",
