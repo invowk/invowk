@@ -87,3 +87,13 @@ func writeScopeModuleDir(t *testing.T, invowkfileBody string) string {
 	}
 	return dir
 }
+
+func writeLockedScopeModuleDir(t *testing.T, invowkfileBody string) (types.FilesystemPath, invowkmod.ContentHash) {
+	t.Helper()
+	dir := writeScopeModuleDir(t, invowkfileBody)
+	hash, err := invowkmod.ComputeModuleHash(dir)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash() error = %v", err)
+	}
+	return types.FilesystemPath(dir), hash
+}

@@ -6779,6 +6779,38 @@ added = '''
 '''
 
 [[survivor]]
+id = "0df6bce14fd1c75b9dafb071f8bb4b38"
+file = "pkg/invowkmod/vendored_policy.go"
+symbol = "IsDeclaredLockedCommandSource"
+model = "ScopeConstruction"
+element = "declaredLocked"
+class = "binding-gap"
+reason = "branch/if (Changes: removes `return false` inside `if lock == nil || moduleID == \"\" || sourceID == \"\"`) survives TestLockIntegrity_HashlessCallerEntryIsRejected, TestLockIntegrity_SiblingCopyMustMatchCallerHash, TestScopeConstructionGoldenVectors, TestScopeConstruction_MatchesIntent: bindings compare admission outcomes; nil-lock and empty-ID guard branches no golden or rapid instance reaches stay unasserted"
+follow_up = "tasks/next/formal-binding-gaps.md#isdeclaredlockedcommandsource"
+removed = '''
+		return false
+'''
+added = '''
+
+'''
+
+[[survivor]]
+id = "075e3adc8b97e66e1ef8803209caa2ec"
+file = "pkg/invowkmod/vendored_policy.go"
+symbol = "IsDeclaredLockedCommandSource"
+model = "LockIntegrity"
+element = "CallViaSibling"
+class = "equivalent"
+reason = "branch/if (Changes: removes `continue` inside `if !ok`) survives because line 118 already rejected `moduleID == \"\"`, so when `!ok` leaves `locked` as zero `LockedModule{}`, `locked.IdentityModuleID()` is `\"\"` and the next check (`locked.IdentityModuleID() != moduleID`) still executes `continue`"
+follow_up = ""
+removed = '''
+			continue
+'''
+added = '''
+
+'''
+
+[[survivor]]
 id = "e68f0adf96fd0b11f93b18c331b05d07"
 file = "pkg/invowkmod/verify.go"
 symbol = "VerifyLockedVendoredModuleHash"

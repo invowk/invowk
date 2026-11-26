@@ -162,3 +162,19 @@ When two discovery sources yield the same physical module directory, discovery S
 #### Scenario: two directories with the same module id still collide
 - **WHEN** the current directory is `tools.invowkmod` and `~/.invowk/cmds` holds a different directory `tools.invowkmod` with the same module id
 - **THEN** discovery fails with a module name collision, as it does from the parent directory
+
+### Requirement: Directories inside a module directory fail closed
+
+When the current directory lies strictly inside a `.invowkmod` directory (by logical path, resolved path, stored ancestor entry, or ancestor or target symbolic link or Windows junction), current-directory discovery SHALL treat it as an un-loadable module context, emit a `module_load_skipped` diagnostic, and SHALL NOT load plain `invowkfile.cue` files, child modules, or vendored modules as standalone sources from that directory. Running from the `.invowkmod` root directory itself SHALL keep loading that directory as its own module.
+
+#### Scenario: subdirectory of a module directory fails closed
+- **WHEN** `tools.invowkmod/sub` contains a plain `invowkfile.cue` or a child module directory and `invowk` runs with `tools.invowkmod/sub` as the current directory
+- **THEN** a `module_load_skipped` diagnostic is reported and no plain command or child module from `sub` is loaded
+
+#### Scenario: invowk_modules and standalone vendored module inside a module fail closed
+- **WHEN** `tools.invowkmod/invowk_modules/vend.invowkmod` is a vendored module inside `tools.invowkmod` and `invowk` runs with `tools.invowkmod/invowk_modules` or `tools.invowkmod/invowk_modules/vend.invowkmod` as the current directory
+- **THEN** a `module_load_skipped` diagnostic is reported and `vend` is not loaded as a standalone current-directory module
+
+#### Scenario: link or alias into a module subdirectory fails closed
+- **WHEN** a symbolic link or Windows junction points into `tools.invowkmod/sub` or an ancestor link points to `tools.invowkmod` and `invowk` runs from the link or through the ancestor link into `sub`
+- **THEN** a `module_load_skipped` diagnostic is reported and no plain command or child module is loaded from that directory

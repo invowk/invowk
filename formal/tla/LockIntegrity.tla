@@ -14,16 +14,15 @@
     F5  fresh-cache sync trusted fetched content      (FixedSync, fixed)
     F4  a v1.0 lock without hashes disabled checks     (RejectUnhashed, fixed)
     F6  admission via C's lock, integrity via P's lock (CheckCallerHash, fixed)
-    F12 a hashless caller entry admits P's copy        (AdmitRequiresCallerHash, open)
+    F12 a hashless caller entry admitted P's copy      (AdmitRequiresCallerHash, fixed)
 
   Two steps mirror code paths that the trace harness observed, without
   changing any property: a sync that fails its commit check leaves the cache
   untouched (the check runs before the cache is read), and a v2 vendor whose
   hash check fails leaves the copied content in invowk_modules/ (the copy
   precedes the check; discovery still rejects that copy). A hashless or v1.0
-  lock takes no vendor step, because RequireV2 fails before anything is
-  copied. Command-scope admission loads the lock without RequireV2, so a v1.0
-  entry reaches CallViaSibling (F12).
+  lock takes no vendor step, and LoadCommandScopeLock rejects it with
+  RequireV2 while IsDeclaredLockedCommandSource rejects any hashless entry.
 *)
 \* Correspondence (checked by `scripts/formal.py correspondence`):
 \*
@@ -37,7 +36,7 @@
 \* | Vendor lock load | Resolver.LoadDeclaredFromLock | internal/app/modulesync/resolver.go | TestLockIntegrity_TraceHarness | RequireV2 fails a v1.0 lock before anything is copied |
 \* | Discover | VerifyLockedVendoredModuleHash | pkg/invowkmod/verify.go | TestLockIntegrity_HashlessEntryIsRejected | - |
 \* | CallViaSibling | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestLockIntegrity_SiblingCopyMustMatchCallerHash | P's copy is assumed consistent with P's own lock |
-\* | CallViaSibling, hashless entry | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy | characterisation: an entry without a hash admits by identity only (F12) |
+\* | CallViaSibling, hashless entry | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestLockIntegrity_HashlessCallerEntryIsRejected | an entry without a hash is rejected (F12 fixed) |
 EXTENDS Naturals
 
 CONSTANTS FixedSync, RejectUnhashed, CheckCallerHash, AdmitRequiresCallerHash, LegacyLock, Mutant

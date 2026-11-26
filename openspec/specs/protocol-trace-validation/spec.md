@@ -1,7 +1,7 @@
 # protocol-trace-validation Specification
 
 ## Purpose
-Specifies how Invowk checks that real Go code behaves as its TLA+ protocol models describe, by recording projected state traces from test harnesses and validating them with TLC. It covers the trace-validated models (`Serverbase`, `AtomicWrite`, `Watch`, `HostCallbackToken`, `LockIntegrity`), the harness and manifest conventions, the token and lock-integrity harnesses, targeted mutations that the validation must reject, and how the fixed finding F11 and the open finding F12 are characterised. Trace validation shows only that the recorded, bounded executions conform to the model; it is not a proof that the code is correct.
+Specifies how Invowk checks that real Go code behaves as its TLA+ protocol models describe, by recording projected state traces from test harnesses and validating them with TLC. It covers the trace-validated models (`Serverbase`, `AtomicWrite`, `Watch`, `HostCallbackToken`, `LockIntegrity`), the harness and manifest conventions, the token and lock-integrity harnesses, targeted mutations that the validation must reject, and how the fixed findings F11 and F12 are characterised. Trace validation shows only that the recorded, bounded executions conform to the model; it is not a proof that the code is correct.
 
 ## Requirements
 
@@ -15,7 +15,7 @@ Invowk SHALL trace-validate these TLA+ models against real code: `Serverbase`, `
 
 #### Scenario: Ordinary test runs
 - **WHEN** `make test` runs without `INVOWK_FORMAL_TRACE_DIR`
-- **THEN** both new harnesses SHALL skip, while the F11 regression test, the F12 replay test and the characterisation tests SHALL run
+- **THEN** both new harnesses SHALL skip, while the F11 and F12 regression tests and the characterisation tests SHALL run
 
 ### Requirement: Trace manifest entry and harness conventions
 Each trace-validated model SHALL have a `[[trace]]` entry in `formal/manifest.toml` that names the model and its harness package, and its harness SHALL follow the naming, recording and skip conventions below.
@@ -172,18 +172,18 @@ In `TestLockIntegrity_TraceHarness`, real hashes and commits SHALL map to the mo
 - **THEN** the model SHALL be changed to mirror the code, every existing command SHALL keep its declared verdict, and the header SHALL record the difference
 - **THEN** this SHALL cover a commit mismatch that keeps the cache, and a failed v2 hash check that leaves the copied content in `invowk_modules/`
 
-### Requirement: Finding F12, hashless caller entries admit sibling copies
-Command-scope admission admits a sibling's vendored copy when the caller's lock entry has no content hash. `LockIntegrity.tla` SHALL characterise this defect with an `AdmitRequiresCallerHash` constant, set to `FALSE` in its base constants to mirror the code.
+### Requirement: Finding F12, hashless caller entries are rejected (fixed)
+Command-scope admission requires a caller content hash and refuses v1.0 lock files and hashless lock entries. `LockIntegrity.tla` SHALL set `AdmitRequiresCallerHash` to `TRUE` in its base constants to mirror the fixed code.
 
 #### Scenario: Model check
 - **WHEN** `make formal` runs
-- **THEN** `findingF12HashlessSiblingAdmission` (`LegacyLock = TRUE`) SHALL produce a counterexample of `SiblingCallTrusted`
-- **THEN** `f12AdmitRequiresCallerHash` (`AdmitRequiresCallerHash = TRUE`, `LegacyLock = TRUE`) SHALL pass, and a seeded mutant with `mutant_of` pointing at it SHALL produce a counterexample
+- **THEN** `f12AdmitRequiresCallerHash` (`AdmitRequiresCallerHash = TRUE`, `LegacyLock = TRUE`) SHALL pass
+- **THEN** `mutantPreFixF12HashlessSiblingAdmission` (`AdmitRequiresCallerHash = FALSE`, `LegacyLock = TRUE`) and `mutantHashlessUsesSiblingLock` SHALL each produce a counterexample of `SiblingCallTrusted`
 
-#### Scenario: Replay in the real code
+#### Scenario: Regression test in the real code
 - **WHEN** `make test` runs
-- **THEN** `TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy` SHALL assert today's behaviour: `IsDeclaredLockedCommandSource` returns true for a sibling copy of different content under a hashless caller entry
-- **THEN** `formal/README.md` SHALL record F12 as open, and the product fix SHALL be left to a separate change
+- **THEN** `TestLockIntegrity_HashlessCallerEntryIsRejected` SHALL assert that `IsDeclaredLockedCommandSource` returns false for a sibling copy under a hashless caller entry
+- **THEN** `formal/README.md` SHALL record F12 as fixed
 
 ### Requirement: Targeted mutation provenance
 Each targeted mutation SHALL be a small edit of an accepted real trace. It SHALL carry a comment that names the property or finding it violates.
@@ -198,14 +198,14 @@ The harness SHALL:
 - **THEN** the harness SHALL fail before any trace is written
 
 ### Requirement: Open findings are not mutations
-A behaviour that the base constants accept because of an open finding SHALL NOT be declared as a mutation. This covers a hashless-entry sibling admission (F12). Once a finding is fixed and the base constants no longer accept its behaviour, that behaviour MAY be declared as a targeted mutation, as a connection open after `Stop` is after the fix of F11.
+A behaviour that the base constants accept because of an open finding SHALL NOT be declared as a mutation. Once a finding is fixed and the base constants no longer accept its behaviour, that behaviour MAY be declared as a targeted mutation, as a connection open after `Stop` is after the fix of F11 and a hashless-entry sibling admission is after the fix of F12.
 
 #### Scenario: Behaviour accepted because of an open finding
-- **WHEN** a behaviour is accepted by the base constants because of an open finding, such as a hashless-entry sibling admission (F12)
+- **WHEN** a behaviour is accepted by the base constants because of an open finding
 - **THEN** it SHALL NOT be declared as a mutation
 
 #### Scenario: Behaviour of a fixed finding
-- **WHEN** the base constants reject a behaviour because its finding was fixed, such as a connection open after `Stop` (F11)
+- **WHEN** the base constants reject a behaviour because its finding was fixed, such as a connection open after `Stop` (F11) or a hashless-entry sibling admission (F12)
 - **THEN** a targeted mutation of an accepted trace MAY declare that behaviour, and validation SHALL reject it
 
 ### Requirement: Suite constant overrides

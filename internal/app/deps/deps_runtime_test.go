@@ -106,6 +106,7 @@ func TestValidateRuntimeDependenciesChecksScopeBeforeProbe(t *testing.T) {
 		Alias:   "allowed-tools",
 	}
 	depID := invowkmod.ModuleID("io.example.tools")
+	depDir, depHash := writeLockedScopeModuleDir(t, "cmds: {}")
 	lock := invowkmod.NewLockFile()
 	lock.Modules[invowkmod.ModuleRef(req).Key()] = invowkmod.LockedModule{
 		GitURL:          req.GitURL,
@@ -115,6 +116,7 @@ func TestValidateRuntimeDependenciesChecksScopeBeforeProbe(t *testing.T) {
 		Alias:           req.Alias,
 		Namespace:       "allowed-tools",
 		ModuleID:        depID,
+		ContentHash:     depHash,
 	}
 	moduleCmd := runtimeDependencyCommand("@other-tools test")
 	callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
@@ -133,6 +135,7 @@ func TestValidateRuntimeDependenciesChecksScopeBeforeProbe(t *testing.T) {
 			SimpleName: "test",
 			SourceID:   "other-tools",
 			ModuleID:   &depID,
+			Invowkfile: &invowkfile.Invowkfile{ModulePath: depDir},
 		}},
 	}}}
 	probe := newFilepathStubRuntime(t,

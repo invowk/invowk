@@ -199,8 +199,9 @@ func (r *lockTraceRun) commitLabel(commit modulesync.GitCommit) string {
 	return ""
 }
 
-// lockEntry reads C's lock from disk as command scope does (LoadLockFile,
-// which parses v1.0) and returns it with the module's entry.
+// lockEntry reads C's lock from disk with LoadLockFile (which also parses v1.0)
+// and returns it with the module's entry. Notice LoadCommandScopeLock rejects
+// v1.0 locks via RequireV2().
 func (r *lockTraceRun) lockEntry() (*invowkmod.LockFile, invowkmod.LockedModule) {
 	lock, err := invowkmod.LoadLockFile(r.lockPath())
 	if err != nil {
@@ -318,7 +319,7 @@ func (r *lockTraceRun) discover() {
 }
 
 // callViaSibling asks command-scope admission whether C may run M through
-// P's vendored copy, with C's lock loaded as LoadCommandScopeLock loads it.
+// P's vendored copy, against C's parsed lock entry.
 func (r *lockTraceRun) callViaSibling() {
 	lock, _ := r.lockEntry()
 	requirements := []invowkmod.ModuleRequirement{invowkmod.ModuleRequirement(lockTraceRequirements[0])}

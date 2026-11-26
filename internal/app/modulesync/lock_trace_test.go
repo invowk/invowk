@@ -111,7 +111,7 @@ func lockTraceCuratedCases() []lockTraceCase {
 		// F6: the sibling's other version is rejected under C's hash; Good is admitted.
 		{lockTraceInit{cache: true, sibling: lockLabelOther}, strings.Fields("CallViaSibling Sync Vendor Discover")},
 		{v2Cache, strings.Fields("CallViaSibling Vendor Discover")},
-		// F12 (open): a hashless entry admits the sibling's other version.
+		// F12 (fixed): a hashless entry rejects the sibling's other version.
 		{lockTraceInit{legacy: true, sibling: lockLabelOther}, strings.Fields("CallViaSibling Sync Vendor Discover")},
 		// A tampered cache fails sync and vendor; the leftover copy is rejected.
 		{v2Cache, strings.Fields("TamperCache Sync Vendor Discover")},
@@ -120,8 +120,8 @@ func lockTraceCuratedCases() []lockTraceCase {
 }
 
 // lockTraceMutations edits accepted traces one step at a time into
-// behaviours LockIntegrity.tla forbids. A sibling admitted under a hashless
-// entry is not among them: the base configuration accepts it (open finding F12).
+// behaviours LockIntegrity.tla forbids, including sibling admission under a
+// hashless caller entry (F12 fixed).
 func lockTraceMutations(t *testing.T, recorded *tlatrace.Recorded) [][]tlatrace.Record {
 	t.Helper()
 	trace := func(st lockTraceInit, ops string) []tlatrace.Record {
@@ -136,6 +136,9 @@ func lockTraceMutations(t *testing.T, recorded *tlatrace.Recorded) [][]tlatrace.
 		{tamperDiscover[0], tamperDiscover[len(tamperDiscover)-1]},
 		// SiblingCallTrusted and F6: Other admitted under C's Good hash.
 		tlatrace.Edit(trace(lockTraceInit{cache: true, sibling: lockLabelOther}, "CallViaSibling"), -1,
+			tlatrace.Record{"called": str(lockLabelOther)}),
+		// SiblingCallTrusted and F12: Other admitted under C's hashless entry.
+		tlatrace.Edit(trace(lockTraceInit{legacy: true, sibling: lockLabelOther}, "CallViaSibling Sync Vendor Discover"), 1,
 			tlatrace.Record{"called": str(lockLabelOther)}),
 		// F5: a sync after a moved tag rewrites the lock to c2 and Evil.
 		tlatrace.Edit(trace(lockTraceInit{vendored: true, sibling: lockLabelGood}, "MoveTag Sync Discover"), 2,

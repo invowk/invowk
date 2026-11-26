@@ -46,6 +46,7 @@ func scopeKeyURL(key string) invowkmod.GitURL {
 func (c scopeCase) realDecisions(t *testing.T) []bool {
 	t.Helper()
 
+	moduleDir, moduleHash := writeLockedScopeModuleDir(t, "cmds: {}")
 	available := make(map[invowkfile.CommandName]*discovery.CommandInfo, len(c.cmds))
 	infos := make([]*discovery.CommandInfo, len(c.cmds))
 	for i, cmd := range c.cmds {
@@ -57,6 +58,9 @@ func (c scopeCase) realDecisions(t *testing.T) []bool {
 		name := invowkfile.CommandName(fmt.Sprintf("c%d lint", i))
 		info := scopedCommandInfo(name, discovery.SourceID(cmd.src), moduleID)
 		info.IsGlobalModule = cmd.global
+		if cmd.mod != "" {
+			info.Invowkfile = &invowkfile.Invowkfile{ModulePath: moduleDir}
+		}
 		available[name] = info
 		infos[i] = info
 	}
@@ -71,6 +75,7 @@ func (c scopeCase) realDecisions(t *testing.T) []bool {
 			GitURL:          scopeKeyURL(key),
 			ModuleID:        invowkmod.ModuleID(entry.mod),
 			CommandSourceID: invowkmod.ModuleSourceID(entry.src),
+			ContentHash:     moduleHash,
 		}
 	}
 

@@ -26,12 +26,22 @@ const (
 	maxLinkHops = 255
 )
 
+var (
+	errInsideModuleDir     = errors.New("it is inside a module directory")
+	errTooManyAncestorHops = fmt.Errorf("more than %d ancestor link resolutions", maxLinkHops)
+)
+
 // discoverCurrentDirModule decides whether the current directory is a module
-// directory and, when it is, loads it as that module.
+// directory or inside one and, when it is a module root, loads it as that
+// module.
 //
-// The invowkfile of a module directory is always loaded as part of that module,
-// whichever directory invowk runs from. The decision is made on the current
-// directory's own entry, as the directory its parent stores it in:
+// The invowkfile and subdirectories of a module directory belong strictly to
+// that module, whichever directory invowk runs from. The decision is made on
+// the current directory's own entry and its enclosing directories:
+//   - any directory strictly inside a ".invowkmod" directory (by logical path,
+//     physical EvalSymlinks path, stored ancestor entry, or ancestor/target
+//     symlink or Windows junction) loads nothing and is reported as
+//     module_load_skipped, including nested or vendored modules beneath it;
 //   - a module-directory candidate is a directory any of whose names ends in
 //     ".invowkmod", compared ignoring case: the logical base name, the name the
 //     parent directory stores, the physical (EvalSymlinks) base name and, for a
@@ -46,16 +56,14 @@ const (
 //     contributes nothing and is reported.
 //
 // It returns isModuleDir=false only when the current directory is an ordinary
-// directory, which the caller then reads through discoverInDir and the scan of
-// its children. For isModuleDir=true the caller reads nothing else from the
-// current directory: no plain invowkfile parse and no child-module scan.
-// Only the current directory's own entry counts; a link in an ancestor directory
-// does not change the result, because os.Lstat does not follow the last path
-// component.
+// directory outside every module directory, which the caller then reads through
+// discoverInDir and the scan of its children. For isModuleDir=true the caller
+// reads nothing else from the current directory: no plain invowkfile parse and
+// no child-module scan.
 func discoverCurrentDirModule(baseDir types.FilesystemPath) (isModuleDir bool, files []*DiscoveredFile, diagnostics []Diagnostic) {
 	absPath, err := absolutePath(baseDir)
 	if err != nil {
-		if hasModuleSuffixFold(baseDir) {
+		if hasModuleSuffixFold(baseDir) || pathHasModuleAncestor(baseDir) {
 			return true, nil, []Diagnostic{currentDirSkipped(baseDir, fmt.Errorf("cannot resolve the directory: %w", err))}
 		}
 		// discoverInDir and the child scan report or skip an unresolvable path.
@@ -70,41 +78,36 @@ func discoverCurrentDirModule(baseDir types.FilesystemPath) (isModuleDir bool, f
 	info, err := os.Lstat(string(absPath))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) && !anyModuleSuffixFold(names) {
+			if ancestorErr := checkEnclosingModuleAncestors(absPath, physical, evalErr, true); ancestorErr != nil {
+				return true, nil, []Diagnostic{insideModuleSkipped(absPath, ancestorErr)}
+			}
 			// Nothing exists to read; the ordinary path finds nothing either.
 			return false, nil, nil
 		}
 		return true, nil, []Diagnostic{currentDirSkipped(absPath, fmt.Errorf("cannot read the directory entry: %w", err))}
 	}
 
-	parentDir, parentErr := parentPath(absPath)
-	volumeRoot := parentErr == nil && filepath.Clean(string(parentDir)) == filepath.Clean(string(absPath))
-	var stored os.DirEntry
-	hasStored := false
-	if parentErr == nil && !volumeRoot {
-		stored, hasStored = storedDirEntry(parentDir, absPath, info)
+	if ancestorErr := checkEnclosingModuleAncestors(absPath, physical, evalErr, false); ancestorErr != nil {
+		return true, nil, []Diagnostic{insideModuleSkipped(absPath, ancestorErr)}
 	}
-	if hasStored {
-		storedPath, pathErr := validatedDiscoveredEntryPath(parentDir, stored)
-		if pathErr == nil {
-			names = append(names, storedPath)
-		}
+
+	// Non-link directories whose resolved physical path does not end in
+	// ".invowkmod" cannot match a stored module entry, so skip reading the
+	// parent directory. Links, candidates, and unresolved paths still inspect
+	// the parent entry.
+	if !isLinkEntry(info) && evalErr == nil && !anyModuleSuffixFold(names) {
+		return false, nil, nil
+	}
+
+	parentDir, parentErr := parentPath(absPath)
+	volumeRoot := parentErr == nil && isVolumeRoot(parentDir, absPath)
+	stored, hasStored, storedPath := resolveStoredEntry(parentDir, absPath, info, parentErr == nil && !volumeRoot)
+	if storedPath != "" {
+		names = append(names, storedPath)
 	}
 
 	if isLinkEntry(info) {
-		targets, resolveErr := linkTargets(absPath)
-		if resolveErr != nil {
-			return true, nil, []Diagnostic{currentDirSkipped(absPath, fmt.Errorf("cannot resolve the link target: %w", resolveErr))}
-		}
-		if !anyModuleSuffixFold(append(names, targets...)) {
-			// A link to an ordinary directory stays an ordinary directory.
-			return false, nil, nil
-		}
-		return true, nil, []Diagnostic{mustDiagnosticWithPath(
-			SeverityWarning,
-			CodeModuleSymlinkSkipped,
-			fmt.Sprintf(symlinkModuleSkippedFormat, absPath),
-			absPath,
-		)}
+		return discoverLinkCurrentDirModule(absPath, names)
 	}
 
 	candidate := anyModuleSuffixFold(names)
@@ -115,6 +118,48 @@ func discoverCurrentDirModule(baseDir types.FilesystemPath) (isModuleDir bool, f
 		return false, nil, nil
 	}
 
+	return loadCandidateCurrentDirModule(parentDir, absPath, stored)
+}
+
+func resolveStoredEntry(parentDir, absPath types.FilesystemPath, info os.FileInfo, canReadParent bool) (stored os.DirEntry, hasStored bool, storedPath types.FilesystemPath) {
+	if !canReadParent {
+		return nil, false, ""
+	}
+	stored, hasStored = storedDirEntry(parentDir, absPath, info)
+	if !hasStored {
+		return nil, false, ""
+	}
+	storedPath, pathErr := validatedDiscoveredEntryPath(parentDir, stored)
+	if pathErr != nil {
+		return stored, true, ""
+	}
+	return stored, true, storedPath
+}
+
+func discoverLinkCurrentDirModule(absPath types.FilesystemPath, names []types.FilesystemPath) (isModuleDir bool, files []*DiscoveredFile, diagnostics []Diagnostic) {
+	targets, resolveErr := linkTargets(absPath)
+	if resolveErr != nil {
+		return true, nil, []Diagnostic{currentDirSkipped(absPath, fmt.Errorf("cannot resolve the link target: %w", resolveErr))}
+	}
+	for _, target := range targets {
+		targetPhysical, targetEvalErr := resolvedPath(target)
+		if ancestorErr := checkEnclosingModuleAncestors(target, targetPhysical, targetEvalErr, true); ancestorErr != nil {
+			return true, nil, []Diagnostic{insideModuleSkipped(absPath, ancestorErr)}
+		}
+	}
+	if !anyModuleSuffixFold(append(names, targets...)) {
+		// A link to an ordinary directory stays an ordinary directory.
+		return false, nil, nil
+	}
+	return true, nil, []Diagnostic{mustDiagnosticWithPath(
+		SeverityWarning,
+		CodeModuleSymlinkSkipped,
+		fmt.Sprintf(symlinkModuleSkippedFormat, absPath),
+		absPath,
+	)}
+}
+
+func loadCandidateCurrentDirModule(parentDir, absPath types.FilesystemPath, stored os.DirEntry) (isModuleDir bool, files []*DiscoveredFile, diagnostics []Diagnostic) {
 	file, entryDiags := loadModuleEntry(parentDir, stored)
 	if file == nil && len(entryDiags) == 0 {
 		// A stored suffix in another letter case, an invalid module name, or an
@@ -319,4 +364,158 @@ func currentDirSkipped(path types.FilesystemPath, reason error) Diagnostic {
 		path,
 		reason,
 	)
+}
+
+func insideModuleSkipped(path types.FilesystemPath, reason error) Diagnostic {
+	return mustDiagnosticWithCause(
+		SeverityWarning,
+		CodeModuleLoadSkipped,
+		fmt.Sprintf("skipping current directory %s: %v", path, reason),
+		path,
+		reason,
+	)
+}
+
+func isVolumeRoot(parentDir, path types.FilesystemPath) bool {
+	return filepath.Clean(string(parentDir)) == filepath.Clean(string(path))
+}
+
+// pathHasModuleAncestor reports whether any strict ancestor of path has a
+// base name ending in ".invowkmod" (ignoring case).
+func pathHasModuleAncestor(path types.FilesystemPath) bool {
+	curr := path
+	for {
+		parent, err := parentPath(curr)
+		if err != nil || isVolumeRoot(parent, curr) {
+			return false
+		}
+		if hasModuleSuffixFold(parent) {
+			return true
+		}
+		curr = parent
+	}
+}
+
+// checkEnclosingModuleAncestors reports an error if any strict ancestor of
+// absPath (or any directory resolved from an ancestor link or Windows
+// junction) ends in ".invowkmod" ignoring case, or cannot be verified.
+func checkEnclosingModuleAncestors(absPath, physical types.FilesystemPath, evalErr error, allowNotExist bool) error {
+	if pathHasModuleAncestor(absPath) {
+		return errInsideModuleDir
+	}
+	if evalErr == nil && pathHasModuleAncestor(physical) {
+		return errInsideModuleDir
+	}
+
+	visited := make(map[types.FilesystemPath]struct{})
+	extra, err := walkStrictAncestors(absPath, evalErr != nil, allowNotExist, visited)
+	if err != nil {
+		return err
+	}
+	queue := extra
+	hops := 0
+
+	for i := 0; i < len(queue); i++ {
+		hops++
+		if hops > maxLinkHops {
+			return errTooManyAncestorHops
+		}
+		more, walkErr := inspectAncestorTarget(queue[i], visited)
+		if walkErr != nil {
+			return walkErr
+		}
+		queue = append(queue, more...)
+	}
+	return nil
+}
+
+func inspectAncestorTarget(target types.FilesystemPath, visited map[types.FilesystemPath]struct{}) ([]types.FilesystemPath, error) {
+	if hasModuleSuffixFold(target) || pathHasModuleAncestor(target) {
+		return nil, errInsideModuleDir
+	}
+	targetPhysical, targetEvalErr := resolvedPath(target)
+	if targetEvalErr == nil && (hasModuleSuffixFold(targetPhysical) || pathHasModuleAncestor(targetPhysical)) {
+		return nil, errInsideModuleDir
+	}
+	return walkStrictAncestors(target, targetEvalErr != nil, true, visited)
+}
+
+func walkStrictAncestors(start types.FilesystemPath, evalFailed, allowNotExist bool, visited map[types.FilesystemPath]struct{}) ([]types.FilesystemPath, error) {
+	var extra []types.FilesystemPath
+	curr := start
+	for {
+		parent, err := parentPath(curr)
+		if err != nil {
+			return nil, fmt.Errorf("cannot resolve enclosing directory: %w", err)
+		}
+		if isVolumeRoot(parent, curr) {
+			return extra, nil
+		}
+		curr = parent
+
+		if _, seen := visited[curr]; seen {
+			return extra, nil
+		}
+		visited[curr] = struct{}{}
+
+		if hasModuleSuffixFold(curr) {
+			return nil, errInsideModuleDir
+		}
+
+		targets, err := inspectAncestorDir(curr, evalFailed, allowNotExist)
+		if err != nil {
+			return nil, err
+		}
+		extra = append(extra, targets...)
+	}
+}
+
+func inspectAncestorDir(anc types.FilesystemPath, evalFailed, allowNotExist bool) ([]types.FilesystemPath, error) {
+	info, err := os.Lstat(string(anc))
+	if err != nil {
+		if allowNotExist && errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("cannot inspect enclosing directory %s: %w", anc, err)
+	}
+	if isLinkEntry(info) {
+		targets, linkErr := linkTargets(anc)
+		if linkErr != nil {
+			return nil, fmt.Errorf("cannot resolve enclosing link %s: %w", anc, linkErr)
+		}
+		return targets, nil
+	}
+	if evalFailed {
+		if err := verifyUnresolvedAncestorName(anc, info); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+func verifyUnresolvedAncestorName(anc types.FilesystemPath, info os.FileInfo) error {
+	resolved, err := resolvedPath(anc)
+	if err == nil {
+		if hasModuleSuffixFold(resolved) || pathHasModuleAncestor(resolved) {
+			return errInsideModuleDir
+		}
+		return nil
+	}
+
+	parentDir, parentErr := parentPath(anc)
+	if parentErr != nil || isVolumeRoot(parentDir, anc) {
+		return fmt.Errorf("cannot resolve enclosing directory %s: %w", anc, err)
+	}
+	stored, hasStored := storedDirEntry(parentDir, anc, info)
+	if !hasStored {
+		return fmt.Errorf("cannot verify enclosing directory %s: %w", anc, err)
+	}
+	storedPath, pathErr := validatedDiscoveredEntryPath(parentDir, stored)
+	if pathErr != nil {
+		return fmt.Errorf("cannot validate enclosing directory entry %s: %w", anc, pathErr)
+	}
+	if hasModuleSuffixFold(storedPath) {
+		return errInsideModuleDir
+	}
+	return nil
 }

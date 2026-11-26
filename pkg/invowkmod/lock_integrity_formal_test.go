@@ -13,8 +13,8 @@ import (
 )
 
 // These tests replay the counterexamples formal/tla/LockIntegrity.tla records
-// for findings F4, F6, and F12 against the real code. F4 and F6 are fixed, and
-// each test was inverted together with its fix; F12 is open.
+// for findings F4, F6, and F12 against the real code. F4, F6, and F12 are all
+// fixed, and each test was inverted together with its fix.
 
 func writeVendoredModule(t *testing.T, moduleID ModuleID, body string) *Module {
 	t.Helper()
@@ -79,13 +79,11 @@ func TestLockIntegrity_SiblingCopyMustMatchCallerHash(t *testing.T) {
 	}
 }
 
-// TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy replays finding F12
-// (LockIntegrity.findingF12HashlessSiblingAdmission), which is open: when the
-// caller's lock entry records no content hash, as a v1.0 lock loaded for
-// command scope does, admission compares only identity and namespace, so a
-// sibling's vendored copy of different content is admitted. The fix
-// (f12AdmitRequiresCallerHash) inverts this test.
-func TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy(t *testing.T) {
+// TestLockIntegrity_HashlessCallerEntryIsRejected replays finding F12
+// (LockIntegrity.f12AdmitRequiresCallerHash, now fixed): when the caller's lock
+// entry records no content hash, IsDeclaredLockedCommandSource rejects the
+// sibling copy regardless of matching identity and namespace.
+func TestLockIntegrity_HashlessCallerEntryIsRejected(t *testing.T) {
 	t.Parallel()
 
 	req := ModuleRequirement{GitURL: "https://example.com/tools.git", Version: "^1.0.0"}
@@ -105,7 +103,7 @@ func TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy(t *testing.T) {
 	hashless := &LockFile{Version: "1.0", Modules: map[ModuleRefKey]LockedModule{
 		ModuleRef(req).Key(): {GitURL: req.GitURL, ModuleID: "io.example.tools", CommandSourceID: "io.example.tools"},
 	}}
-	if !IsDeclaredLockedCommandSource([]ModuleRequirement{req}, hashless, "io.example.tools", "io.example.tools", sibling.Path) {
-		t.Fatal("IsDeclaredLockedCommandSource() rejected a sibling copy under a hashless caller entry; F12 is fixed, invert this test")
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, hashless, "io.example.tools", "io.example.tools", sibling.Path) {
+		t.Fatal("IsDeclaredLockedCommandSource() admitted a sibling copy under a hashless caller entry (F12)")
 	}
 }

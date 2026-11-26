@@ -141,6 +141,11 @@ func TestMissingLockedModuleRequirementKeys(t *testing.T) {
 func TestIsDeclaredLockedCommandSource(t *testing.T) {
 	t.Parallel()
 
+	target := writeVendoredModule(t, "io.example.tools", "cmds: {}")
+	targetHash, err := ComputeModuleHash(string(target.Path))
+	if err != nil {
+		t.Fatalf("ComputeModuleHash() error = %v", err)
+	}
 	req := ModuleRequirement{
 		GitURL:  "https://example.com/tools.git",
 		Version: "^1.0.0",
@@ -154,33 +159,47 @@ func TestIsDeclaredLockedCommandSource(t *testing.T) {
 		Namespace:       "tools",
 		ModuleID:        "io.example.tools",
 		CommandSourceID: "tools",
+		ContentHash:     targetHash,
 	}
 
-	if !IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "tools", "") {
-		t.Fatal("IsDeclaredLockedCommandSource() = false, want true for matching identity and source")
+	if !IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "tools", target.Path) {
+		t.Fatal("IsDeclaredLockedCommandSource() = false, want true for matching identity, source, and hash")
 	}
-	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, nil, "io.example.tools", "tools", "") {
+	hashlessLock := NewLockFile()
+	hashlessLock.Modules[ModuleRef(req).Key()] = LockedModule{
+		GitURL:          req.GitURL,
+		Version:         req.Version,
+		ResolvedVersion: "1.2.3",
+		Namespace:       "tools",
+		ModuleID:        "io.example.tools",
+		CommandSourceID: "tools",
+	}
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, hashlessLock, "io.example.tools", "tools", target.Path) {
+		t.Fatal("IsDeclaredLockedCommandSource() = true with empty content hash")
+	}
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, nil, "io.example.tools", "tools", target.Path) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with nil lock")
 	}
-	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.other", "tools", "") {
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.other", "tools", target.Path) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true for mismatched module ID")
 	}
-	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "other", "") {
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "other", target.Path) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true for mismatched source")
 	}
 
 	emptyIDLock := NewLockFile()
-	emptyIDLock.Modules[ModuleRef(req).Key()] = LockedModule{CommandSourceID: "tools"}
-	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, emptyIDLock, "", "tools", "") {
+	emptyIDLock.Modules[ModuleRef(req).Key()] = LockedModule{CommandSourceID: "tools", ContentHash: targetHash}
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, emptyIDLock, "", "tools", target.Path) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with empty module ID")
 	}
 
 	emptySourceReq := ModuleRequirement{}
 	emptySourceLock := NewLockFile()
 	emptySourceLock.Modules[ModuleRef(emptySourceReq).Key()] = LockedModule{
-		Namespace: "io.example.tools@1.2.3",
+		Namespace:   "io.example.tools@1.2.3",
+		ContentHash: targetHash,
 	}
-	if IsDeclaredLockedCommandSource([]ModuleRequirement{emptySourceReq}, emptySourceLock, "io.example.tools", "", "") {
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{emptySourceReq}, emptySourceLock, "io.example.tools", "", target.Path) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with empty source ID")
 	}
 }

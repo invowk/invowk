@@ -730,6 +730,9 @@ func verifyGeneratedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVal
 	}
 	source := discovery.SourceIDInvowkfile
 	lookupCtx := contextWithDiscoveryScope(cmd.Context(), rootFlags.configPath, noCwdFromContext(cmd.Context()))
+	// Attach lookupCtx so executeRequest reuses this request cache and
+	// LoadConfigForCommand claims ownership of any fallback config diagnostics.
+	cmd.SetContext(lookupCtx)
 	if discovered, err := app.Discovery.DiscoverCommandSet(lookupCtx); err == nil {
 		source = verifySourceForWrittenCommand(discovered.Set, target, result.CommandName)
 	}
