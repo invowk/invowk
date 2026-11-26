@@ -2039,6 +2039,191 @@ class RefreshTests(Fixture):
             self.assertEqual(fm.main(["refresh"]), 1)
         self.assertIn("refresh needs --symbol [FILE:]SYMBOL (repeatable) or --stale", err.getvalue())
 
+    def test_scope_plan_planned_stale_removal_and_refusals(self) -> None:
+        self.base_data()
+        plan = self.build()
+        ledger = tomllib.loads(self.paths.ledger.read_text())
+        manifest = tomllib.loads(self.paths.manifest.read_text())
+        mutators = {m["id"]: m["mutator"] for m in json.loads(self.paths.baseline.read_text())["mutants"]}
+        reader = fm.source_reader(self.root)
+        source = reader
+
+        # Choosing only Evaluate scopes to a/a.go and omits b/b.go.
+        scoped = fm.scope_plan(plan, ["Evaluate"], False, ledger["survivor"], mutators, manifest, source)
+        self.assertEqual(scoped["mode"], "scoped")
+        self.assertEqual(scoped["files"], ["a/a.go"])
+        self.assertEqual(scoped["symbols"], ["a/a.go:Evaluate"])
+        self.assertEqual(scoped["removal_only"], [])
+        self.assertEqual(len(scoped["shards"]), 1)
+        self.assertEqual(scoped["shards"][0]["id"], "shard-0")
+        self.assertEqual(scoped["shards"][0]["file"], "a/a.go")
+
+        # --stale alone selects the file of entries failing the anchor/stale check.
+        stale_scope = fm.scope_plan(plan, [], True, ledger["survivor"], mutators, manifest, source)
+        self.assertEqual(stale_scope["files"], ["a/a.go"])
+        self.assertIn("a/a.go:Evaluate", stale_scope["symbols"])
+
+        # Removal-only symbols produce zero shards.
+        deleted_spec = Spec("RemovedFn", 24, "conditional/negated", "\tif dead {\n", "\tif !dead {\n")
+        self.write_data([self.entry(deleted_spec, element="evaluation", removed=None, added=None)],
+                        specs={"del": deleted_spec})
+        ledger_del = tomllib.loads(self.paths.ledger.read_text())
+        manifest_del = tomllib.loads(self.paths.manifest.read_text())
+        mutators_del = {m["id"]: m["mutator"] for m in json.loads(self.paths.baseline.read_text())["mutants"]}
+        removal_scope = fm.scope_plan(plan, ["a/a.go:RemovedFn"], False, ledger_del["survivor"],
+                                      mutators_del, manifest_del, source)
+        self.assertEqual(removal_scope["files"], [])
+        self.assertEqual(removal_scope["shards"], [])
+        self.assertEqual(removal_scope["removal_only"], ["a/a.go:RemovedFn"])
+
+        # Refuses unknown symbols and empty --stale.
+        with self.assertRaisesRegex(PlanError, r"unknown"):
+            fm.scope_plan(plan, ["NoSuchSymbol"], False, ledger["survivor"], mutators, manifest, source)
+        with self.assertRaisesRegex(PlanError, r"no matching symbols"):
+            fm.scope_plan(plan, [], False, ledger["survivor"], mutators, manifest, source)
+
+    def test_per_file_shards_and_show_flags(self) -> None:
+        self.base_data()
+        plan = self.build()
+        plan_path = self.root / "plan.json"
+        scope_path = self.root / "scope.json"
+        plan_path.write_text(json.dumps(plan))
+
+        shards = fm.per_file_shards(plan)
+        self.assertEqual([s["file"] for s in shards], ["a/a.go", "b/b.go"])
+        self.assertEqual([s["id"] for s in shards], ["shard-0", "shard-1"])
+
+        scope = {"version": 1, "mode": "scoped", "symbols": ["a/a.go:Evaluate"], "removal_only": [],
+                 "files": ["a/a.go"], "shards": [shards[0]]}
+        scope_path.write_text(json.dumps(scope))
+
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            self.assertEqual(fm.main(["show", "--plan", str(plan_path), "--scope", str(scope_path), "scoped-files"]), 0)
+        self.assertEqual(out.getvalue().strip().splitlines(), ["a/a.go"])
+
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            self.assertEqual(fm.main(["show", "--plan", str(plan_path), "--scope", str(scope_path), "shards"]), 0)
+        self.assertEqual(out.getvalue().strip(), f"shard-0\t{shards[0]['group']}\ta/a.go\t{shards[0]['match']}")
+
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            self.assertEqual(fm.main(["show", "--plan", str(plan_path), "--per-file", "shards"]), 0)
+        self.assertEqual(len(out.getvalue().strip().splitlines()), 2)
+
+    def test_exec_args_workdir_and_merge_reports_worker_normalization(self) -> None:
+        self.base_data()
+        plan = self.build()
+        plan["preflight"]["a/a.go"] = {"clean_seconds": 1.0, "timeout_seconds": 15, "overridden": False}
+        worker_dir = self.root / "worker-0"
+        (worker_dir / "a").mkdir(parents=True)
+        worker_a = worker_dir / "a" / "a.go"
+        orig_text = (self.root / "a" / "a.go").read_text()
+        worker_a.write_text(orig_text)
+        worker_root = worker_dir.as_posix()
+        orig_lines = orig_text.splitlines(keepends=True)
+        orig_lines[23] = "\t// mutated line 24\n"
+        changed = self.root / "changed.go"
+        changed.write_text("".join(orig_lines))
+        args = fm.exec_args(plan, str(worker_a), str(changed), workdir=worker_root)
+        self.assertEqual(args["file"], "a/a.go")
+        self.assertEqual(args["function"], "Evaluate")
+
+        # merge_reports normalizes worker worktree prefixes back to plan_root.
+        run_dir = self.root / "sharded-run"
+        shard_dir = run_dir / "shard-0"
+        shard_dir.mkdir(parents=True)
+        (run_dir / fm.PLAN_FILE).write_text(json.dumps(plan))
+        (shard_dir / ".worker-root").write_text(worker_root + "\n")
+        (shard_dir / "go-mutesting-summary.json").write_text(json.dumps({"killedCount": 1, "escapedCount": 1}))
+        (shard_dir / "go-mutesting-agentic.json").write_text(json.dumps({"mutants": [{"id": NEW.id}]}))
+        (shard_dir / "report.json").write_text(json.dumps({"escaped": [NEW.report(prefix=worker_root + "/")]}))
+        stats = fm.merge_reports(run_dir, "")
+        self.assertEqual(stats["totalMutantsCount"], 2)
+        self.assertEqual(stats["msi"], 50.0)
+        merged = json.loads((run_dir / "report.json").read_text())
+        expected_root = Path(plan["root"]).as_posix().rstrip("/") + "/"
+        self.assertEqual(merged["escaped"][0]["mutator"]["originalFilePath"], expected_root + "a/a.go")
+
+        # merge_reports also succeeds on an empty removal-only scoped run (shards=[]).
+        empty_run = self.root / "empty-run"
+        empty_run.mkdir(parents=True)
+        (empty_run / fm.PLAN_FILE).write_text(json.dumps(plan))
+        (empty_run / "scope.json").write_text(json.dumps({"shards": [], "files": []}))
+        empty_stats = fm.merge_reports(empty_run, "")
+        self.assertEqual(empty_stats["totalMutantsCount"], 0)
+        self.assertEqual(json.loads((empty_run / "report.json").read_text()),
+                         {**{k: [] for k in fm.RERUN_STATUSES}, "stats": empty_stats})
+
+    def test_validate_and_refresh_with_scoped_and_sharded_runs(self) -> None:
+        self.base_data()
+        plan = self.build()
+        plan_digest = fm.plan_digest(plan, fm.worktree_reader(self.root))
+
+        # 1. Valid scoped run covering a/a.go accepts refresh(["Evaluate"]).
+        scoped_dir = self.root / "scoped-run"
+        (scoped_dir / "shard-0").mkdir(parents=True)
+        (scoped_dir / fm.PLAN_FILE).write_text(json.dumps(plan))
+        (scoped_dir / "scope.json").write_text(json.dumps({
+            "version": 1, "mode": "scoped", "symbols": ["a/a.go:Evaluate"], "removal_only": [],
+            "files": ["a/a.go"], "shards": [{"id": "shard-0", "group": 0, "file": "a/a.go", "match": "^(Evaluate|Decide|Stop)$"}],
+        }))
+        (scoped_dir / "run-metadata.txt").write_text(
+            f"profile=full\ninputs_digest={plan_digest}\nscope_mode=scoped\nshard_status[shard-0]=4\n")
+        (scoped_dir / "shard-0" / "report.json").write_text("{}")
+        reports = [self.rep(KEEP), self.rep(NEW)]
+        lists: dict[str, list] = {s: [] for s in fm.RERUN_STATUSES}
+        for r in reports:
+            st = r.pop("status", "escaped")
+            lists[st].append(r)
+        (scoped_dir / "report.json").write_text(json.dumps(lists))
+        (scoped_dir / "go-mutesting-agentic.json").write_text(json.dumps({"mutants": [
+            {"id": NEW.id, "description": "Changes: `return x` → `return 0`"}]}))
+
+        lines = fm.refresh(scoped_dir, ["Evaluate"], False, self.models, root=self.root, paths=self.paths,
+                           build=self.build)
+        self.assertIn(f"added {NEW.id} Evaluate expression/remove :27", lines)
+
+        # 2. Scoped run that did not cover Evaluate's file is refused without writing.
+        (scoped_dir / "scope.json").write_text(json.dumps({
+            "version": 1, "mode": "scoped", "symbols": ["b/b.go:Validate"], "removal_only": [],
+            "files": ["b/b.go"], "shards": [{"id": "shard-0", "group": 0, "file": "a/a.go", "match": "^(Evaluate|Decide|Stop)$"}],
+        }))
+        with self.assertRaisesRegex(PlanError, r"scoped run did not mutate a/a.go"):
+            fm.refresh(scoped_dir, ["Evaluate"], False, self.models, root=self.root, paths=self.paths,
+                       build=self.build)
+
+        # 3. Sharded full run missing a shard_status is refused as incomplete.
+        sharded_dir = self.root / "sharded-full"
+        (sharded_dir / "shard-0").mkdir(parents=True)
+        (sharded_dir / "shard-1").mkdir(parents=True)
+        (sharded_dir / fm.PLAN_FILE).write_text(json.dumps(plan))
+        (sharded_dir / "run-metadata.txt").write_text(
+            f"profile=full\ninputs_digest={plan_digest}\nscope_mode=full\nshard_count=2\nshard_status[shard-0]=4\n")
+        (sharded_dir / "shard-0" / "report.json").write_text("{}")
+        (sharded_dir / "shard-1" / "report.json").write_text("{}")
+        (sharded_dir / "report.json").write_text("{}")
+        with self.assertRaisesRegex(PlanError, r"incomplete run: shard-1 \(no shard_status\)"):
+            fm.validate_run(sharded_dir, self.build)
+
+        # 4. Empty scoped run (all removal-only) allows refreshing a deleted symbol cleanly.
+        deleted_spec = Spec("OldHelper", 24, "conditional/negated", "\tif dead {\n", "\tif !dead {\n")
+        self.write_data([self.entry(KEEP), self.entry(deleted_spec, element="evaluation", removed=None, added=None)],
+                        specs={"del": deleted_spec})
+        rem_dir = self.root / "removal-only-run"
+        rem_dir.mkdir(parents=True)
+        (rem_dir / fm.PLAN_FILE).write_text(json.dumps(plan))
+        (rem_dir / "scope.json").write_text(json.dumps({
+            "version": 1, "mode": "scoped", "symbols": [], "removal_only": ["a/a.go:OldHelper"],
+            "files": [], "shards": [],
+        }))
+        (rem_dir / "run-metadata.txt").write_text(
+            f"profile=full\ninputs_digest={plan_digest}\nscope_mode=scoped\n")
+        (rem_dir / "report.json").write_text(json.dumps({s: [] for s in fm.RERUN_STATUSES}))
+        (rem_dir / "go-mutesting-agentic.json").write_text(json.dumps({"mutants": []}))
+        rem_lines = fm.refresh(rem_dir, ["a/a.go:OldHelper"], False, self.models, root=self.root, paths=self.paths,
+                               build=self.build)
+        self.assertIn(f"removed {deleted_spec.id} OldHelper conditional/negated :24 (not generated; the function is gone)",
+                      rem_lines)
+
 
 if __name__ == "__main__":
     unittest.main()

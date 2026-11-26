@@ -784,6 +784,134 @@ test_formal_dirty_path_policy() {
 	assert_path_rejected "rejects other triage files" "tools/mutation/triage/current-full-scan.md"
 }
 
+test_formal_scope_and_jobs_validation() {
+	local output
+	local status
+
+	set +e
+	output="$( (main full --target-set root --symbol Foo) 2>&1)"
+	status=$?
+	set -e
+	assert_eq "root target set rejects --symbol" "1" "$status"
+	if grep -Fq "supported only on dry-run and full with --target-set formal-bindings" <<<"$output"; then
+		record_pass
+	else
+		record_fail "root --symbol error is actionable" "$output"
+	fi
+
+	set +e
+	output="$( (main baseline-update --target-set formal-bindings --stale) 2>&1)"
+	status=$?
+	set -e
+	assert_eq "baseline-update rejects --stale" "1" "$status"
+
+	set +e
+	output="$( (main dry-run --target-set formal-bindings --jobs 0) 2>&1)"
+	status=$?
+	set -e
+	assert_eq "jobs=0 is rejected" "1" "$status"
+	if grep -Fq "positive integer" <<<"$output"; then
+		record_pass
+	else
+		record_fail "jobs=0 error mentions positive integer" "$output"
+	fi
+
+	set +e
+	output="$( (main full --target-set root --jobs 2) 2>&1)"
+	status=$?
+	set -e
+	assert_eq "root target set rejects --jobs" "1" "$status"
+}
+
+test_formal_parallel_shards_and_workers_with_stubs() {
+	local tmp
+	local wt_count
+	local metadata
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"' RETURN
+	mkdir -p "$tmp/repo" "$tmp/bin"
+	git -C "$tmp/repo" init -q
+	git -C "$tmp/repo" config user.name "Test"
+	git -C "$tmp/repo" config user.email "test@example.com"
+	git -C "$tmp/repo" config commit.gpgsign false
+
+	write_formal_fixture "$tmp/repo"
+	sed 's/func Decide/func Validate/; s/func Stop/func Unused/' "$tmp/repo/a.go" >"$tmp/repo/b.go"
+	cat >"$tmp/repo/plan.json" <<JSON
+{"version": 2, "root": "$tmp/repo", "files": ["a.go", "b.go"], "inputs": ["a.go", "b.go"],
+ "groups": [{"match": "^(Decide|Stop|Validate)$", "files": ["a.go", "b.go"]}],
+ "functions": [
+  {"file": "a.go", "symbol": "Decide", "name": "Decide", "start": 3, "end": 8,
+   "rows": [{"model": "M", "element": "decide", "killers": ["TestCross", "TestDecide"]}],
+   "killers": ["TestCross", "TestDecide"], "packages": ["example.com/a", "example.com/b"], "package": "example.com/a"},
+  {"file": "b.go", "symbol": "Validate", "name": "Validate", "start": 3, "end": 8,
+   "rows": [{"model": "M", "element": "validate", "killers": ["TestStop"]}],
+   "killers": ["TestStop"], "packages": ["example.com/a"], "package": "example.com/a"}
+ ],
+ "killer_packages": {"TestCross": "example.com/b", "TestDecide": "example.com/a", "TestStop": "example.com/a"},
+ "unbound": [], "preflight": {}}
+JSON
+	git -C "$tmp/repo" add a.go b.go
+	git -C "$tmp/repo" commit -q -m "fixture"
+
+	cat >"$tmp/bin/go-mutesting" <<'GM'
+#!/usr/bin/env bash
+set -euo pipefail
+worker_dir="$(pwd -P)"
+printf '{"killedCount":1,"escapedCount":1,"errorCount":0,"skippedCount":0}\n' >go-mutesting-summary.json
+printf '{"mutants":[{"id":"m1"}]}\n' >go-mutesting-agentic.json
+cat >report.json <<JSON
+{"killed":[],"escaped":[{"mutator":{"originalFilePath":"$worker_dir/a.go","mutatorName":"statement/remove","diff":"--- a\\n+++ b\\n"}}],"skipped":[],"errored":[]}
+JSON
+exit 4
+GM
+	chmod +x "$tmp/bin/go-mutesting"
+
+	# Verify create_formal_workers resolves symlinked TMPDIR physically (macOS /var -> /private/var).
+	mkdir -p "$tmp/real-tmp"
+	ln -s "$tmp/real-tmp" "$tmp/link-tmp"
+	local real_tmp_canon
+	real_tmp_canon="$(cd -P "$tmp/real-tmp" && pwd)"
+
+	(
+		REPO_ROOT="$tmp/repo"
+		GO_MUTESTING_BIN="$tmp/bin/go-mutesting"
+		GO_CMD="$tmp/repo/bin/go"
+		STUB_GO_MODE="json-pass"
+		STUB_GO_ARGS="$tmp/go-args"
+		TMPDIR="$tmp/link-tmp"
+		export GO_CMD STUB_GO_MODE STUB_GO_ARGS TMPDIR
+		unset GITHUB_STEP_SUMMARY
+
+		# Parallel pre-flight across 2 files.
+		export_rapid_determinism_env
+		MUTATION_FORMAL_ACTIVE_JOBS=2 run_formal_preflight "$tmp/repo/plan.json" "$tmp/reports/preflight-par"
+		# Parallel per-file shards across 2 detached worker worktrees.
+		mapfile -t shard_rows < <(formal_mutation show --plan "$tmp/repo/plan.json" --per-file shards)
+		mkdir -p "$tmp/reports/shard-run"
+		cp "$tmp/repo/plan.json" "$tmp/reports/shard-run/$FORMAL_PLAN_FILE"
+		: >"$tmp/reports/shard-run/go-mutesting.log"
+		run_formal_shards full advisory "$tmp/reports/shard-run" "$tmp/repo/plan.json" 10 2 "${shard_rows[@]}" || true
+		formal_mutation merge-reports --report-dir "$tmp/reports/shard-run" >/dev/null
+		cleanup_mutation_paths
+	) >/dev/null 2>&1
+
+	assert_file_contains "parallel preflight recorded a.go timeout" '"a.go":' "$tmp/repo/plan.json"
+	assert_file_contains "parallel preflight recorded b.go timeout" '"b.go":' "$tmp/repo/plan.json"
+	assert_file_exists "shard-0 wrote worker-root marker" "$tmp/reports/shard-run/shard-0/.worker-root"
+	assert_file_exists "shard-1 wrote worker-root marker" "$tmp/reports/shard-run/shard-1/.worker-root"
+	assert_file_exists "shard-0 collected report.json" "$tmp/reports/shard-run/shard-0/report.json"
+	assert_file_exists "shard-1 collected report.json" "$tmp/reports/shard-run/shard-1/report.json"
+	assert_file_contains "worker-root resolves symlinked TMPDIR physically" "$real_tmp_canon" "$tmp/reports/shard-run/shard-0/.worker-root"
+	assert_file_contains "merged report normalizes worker prefix to plan root" "$tmp/repo/a.go" "$tmp/reports/shard-run/report.json"
+	metadata="$(cat "$tmp/reports/shard-run/run-metadata.txt")"
+	assert_contains "shard-0 status recorded" "shard_status[shard-0]=4" "$metadata"
+	assert_contains "shard-1 status recorded" "shard_status[shard-1]=4" "$metadata"
+	wt_count="$(git -C "$tmp/repo" worktree list --porcelain | grep -c '^worktree ')"
+	assert_eq "worker worktrees cleaned up cleanly" "1" "$wt_count"
+}
+
 
 test_paths
 test_command_construction
@@ -804,6 +932,8 @@ test_formal_target_set_rejections
 test_formal_rerun_evidence
 test_formal_group_status
 test_formal_dirty_path_policy
+test_formal_scope_and_jobs_validation
+test_formal_parallel_shards_and_workers_with_stubs
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

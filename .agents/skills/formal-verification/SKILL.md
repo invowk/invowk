@@ -257,26 +257,35 @@ mutation-partial-refresh):
    (declared, row unbound: no planned mutants) or `unknown` (exit 1). On
    `-> skip` (all unplanned) there is nothing to refresh; `triage --check` must
    still pass.
-1. Commit the change, then run `make mutation-formal` (report only) in a
-   throwaway `git worktree add --detach` at that commit, under the heavy-command
-   lock, so the wrapper's exit restore cannot touch the working checkout. There
-   is no per-function run: it plans every bound function (about 35 minutes),
-   and a `git commit` queued behind the lock waits that long.
+1. Wait until all code edits, review fixes, lint/tidy fixes, SonarCloud fixes,
+   and cross-platform fixes have settled so formal mutation runs **once at the
+   end** on the final tree. Commit the change, then run a **scoped**, parallel
+   `make mutation-formal` (report only) in a throwaway `git worktree add
+   --detach` at that commit, under the heavy-command lock, so the wrapper's
+   exit restore cannot touch the working checkout: pass
+   `MUTATION_FORMAL_SYMBOL=<[file:]symbol>[,...]` (or
+   `MUTATION_FORMAL_STALE=1`) matching step 0; the wrapper shards per file and
+   runs parallel workers (default bounded `nproc/4`, override with
+   `MUTATION_FORMAL_JOBS=<n>`). Use an unscoped full run only for
+   `mutation-formal-baseline-update` or infrastructure calibration.
 2. In the change's worktree, run `make mutation-formal-refresh
    MUTATION_FORMAL_SYMBOL=<[file:]symbol>[,...]` (or `MUTATION_FORMAL_STALE=1`
    for every symbol with an entry that fails the anchor check), with
    `MUTATION_REPORT_DIR=<throwaway>/artifacts/mutation`, under the lock. A run
    in another worktree is accepted when its plan inputs, functions and rows
-   equal the current tree's. The inputs digest does not cover golden-vector
-   data files: rerun step 1 after `make formal-golden`.
-   It refuses a run that is not a complete full run of the current inputs
-   (profile, `inputs_digest` and each `group_status` in `run-metadata.txt`),
-   an unknown or unplanned symbol, and an id that escapes only in a symbol you
-   did not choose; it writes nothing then. Otherwise it removes the ids the run
-   no longer reports escaped (do not rerun them), adds each new escapee with
-   its anchor, its own `digest` and an `untriaged` placeholder, re-anchors kept
-   entries whose anchor fails (class and reason kept), drops the symbols' ids
-   from `[triage] stale_survivors`, and leaves every other byte unchanged.
+   equal the current tree's and either it is a complete full run (`profile=full`,
+   valid `inputs_digest` and every group/shard status) or a complete scoped run
+   (`scope_mode=scoped`) whose `scope.json` covers every chosen symbol and its
+   current target files. The inputs digest does not cover golden-vector data
+   files: rerun step 1 after `make formal-golden`.
+   It refuses a run with incomplete groups/shards, mismatched inputs, an
+   unknown or unplanned symbol, a scoped run missing a chosen symbol/file, and
+   an id that escapes only in a symbol you did not choose; it writes nothing
+   then. Otherwise it removes the ids the run no longer reports escaped (do not
+   rerun them), adds each new escapee with its anchor, its own `digest` and an
+   `untriaged` placeholder, re-anchors kept entries whose anchor fails (class
+   and reason kept), drops the symbols' ids from `[triage] stale_survivors`,
+   and leaves every other byte unchanged.
 3. Triage each placeholder as above: `triage --check` rejects the class
    `untriaged`, a reason starting `UNTRIAGED:` and a reason that still
    contains the placeholder's "write the class and the reason", so replace the

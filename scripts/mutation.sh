@@ -26,6 +26,9 @@ PYTHON="${PYTHON:-python3}"
 GO_MUTESTING_BIN=""
 MUTATION_RESTORE_MODULES=()
 MUTATION_CLEANUP_DIR=""
+MUTATION_FORMAL_WORKERS=()
+MUTATION_ACTIVE_WORKER_PIDS=()
+MUTATION_WORKER_ROOT=""
 # The restore helpers below revert tracked sources and delete new untracked
 # files. They act only on the checkout whose resolved path
 # ensure_clean_tracked_worktree_for_mutation verified clean when the run
@@ -60,12 +63,17 @@ Options:
                               of the formal models' correspondence tables and
                               runs only their binding tests; it is available on
                               dry-run, full, baseline-update, and rerun (not pr).
+  --symbol [FILE:]SYMBOL      Scope formal-bindings dry-run/full to chosen symbol(s)
+                              (repeatable, or comma-separated).
+  --stale                     Scope formal-bindings dry-run/full to stale survivors.
+  --jobs N                    Parallel formal-bindings worker count (default: auto).
   --report-dir DIR            Report root (default: artifacts/mutation).
   --help                      Show this help.
 
 Environment:
   MUTATION_MODULE, MUTATION_BASE_REF, MUTATION_MODE, MUTATION_MUTANT_ID,
-  MUTATION_REPORT_DIR, MUTATION_WORKERS, MUTATION_TARGET_SET, GO_CMD.
+  MUTATION_REPORT_DIR, MUTATION_WORKERS, MUTATION_TARGET_SET,
+  MUTATION_FORMAL_SYMBOL, MUTATION_FORMAL_STALE, MUTATION_FORMAL_JOBS, GO_CMD.
   MUTATION_FORMAL_EXEC_TIMEOUT  Per-mutant go test timeout in seconds for
                                 formal-bindings (default: max(10, 5 x the
                                 file's measured clean pre-flight time)).
@@ -479,13 +487,69 @@ restore_mutation_paths() {
 	remove_new_untracked_paths "$module"
 }
 
-# cleanup_mutation_paths is the EXIT/INT/TERM trap. It returns the status it
-# was entered with, so a skipped (unarmed) restore never changes the exit code.
+kill_active_workers() {
+	local pid
+
+	if ((${#MUTATION_ACTIVE_WORKER_PIDS[@]} > 0)); then
+		for pid in "${MUTATION_ACTIVE_WORKER_PIDS[@]}"; do
+			[[ -n "$pid" ]] || continue
+			if command -v pkill >/dev/null 2>&1; then
+				pkill -TERM -P "$pid" >/dev/null 2>&1 || true
+			fi
+			kill -TERM "$pid" >/dev/null 2>&1 || true
+		done
+		for pid in "${MUTATION_ACTIVE_WORKER_PIDS[@]}"; do
+			[[ -n "$pid" ]] || continue
+			wait "$pid" >/dev/null 2>&1 || true
+		done
+		MUTATION_ACTIVE_WORKER_PIDS=()
+	fi
+}
+
+cleanup_formal_workers() {
+	local worker_dir
+
+	kill_active_workers
+	if ((${#MUTATION_FORMAL_WORKERS[@]} > 0)); then
+		for worker_dir in "${MUTATION_FORMAL_WORKERS[@]}"; do
+			[[ -n "$worker_dir" ]] || continue
+			git -C "$REPO_ROOT" worktree remove --force "$worker_dir" >/dev/null 2>&1 || rm -rf "$worker_dir"
+		done
+		git -C "$REPO_ROOT" worktree prune >/dev/null 2>&1 || true
+		MUTATION_FORMAL_WORKERS=()
+	fi
+	if [[ -n "$MUTATION_WORKER_ROOT" ]]; then
+		rm -rf "$MUTATION_WORKER_ROOT"
+		MUTATION_WORKER_ROOT=""
+	fi
+}
+
+on_mutation_signal() {
+	local sig="$1"
+	local code=143
+
+	[[ "$sig" == "INT" ]] && code=130
+	kill_active_workers
+	exit "$code"
+}
+
+reset_worker_subshell_state() {
+	trap - EXIT INT TERM
+	MUTATION_ACTIVE_WORKER_PIDS=()
+	MUTATION_FORMAL_WORKERS=()
+	MUTATION_WORKER_ROOT=""
+	MUTATION_RESTORE_MODULES=()
+	MUTATION_CLEANUP_DIR=""
+}
+
+# cleanup_mutation_paths is the EXIT trap. It returns the status it was
+# entered with, so a skipped (unarmed) restore never changes the exit code.
 cleanup_mutation_paths() {
 	local status=$?
 	local module
 
 	MUTATION_IN_CLEANUP_TRAP=1
+	cleanup_formal_workers
 	for module in "${MUTATION_RESTORE_MODULES[@]}"; do
 		restore_mutation_paths "$module"
 	done
@@ -750,6 +814,47 @@ elapsed_seconds() {
 	awk -v start="${start/,/.}" -v end="${end/,/.}" 'BEGIN { printf "%.3f\n", end - start }'
 }
 
+default_formal_jobs() {
+	if [[ "${INVOWK_MUTATION_TESTING:-0}" == "1" ]]; then
+		printf '1\n'
+		return 0
+	fi
+	local cpus=1
+	if command -v nproc >/dev/null 2>&1; then
+		cpus="$(nproc 2>/dev/null || printf '1')"
+	elif command -v sysctl >/dev/null 2>&1; then
+		cpus="$(sysctl -n hw.ncpu 2>/dev/null || printf '1')"
+	fi
+	[[ "$cpus" =~ ^[1-9][0-9]*$ ]] || cpus=1
+	local jobs=$((cpus / 4))
+	((jobs < 1)) && jobs=1
+	((jobs > 6)) && jobs=6
+	printf '%s\n' "$jobs"
+}
+
+validate_formal_jobs() {
+	local jobs="$1"
+
+	[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || die "formal-bindings jobs must be a positive integer, got '$jobs'"
+}
+
+create_formal_workers() {
+	local count="$1"
+	local i
+	local raw_worker_root
+	local worker_dir
+
+	cleanup_formal_workers
+	raw_worker_root="$(mktemp -d)"
+	MUTATION_WORKER_ROOT="$(cd -P "$raw_worker_root" && pwd)"
+	for ((i = 0; i < count; i++)); do
+		worker_dir="$MUTATION_WORKER_ROOT/w-$i"
+		git -C "$REPO_ROOT" worktree add --detach --quiet "$worker_dir" HEAD ||
+			die "failed to create formal mutation worker worktree at $worker_dir"
+		MUTATION_FORMAL_WORKERS+=("$worker_dir")
+	done
+}
+
 # Clean-code pre-flight: go-mutesting ignores --noop together with --exec, so
 # every target file's killer tests (or only FILE... when given) run once on
 # unmutated code first. Each run
@@ -760,28 +865,78 @@ run_formal_preflight() {
 	local report_dir="$2"
 	shift 2
 	local file
+	local slug
 	local json
 	local start
 	local status
+	local jobs="${MUTATION_FORMAL_ACTIVE_JOBS:-1}"
+	local workers
+	local w
+	local i
 	local -a files=("$@")
+	local -a pids=()
 
 	mkdir -p "$report_dir/preflight"
 	((${#files[@]} > 0)) || mapfile -t files < <(formal_mutation show --plan "$plan" files)
 	((${#files[@]} > 0)) || die "formal-bindings plan lists no target files"
+
+	if ((jobs <= 1 || ${#files[@]} <= 1)); then
+		for file in "${files[@]}"; do
+			json="$report_dir/preflight/${file//\//_}.json"
+			: >"$json"
+			start="$EPOCHREALTIME"
+			set +e
+			MUTATION_FORMAL_PLAN="$plan" \
+				MUTATE_ORIGINAL="$REPO_ROOT/$file" \
+				MUTATE_CHANGED="$REPO_ROOT/$file" \
+				MUTATION_FORMAL_PREFLIGHT_JSON="$json" \
+				"$FORMAL_EXEC_SCRIPT"
+			status=$?
+			set -e
+			formal_mutation preflight-record --plan "$plan" --file "$file" --json "$json" \
+				--status "$status" --seconds "$(elapsed_seconds "$start" "$EPOCHREALTIME")" ||
+				die "formal-bindings pre-flight failed for $file; no mutant has run"
+		done
+		return 0
+	fi
+
+	workers="$jobs"
+	((workers > ${#files[@]})) && workers=${#files[@]}
+	for ((w = 0; w < workers; w++)); do
+		(
+			reset_worker_subshell_state
+			for ((i = w; i < ${#files[@]}; i += workers)); do
+				file="${files[$i]}"
+				slug="${file//\//_}"
+				json="$report_dir/preflight/$slug.json"
+				: >"$json"
+				start="$EPOCHREALTIME"
+				set +e
+				MUTATION_FORMAL_PLAN="$plan" \
+					MUTATE_ORIGINAL="$REPO_ROOT/$file" \
+					MUTATE_CHANGED="$REPO_ROOT/$file" \
+					MUTATION_FORMAL_PREFLIGHT_JSON="$json" \
+					"$FORMAL_EXEC_SCRIPT"
+				status=$?
+				set -e
+				printf '%s\n' "$status" >"$report_dir/preflight/$slug.status"
+				elapsed_seconds "$start" "$EPOCHREALTIME" >"$report_dir/preflight/$slug.seconds"
+			done
+		) &
+		pids+=($!)
+	done
+	MUTATION_ACTIVE_WORKER_PIDS=("${pids[@]}")
+	for i in "${pids[@]}"; do
+		wait "$i" || true
+	done
+	MUTATION_ACTIVE_WORKER_PIDS=()
 	for file in "${files[@]}"; do
-		json="$report_dir/preflight/${file//\//_}.json"
-		: >"$json"
-		start="$EPOCHREALTIME"
-		set +e
-		MUTATION_FORMAL_PLAN="$plan" \
-			MUTATE_ORIGINAL="$REPO_ROOT/$file" \
-			MUTATE_CHANGED="$REPO_ROOT/$file" \
-			MUTATION_FORMAL_PREFLIGHT_JSON="$json" \
-			"$FORMAL_EXEC_SCRIPT"
-		status=$?
-		set -e
+		slug="${file//\//_}"
+		json="$report_dir/preflight/$slug.json"
+		status="$(cat "$report_dir/preflight/$slug.status" 2>/dev/null || printf '1')"
+		start="$(cat "$report_dir/preflight/$slug.seconds" 2>/dev/null || printf '0.000')"
 		formal_mutation preflight-record --plan "$plan" --file "$file" --json "$json" \
-			--status "$status" --seconds "$(elapsed_seconds "$start" "$EPOCHREALTIME")" ||
+			--status "$status" --seconds "$start" ||
 			die "formal-bindings pre-flight failed for $file; no mutant has run"
 	done
 }
@@ -832,11 +987,12 @@ build_formal_mutation_args() {
 	printf '%s\n' "${args[@]}"
 }
 
-# run_formal_group GROUP_DIR LOG ARGS... FILES are passed after a literal "--".
+# run_formal_group GROUP_DIR LOG PLAN ARGS... -- FILES...
 run_formal_group() {
 	local group_dir="$1"
 	local log="$2"
 	local plan="$3"
+	local workdir="${MUTATION_FORMAL_WORKDIR:-$REPO_ROOT}"
 	shift 3
 	local -a args=()
 	local status
@@ -847,27 +1003,130 @@ run_formal_group() {
 	done
 	shift
 	mkdir -p "$group_dir"
+	if [[ -d "$workdir" ]]; then
+		workdir="$(cd -P "$workdir" && pwd)"
+	fi
+	if [[ "$workdir" != "$REPO_ROOT" ]]; then
+		printf '%s\n' "$workdir" >"$group_dir/.worker-root"
+	fi
 	set +e
 	(
 		export_rapid_determinism_env
 		export MUTATION_FORMAL_PLAN="$plan"
-		cd "$REPO_ROOT" && "$GO_MUTESTING_BIN" "${args[@]}" "$@"
+		cd -P "$workdir" && MUTATION_FORMAL_WORKDIR="$PWD" "$GO_MUTESTING_BIN" "${args[@]}" "$@"
 	) 2>&1 | tee -a "$log"
 	status=${PIPESTATUS[0]}
 	set -e
-	collect_tool_reports "$REPO_ROOT" "$group_dir"
+	collect_tool_reports "$workdir" "$group_dir"
+	return "$status"
+}
+
+run_formal_shards() {
+	local profile="$1"
+	local mode="$2"
+	local report_dir="$3"
+	local plan="$4"
+	local exec_timeout="$5"
+	local jobs="$6"
+	shift 6
+	local -a shard_rows=("$@")
+	local row
+	local sid
+	local _sgroup
+	local sfile
+	local smatch
+	local workers
+	local w
+	local i
+	local shard_dir
+	local shard_status
+	local status=0
+	local -a shard_ids=()
+	local -a shard_files=()
+	local -a shard_matches=()
+	local -a args=()
+	local -a pids=()
+
+	for row in "${shard_rows[@]}"; do
+		[[ -n "$row" ]] || continue
+		IFS=$'\t' read -r sid _sgroup sfile smatch <<<"$row"
+		shard_ids+=("$sid")
+		shard_files+=("$sfile")
+		shard_matches+=("$smatch")
+	done
+	if ((${#shard_ids[@]} == 0)); then
+		return 0
+	fi
+
+	if ((jobs <= 1 || ${#shard_ids[@]} == 1)) || [[ "$profile" == "dry-run" ]]; then
+		for ((i = 0; i < ${#shard_ids[@]}; i++)); do
+			sid="${shard_ids[$i]}"
+			shard_dir="$report_dir/$sid"
+			mapfile -t args < <(build_formal_mutation_args "$profile" "$mode" "" "${shard_matches[$i]}" "$exec_timeout" "$shard_dir/baseline.json")
+			shard_status=0
+			run_formal_group "$shard_dir" "$report_dir/go-mutesting.log" "$plan" "${args[@]}" -- "${shard_files[$i]}" || shard_status=$?
+			printf 'shard_status[%s]=%s\n' "$sid" "$shard_status" >>"$report_dir/run-metadata.txt"
+			if ((shard_status != 0)) && { ((status == 0)) || ((status == QUALITY_GATE_EXIT_CODE)); }; then
+				status="$shard_status"
+			fi
+			interrupted_status "$shard_status" && break
+		done
+		return "$status"
+	fi
+
+	workers="$jobs"
+	((workers > ${#shard_ids[@]})) && workers=${#shard_ids[@]}
+	create_formal_workers "$workers"
+	for ((w = 0; w < workers; w++)); do
+		local worker_workdir="${MUTATION_FORMAL_WORKERS[$w]}"
+		(
+			reset_worker_subshell_state
+			for ((i = w; i < ${#shard_ids[@]}; i += workers)); do
+				sid="${shard_ids[$i]}"
+				shard_dir="$report_dir/$sid"
+				mkdir -p "$shard_dir"
+				: >"$shard_dir/go-mutesting.log"
+				mapfile -t args < <(build_formal_mutation_args "$profile" "$mode" "" "${shard_matches[$i]}" "$exec_timeout" "$shard_dir/baseline.json")
+				shard_status=0
+				MUTATION_FORMAL_WORKDIR="$worker_workdir" run_formal_group "$shard_dir" "$shard_dir/go-mutesting.log" "$plan" "${args[@]}" -- "${shard_files[$i]}" >/dev/null || shard_status=$?
+				printf '%s\n' "$shard_status" >"$shard_dir/.status"
+				interrupted_status "$shard_status" && exit "$shard_status"
+			done
+		) &
+		pids+=($!)
+	done
+	MUTATION_ACTIVE_WORKER_PIDS=("${pids[@]}")
+	for i in "${pids[@]}"; do
+		wait "$i" || true
+	done
+	MUTATION_ACTIVE_WORKER_PIDS=()
+	cleanup_formal_workers
+	for ((i = 0; i < ${#shard_ids[@]}; i++)); do
+		sid="${shard_ids[$i]}"
+		shard_dir="$report_dir/$sid"
+		if [[ -f "$shard_dir/go-mutesting.log" ]]; then
+			cat "$shard_dir/go-mutesting.log" | tee -a "$report_dir/go-mutesting.log"
+		fi
+		shard_status="$(cat "$shard_dir/.status" 2>/dev/null || printf '1')"
+		printf 'shard_status[%s]=%s\n' "$sid" "$shard_status" >>"$report_dir/run-metadata.txt"
+		if ((shard_status != 0)) && { ((status == 0)) || ((status == QUALITY_GATE_EXIT_CODE)); }; then
+			status="$shard_status"
+		fi
+	done
 	return "$status"
 }
 
 # Focused reruns: MUTATION_MUTANT_ID may list several ids separated by commas.
 # Each id is scoped to its file through the committed baseline or the last full
 # report (the stable id hashes the file), so only that file is pre-flighted and
-# mutated; an unknown id is rerun across every group. Each outcome is appended
-# to the rerun evidence file.
+# mutated; an unknown id is rerun across every group. When jobs > 1 and
+# multiple distinct ids are given, each worker runs a slice in its own detached
+# worktree and rerun-record appends serially afterwards in input order.
 run_formal_rerun() {
 	local mode="$1"
 	local mutant_ids="$2"
 	local report_root="$3"
+	local jobs="${4:-1}"
 	local report_dir
 	local plan
 	local mutant
@@ -877,12 +1136,18 @@ run_formal_rerun() {
 	local exec_timeout
 	local status=0
 	local id_status
+	local workers
+	local w
+	local i
+	local raw_id
+	local -A seen_ids=()
 	local -a ids=()
 	local -a scope=()
 	local -a preflight_files=()
 	local -a groups=()
 	local -a files=()
 	local -a args=()
+	local -a pids=()
 
 	report_dir="$(profile_report_dir rerun root "$report_root" "$TARGET_SET_FORMAL")"
 	rm -rf "$report_dir"
@@ -894,7 +1159,16 @@ run_formal_rerun() {
 	ensure_clean_tracked_worktree_for_mutation
 	register_restore_module root
 
-	IFS=',' read -r -a ids <<<"$mutant_ids"
+	IFS=',' read -r -a raw_ids <<<"$mutant_ids"
+	for raw_id in "${raw_ids[@]}"; do
+		[[ -n "$raw_id" ]] || continue
+		if [[ -z "${seen_ids[$raw_id]:-}" ]]; then
+			seen_ids[$raw_id]=1
+			ids+=("$raw_id")
+		fi
+	done
+	((${#ids[@]} > 0)) || die "rerun profile requires --mutant-id or MUTATION_MUTANT_ID"
+
 	mapfile -t scope < <(formal_mutation rerun-scope --plan "$plan" \
 		--hint "$(baseline_path root "$TARGET_SET_FORMAL")" \
 		--hint "$(repo_path "$report_root")/full/$TARGET_SET_FORMAL/go-mutesting-agentic.json" "${ids[@]}")
@@ -905,36 +1179,98 @@ run_formal_rerun() {
 	fi
 	(
 		export_rapid_determinism_env
-		run_formal_preflight "$plan" "$report_dir" "${preflight_files[@]}"
+		MUTATION_FORMAL_ACTIVE_JOBS="$jobs" run_formal_preflight "$plan" "$report_dir" "${preflight_files[@]}"
 	) || return 1
 	exec_timeout="$(formal_mutation show --plan "$plan" max-timeout)"
 
-	while IFS=$'\t' read -r mutant group file; do
-		if [[ "$group" == "-" ]]; then
-			mapfile -t groups < <(seq 0 $(($(formal_mutation show --plan "$plan" group-count) - 1)))
-		else
-			groups=("$group")
-		fi
-		for group in "${groups[@]}"; do
-			match="$(formal_mutation show --plan "$plan" --group "$group" match)"
-			if [[ "$file" == "-" ]]; then
-				mapfile -t files < <(formal_mutation show --plan "$plan" --group "$group" files)
-			else
-				files=("$file")
-			fi
-			mapfile -t args < <(build_formal_mutation_args rerun "$mode" "$mutant" "$match" "$exec_timeout" "")
-			id_status=0
-			run_formal_group "$report_dir/$mutant/group-$group" "$report_dir/$mutant/go-mutesting.log" "$plan" \
-				"${args[@]}" -- "${files[@]}" || id_status=$?
-			interrupted_status "$id_status" && return "$id_status"
+	if ((jobs > 1 && ${#scope[@]} > 1)); then
+		workers="$jobs"
+		((workers > ${#scope[@]})) && workers=${#scope[@]}
+		create_formal_workers "$workers"
+		for ((w = 0; w < workers; w++)); do
+			local worker_workdir="${MUTATION_FORMAL_WORKERS[$w]}"
+			(
+				reset_worker_subshell_state
+				for ((i = w; i < ${#scope[@]}; i += workers)); do
+					IFS=$'\t' read -r mutant group file <<<"${scope[$i]}"
+					if [[ "$group" == "-" ]]; then
+						mapfile -t groups < <(seq 0 $(($(formal_mutation show --plan "$plan" group-count) - 1)))
+					else
+						groups=("$group")
+					fi
+					mkdir -p "$report_dir/$mutant"
+					: >"$report_dir/$mutant/go-mutesting.log"
+					for group in "${groups[@]}"; do
+						match="$(formal_mutation show --plan "$plan" --group "$group" match)"
+						if [[ "$file" == "-" ]]; then
+							mapfile -t files < <(formal_mutation show --plan "$plan" --group "$group" files)
+						else
+							files=("$file")
+						fi
+						mapfile -t args < <(build_formal_mutation_args rerun "$mode" "$mutant" "$match" "$exec_timeout" "")
+						id_status=0
+						MUTATION_FORMAL_WORKDIR="$worker_workdir" run_formal_group "$report_dir/$mutant/group-$group" "$report_dir/$mutant/go-mutesting.log" "$plan" \
+							"${args[@]}" -- "${files[@]}" >/dev/null || id_status=$?
+						printf '%s\n' "$id_status" >"$report_dir/$mutant/.status"
+						interrupted_status "$id_status" && exit "$id_status"
+					done
+				done
+			) &
+			pids+=($!)
 		done
-		if formal_mutation merge-reports --report-dir "$report_dir/$mutant" >/dev/null &&
-			formal_mutation rerun-record --plan "$plan" --summary "$report_dir/$mutant/go-mutesting-summary.json" --id "$mutant"; then
-			:
-		else
-			status=1
+		MUTATION_ACTIVE_WORKER_PIDS=("${pids[@]}")
+		local rerun_interrupted=0
+		for i in "${pids[@]}"; do
+			local wrc=0
+			wait "$i" || wrc=$?
+			if interrupted_status "$wrc"; then
+				rerun_interrupted="$wrc"
+			fi
+		done
+		MUTATION_ACTIVE_WORKER_PIDS=()
+		cleanup_formal_workers
+		if ((rerun_interrupted != 0)); then
+			return "$rerun_interrupted"
 		fi
-	done <"$report_dir/rerun-scope.tsv"
+		while IFS=$'\t' read -r mutant group file; do
+			if [[ -f "$report_dir/$mutant/go-mutesting.log" ]]; then
+				cat "$report_dir/$mutant/go-mutesting.log"
+			fi
+			if formal_mutation merge-reports --report-dir "$report_dir/$mutant" >/dev/null &&
+				formal_mutation rerun-record --plan "$plan" --summary "$report_dir/$mutant/go-mutesting-summary.json" --id "$mutant"; then
+				:
+			else
+				status=1
+			fi
+		done <"$report_dir/rerun-scope.tsv"
+	else
+		while IFS=$'\t' read -r mutant group file; do
+			if [[ "$group" == "-" ]]; then
+				mapfile -t groups < <(seq 0 $(($(formal_mutation show --plan "$plan" group-count) - 1)))
+			else
+				groups=("$group")
+			fi
+			for group in "${groups[@]}"; do
+				match="$(formal_mutation show --plan "$plan" --group "$group" match)"
+				if [[ "$file" == "-" ]]; then
+					mapfile -t files < <(formal_mutation show --plan "$plan" --group "$group" files)
+				else
+					files=("$file")
+				fi
+				mapfile -t args < <(build_formal_mutation_args rerun "$mode" "$mutant" "$match" "$exec_timeout" "")
+				id_status=0
+				run_formal_group "$report_dir/$mutant/group-$group" "$report_dir/$mutant/go-mutesting.log" "$plan" \
+					"${args[@]}" -- "${files[@]}" || id_status=$?
+				interrupted_status "$id_status" && return "$id_status"
+			done
+			if formal_mutation merge-reports --report-dir "$report_dir/$mutant" >/dev/null &&
+				formal_mutation rerun-record --plan "$plan" --summary "$report_dir/$mutant/go-mutesting-summary.json" --id "$mutant"; then
+				:
+			else
+				status=1
+			fi
+		done <"$report_dir/rerun-scope.tsv"
+	fi
 
 	restore_tracked_mutation_paths root
 	remove_new_untracked_paths root
@@ -945,6 +1281,9 @@ run_formal_profile() {
 	local profile="$1"
 	local mode="$2"
 	local report_root="$3"
+	local symbol_spec="${4:-}"
+	local stale_flag="${5:-0}"
+	local jobs="${6:-1}"
 	local report_dir
 	local plan
 	local groups
@@ -954,9 +1293,17 @@ run_formal_profile() {
 	local exec_timeout=0
 	local status=0
 	local group_status
+	local is_scoped=0
 	local -a targets=()
+	local -a scoped_files=()
+	local -a shard_rows=()
 	local -a files=()
 	local -a args=()
+	local -a scope_cmd=()
+
+	if [[ -n "$symbol_spec" || "$stale_flag" == "1" ]]; then
+		is_scoped=1
+	fi
 
 	report_dir="$(profile_report_dir "$profile" root "$report_root" "$TARGET_SET_FORMAL")"
 	rm -rf "$report_dir"
@@ -967,36 +1314,76 @@ run_formal_profile() {
 	write_run_metadata "$profile" root "$mode" "" "$report_dir" "$TARGET_SET_FORMAL"
 	remove_stale_tool_reports "$REPO_ROOT"
 
-	if [[ "$profile" != "dry-run" ]]; then
+	if ((is_scoped == 1)); then
+		scope_cmd=(formal_mutation scope --plan "$plan" --out "$report_dir/scope.json")
+		[[ -n "$symbol_spec" ]] && scope_cmd+=(--symbol "$symbol_spec")
+		[[ "$stale_flag" == "1" ]] && scope_cmd+=(--stale)
+		"${scope_cmd[@]}" || die "formal-bindings scope failed; no mutant has run"
+		printf 'scope_mode=scoped\n' >>"$report_dir/run-metadata.txt"
+		mapfile -t scoped_files < <(formal_mutation show --plan "$plan" --scope "$report_dir/scope.json" scoped-files)
+		mapfile -t shard_rows < <(formal_mutation show --plan "$plan" --scope "$report_dir/scope.json" shards)
+		if [[ "$profile" != "dry-run" ]]; then
+			ensure_clean_tracked_worktree_for_mutation
+			register_restore_module root
+			if ((${#scoped_files[@]} > 0)); then
+				(
+					export_rapid_determinism_env
+					MUTATION_FORMAL_ACTIVE_JOBS="$jobs" run_formal_preflight "$plan" "$report_dir" "${scoped_files[@]}"
+				) || return 1
+				exec_timeout="$(formal_mutation show --plan "$plan" max-timeout)"
+			fi
+		fi
+		printf 'Running mutation profile %s for %s (scoped: %s file(s), jobs=%s)\n' \
+			"$profile" "$TARGET_SET_FORMAL" "${#scoped_files[@]}" "$jobs"
+		: >"$report_dir/go-mutesting.log"
+		run_formal_shards "$profile" "$mode" "$report_dir" "$plan" "$exec_timeout" "$jobs" "${shard_rows[@]}" || status=$?
+	elif ((jobs > 1)) && [[ "$profile" != "dry-run" ]]; then
+		printf 'scope_mode=full\n' >>"$report_dir/run-metadata.txt"
 		ensure_clean_tracked_worktree_for_mutation
 		register_restore_module root
 		(
 			export_rapid_determinism_env
-			run_formal_preflight "$plan" "$report_dir"
+			MUTATION_FORMAL_ACTIVE_JOBS="$jobs" run_formal_preflight "$plan" "$report_dir"
 		) || return 1
 		exec_timeout="$(formal_mutation show --plan "$plan" max-timeout)"
-	fi
-
-	groups="$(formal_mutation show --plan "$plan" group-count)"
-	printf 'Running mutation profile %s for %s (%s files in %s match group(s))\n' \
-		"$profile" "$TARGET_SET_FORMAL" "${#targets[@]}" "$groups"
-	: >"$report_dir/go-mutesting.log"
-	for ((group = 0; group < groups; group++)); do
-		group_dir="$report_dir/group-$group"
-		match="$(formal_mutation show --plan "$plan" --group "$group" match)"
-		mapfile -t files < <(formal_mutation show --plan "$plan" --group "$group" files)
-		mapfile -t args < <(build_formal_mutation_args "$profile" "$mode" "" "$match" "$exec_timeout" "$group_dir/baseline.json")
-		group_status=0
-		run_formal_group "$group_dir" "$report_dir/go-mutesting.log" "$plan" "${args[@]}" -- "${files[@]}" || group_status=$?
-		# formal_mutation.py refresh refuses a run with a group that has no
-		# status line or a failing one (mutation-partial-refresh design D2).
-		printf 'group_status[%s]=%s\n' "$group" "$group_status" >>"$report_dir/run-metadata.txt"
-
-		if ((group_status != 0)) && { ((status == 0)) || ((status == QUALITY_GATE_EXIT_CODE)); }; then
-			status="$group_status"
+		mapfile -t shard_rows < <(formal_mutation show --plan "$plan" --per-file shards)
+		printf 'shard_count=%s\n' "${#shard_rows[@]}" >>"$report_dir/run-metadata.txt"
+		printf 'Running mutation profile %s for %s (%s files in %s shard(s), jobs=%s)\n' \
+			"$profile" "$TARGET_SET_FORMAL" "${#targets[@]}" "${#shard_rows[@]}" "$jobs"
+		: >"$report_dir/go-mutesting.log"
+		run_formal_shards "$profile" "$mode" "$report_dir" "$plan" "$exec_timeout" "$jobs" "${shard_rows[@]}" || status=$?
+	else
+		if [[ "$profile" != "dry-run" ]]; then
+			ensure_clean_tracked_worktree_for_mutation
+			register_restore_module root
+			(
+				export_rapid_determinism_env
+				run_formal_preflight "$plan" "$report_dir"
+			) || return 1
+			exec_timeout="$(formal_mutation show --plan "$plan" max-timeout)"
 		fi
-		interrupted_status "$group_status" && break
-	done
+
+		groups="$(formal_mutation show --plan "$plan" group-count)"
+		printf 'Running mutation profile %s for %s (%s files in %s match group(s))\n' \
+			"$profile" "$TARGET_SET_FORMAL" "${#targets[@]}" "$groups"
+		: >"$report_dir/go-mutesting.log"
+		for ((group = 0; group < groups; group++)); do
+			group_dir="$report_dir/group-$group"
+			match="$(formal_mutation show --plan "$plan" --group "$group" match)"
+			mapfile -t files < <(formal_mutation show --plan "$plan" --group "$group" files)
+			mapfile -t args < <(build_formal_mutation_args "$profile" "$mode" "" "$match" "$exec_timeout" "$group_dir/baseline.json")
+			group_status=0
+			run_formal_group "$group_dir" "$report_dir/go-mutesting.log" "$plan" "${args[@]}" -- "${files[@]}" || group_status=$?
+			# formal_mutation.py refresh refuses a run with a group that has no
+			# status line or a failing one (mutation-partial-refresh design D2).
+			printf 'group_status[%s]=%s\n' "$group" "$group_status" >>"$report_dir/run-metadata.txt"
+
+			if ((group_status != 0)) && { ((status == 0)) || ((status == QUALITY_GATE_EXIT_CODE)); }; then
+				status="$group_status"
+			fi
+			interrupted_status "$group_status" && break
+		done
+	fi
 
 	if [[ "$profile" != "dry-run" ]]; then
 		restore_tracked_mutation_paths root
@@ -1046,6 +1433,9 @@ main() {
 	local mutant_id="${MUTATION_MUTANT_ID:-}"
 	local report_root="${MUTATION_REPORT_DIR:-$DEFAULT_REPORT_DIR}"
 	local target_set="${MUTATION_TARGET_SET:-$TARGET_SET_ROOT}"
+	local symbol_spec="${MUTATION_FORMAL_SYMBOL:-}"
+	local stale_flag="${MUTATION_FORMAL_STALE:-0}"
+	local jobs="${MUTATION_FORMAL_JOBS:-}"
 	local selected_module
 	local status=0
 	local module_status=0
@@ -1106,6 +1496,25 @@ main() {
 			--target-set=*)
 				target_set="${1#--target-set=}"
 				;;
+			--symbol)
+				shift
+				(($# > 0)) || die "--symbol requires a value"
+				symbol_spec="${symbol_spec:+$symbol_spec,}$1"
+				;;
+			--symbol=*)
+				symbol_spec="${symbol_spec:+$symbol_spec,}${1#--symbol=}"
+				;;
+			--stale)
+				stale_flag=1
+				;;
+			--jobs)
+				shift
+				(($# > 0)) || die "--jobs requires a value"
+				jobs="$1"
+				;;
+			--jobs=*)
+				jobs="${1#--jobs=}"
+				;;
 			--help|-h)
 				usage
 				return 0
@@ -1143,6 +1552,23 @@ main() {
 			die "unknown mutation target set: $target_set (expected $TARGET_SET_ROOT or $TARGET_SET_FORMAL)"
 			;;
 	esac
+	case "$stale_flag" in
+		0|1) ;;
+		*) die "MUTATION_FORMAL_STALE must be 1 or 0/unset, got '$stale_flag'" ;;
+	esac
+	if [[ -n "$symbol_spec" || "$stale_flag" == "1" ]]; then
+		if [[ "$target_set" != "$TARGET_SET_FORMAL" ]] || [[ "$profile" != "full" && "$profile" != "dry-run" ]]; then
+			die "--symbol and --stale are supported only on dry-run and full with --target-set $TARGET_SET_FORMAL"
+		fi
+	fi
+	if [[ -n "$jobs" ]]; then
+		validate_formal_jobs "$jobs"
+		if [[ "$target_set" != "$TARGET_SET_FORMAL" ]]; then
+			die "--jobs is supported only with --target-set $TARGET_SET_FORMAL"
+		fi
+	elif [[ "$target_set" == "$TARGET_SET_FORMAL" ]]; then
+		jobs="$(default_formal_jobs)"
+	fi
 	if [[ "$profile" == "rerun" && -z "$mutant_id" ]]; then
 		die "rerun profile requires --mutant-id or MUTATION_MUTANT_ID"
 	fi
@@ -1151,13 +1577,15 @@ main() {
 	fi
 
 	verify_go_mutesting_version
-	trap cleanup_mutation_paths EXIT INT TERM
+	trap cleanup_mutation_paths EXIT
+	trap 'on_mutation_signal INT' INT
+	trap 'on_mutation_signal TERM' TERM
 
 	if [[ "$target_set" == "$TARGET_SET_FORMAL" ]]; then
 		if [[ "$profile" == "rerun" ]]; then
-			run_formal_rerun "$mode" "$mutant_id" "$report_root"
+			run_formal_rerun "$mode" "$mutant_id" "$report_root" "$jobs"
 		else
-			run_formal_profile "$profile" "$mode" "$report_root"
+			run_formal_profile "$profile" "$mode" "$report_root" "$symbol_spec" "$stale_flag" "$jobs"
 		fi
 		return
 	fi

@@ -100,11 +100,22 @@ main() {
 	# shellcheck disable=SC2064 # expand now: tmp is local to main
 	trap "rm -rf '$tmp'" EXIT
 
-	if ! lookup="$("$PYTHON" "$SCRIPT_DIR/formal_mutation.py" exec-args \
-		--plan "$MUTATION_FORMAL_PLAN" \
-		--original "$MUTATE_ORIGINAL" \
-		--changed "$MUTATE_CHANGED" \
-		--overlay-out "$tmp/overlay.json")"; then
+	local exec_workdir="${MUTATION_FORMAL_WORKDIR:-$REPO_ROOT}"
+	if [[ -d "$exec_workdir" ]]; then
+		exec_workdir="$(cd -P "$exec_workdir" && pwd)"
+	fi
+	local -a exec_args_cmd=(
+		"$PYTHON" "$SCRIPT_DIR/formal_mutation.py" exec-args
+		--plan "$MUTATION_FORMAL_PLAN"
+		--original "$MUTATE_ORIGINAL"
+		--changed "$MUTATE_CHANGED"
+		--overlay-out "$tmp/overlay.json"
+	)
+	if [[ -n "${MUTATION_FORMAL_WORKDIR:-}" ]]; then
+		exec_args_cmd+=(--workdir "$exec_workdir")
+	fi
+
+	if ! lookup="$("${exec_args_cmd[@]}")"; then
 		log "no planned function for $MUTATE_ORIGINAL"
 		return "$EXIT_ERRORED"
 	fi
@@ -132,7 +143,7 @@ main() {
 	fi
 
 	set +e
-	(cd "$REPO_ROOT" && "$GO_CMD" "${go_args[@]}" "${package_list[@]}") >"$tmp/output" 2>&1
+	(cd -P "$exec_workdir" && "$GO_CMD" "${go_args[@]}" "${package_list[@]}") >"$tmp/output" 2>&1
 	status=$?
 	set -e
 

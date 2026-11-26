@@ -21,4 +21,5 @@ Code in these directories is named by the correspondence tables of the formal mo
 
 - Load `.agents/skills/formal-verification/` before renaming, moving or changing the behavior of a function a table names (`rg -n '<Symbol>' formal/` tells you).
 - After such a change, update the tables and golden vectors as the skill describes, then run `python3 scripts/formal.py correspondence` (no Java needed) and `make formal` when Java is available. Changes under `formal/` also need `make test-scripts` (formal-bindings triage check).
+- When a bound function body is rewritten, run formal-bindings mutation testing (`make mutation-formal` + `make mutation-formal-refresh`) **once at the end** on the final tree — only after code, review fixes, lint/tidy, SonarCloud fixes, and cross-platform test fixes have settled — and scope the run with `MUTATION_FORMAL_SYMBOL=<[file:]symbol>[,...]` (or `MUTATION_FORMAL_STALE=1`) so untouched files are not re-mutated (parallel workers default via `MUTATION_FORMAL_JOBS`).
 - When a new directory becomes bound, add it here and, if missing, to `[ci] paths` in the same change.
