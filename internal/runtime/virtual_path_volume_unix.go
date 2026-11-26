@@ -14,3 +14,11 @@ import (
 func isVirtualPathMissingVolume(err error) bool {
 	return errors.Is(err, fs.ErrNotExist)
 }
+
+// isVirtualPathDisallowedComponent reports whether a path component contains
+// a platform-disallowed character.
+//
+//goplint:ignore -- raw OS path component.
+func isVirtualPathDisallowedComponent(_ string) bool {
+	return false
+}

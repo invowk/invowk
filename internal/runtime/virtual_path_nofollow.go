@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,7 +80,11 @@ func (r virtualPathResolver) resolveNoFollow(path, cwd string) (resolved string,
 	if err != nil {
 		return "", false, err
 	}
-	return filepath.Join(resolvedParent, filepath.Base(cleaned)), false, nil
+	base := filepath.Base(cleaned)
+	if r.access != invowkfile.VirtualFilesystemAccessFull && isVirtualPathDisallowedComponent(base) {
+		return "", false, fmt.Errorf("%w: %s", errVirtualPathDisallowedComponent, base)
+	}
+	return filepath.Join(resolvedParent, base), false, nil
 }
 
 // validateNoFollow is validate for an operation that does not follow its
