@@ -514,8 +514,8 @@ Under `restricted` access, `cp -r` SHALL refuse, before anything is written, a d
 - **WHEN** a restricted virtual script runs `cp -r a/s b/s d`, where `a/s` and `b/s` are directories without links and `d` is a directory
 - **THEN** the command SHALL succeed, and `d/s` SHALL hold the entries of both
 
-### Requirement: cp -P creates a link only as its only destination
-Under `restricted` access, `cp -P` SHALL refuse the whole command before anything is written, with `virtual path denied` and an error that names the link, when it would create a link and also has any other destination (a link, a file or a directory, from any source operand), comparing no names. A command whose only destination is the one link it creates SHALL NOT be refused by this rule. Under `full` access, `cp -P` SHALL run as the u-root command does.
+### Requirement: cp -P never creates a link under restricted access
+Under `restricted` access, because the registry resolves `cp` operands and a `-r` copy's top destination directory is itself another destination alongside anything copied inside it, `cp -P` SHALL refuse any copy that would create a symbolic link or other link next to another destination with `virtual path denied` and an error naming the link before anything is written, and therefore never creates a link under `restricted` access. Under `full` access, `cp -P` SHALL run as the u-root command does.
 
 #### Scenario: Several sources, one of which holds a link
 - **WHEN** a restricted virtual script runs `cp -P -r a/s b/s d`, where `a/s` holds a symbolic link `l`, `b/s` holds a file, and `d` is a directory inside an allowed root

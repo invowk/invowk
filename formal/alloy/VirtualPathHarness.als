@@ -46,10 +46,13 @@
 //
 // Abstractions. A request is a path the resolver can resolve: a path it
 // refuses (a link cycle, an unreadable link, a ".." after a missing component,
-// a missing volume) has no request here, and the code denies it. The check and
-// the open are two steps: after validate returns, a concurrent process that
-// replaces a directory on the resolved path with a link can still redirect the
-// operation. The model has no time, so it does not cover that race.
+// a missing volume) has no request here, and the code denies it. For
+// callers that perform the operation on validate's returned path (rather than
+// using validate solely as a pre-check, such as checkGzipOutputPaths and the
+// cp/tar -x derived-path checks in internal/uroot/registry_derived.go), a
+// concurrent process replacing a directory on that path between the check and
+// the open can still redirect the operation; the model has no time and does
+// not cover that race.
 //
 // Correspondence (checked by `scripts/formal.py correspondence`):
 //
@@ -75,7 +78,7 @@
 // | workdirIsRoot | effectiveWorkDirSource | pkg/invowkfile/workdir_source.go | TestVirtualPathHarness_RootConstruction, TestVirtualPathHarness_Property, TestResolveEffectiveWorkDir | the level of the workdir precedence, with GetEffectiveWorkDir's tests in its order; a swap of the implementation and command tests leaves the source declared and the root decision unchanged, so only the drift test TestResolveEffectiveWorkDir sees it |
 // | workdirIsRoot | WorkDirSource.DeclaredByInvowkfile | pkg/invowkfile/workdir_source.go | TestVirtualPathHarness_RootConstruction, TestVirtualPathHarness_Property | the implementation, command and root levels are declared by the invowkfile; the CLI override and the default are not; an unknown value counts as declared (fail closed), which effectiveWorkDirSource never returns and the model does not hold |
 // | anchors | standardVirtualAnchorsForOS | internal/runtime/virtual_policy.go | TestVirtualPathHarness_RootConstruction | narrow claim (decision 14): anchors are explicit allowed roots (@config/@data/@cache/@state/@tmp InReadRoot, @work InReadRoot exactly when the workdir is a root; @home/.ssh denied under restricted, cross-platform-path-anchors); it catches only an empty anchor, a reported anchor missing from the allowed roots where no other root encloses it, an anchor covering @home/.ssh (decision 17), and @work admitted for a module-declared workdir outside the module; masked (decision 31): dropping @work is equivalent wherever the workdir itself is an allowed root, and dropping @tmp is masked off Windows while TMPDIR lies under /tmp (defaultTempRoots, the Linux reach lane); anchor paths are inputs from the production resolver for the host GOOS, not verified; follow-up: model per-OS anchors |
-// | validate | virtualPathValidator.validate | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | the check only; the operation then runs on the returned path, and the race between this check and that open is not modelled (a residual risk, not closed) |
+// | validate | virtualPathValidator.validate | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | callers either run on the returned path or use validate as a pre-check only (checkGzipOutputPaths, cp/tar -x derived-path checks in internal/uroot/registry_derived.go); any race between validate and the open is not modelled (a residual risk, not closed) |
 // | accepts | virtualPathValidator.validateNoFollow | internal/runtime/virtual_path_nofollow.go | TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck | the check on the no-follow path; the operation runs on it and does not follow the final name; the check-then-act race is not modelled; the not-a-directory check is not modelled and is bound by TestVirtualPathNoFollowValidatorDirectoryCheck |
 // | access | VirtualFilesystemConfig.EffectiveAccess | pkg/invowkfile/virtual_filesystem.go | TestVirtualPathHarness_RootConstruction | restricted vs full |
 // | contained | - | formal/alloy/VirtualPathHarness.als | TestVirtualPathHarness_Property | policy: physical resolution; a trusted workdir is a read root, a module-declared workdir outside the module is not |

@@ -104,3 +104,45 @@ func TestVirtualPathDerivedPathsWindowsJunction(t *testing.T) {
 		})
 	}
 }
+
+// TestVirtualPathDerivedPathsWindowsSourceJunction verifies the ModeIrregular
+// branch of cpEntryDerivedPaths when a cp -r source tree contains a Windows
+// directory junction without -P: refused under restricted access when its
+// target lies outside allowed roots (leaving dst and outside untouched), and
+// allowed when its target lies inside allowed roots.
+func TestVirtualPathDerivedPathsWindowsSourceJunction(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapJunction)
+	restricted := invowkfile.VirtualFilesystemAccessRestricted
+
+	t.Run("target outside the roots is refused", func(t *testing.T) {
+		t.Parallel()
+		work := harnessPhysicalDir(t, t.TempDir())
+		outside := harnessPhysicalDir(t, outsideVirtualRootsDir(t))
+		derivedCpSetup(t, work, t.TempDir())
+		derivedWrite(t, filepath.Join(outside, "secret.txt"), "secret-content")
+		fstree.MustJunction(t, outside, filepath.Join(work, "src", "j"))
+
+		before := derivedTreeSnapshot(t, outside)
+		dstBefore := derivedTreeSnapshot(t, filepath.Join(work, "dst"))
+		run := runVirtualShTest(t, work, "cp -r src dst", restricted)
+		if run.exit == 0 || !strings.Contains(run.stderr, derivedDeniedText) {
+			t.Fatalf("run = (exit %d, stderr %q), want the denial", run.exit, run.stderr)
+		}
+		assertDerivedTreeUnchanged(t, before, derivedTreeSnapshot(t, outside))
+		assertDerivedTreeUnchanged(t, dstBefore, derivedTreeSnapshot(t, filepath.Join(work, "dst")))
+	})
+
+	t.Run("target inside the roots is allowed", func(t *testing.T) {
+		t.Parallel()
+		work := harnessPhysicalDir(t, t.TempDir())
+		derivedCpSetup(t, work, t.TempDir())
+		target := filepath.Join(work, "in")
+		derivedWrite(t, filepath.Join(target, "f.txt"), "in-content")
+		fstree.MustJunction(t, target, filepath.Join(work, "src", "j"))
+
+		run := runVirtualShTest(t, work, "cp -r src dst", restricted)
+		derivedAssertSuccess(t, run)
+		derivedAssertFile(t, filepath.Join(work, "dst", "src", "x"), "x-content")
+	})
+}
