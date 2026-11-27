@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/invowk/invowk/pkg/cueutil"
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -16,8 +17,12 @@ import (
 var (
 	//go:embed invowkfile_schema.cue
 	invowkfileSchema string
-	// Cache schema bytes once to avoid per-parse string conversion allocations.
-	invowkfileSchemaBytes = []byte(invowkfileSchema)
+	// Compile the embedded invowkfile schema lazily once so CLI commands that never
+	// parse invowkfiles pay zero init cost while repeated parses skip schema and
+	// stdlib ("strings") recompilation.
+	compiledInvowkfileSchema = sync.OnceValues(func() (*cueutil.CompiledSchema, error) {
+		return cueutil.CompileSchema([]byte(invowkfileSchema), "#Invowkfile")
+	})
 
 	// ErrModuleInvowkfileUnavailable is returned when a loaded module has no
 	// command-bearing invowkfile.cue to parse.
@@ -47,9 +52,8 @@ func Parse(path FilesystemPath) (*Invowkfile, error) {
 	return ParseBytes(data, pathStr)
 }
 
-// ParseBytes parses invowkfile content from bytes.
-// Uses cueutil.ParseAndDecodeString for the 3-step CUE parsing flow:
-// compile schema → compile user data → validate and decode.
+// ParseBytes parses invowkfile content from bytes using the lazily precompiled
+// #Invowkfile schema.
 func ParseBytes(data []byte, path string) (*Invowkfile, error) {
 	return parseBytes(data, path, "", nil)
 }
@@ -60,10 +64,14 @@ func parseBytes(data []byte, path string, modulePath FilesystemPath, metadata *M
 		return nil, errs
 	}
 
-	result, err := cueutil.ParseAndDecode[Invowkfile](
-		invowkfileSchemaBytes,
+	schema, err := compiledInvowkfileSchema()
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := cueutil.ParseAndDecodeCompiled[Invowkfile](
+		schema,
 		data,
-		"#Invowkfile",
 		cueutil.WithFilename(path),
 	)
 	if err != nil {

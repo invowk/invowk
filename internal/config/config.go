@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"cuelang.org/go/cue"
 
@@ -32,6 +33,11 @@ const (
 var (
 	//go:embed config_schema.cue
 	configSchema string
+	// Compile the embedded config schema lazily once so repeated config loads skip
+	// schema and stdlib ("strings") recompilation without adding init-time cost.
+	compiledConfigSchema = sync.OnceValues(func() (*cueutil.CompiledSchema, error) {
+		return cueutil.CompileSchema([]byte(configSchema), "#Config")
+	})
 
 	// ErrConfigFileNotFound marks an explicit config path that does not exist.
 	ErrConfigFileNotFound = errors.New("config file not found")
@@ -264,10 +270,14 @@ func decodeCUEConfigFile(path types.FilesystemPath) (*Config, error) {
 }
 
 func decodeCUEConfigSource(source configCUESource) (*Config, error) {
-	parsed, err := cueutil.ParseAndDecodeString[Config](
-		configSchema,
+	schema, err := compiledConfigSchema()
+	if err != nil {
+		return nil, err
+	}
+
+	parsed, err := cueutil.ParseAndDecodeCompiled[Config](
+		schema,
 		[]byte(source.data),
-		"#Config",
 		cueutil.WithConcrete(true),
 		cueutil.WithFilename(string(source.filename)),
 	)
