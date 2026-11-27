@@ -17,6 +17,11 @@ const (
 	// of the completed view when output arrives after completion (design D8).
 	interactiveRebuildDelay = 16 * time.Millisecond
 
+	// interactiveEscapeFlushDelay is the idle timeout after which an incomplete
+	// trailing escape or UTF-8 fragment is flushed so a legitimate lone ESC or
+	// truncated tail never stalls the interactive viewer.
+	interactiveEscapeFlushDelay = 25 * time.Millisecond
+
 	// leaveAltScreen returns a command that crashed in a full-screen program
 	// to the main screen before the completed view is built (design D7).
 	leaveAltScreen = "\x1b[?1049l"
@@ -55,8 +60,19 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleWindowSize(msg)
 
 	case outputMsg:
-		rebuild := m.applyOutput(msg)
-		return m, rebuild
+		cmd := m.applyPTYOutput(msg)
+		return m, cmd
+
+	case escapeFlushMsg:
+		if msg.seq != m.ansiBuf.seq {
+			return m, nil
+		}
+		cmd := m.flushPendingOutput()
+		return m, cmd
+
+	case outputEndMsg:
+		cmd := m.flushPendingOutput()
+		return m, cmd
 
 	case completedRebuildMsg:
 		m.rebuildPending = false
@@ -64,9 +80,13 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case doneMsg:
+		if pending := m.ansiBuf.flush(); len(pending) > 0 {
+			m.writeScreen(outputMsg{data: pending})
+		}
 		m.result = &msg.result
 		m.state = stateCompleted
 		if m.screen.emu.IsAltScreen() {
+			m.ensureEmulatorGroundState()
 			m.writeScreen(outputMsg{data: []byte(leaveAltScreen)})
 		}
 		m.rebuildCompletedView(true)
@@ -287,17 +307,73 @@ func (m *interactiveModel) handleStyledTextRequest(msg TUIComponentMsg) (tea.Mod
 		rendered += "\n"
 	}
 	// The text goes where the command's output is: onto its screen, with
-	// each line starting at the left margin.
-	rebuild := m.applyOutput(outputMsg{data: []byte(strings.ReplaceAll(rendered, "\n", "\r\n"))})
+	// each line starting at the left margin. Neutralize any non-ground
+	// parser state left by a prior forced flush without disturbing any
+	// incomplete command sequence still buffered in ansiBuf, and wrap with
+	// SGR resets so attributes do not bleed across streams.
+	m.ensureEmulatorGroundState()
+	isolated := isolateStyledText(strings.ReplaceAll(rendered, "\n", "\r\n"))
+	rebuild := m.applyDirectOutput(outputMsg{data: isolated})
 	go func() {
 		msg.ResponseCh <- ComponentResponse{}
 	}()
 	return m, rebuild
 }
 
-// applyOutput writes the command's output to its screen and, past
-// completion, schedules the rebuild of the completed view that shows it.
-func (m *interactiveModel) applyOutput(out outputMsg) tea.Cmd {
+// applyPTYOutput buffers PTY bytes until a safe GroundState boundary, writes any
+// ready prefix to the screen, and schedules a bounded idle flush if an
+// incomplete trailing sequence remains buffered.
+func (m *interactiveModel) applyPTYOutput(out outputMsg) tea.Cmd {
+	var cmds []tea.Cmd
+	if ready := m.ansiBuf.push(out.data); len(ready) > 0 {
+		if cmd := m.applyDirectOutput(outputMsg{data: ready}); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+	if m.ansiBuf.hasPending() {
+		cmds = append(cmds, m.scheduleEscapeFlush())
+	}
+	switch len(cmds) {
+	case 0:
+		return nil
+	case 1:
+		return cmds[0]
+	default:
+		return tea.Batch(cmds...)
+	}
+}
+
+func (m *interactiveModel) flushPendingOutput() tea.Cmd {
+	pending := m.ansiBuf.flush()
+	if len(pending) == 0 {
+		return nil
+	}
+	return m.applyDirectOutput(outputMsg{data: pending})
+}
+
+func (m *interactiveModel) escapeFlushDelay() time.Duration {
+	if m.escapeFlushTimeout > 0 {
+		return m.escapeFlushTimeout
+	}
+	return interactiveEscapeFlushDelay
+}
+
+func (m *interactiveModel) scheduleEscapeFlush() tea.Cmd {
+	seq := m.ansiBuf.nextFlushSeq()
+	return tea.Tick(m.escapeFlushDelay(), func(time.Time) tea.Msg {
+		return escapeFlushMsg{seq: seq}
+	})
+}
+
+func (m *interactiveModel) ensureEmulatorGroundState() {
+	if recovery := m.ansiBuf.resetEmulatorState(); len(recovery) > 0 {
+		m.writeScreen(outputMsg{data: recovery})
+	}
+}
+
+// applyDirectOutput writes complete/isolated bytes to the command's screen and,
+// past completion, schedules the rebuild of the completed view that shows it.
+func (m *interactiveModel) applyDirectOutput(out outputMsg) tea.Cmd {
 	m.writeScreen(out)
 	if m.state == stateCompleted {
 		return m.scheduleCompletedRebuild()

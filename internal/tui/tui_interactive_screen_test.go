@@ -151,6 +151,35 @@ func TestInteractiveScreenSplitOSCDrawsNothing(t *testing.T) {
 	}
 }
 
+func TestInteractiveScreenSplitUTF8DrawsIntact(t *testing.T) {
+	t.Parallel()
+
+	model := newSizedInteractiveModel(t, nil)
+	writeOutput(model, "caf\xc3", "\xa9 \xe2\x82", "\xac \xf0\x9f", "\x9a\x80")
+	if text := screenText(model); !strings.HasPrefix(text, "café € 🚀") {
+		t.Fatalf("screen = %q, want split UTF-8 runes decoded intact", text)
+	}
+}
+
+func TestInteractiveScreenAltScreenExitAfterForcedFlush(t *testing.T) {
+	t.Parallel()
+
+	model := newSizedInteractiveModel(t, nil)
+	writeOutput(model, "before\r\n\x1b[?1049hALT\x1bP")
+	model.Update(outputEndMsg{})
+	if model.ansiBuf.emuState != ansiStateDCSEntry {
+		t.Fatalf("emuState = %s, want dcs_entry after outputEndMsg flush", model.ansiBuf.emuState)
+	}
+	model.Update(doneMsg{result: InteractiveResult{}})
+	if model.screen.emu.IsAltScreen() {
+		t.Fatal("emulator remained in alt screen after dirty-parser doneMsg recovery")
+	}
+	lines := completedLines(model)
+	if indexOfLine(lines, "before") != 0 || indexOfLine(lines, "ALT") != -1 {
+		t.Fatalf("completed lines = %q, want main screen without ALT", lines)
+	}
+}
+
 func TestInteractiveScreenShowsInView(t *testing.T) {
 	t.Parallel()
 

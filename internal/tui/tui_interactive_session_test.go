@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/invowk/invowk/pkg/types"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -29,15 +31,17 @@ type (
 	// sessionProbe runs RunInteractiveSession without a terminal and records
 	// the order in which the model received output and completion.
 	sessionProbe struct {
-		mu       sync.Mutex
-		events   []string
-		model    *interactiveModel
-		doneSeen chan struct{}
-		rebuilt  chan struct{}
+		mu            sync.Mutex
+		events        []string
+		model         *interactiveModel
+		doneSeen      chan struct{}
+		rebuilt       chan struct{}
+		escapeFlushed chan struct{}
 		// sized is closed when the program delivers its first window size.
 		sized    chan struct{}
 		doneOnce sync.Once
 		rebOnce  sync.Once
+		escOnce  sync.Once
 		sizeOnce sync.Once
 		program  *tea.Program
 		ready    chan struct{}
@@ -63,10 +67,11 @@ func (*scriptedTerminal) Resize(int, int) error { return nil }
 
 func newSessionProbe() *sessionProbe {
 	return &sessionProbe{
-		doneSeen: make(chan struct{}),
-		rebuilt:  make(chan struct{}),
-		sized:    make(chan struct{}),
-		ready:    make(chan struct{}),
+		doneSeen:      make(chan struct{}),
+		rebuilt:       make(chan struct{}),
+		escapeFlushed: make(chan struct{}),
+		sized:         make(chan struct{}),
+		ready:         make(chan struct{}),
 	}
 }
 
@@ -79,6 +84,8 @@ func (p *sessionProbe) filter(m tea.Model, msg tea.Msg) tea.Msg {
 	switch msg := msg.(type) {
 	case outputMsg:
 		p.events = append(p.events, "output:"+string(msg.data))
+	case escapeFlushMsg:
+		p.escOnce.Do(func() { close(p.escapeFlushed) })
 	case doneMsg:
 		p.events = append(p.events, "done")
 		p.doneOnce.Do(func() { close(p.doneSeen) })
@@ -267,5 +274,139 @@ func TestInteractiveSessionReaderNeverEnds(t *testing.T) {
 	}
 	if result == nil || result.ExitCode != 0 {
 		t.Fatalf("result = %+v, want success", result)
+	}
+}
+
+// TestInteractiveSessionConcurrentStyledWritesAndSplitEscapes interleaves
+// split ANSI/UTF-8 PTY chunks with concurrent ComponentTypeWrite messages over
+// RunInteractiveSession under -race and verifies neither stream is corrupted.
+func TestInteractiveSessionConcurrentStyledWritesAndSplitEscapes(t *testing.T) {
+	t.Parallel()
+
+	const (
+		cmdLines    = 20
+		styledLines = 10
+	)
+
+	term := newScriptedTerminal()
+	probe := newSessionProbe()
+	chunksDone := make(chan struct{})
+	styledDone := make(chan struct{})
+	styledErrs := make(chan error, styledLines)
+
+	finish := probe.run(t, term, func(context.Context) InteractiveResult {
+		<-chunksDone
+		<-styledDone
+		<-term.ended
+		return InteractiveResult{}
+	})
+
+	go func() {
+		defer close(chunksDone)
+		defer close(term.chunks)
+		<-probe.sized
+		for i := range cmdLines {
+			term.chunks <- "\x1b[3"
+			term.chunks <- fmt.Sprintf("1mCMD-%02d\x1b[0m", i)
+			term.chunks <- "\x1b]0;tit"
+			term.chunks <- fmt.Sprintf("le-%02d\x07", i)
+			term.chunks <- " \xf0\x9f"
+			term.chunks <- "\x9a\x80\r\n"
+		}
+	}()
+
+	go func() {
+		defer close(styledDone)
+		<-probe.ready
+		<-probe.sized
+		for i := range styledLines {
+			ch := make(chan ComponentResponse, 1)
+			probe.program.Send(TUIComponentMsg{
+				Component: ComponentTypeWrite,
+				Options: StyledTextOptions{
+					Text:  types.DescriptionText(fmt.Sprintf("STYLED-%02d", i)),
+					Style: Style{Foreground: "#00ff00"},
+				},
+				ResponseCh: ch,
+			})
+			select {
+			case resp := <-ch:
+				if resp.Err != nil {
+					styledErrs <- resp.Err
+				}
+			case <-time.After(sessionTestTimeout):
+				styledErrs <- fmt.Errorf("timed out waiting for styled write %d", i)
+				return
+			}
+		}
+	}()
+
+	finish(probe.doneSeen)
+	close(styledErrs)
+	for err := range styledErrs {
+		t.Fatalf("styled write error: %v", err)
+	}
+
+	joined := strings.Join(probe.completedContent(), "\n")
+	for i := range cmdLines {
+		if want := fmt.Sprintf("CMD-%02d", i); !strings.Contains(joined, want) {
+			t.Errorf("completed output missing %q:\n%s", want, joined)
+		}
+	}
+	if got := strings.Count(joined, "🚀"); got != cmdLines {
+		t.Errorf("decoded emoji count = %d, want %d:\n%s", got, cmdLines, joined)
+	}
+	for i := range styledLines {
+		if want := fmt.Sprintf("STYLED-%02d", i); !strings.Contains(joined, want) {
+			t.Errorf("completed output missing %q:\n%s", want, joined)
+		}
+	}
+	if strings.Contains(joined, "1mCMD") || strings.Contains(joined, "\ufffd") {
+		t.Errorf("completed output shows corrupted escape/UTF-8 sequence:\n%s", joined)
+	}
+}
+
+// TestInteractiveSessionLoneESCFlushesWithinIdleTimeout verifies that a lone
+// trailing ESC triggers escapeFlushMsg inside a running session even while the
+// PTY stays open, and subsequent output renders cleanly.
+func TestInteractiveSessionLoneESCFlushesWithinIdleTimeout(t *testing.T) {
+	t.Parallel()
+
+	term := newScriptedTerminal()
+	probe := newSessionProbe()
+	flushed := make(chan struct{})
+
+	finish := probe.run(t, term, func(context.Context) InteractiveResult {
+		<-flushed
+		<-term.ended
+		return InteractiveResult{}
+	})
+
+	go func() {
+		<-probe.sized
+		term.chunks <- "LONE_PREFIX\x1b"
+		select {
+		case <-probe.escapeFlushed:
+			close(flushed)
+		case <-time.After(sessionTestTimeout):
+			close(flushed)
+			close(term.chunks)
+			return
+		}
+		term.chunks <- "\x18LONE_SUFFIX\r\n"
+		close(term.chunks)
+	}()
+
+	finish(probe.doneSeen)
+
+	select {
+	case <-probe.escapeFlushed:
+	default:
+		t.Fatal("escapeFlushMsg did not fire while terminal stayed open after lone ESC")
+	}
+
+	joined := strings.Join(probe.completedContent(), "\n")
+	if !strings.Contains(joined, "LONE_PREFIX") || !strings.Contains(joined, "LONE_SUFFIX") {
+		t.Fatalf("completed output missing expected segments:\n%s", joined)
 	}
 }

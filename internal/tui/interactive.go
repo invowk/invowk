@@ -59,6 +59,17 @@ type (
 		data []byte
 	}
 
+	// escapeFlushMsg flushes an incomplete trailing sequence held in
+	// ansiStreamBuffer when no completing bytes arrive within
+	// interactiveEscapeFlushDelay.
+	escapeFlushMsg struct {
+		seq uint64 //goplint:ignore -- monotonic idle-timer generation counter for Bubble Tea tick matching.
+	}
+
+	// outputEndMsg is sent when the command's output reader ends, flushing any
+	// remaining incomplete trailing escape or UTF-8 fragment.
+	outputEndMsg struct{}
+
 	// completedRebuildMsg rebuilds the completed view once per frame after
 	// output arrived past completion.
 	completedRebuildMsg struct{}
@@ -104,6 +115,10 @@ type (
 		// screen is the command's emulated terminal screen, shown while the
 		// command runs; its history and final screen feed the completed view.
 		screen *emulatedScreen
+		// ansiBuf buffers split escape and UTF-8 sequences across outputMsg
+		// reads so interleaved writes only reach the emulator at GroundState.
+		ansiBuf            ansiStreamBuffer
+		escapeFlushTimeout time.Duration
 		// viewport holds the completed view (history, final screen, banner).
 		viewport viewport.Model
 		title    string
