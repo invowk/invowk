@@ -29,9 +29,9 @@
 
 ## 6. Integration, Formal Verification, Mutation & Completion Gates
 
-- [ ] 6.1 Run CLI integration and path-coverage tests (`make test-scripts && go test -race ./tests/coverage/...`) to confirm end-to-end lock/symlink behavior and coverage guardrails pass.
-- [ ] 6.2 Run formal verification checks (`python3 scripts/formal.py affected --event pull_request`, `python3 scripts/formal.py correspondence`, `make formal-reach`, and `make formal` if TLC/Java is available) and run scoped formal mutation verification (`make mutation-formal` / `make mutation-formal-refresh` if anchored line numbers or survivors in `RemoveRequirementIfPresent` or `fileSnapshot.restore` shifted), confirming zero unexamined survivors or stale bindings.
-- [ ] 6.3 Run `.agents/rules/checklist.md` completion gates: review diff and run `/simplify` where beneficial, then verify `make build`, `make tidy`, `make license-check`, `make check-agent-docs`, `make check-goplint-consumer-routed`, `make check-baseline`, `make check-file-length`, `make lint`, `make test`, `make sonar-local`, `make check-windows-build`, `GOOS=darwin GOARCH=arm64 go vet ./... && GOOS=darwin GOARCH=amd64 go vet ./...`, and `(cd website && npm run docs:parity && npm run build)` all pass; run `/learn` if durable repository lessons emerge.
+- [x] 6.1 Run CLI integration and path-coverage tests (`make test-scripts && go test -race ./tests/coverage/...`) to confirm end-to-end lock/symlink behavior and coverage guardrails pass.
+- [x] 6.2 Run formal verification checks (`python3 scripts/formal.py affected --event pull_request`, `python3 scripts/formal.py correspondence`, `make formal-reach`, and `make formal` if TLC/Java is available) and run scoped formal mutation verification (`make mutation-formal` / `make mutation-formal-refresh` if anchored line numbers or survivors in `RemoveRequirementIfPresent` or `fileSnapshot.restore` shifted), confirming zero unexamined survivors or stale bindings.
+- [x] 6.3 Run `.agents/rules/checklist.md` completion gates: review diff and run `/simplify` where beneficial, then verify `make build`, `make tidy`, `make license-check`, `make check-agent-docs`, `make check-goplint-consumer-routed`, `make check-baseline`, `make check-file-length`, `make lint`, `make test`, `make sonar-local`, `make check-windows-build`, `GOOS=darwin GOARCH=arm64 go vet ./... && GOOS=darwin GOARCH=amd64 go vet ./...`, and `(cd website && npm run docs:parity && npm run build)` all pass; run `/learn` if durable repository lessons emerge.
 
 ## Workflow follow-up
 

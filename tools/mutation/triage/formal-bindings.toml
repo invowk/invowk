@@ -9792,22 +9792,6 @@ added = '''
 '''
 
 [[survivor]]
-id = "0d146fc7cec5a069bd110d569a437c4b"
-file = "internal/app/modulesync/use_cases.go"
-symbol = "fileSnapshot.restore"
-model = "ConcurrentModuleEdits"
-element = "Restore"
-class = "binding-gap"
-reason = "statement/return (Changes: `return s.restoreLink()` → `return nil`) survives TestConcurrentEdits_F10RestoreReplacesFile: TestConcurrentEdits_F10RestoreReplacesFile restores one regular file through the default writer, so the binding does not exercise the invalid-snapshot, missing-file, link and unknown-kind branches or the writer's error return; outside the cell, TestAddModuleDependencyRollbackKeepsDanglingInvowkmodLink, TestAddModuleDependencyRollbackRestoresLinkedLock, TestAddModuleDependencyRollbackLinkRestoreFails and TestAddModuleDependencyRollbackLockRestoreFails check them. Code this change adds or rewrites (w1a-revise-1 correction 4 (a)): killing it needs those tests in the row's binding cell, a binding-cell edit the fix stage may not make, so it is deferred for the maintainer's decision"
-follow_up = "W3 formal follow-ups (formal-followups-brief.md)"
-removed = '''
-		return s.restoreLink()
-'''
-added = '''
-		return nil
-'''
-
-[[survivor]]
 id = "7e702af0468a28a93ea03a87c7bb4eee"
 file = "internal/app/modulesync/use_cases.go"
 symbol = "fileSnapshot.restore"
@@ -9821,6 +9805,86 @@ removed = '''
 '''
 added = '''
 		return nil
+'''
+
+[[survivor]]
+id = "8157c6997e13c26509973cfdb04d9065"
+file = "internal/app/modulesync/use_cases.go"
+symbol = "fileSnapshot.restore"
+model = "ConcurrentModuleEdits"
+element = "Restore"
+class = "binding-gap"
+reason = "conditional/negated (Changes: `if s.targetPath != nil {` → `if s.targetPath == nil {`) survives TestConcurrentEdits_F10RestoreReplacesFile: TestConcurrentEdits_F10RestoreReplacesFile restores one regular file through the default writer, so the binding does not exercise the invalid-snapshot, missing-file, link-with-target and unknown-kind branches or the writer's error return; outside the cell, TestRemoveModuleDependencyRollbackRestoresSymlinkedInvowkmodTarget and TestFileSnapshotSymlinkTargetValidationAndDirectoryLink check symlink target restore and nil-targetPath skip behavior"
+follow_up = "W3 formal follow-ups (formal-followups-brief.md)"
+removed = '''
+		if s.targetPath != nil {
+'''
+added = '''
+		if s.targetPath == nil {
+'''
+
+[[survivor]]
+id = "ad7bf1e60c6c9d40432a5632b0796b88"
+file = "internal/app/modulesync/use_cases.go"
+symbol = "fileSnapshot.restore"
+model = "ConcurrentModuleEdits"
+element = "Restore"
+class = "binding-gap"
+reason = "expression/error-guard (Changes: `if err := s.fileWriter()(string(*s.targetPath), []byte(s.data), s.mode.Perm()); err != nil {` → `if err := s.fileWriter()(string(*s.targetPath), []byte(s.data), s.mode.Perm()); false {`) survives TestConcurrentEdits_F10RestoreReplacesFile: TestConcurrentEdits_F10RestoreReplacesFile restores one regular file through the default writer, so the binding does not exercise symlink target rollback failures; outside the cell, TestRemoveModuleDependencyRollbackRestoresSymlinkedInvowkmodTarget (subtest `target restore failure yields incomplete rollback`) verifies incomplete rollback reporting and injected error propagation"
+follow_up = "W3 formal follow-ups (formal-followups-brief.md)"
+removed = '''
+			if err := s.fileWriter()(string(*s.targetPath), []byte(s.data), s.mode.Perm()); err != nil {
+'''
+added = '''
+			if err := s.fileWriter()(string(*s.targetPath), []byte(s.data), s.mode.Perm()); false {
+'''
+
+[[survivor]]
+id = "bce16f798a6f2fce2a6a1ea1469c7ba8"
+file = "internal/app/modulesync/use_cases.go"
+symbol = "fileSnapshot.restore"
+model = "ConcurrentModuleEdits"
+element = "Restore"
+class = "binding-gap"
+reason = "conditional/negated (Changes: `if err := s.fileWriter()(string(*s.targetPath), []byte(s.data), s.mode.Perm()); err != nil {` → `if err := s.fileWriter()(string(*s.targetPath), []byte(s.data), s.mode.Perm()); err == nil {`) survives TestConcurrentEdits_F10RestoreReplacesFile: TestConcurrentEdits_F10RestoreReplacesFile restores one regular file through the default writer, so the binding does not exercise symlink target rollback success vs failure; outside the cell, TestRemoveModuleDependencyRollbackRestoresSymlinkedInvowkmodTarget verifies both clean symlink target restore and target restore failure error propagation"
+follow_up = "W3 formal follow-ups (formal-followups-brief.md)"
+removed = '''
+			if err := s.fileWriter()(string(*s.targetPath), []byte(s.data), s.mode.Perm()); err != nil {
+'''
+added = '''
+			if err := s.fileWriter()(string(*s.targetPath), []byte(s.data), s.mode.Perm()); err == nil {
+'''
+
+[[survivor]]
+id = "6baa5f1ee6a52bfed0e1d2c966750cf4"
+file = "internal/app/modulesync/use_cases.go"
+symbol = "fileSnapshot.restore"
+model = "ConcurrentModuleEdits"
+element = "Restore"
+class = "binding-gap"
+reason = "branch/if (Changes: `targetErr = fmt.Errorf(\"rollback target %s: %w\", *s.targetPath, err)` → `_, _, _, _ = targetErr, fmt.Errorf, s.targetPath, err`) survives TestConcurrentEdits_F10RestoreReplacesFile: TestConcurrentEdits_F10RestoreReplacesFile restores one regular file through the default writer, so the binding does not exercise symlink target rollback failure propagation; outside the cell, TestRemoveModuleDependencyRollbackRestoresSymlinkedInvowkmodTarget (subtest `target restore failure yields incomplete rollback`) asserts incomplete rollback and wrapped target error propagation"
+follow_up = "W3 formal follow-ups (formal-followups-brief.md)"
+removed = '''
+				targetErr = fmt.Errorf("rollback target %s: %w", *s.targetPath, err)
+'''
+added = '''
+				_, _, _, _ = targetErr, fmt.Errorf, s.targetPath, err
+'''
+
+[[survivor]]
+id = "f3e6a3bbfe35dc976e07b6beeb3ff975"
+file = "internal/app/modulesync/use_cases.go"
+symbol = "fileSnapshot.restore"
+model = "ConcurrentModuleEdits"
+element = "Restore"
+class = "binding-gap"
+reason = "expression/errorf-wrap (Changes: `targetErr = fmt.Errorf(\"rollback target %s: %w\", *s.targetPath, err)` → `targetErr = fmt.Errorf(\"rollback target %s: %v\", *s.targetPath, err)`) survives TestConcurrentEdits_F10RestoreReplacesFile: TestConcurrentEdits_F10RestoreReplacesFile restores one regular file through the default writer, so the binding does not exercise `%w` wrapping on target write failure; outside the cell, TestRemoveModuleDependencyRollbackRestoresSymlinkedInvowkmodTarget (subtest `target restore failure yields incomplete rollback`) verifies `errors.Is(decls[1].Err(), injected)`"
+follow_up = "W3 formal follow-ups (formal-followups-brief.md)"
+removed = '''
+				targetErr = fmt.Errorf("rollback target %s: %w", *s.targetPath, err)
+'''
+added = '''
+				targetErr = fmt.Errorf("rollback target %s: %v", *s.targetPath, err)
 '''
 
 [[survivor]]
@@ -10290,22 +10354,6 @@ added = '''
 '''
 
 [[survivor]]
-id = "d5485f0c3291923bb27eaf76f745b5f7"
-file = "pkg/invowkmod/invowkmod_edit.go"
-symbol = "RemoveRequirementIfPresent"
-model = "ConcurrentModuleEdits"
-element = "WriteMod remove"
-class = "binding-gap"
-reason = "expression/error-guard (Changes: `if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); writeErr != nil {` → `if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); false {`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: no bound edit test exercises an atomic-write failure after reading invowkmod.cue"
-follow_up = "tasks/next/formal-binding-gaps.md#removerequirementifpresent"
-removed = '''
-	if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); writeErr != nil {
-'''
-added = '''
-	if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); false {
-'''
-
-[[survivor]]
 id = "83e11a247b2732f29a6ac0b2c1b8d64a"
 file = "pkg/invowkmod/invowkmod_edit.go"
 symbol = "RemoveRequirementIfPresent"
@@ -10335,6 +10383,22 @@ removed = '''
 '''
 added = '''
 		_ = writeErr
+'''
+
+[[survivor]]
+id = "940f5b1db9d78e4992928c56f029ae2e"
+file = "pkg/invowkmod/invowkmod_edit.go"
+symbol = "RemoveRequirementIfPresent"
+model = "ConcurrentModuleEdits"
+element = "WriteMod remove"
+class = "binding-gap"
+reason = "expression/error-guard (Changes: `if writeErr := fspath.AtomicWriteFile(target.Path, []byte(out), target.Perm); writeErr != nil {` → `if writeErr := fspath.AtomicWriteFile(target.Path, []byte(out), target.Perm); false {`) survives TestRemoveRequirement, TestRemoveRequirementIfPresent, TestRemoveRequirementMutationBoundaries, TestRemoveRequirementMutationEOFAndBlankLineBounds, TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment, TestRemoveRequirementMutationRemovesFirstDuplicateMatch, TestRemoveRequirementOneLineEntries, TestRemoveRequirementSkipsUnreadablePath: no bound edit test exercises an atomic-write failure after reading invowkmod.cue"
+follow_up = "tasks/next/formal-binding-gaps.md#removerequirementifpresent"
+removed = '''
+	if writeErr := fspath.AtomicWriteFile(target.Path, []byte(out), target.Perm); writeErr != nil {
+'''
+added = '''
+	if writeErr := fspath.AtomicWriteFile(target.Path, []byte(out), target.Perm); false {
 '''
 
 [[survivor]]
