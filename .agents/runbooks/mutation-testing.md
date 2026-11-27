@@ -15,7 +15,7 @@ Procedures for the manual mutation-testing profiles. Targets are listed in `.age
 ```bash
 make mutation-dry-run MUTATION_MODULE=root                          # count candidates, no mutation
 make mutation-pr MUTATION_BASE_REF=origin/main MUTATION_MODE=advisory
-make mutation-full MUTATION_MODULE=all MUTATION_MODE=advisory
+make mutation-full MUTATION_MODULE=root MUTATION_MODE=advisory
 make mutation-baseline-update MUTATION_MODULE=root                  # intentional baseline rewrite
 make mutation-rerun MUTATION_MODULE=root MUTATION_MUTANT_ID=<id>    # id from go-mutesting-agentic.json
 ```

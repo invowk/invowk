@@ -420,9 +420,12 @@ license-check:
 	fi
 
 # Run golangci-lint and formatter checks in all Go modules.
-.PHONY: lint lint-fmt lint-config-verify lint-linters
+.PHONY: lint lint-darwin lint-fmt lint-config-verify lint-linters
 lint: lint-config-verify lint-fmt
 	$(GOLANGCI_LINT) run
+
+lint-darwin:
+	$(GOLANGCI_LINT) run-darwin
 
 lint-fmt:
 	$(GOLANGCI_LINT) fmt
@@ -729,6 +732,7 @@ help:
 	@echo "  vulncheck        Run govulncheck in all tracked Go modules"
 	@echo "  license-check    Verify SPDX headers in all Go files"
 	@echo "  lint             Run normalized lint, config, and formatter gates"
+	@echo "  lint-darwin      Run golangci-lint on Darwin build-tagged packages"
 	@echo "  lint-fmt         Check golangci-lint formatters"
 	@echo "  lint-config-verify Verify golangci-lint config"
 	@echo "  lint-linters     Print effective golangci-lint linter JSON for the module"

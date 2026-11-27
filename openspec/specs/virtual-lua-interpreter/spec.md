@@ -4,7 +4,7 @@
 Defines the built-in virtual-lua runtime: interpreter validation, the bridge API, argument and I/O stream handling, the reduced standard library, module-contained require, and resource controls. These limits shape what Lua scripts can reach through Invowk, but virtual-lua is not a sandbox: allowed host binaries run as native host processes, and isolation requires the container runtime. Harness rules shared with virtual-sh are specified in virtual-runtime-sandbox.
 ## Requirements
 ### Requirement: Built-in Lua runtime
-Invowk SHALL provide `virtual-lua` as a built-in virtual runtime using `github.com/arnodel/golua`. The runtime SHALL execute Lua scripts in-process with a fresh Lua VM for each command execution.
+Invowk SHALL provide `virtual-lua` as a built-in virtual runtime using `github.com/invowk/golua` (the maintained fork of `arnodel/golua`, patched for Go 1.27's `//go:linkname` allowlist removal via `hash/maphash.Comparable`). The runtime SHALL execute Lua scripts in-process with a fresh Lua VM for each command execution.
 
 #### Scenario: Running Lua through virtual-lua
 - **WHEN** a command implementation includes a runtime config with `name: "virtual-lua"`

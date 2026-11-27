@@ -12,6 +12,10 @@ GOLANGCI_LINT_MODULE="github.com/golangci/golangci-lint/v2"
 GOLANGCI_LINT_VERSION="v2.13.1"
 
 GOLANGCI_LINT_BIN=""
+# Keep scoped to Darwin build-tagged packages that pass cleanly; full-repo
+# cross-linting currently trips on a pre-existing decorder issue in
+# internal/container/run_lock_other.go (//go:build !linux).
+DARWIN_LINT_PACKAGES=("./internal/modulelock/..." "./internal/tui/...")
 
 usage() {
 	cat <<'EOF'
@@ -19,6 +23,7 @@ Usage: scripts/golangci-lint.sh <command> [args...]
 
 Commands:
   run            Run golangci-lint for the module.
+  run-darwin     Run golangci-lint with GOOS=darwin GOARCH=arm64 on Darwin-tagged packages.
   fmt            Check formatter diffs for the module.
   config-verify  Verify the golangci-lint config file.
   linters        Print effective linter JSON for the module.
@@ -67,6 +72,12 @@ run_lint() {
 	(cd "$REPO_ROOT" && "$GOLANGCI_LINT_BIN" run --config=.golangci.toml "$@" ./...)
 }
 
+run_darwin_lint() {
+	verify_golangci_lint_version
+	printf 'Running Darwin golangci-lint (%s)...\n' "${DARWIN_LINT_PACKAGES[*]}"
+	(cd "$REPO_ROOT" && GOOS=darwin GOARCH=arm64 "$GOLANGCI_LINT_BIN" run --config=.golangci.toml "$@" "${DARWIN_LINT_PACKAGES[@]}")
+}
+
 run_format_check() {
 	verify_golangci_lint_version
 	printf 'Checking golangci-lint formatters...\n'
@@ -100,6 +111,9 @@ main() {
 	case "$command" in
 		run)
 			run_lint "$@"
+			;;
+		run-darwin)
+			run_darwin_lint "$@"
 			;;
 		fmt)
 			run_format_check "$@"
