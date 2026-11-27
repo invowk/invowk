@@ -10,10 +10,12 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
+	"github.com/charmbracelet/x/xpty"
+
+	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/pkg/types"
-
-	"github.com/charmbracelet/x/xpty"
 )
 
 // interactiveTerminal is the viewer's side of the command's terminal, which
@@ -72,6 +74,7 @@ func validatedInteractiveExitCode(exitErr *exec.ExitError) types.ExitCode {
 // prepareInteractiveCmd) and starts cmd on it. The caller owns the returned
 // PTY and closes it once the session ends.
 func startInteractivePty(cmd *exec.Cmd, width, height tui.TerminalDimension) (xpty.Pty, error) {
+	stripProgramResumeTokenFromCmd(cmd)
 	cols, rows := tui.InteractiveCommandArea(width, height)
 	pty, err := xpty.NewPty(int(cols), int(rows))
 	if err != nil {
@@ -93,4 +96,20 @@ func startInteractivePty(cmd *exec.Cmd, width, height tui.TerminalDimension) (xp
 		return nil, fmt.Errorf("failed to release the PTY slave: %w", err)
 	}
 	return pty, nil
+}
+
+// stripProgramResumeTokenFromCmd removes OSC7577_TOKEN from cmd.Env (or from a
+// snapshot of os.Environ() when cmd.Env is nil and the token is set) so commands
+// inside the nested -i PTY never receive the outer terminal's resume secret.
+func stripProgramResumeTokenFromCmd(cmd *exec.Cmd) {
+	if cmd == nil {
+		return
+	}
+	if cmd.Env != nil {
+		cmd.Env = runtime.FilterProgramResumeToken(cmd.Env)
+		return
+	}
+	if _, ok := os.LookupEnv(ansi.ProgramResumeTokenEnv); ok {
+		cmd.Env = runtime.FilterProgramResumeToken(os.Environ())
+	}
 }

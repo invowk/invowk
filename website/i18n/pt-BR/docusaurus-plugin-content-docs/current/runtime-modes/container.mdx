@@ -118,6 +118,8 @@ Variáveis de ambiente são passadas para o container:
 
 <Snippet id="runtime-modes/container-env-vars" />
 
+Por isolamento, `OSC7577_TOKEN` (o token do Program Resume Protocol do terminal) é sempre removido do ambiente do container, mesmo quando `env_inherit_mode: "all"` ou `env_inherit_allow` está configurado.
+
 ## Acesso SSH ao Host
 
 Às vezes seu container precisa executar comandos no sistema host. Habilite acesso SSH de volta ao host:

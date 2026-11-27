@@ -18,15 +18,15 @@ const (
 // Patterns for sensitive environment variable detection.
 var (
 	// Credential variables (Medium, escalated to High when correlated with network).
-	// Includes invowk-specific runtime secrets (INVOWK_SSH_TOKEN, INVOWK_TUI_*).
+	// Includes invowk-specific runtime secrets (INVOWK_SSH_TOKEN, INVOWK_TUI_*, OSC7577_TOKEN).
 	sensitiveVarPattern = regexp.MustCompile(
-		`\$(AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|AWS_SESSION_TOKEN|` +
+		`\$\{?(AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|AWS_SESSION_TOKEN|` +
 			`GITHUB_TOKEN|GH_TOKEN|SSH_AUTH_SOCK|GPG_AGENT_INFO|` +
 			`DATABASE_URL|REDIS_URL|MONGODB_URI|VAULT_TOKEN|VAULT_ADDR|` +
 			`DOCKER_PASSWORD|NPM_TOKEN|PYPI_TOKEN|` +
 			`AZURE_CLIENT_SECRET|AZURE_TENANT_ID|` +
 			`GOOGLE_APPLICATION_CREDENTIALS|GCP_SERVICE_ACCOUNT_KEY|` +
-			`INVOWK_SSH_TOKEN|INVOWK_TUI_TOKEN|INVOWK_TUI_ADDR)`)
+			`INVOWK_SSH_TOKEN|INVOWK_TUI_TOKEN|INVOWK_TUI_ADDR|OSC7577_TOKEN)\}?`)
 	genericSecretPattern = regexp.MustCompile(
 		`\$\{?(API_KEY|SECRET_KEY|PRIVATE_KEY|ACCESS_TOKEN|AUTH_TOKEN|PASSWORD)\}?`)
 
@@ -34,11 +34,11 @@ var (
 	// patterns using both generic and named credential variables. Kept in sync
 	// with sensitiveVarPattern for any newly added credential names.
 	tokenExtractionPattern = regexp.MustCompile(
-		`\$(AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GITHUB_TOKEN|GH_TOKEN|` +
+		`\$\{?(AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GITHUB_TOKEN|GH_TOKEN|` +
 			`VAULT_TOKEN|DOCKER_PASSWORD|NPM_TOKEN|PYPI_TOKEN|` +
 			`AZURE_CLIENT_SECRET|GCP_SERVICE_ACCOUNT_KEY|` +
-			`INVOWK_SSH_TOKEN|INVOWK_TUI_TOKEN|` +
-			`API_KEY|SECRET_KEY|TOKEN|PASSWORD|ACCESS_TOKEN)[^|>]*[|>]`)
+			`INVOWK_SSH_TOKEN|INVOWK_TUI_TOKEN|OSC7577_TOKEN|` +
+			`API_KEY|SECRET_KEY|TOKEN|PASSWORD|ACCESS_TOKEN)\}?[^|>]*[|>]`)
 )
 
 // EnvChecker scans environment configurations and script content for sensitive
@@ -132,7 +132,7 @@ func (c *EnvChecker) checkSensitiveVars(ref ScriptRef, content string) []Finding
 			CheckerName:    envCheckerName,
 			FilePath:       ref.FilePath,
 			Title:          scriptSensitiveEnvVarTitle,
-			Description:    fmt.Sprintf("Command %q references known credential environment variables (AWS, GitHub, SSH, database)", ref.CommandName),
+			Description:    fmt.Sprintf("Command %q references known credential environment variables (AWS, GitHub, SSH, database, terminal resume)", ref.CommandName),
 			Recommendation: "Ensure credential access is intentional; prefer scoped tokens over broad credential variables",
 		})
 	}

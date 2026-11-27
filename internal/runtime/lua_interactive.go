@@ -220,6 +220,7 @@ func RunLuaScript(ctx context.Context, opts LuaScriptOptions) error {
 	}
 
 	env := SliceToEnv(opts.Env)
+	StripProgramResumeToken(env)
 	pathResolver, err := newVirtualPathResolverForInteractiveConfig(
 		opts.WorkDir,
 		opts.WorkDirModuleRoot,

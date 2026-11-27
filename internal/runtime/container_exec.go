@@ -134,6 +134,9 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	if opts.interactiveTUI {
 		ctx.AddTUIEnv(env)
 	}
+	// SECURITY: Strip OSC7577_TOKEN unconditionally so containers never receive
+	// the host terminal's Program Resume secret even under env_inherit_mode: "all".
+	StripProgramResumeToken(env)
 
 	// Check if host SSH is enabled for this runtime
 	hostSSHEnabled := ctx.SelectedImpl.GetHostSSHForRuntime(ctx.SelectedRuntime)

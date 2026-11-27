@@ -81,7 +81,7 @@ Sobrescreva em tempo de execução:
 
 ## Herança do Ambiente do Host
 
-Por padrão, os runtimes native, virtual-sh e virtual-lua herdam o ambiente do host, enquanto o runtime container começa sem variáveis do host. Você pode controlar isso por runtime ou por execução.
+Por padrão, os runtimes native, virtual-sh e virtual-lua herdam o ambiente do host, enquanto o runtime container começa sem variáveis do host. Você pode controlar isso por runtime ou por execução. Por segurança de terminal, `OSC7577_TOKEN` é removido incondicionalmente de `container`, `virtual-sh`, `virtual-lua` e execuções interativas (`-i`), passando apenas em execuções `native` não interativas.
 
 <Snippet id="reference/invowkfile/env-inherit-example" />
 

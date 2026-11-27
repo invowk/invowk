@@ -1615,6 +1615,14 @@ reason = "SSH auth boundary — raw credential"
 pattern = "sshserver.setWinsize.*"
 reason = "terminal size — OS/exec boundary"
 
+[[exceptions]]
+pattern = "sshserver.filterProgramResumeToken.env"
+reason = "exec/OS boundary — raw SSH session environ strings"
+
+[[exceptions]]
+pattern = "sshserver.filterProgramResumeToken.return.*"
+reason = "exec/OS boundary — filtered SSH session environ strings"
+
 # =============================================================================
 # Primitive Exceptions — Remaining Miscellaneous
 # =============================================================================
@@ -2416,6 +2424,22 @@ reason = "exec/OS boundary — env var value passed to os.Setenv"
 [[exceptions]]
 pattern = "runtime.shouldFilterEnvVar.name"
 reason = "exec/OS boundary — env var name for filter check"
+
+[[exceptions]]
+pattern = "runtime.StripProgramResumeToken.env"
+reason = "exec/OS boundary — env map for token stripping"
+
+[[exceptions]]
+pattern = "runtime.FilterProgramResumeToken.environ"
+reason = "exec/OS boundary — raw environ strings"
+
+[[exceptions]]
+pattern = "runtime.FilterProgramResumeToken.return.*"
+reason = "exec/OS boundary — filtered environ strings"
+
+[[exceptions]]
+pattern = "runtime.isProgramResumeTokenVar.name"
+reason = "exec/OS boundary — env var name for token check"
 
 # --- Runtime Shell / Exec Boundary ---
 # Shell args, interpreter paths, script content at the shell execution boundary.

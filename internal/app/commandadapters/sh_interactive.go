@@ -63,7 +63,7 @@ func shInteractiveCommand(ctx context.Context, spec runtime.ShInteractiveCommand
 	cmd := exec.CommandContext(ctx, invowkPath, args...)
 	// Subprocess inherits filtered environment; script-visible TUI vars are passed
 	// through the serialized environment above.
-	cmd.Env = runtime.FilterInvowkEnvVars(os.Environ())
+	cmd.Env = runtime.FilterProgramResumeToken(runtime.FilterInvowkEnvVars(os.Environ()))
 	return cmd, nil
 }
 

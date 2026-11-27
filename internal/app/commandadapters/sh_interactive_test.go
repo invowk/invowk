@@ -3,9 +3,14 @@
 package commandadapters
 
 import (
+	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -152,6 +157,95 @@ func TestInteractiveCommandsPassWorkdirModuleRootOnlyWhenSet(t *testing.T) {
 				t.Fatalf("args = %v, want no --workdir-module-root for a trusted workdir", args)
 			case root != nil && (i < 0 || i+1 >= len(args) || args[i+1] != string(moduleRoot)):
 				t.Fatalf("args = %v, want --workdir-module-root %s", args, moduleRoot)
+			}
+		}
+	}
+}
+
+func TestStripProgramResumeTokenFromCmd_PopulatedEnv(t *testing.T) {
+	t.Parallel()
+
+	cmd := exec.CommandContext(t.Context(), "true")
+	cmd.Env = []string{
+		"KEEP=1",
+		ansi.ProgramResumeTokenEnv + "=secret",
+		"OSC7577_TOKEN_EXTRA=keep",
+		"AFTER=2",
+	}
+	stripProgramResumeTokenFromCmd(cmd)
+	want := []string{"KEEP=1", "OSC7577_TOKEN_EXTRA=keep", "AFTER=2"}
+	if !slices.Equal(cmd.Env, want) {
+		t.Fatalf("cmd.Env = %v, want %v", cmd.Env, want)
+	}
+}
+
+func TestStripProgramResumeTokenFromCmd_NilCmd(t *testing.T) {
+	t.Parallel()
+	stripProgramResumeTokenFromCmd(nil)
+}
+
+func TestStripProgramResumeTokenFromCmd_NilEnvWithHostToken(t *testing.T) {
+	t.Setenv(ansi.ProgramResumeTokenEnv, "host-secret")
+	t.Setenv("KEEP_HOST_VAR", "kept")
+
+	cmd := exec.CommandContext(t.Context(), "true")
+	stripProgramResumeTokenFromCmd(cmd)
+	if cmd.Env == nil {
+		t.Fatal("cmd.Env stayed nil when host token was present")
+	}
+	for _, kv := range cmd.Env {
+		if strings.HasPrefix(kv, ansi.ProgramResumeTokenEnv+"=") {
+			t.Fatalf("cmd.Env leaked %s", ansi.ProgramResumeTokenEnv)
+		}
+	}
+	if !slices.Contains(cmd.Env, "KEEP_HOST_VAR=kept") {
+		t.Fatalf("cmd.Env dropped unrelated host env var")
+	}
+}
+
+func TestStripProgramResumeTokenFromCmd_NilEnvWithoutHostToken(t *testing.T) {
+	t.Setenv(ansi.ProgramResumeTokenEnv, "")
+	if err := os.Unsetenv(ansi.ProgramResumeTokenEnv); err != nil {
+		t.Fatalf("os.Unsetenv(%s) error = %v", ansi.ProgramResumeTokenEnv, err)
+	}
+
+	cmd := exec.CommandContext(t.Context(), "true")
+	stripProgramResumeTokenFromCmd(cmd)
+	if cmd.Env != nil {
+		t.Fatalf("cmd.Env = %v, want nil when host token is unset", cmd.Env)
+	}
+}
+
+func TestVirtualInteractiveSubprocessStripsHostProgramResumeToken(t *testing.T) {
+	t.Setenv(ansi.ProgramResumeTokenEnv, "host-secret")
+
+	tmpDir := t.TempDir()
+	scriptFile := types.FilesystemPath(filepath.Join(tmpDir, "invowk-script"))
+	workDir := types.FilesystemPath(tmpDir)
+	scriptBasePath := types.FilesystemPath(tmpDir)
+
+	shCmd, err := shInteractiveCommand(t.Context(), runtime.ShInteractiveCommandSpec{
+		ScriptFile:     &scriptFile,
+		WorkDir:        &workDir,
+		ScriptBasePath: &scriptBasePath,
+		EnvJSON:        runtime.ShInteractiveEnvJSON("{}"),
+	})
+	if err != nil {
+		t.Fatalf("shInteractiveCommand() error = %v", err)
+	}
+	luaCmd, err := luaInteractiveCommand(t.Context(), runtime.LuaInteractiveCommandSpec{
+		ScriptFile:     &scriptFile,
+		WorkDir:        &workDir,
+		ScriptBasePath: &scriptBasePath,
+		EnvJSON:        runtime.LuaInteractiveEnvJSON("{}"),
+	})
+	if err != nil {
+		t.Fatalf("luaInteractiveCommand() error = %v", err)
+	}
+	for _, cmd := range []*exec.Cmd{shCmd, luaCmd} {
+		for _, kv := range cmd.Env {
+			if strings.HasPrefix(kv, ansi.ProgramResumeTokenEnv+"=") {
+				t.Fatalf("subprocess cmd.Env leaked %s", ansi.ProgramResumeTokenEnv)
 			}
 		}
 	}

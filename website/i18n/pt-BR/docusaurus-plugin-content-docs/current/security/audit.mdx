@@ -86,7 +86,7 @@ Analisa configuração de ambiente e conteúdo de scripts em busca de riscos de 
 
 **Detecta:**
 - `env_inherit_mode: "all"` arriscado e defaults não definidos de `env_inherit_mode` nos runtimes native/virtual-sh (ambos expõem todas as variáveis de ambiente do host)
-- Acesso a variáveis sensíveis: `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, `DATABASE_URL`, senhas, chaves privadas
+- Acesso a variáveis sensíveis: `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, `DATABASE_URL`, `OSC7577_TOKEN`, senhas, chaves privadas
 - Padrões de extração de credenciais em scripts
 
 ### Lock File Checker

@@ -81,7 +81,7 @@ Override at runtime:
 
 ## Host Environment Inheritance
 
-By default, native, virtual-sh, and virtual-lua runtimes inherit the host environment, while container runtime starts with no host variables. You can control this per runtime or per invocation.
+By default, native, virtual-sh, and virtual-lua runtimes inherit the host environment, while container runtime starts with no host variables. You can control this per runtime or per invocation. For terminal security, `OSC7577_TOKEN` is stripped unconditionally from `container`, `virtual-sh`, `virtual-lua`, and interactive (`-i`) child environments, passing through only in non-interactive `native` runs.
 
 <Snippet id="reference/invowkfile/env-inherit-example" />
 

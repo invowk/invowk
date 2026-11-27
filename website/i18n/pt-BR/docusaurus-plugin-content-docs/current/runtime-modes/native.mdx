@@ -90,6 +90,8 @@ O runtime native tem acesso completo ao seu ambiente:
 
 <Snippet id="runtime-modes/native-env-vars" />
 
+No modo não interativo, variáveis do host como `OSC7577_TOKEN` passam de forma transparente (sujeitas a `env_inherit_mode` / `env_inherit_deny`). O modo interativo (`-i`) remove `OSC7577_TOKEN` na fronteira do PTY aninhado.
+
 ## Acessando Flags e Argumentos
 
 Flags e argumentos ficam disponíveis como variáveis de ambiente:
