@@ -24,7 +24,7 @@ require (
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/invowk/golua v0.3.0
 	github.com/muesli/reflow v0.3.0
-	github.com/openai/openai-go/v3 v3.53.0
+	github.com/openai/openai-go/v3 v3.105.0
 	github.com/rogpeppe/go-internal v1.16.1-0.20261005065351-38c169d642f5
 	github.com/sahilm/fuzzy v0.1.3
 	github.com/spf13/cobra v1.10.2
@@ -105,6 +105,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cloudflare/circl v1.6.5 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.4-0.20261022180432-e9c7a71a8579 // indirect
+	github.com/coder/websocket v1.8.15 // indirect
 	github.com/curioswitch/go-reassign v0.3.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.7.0 // indirect
 	github.com/daixiang0/gci v0.13.7 // indirect
@@ -262,7 +263,7 @@ require (
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae // indirect
 	github.com/tetafro/godot v1.5.6 // indirect
-	github.com/tidwall/gjson v1.19.0 // indirect
+	github.com/tidwall/gjson v1.20.1 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
