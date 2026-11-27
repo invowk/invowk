@@ -123,8 +123,8 @@ func runTuiStyle(cmd *cobra.Command, args []string) error {
 func tuiStyleFromFlags(
 	foreground, background string,
 	bold, italic, underline, strikethrough, faint, blink, reverse bool,
-	marginTop, marginRight, marginBottom, marginLeft int,
-	paddingTop, paddingRight, paddingBottom, paddingLeft int,
+	marginTop, marginRight, marginBottom, marginLeft,
+	paddingTop, paddingRight, paddingBottom, paddingLeft,
 	width, height int,
 	alignValue, borderValue string,
 ) (tui.Style, error) {

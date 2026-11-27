@@ -251,14 +251,13 @@ func (r *LuaRuntime) executeScript(ctx context.Context, req luaExecutionRequest)
 		return NewErrorResult(1, fmt.Errorf("compile lua script: %w", err))
 	}
 
-	execCtx := ctx //nolint:contextcheck // nil context falls back below for legacy runtime callers.
-	if execCtx == nil {
-		execCtx = context.Background()
-	}
-	select {
-	case <-execCtx.Done():
-		return NewErrorResult(1, execCtx.Err())
-	default:
+	// Legacy internal callers may pass a nil context; skip cancellation polling when absent.
+	if ctx != nil {
+		select {
+		case <-ctx.Done():
+			return NewErrorResult(1, ctx.Err())
+		default:
+		}
 	}
 
 	_, err = luaRT.MainThread().CallContext(luaCtx, func() error {

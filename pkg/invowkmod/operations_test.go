@@ -282,8 +282,7 @@ func requireParseModuleNameResult(
 	t *testing.T,
 	folderName string,
 	expectedOK bool,
-	expectedVal string,
-	expectedErr string,
+	expectedVal, expectedErr string,
 ) {
 	t.Helper()
 

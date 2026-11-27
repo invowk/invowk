@@ -404,8 +404,7 @@ func (sc *ScanContext) loadScannedModule(
 	absPath types.FilesystemPath,
 	mod *invowkmod.Module,
 	inv *invowkfile.Invowkfile,
-	isGlobal bool,
-	isVendored bool,
+	isGlobal, isVendored bool,
 ) (*ScannedModule, []vendoredModuleArtifact, error) {
 	if err := scanContextErr(ctx); err != nil {
 		return nil, nil, err

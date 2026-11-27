@@ -97,7 +97,7 @@ func TestDispatchExecution_ConfigDefaultInteractiveFallsBack(t *testing.T) {
 	if executor.called != 0 || rt.executeCalled != 1 {
 		t.Fatalf("executor=%d runtime=%d, want only the non-interactive runtime run", executor.called, rt.executeCalled)
 	}
-	if got := strings.Count(stderr.String(), "running without interactive mode"); got != 1 {
+	if strings.Count(stderr.String(), "running without interactive mode") != 1 {
 		t.Fatalf("stderr = %q, want the fallback warning once", stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "--ivk-interactive=false") {

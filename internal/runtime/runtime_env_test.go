@@ -60,8 +60,7 @@ func mustVirtualTestResolver(t testing.TB, ctx *ExecutionContext) virtualPathRes
 func mustResolveVirtualBridgeTestPath(
 	t testing.TB,
 	resolver virtualPathResolver,
-	cwd string,
-	path string,
+	cwd, path string,
 ) string {
 	t.Helper()
 
@@ -74,8 +73,7 @@ func mustResolveVirtualBridgeTestPath(
 
 func mustInteractiveVirtualTestResolver(
 	t testing.TB,
-	workDir string,
-	scriptBasePath string,
+	workDir, scriptBasePath string,
 	paths invowkfile.VirtualFilesystemPaths,
 ) virtualPathResolver {
 	t.Helper()

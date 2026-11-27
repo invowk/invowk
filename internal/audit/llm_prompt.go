@@ -152,8 +152,7 @@ func convertBatchFindings(parsed []llmFinding, batch []ScriptRef) ([]Finding, er
 
 func matchLLMFindingToScript(
 	lf *llmFinding,
-	byID map[string]*ScriptRef,
-	byName map[string]*ScriptRef,
+	byID, byName map[string]*ScriptRef,
 	nameCounts map[string]int,
 	batch []ScriptRef,
 ) (*ScriptRef, bool) {

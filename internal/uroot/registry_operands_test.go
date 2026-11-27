@@ -308,7 +308,7 @@ func TestUrootCommandOperandsValueOptionsKept(t *testing.T) {
 
 func TestUrootCommandOperandsFindAndTarPaths(t *testing.T) {
 	t.Parallel()
-	outside := func(root string, name string) string { return filepath.Join(filepath.Dir(root), "outside", name) }
+	outside := func(root, name string) string { return filepath.Join(filepath.Dir(root), "outside", name) }
 	for _, tc := range []struct {
 		name string
 		args func(root string) []string
