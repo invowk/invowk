@@ -309,12 +309,6 @@ workdir: "src/app"`,
 workdir: "/home/user/projects/myapp"`,
   },
 
-  'advanced/workdir-env-vars': {
-    language: 'cue',
-    code: `workdir: "\${HOME}/projects/myapp"
-workdir: "\${PROJECT_ROOT}/src"`,
-  },
-
   'advanced/workdir-precedence': {
     language: 'cue',
     code: `// --ivk-workdir (CLI) > implementation > command > root

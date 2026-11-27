@@ -46,11 +46,9 @@ Caminhos completos do sistema:
 
 <Snippet id="advanced/workdir-absolute" />
 
-### Variáveis de Ambiente
-
-Expanda variáveis em caminhos:
-
-<Snippet id="advanced/workdir-env-vars" />
+:::note
+Os caminhos de `workdir` são resolvidos literalmente e não expandem variáveis de ambiente como `${HOME}` ou `${PROJECT_ROOT}`. Use caminhos relativos, caminhos absolutos literais ou passe `--ivk-workdir` na linha de comando.
+:::
 
 ## Precedência
 

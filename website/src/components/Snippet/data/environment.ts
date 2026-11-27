@@ -9,9 +9,9 @@ export const environmentSnippets = {
     language: 'cue',
     code: `env: {
     files: [
-        ".env",           // Required - fails if missing
-        ".env.local?",    // Optional - suffix with ?
-        ".env.\${ENV}?",   // Interpolation - uses ENV variable
+        ".env",             // Required - fails if missing
+        ".env.local?",      // Optional - suffix with ?
+        ".env.production?", // Optional - literal path (no variable expansion)
     ]
 }`,
   },
@@ -46,17 +46,17 @@ export const environmentSnippets = {
     env: {
         // Load from .env files
         files: [".env", ".env.local?"]  // ? means optional
-        
-        // Set variables directly
+
+        // Set literal variables directly
         vars: {
             NODE_ENV: "production"
-            BUILD_DATE: "$(date +%Y-%m-%d)"
+            LOG_LEVEL: "info"
         }
     }
     implementations: [{
         script: {content: """
-            echo "Building for $NODE_ENV"
-            echo "Date: $BUILD_DATE"
+            echo "Building for $NODE_ENV (log level: $LOG_LEVEL)"
+            echo "Date: $(date +%Y-%m-%d)"
             """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
@@ -214,9 +214,9 @@ line3"`,
     language: 'cue',
     code: `env: {
     files: [
-        ".env",           // Base config
-        ".env.\${ENV}?",   // Environment-specific overrides
-        ".env.local?",    // Local overrides (highest priority)
+        ".env",             // Base config
+        ".env.production?", // Environment-specific overrides
+        ".env.local?",      // Local overrides (highest priority)
     ]
 }`,
   },
@@ -243,25 +243,6 @@ DEBUG=true`,
 ├── config/
 │   └── .env.prod         # files: ["config/.env.prod"]
 └── src/`,
-  },
-
-  'environment/env-files-interpolation': {
-    language: 'cue',
-    code: `env: {
-    files: [
-        ".env",
-        ".env.\${NODE_ENV}?",    // Uses NODE_ENV value
-        ".env.\${USER}?",        // Uses current user
-    ]
-}`,
-  },
-
-  'environment/env-files-interpolation-result': {
-    language: 'bash',
-    code: `# If NODE_ENV=production, loads:
-# - .env
-# - .env.production (if exists)
-# - .env.john (if exists and USER=john)`,
   },
 
   'environment/env-files-scope-root': {
@@ -316,9 +297,8 @@ invowk cmd build --ivk-env-file .env.custom --ivk-env-file .env.secrets`,
     name: "start"
     env: {
         files: [
-            ".env",                    // Base config
-            ".env.\${NODE_ENV:-dev}?",  // Environment-specific
-            ".env.local?",             // Local overrides
+            ".env",         // Base config
+            ".env.local?",  // Local developer overrides (optional)
         ]
     }
     implementations: [{
@@ -326,7 +306,9 @@ invowk cmd build --ivk-env-file .env.custom --ivk-env-file .env.secrets`,
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
-}`,
+}
+// Override for production at runtime:
+// invowk cmd start --ivk-env-file .env.production`,
   },
 
   'environment/env-files-secrets': {
@@ -368,21 +350,26 @@ invowk cmd build --ivk-env-file .env.custom --ivk-env-file .env.secrets`,
 
   'environment/env-files-multi-env': {
     language: 'cue',
-    code: `{
-    name: "deploy"
-    env: {
-        files: [
-            ".env",
-            ".env.\${DEPLOY_ENV}",  // DEPLOY_ENV must be set
-        ]
-    }
-    depends_on: {
-        env_vars: [
-            {alternatives: [{name: "DEPLOY_ENV", validation: "^(development|staging|production)$"}]}
-        ]
-    }
-    implementations: [...]
-}`,
+    code: `cmds: [
+    {
+        name: "deploy staging"
+        env: {files: [".env", ".env.staging"]}
+        implementations: [{
+            script: {content: "./deploy.sh"}
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    },
+    {
+        name: "deploy production"
+        env: {files: [".env", ".env.production"]}
+        implementations: [{
+            script: {content: "./deploy.sh"}
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    },
+]`,
   },
 
   // Env Vars page snippets
@@ -401,7 +388,7 @@ invowk cmd build --ivk-env-file .env.custom --ivk-env-file .env.secrets`,
     implementations: [{
         script: {content: """
             echo "Building for $NODE_ENV"
-            echo "Date: $BUILD_DATE"
+            echo "API: $API_URL (debug: $DEBUG)"
             """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
@@ -434,15 +421,24 @@ invowk cmd build --ivk-env-file .env.custom --ivk-env-file .env.secrets`,
 
   'environment/env-vars-references': {
     language: 'cue',
-    code: `vars: {
-    // Use system variable
-    HOME_CONFIG: "\${HOME}/.config/myapp"
-    
-    // With default value
-    LOG_LEVEL: "\${LOG_LEVEL:-info}"
-    
-    // Combine variables
-    FULL_PATH: "\${HOME}/projects/\${PROJECT_NAME}"
+    code: `{
+    name: "info"
+    env: {
+        vars: {
+            PROJECT_NAME: "myapp"
+            DEFAULT_LOG_LEVEL: "info"
+        }
+    }
+    implementations: [{
+        script: {content: """
+            # Expand variables inside the script (not in env.vars)
+            HOME_CONFIG="\${HOME}/.config/\${PROJECT_NAME}"
+            EFFECTIVE_LOG_LEVEL="\${LOG_LEVEL:-$DEFAULT_LOG_LEVEL}"
+            echo "Config: $HOME_CONFIG (log: $EFFECTIVE_LOG_LEVEL)"
+            """}
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
 }`,
   },
 
@@ -616,20 +612,18 @@ invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-v
     name: "release"
     env: {
         vars: {
-            // Git-based version
-            GIT_SHA: "$(git rev-parse --short HEAD)"
-            GIT_BRANCH: "$(git branch --show-current)"
-            
-            // Timestamp
-            BUILD_TIME: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            
-            // Combine values
-            BUILD_ID: "\${GIT_BRANCH}-\${GIT_SHA}"
+            // Static configuration lives in env.vars
+            APP_NAME: "myapp"
         }
     }
     implementations: [{
         script: {content: """
-            echo "Building $BUILD_ID at $BUILD_TIME"
+            # Compute dynamic values inside the script
+            GIT_SHA="$(git rev-parse --short HEAD)"
+            GIT_BRANCH="$(git branch --show-current)"
+            BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            BUILD_ID="\${GIT_BRANCH}-\${GIT_SHA}"
+            echo "Building $APP_NAME ($BUILD_ID) at $BUILD_TIME"
             go build -ldflags="-X main.version=$BUILD_ID" ./...
             """}
         runtimes: [{name: "native"}]
@@ -644,16 +638,17 @@ invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-v
     name: "db migrate"
     env: {
         vars: {
-            DB_HOST: "\${DB_HOST:-localhost}"
-            DB_PORT: "\${DB_PORT:-5432}"
-            DB_NAME: "\${DB_NAME:-myapp}"
-            DB_USER: "\${DB_USER:-postgres}"
-            // Construct URL from parts
-            DATABASE_URL: "postgres://\${DB_USER}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
+            DB_HOST: "localhost"
+            DB_PORT: "5432"
+            DB_NAME: "myapp"
+            DB_USER: "postgres"
         }
     }
     implementations: [{
-        script: {content: "migrate -database $DATABASE_URL up"}
+        script: {content: """
+            DATABASE_URL="postgres://\${DB_USER}:\${DB_PASSWORD}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
+            migrate -database "$DATABASE_URL" up
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]

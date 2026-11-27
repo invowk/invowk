@@ -543,10 +543,19 @@ invowk cmd -f tools deploy  # short alias
 
 If you try to run an ambiguous command without disambiguation, invowk shows an error with available sources:
 ```
-Error: 'deploy' is ambiguous. Found in:
-  - @invowkfile: Deploy the application
-  - @tools: Deploy to staging
-Use 'invowk cmd @<source> deploy' or 'invowk cmd --ivk-from <source> deploy'
+✗ Ambiguous command!
+
+The command 'deploy' exists in multiple sources:
+
+  • @invowkfile (invowkfile)
+  • @tools (tools.invowkmod)
+
+To run this command, specify the source:
+
+  invowk cmd @invowkfile deploy
+  invowk cmd --ivk-from invowkfile deploy
+
+Use 'invowk cmd' to see all commands with their sources.
 ```
 
 ### Explicit Source for Non-Ambiguous Commands
@@ -731,14 +740,14 @@ depends_on: {
 When environment variable dependencies are not satisfied, invowk displays a styled error message:
 
 ```
-✗ Dependencies not satisfied
+✗ Dependencies not satisfied!
 
-Command 'deploy' has unmet dependencies:
+Cannot run command 'deploy' because some dependencies are missing.
 
 Missing or Invalid Environment Variables:
   • AWS_ACCESS_KEY_ID - not set in environment
 
-Install the missing tools and try again, or update your invowkfile to remove unnecessary dependencies.
+Fix the missing dependencies and try again, or update your invowkfile to remove unnecessary ones.
 ```
 
 ### Capability Dependencies
@@ -934,7 +943,14 @@ flags: [
 
 If a value doesn't match the pattern, the command fails before execution:
 ```
-Error: flag 'env' value 'invalid' does not match required pattern '^(dev|staging|prod)$'
+✗ Invalid flag value!
+
+Command 'deploy' received invalid flag input.
+
+Flag errors:
+  • 'flag 'env'' value 'invalid' does not match required pattern '^(dev|staging|prod)$'
+
+Run the command with --help for usage information.
 ```
 
 ### Complete Flag Example
@@ -1186,7 +1202,9 @@ If a value doesn't match the pattern, the command fails with a styled error:
 Command 'deploy' received an invalid value for argument 'env'.
 
 Value:  "invalid"
-Error:  value does not match pattern '^(dev|staging|prod)$'
+Error:  'argument 'env'' value 'invalid' does not match required pattern '^(dev|staging|prod)$'
+
+Run the command with --help for usage information.
 ```
 
 ### Variadic Arguments
@@ -1230,13 +1248,14 @@ invowk cmd deploy --help
 
 The help output shows argument documentation:
 ```
-Usage:
-  invowk cmd deploy <env> [replicas] [services]...
-
 Arguments:
   env                  (required) - Target environment
   replicas             (default: "1") [int] - Number of replicas
   services             (optional) (variadic) - Services to deploy
+
+USAGE
+
+  invowk cmd deploy <env> ... [replicas] [services] [--flags]
 ```
 
 ### Environment Variable Naming
@@ -1451,11 +1470,19 @@ cmds: [
 A command cannot have both positional arguments and subcommands. If a command defines `args` but also has subcommands (commands with the same prefix), invowk will fail with an error:
 
 ```
-✖ Invalid command structure
+✗ Invalid command structure!
 
-Command 'deploy' has both args and subcommands in invowkfile.cue
-  defined args: env
-  subcommands: deploy status, deploy logs
+Command 'deploy' defines positional arguments but also has subcommands.
+  in invowkfile.cue
+
+Positional arguments can only be defined on leaf commands (commands without subcommands).
+
+Defined args:
+  • env - Target environment
+
+Subcommands:
+  • deploy status
+  • deploy logs
 
 Remove either the 'args' field or the subcommands to resolve this conflict.
 ```
@@ -1583,14 +1610,14 @@ From invowkfile:
 If you try to run a command on an unsupported platform, invowk displays a styled error message:
 
 ```
-✗ Host not supported
+✗ Host not supported!
 
-Command 'clean' cannot run on this host.
+Cannot run command 'clean' on this operating system.
 
-Current host:     windows
-Supported hosts:  linux, macos
+Current host:    windows
+Supported hosts: linux, macos
 
-This command is only available on the platforms listed above.
+Run this command on a supported operating system, or update the 'works_on.hosts' setting in your invowkfile.
 ```
 
 ## Script Sources
@@ -1963,7 +1990,7 @@ Module Validation
 ✗ Module validation failed with 2 issue(s)
 
   1. [structure] missing required invowkmod.cue
-  2. [structure] nested.invowkmod: nested modules are not allowed
+  2. [structure] nested.invowkmod nested modules are not allowed (except in invowk_modules/)
 ```
 
 ### Creating Modules
@@ -2007,7 +2034,7 @@ Discovered Modules
    ✓ mytools
       /home/user/project/mytools.invowkmod
 
-• user commands (~/.invowk/cmds):
+• module:
    ✓ com.example.utilities
       /home/user/.invowk/cmds/com.example.utilities.invowkmod
    ✓ org.company.tools
@@ -2622,7 +2649,7 @@ container: {
     binary_path: ""                       // Linux invowk build for the image's architecture; empty uses the running binary, skipped with a warning when it cannot run in the container (macOS/Windows hosts)
     includes: [{path: "/extra/modules.invowkmod"}] // Modules to provision into containers (optional)
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
-    cache_dir: ""                         // Empty default uses the platform cache directory
+    cache_dir: ""                         // Empty default uses ~/.cache/invowk/provision (or temp invowk-build-* if HOME is unavailable)
   }
   // TUI server bind for interactive container runs: "restricted" (default) or
   // "all-interfaces" (pre-v0.17.0 wide bind, with a warning at every run)
@@ -3336,10 +3363,13 @@ invowk/
 │   ├── containerplan/           # Pure container execution policy and target planning
 │   ├── core/serverbase/        # Shared server state machine base
 │   ├── discovery/              # Invowkfile and module discovery
+│   ├── acpclient/              # Dormant internal ACP client foundation (not wired into CLI/docs)
 │   ├── audit/                  # Security scanning (7 checkers + LLM + correlator)
 │   ├── auditllm/               # Shared LLM provider/API adapters for audit and agent authoring
 │   ├── agentcmd/               # LLM-assisted command and local-module authoring pipeline
+│   ├── basedir/                # Per-user base directory resolution (HOME, XDG, AppData)
 │   ├── llm/                    # Neutral shared LLM completion contracts
+│   ├── modulelock/             # OS advisory file locks for concurrent module commands
 │   ├── issue/                  # Error types and ActionableError
 │   ├── provision/              # Container provisioning (ephemeral layer attachment)
 │   ├── provisionenv/           # Provisioning/discovery environment contract
@@ -3362,6 +3392,9 @@ invowk/
 │   └── types/                  # DDD value-type catalog (shared typed primitives)
 ├── tests/cli/                  # CLI integration tests (testscript .txtar files)
 ├── samples/invowkmods/         # Sample invowk modules and audit fixtures
+├── build/                      # Container build files (Bencher benchmark image)
+├── formal/                     # Bounded Alloy 6 and TLA+ formal models
+├── openspec/                   # OpenSpec specifications and active change records
 ├── scripts/                    # Build, install, and release scripts
 ├── specs/                      # Feature specifications and research
 ├── tasks/                      # Pending analysis documents and planning notes

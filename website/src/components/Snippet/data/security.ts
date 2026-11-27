@@ -60,7 +60,7 @@ set -e
 jq '.summary.total' audit-results.json
 
 # List finding titles
-jq '.findings[] | "[\\\\(.severity)] \\\\(.title)"' audit-results.json
+jq '.findings[] | "[\\(.severity)] \\(.title)"' audit-results.json
 
 # Check for compound threats
 jq '.compound_threats' audit-results.json

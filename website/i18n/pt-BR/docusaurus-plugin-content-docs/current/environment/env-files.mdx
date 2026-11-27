@@ -41,7 +41,7 @@ Arquivos são carregados em ordem; arquivos posteriores sobrescrevem os anterior
 
 <Snippet id="environment/env-files-order" />
 
-Exemplo com `ENV=production`:
+Exemplo:
 
 <Snippet id="environment/env-files-order-example" />
 
@@ -59,13 +59,9 @@ Para módulos, caminhos são relativos à raiz do módulo, e todo arquivo de env
 
 Arquivos de environment de um `invowkfile.cue` comum (fora de um módulo) não têm essa restrição: um `.env` que é um link para um arquivo em outro lugar, como `~/secrets/.env`, continua funcionando.
 
-## Interpolação de Variáveis
+## Caminhos Literais de Arquivo
 
-Use `${VAR}` para incluir outras variáveis de ambiente:
-
-<Snippet id="environment/env-files-interpolation" />
-
-<Snippet id="environment/env-files-interpolation-result" />
+As entradas de `env.files` são tratadas como caminhos literais (exceto pelo sufixo opcional `?`) e não expandem variáveis de ambiente `${VAR}`. Para selecionar arquivos por ambiente em tempo de execução, passe `--ivk-env-file` na linha de comando ou defina comandos/implementações separados.
 
 ## Níveis de Escopo
 
@@ -123,7 +119,7 @@ Arquivos da CLI têm a maior prioridade e sobrescrevem todas as fontes definidas
 
 1. **Use `.env` para padrões**: Configuração base que funciona para todos
 2. **Use `.env.local` para sobrescritas**: Configurações específicas de desenvolvedor, não no git
-3. **Use `.env.{environment}` para ambientes**: Produção, staging, etc.
+3. **Use arquivos separados por ambiente**: Carregue `.env.production` ou `.env.staging` via `--ivk-env-file` ou comandos dedicados
 4. **Marque arquivos sensíveis como opcionais**: Podem não existir em todos os ambientes
 5. **Não commite secrets**: Adicione `.env.secrets`, `.env.local` ao `.gitignore`
 

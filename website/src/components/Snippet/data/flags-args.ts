@@ -35,7 +35,7 @@ export const flagsArgsSnippets = {
     name: "greet"
     args: [
         {name: "name", description: "Name to greet", required: true},
-        {name: "title", description: "Optional title", required: false, default_value: ""}
+        {name: "title", description: "Optional title", required: false}
     ]
     implementations: [
         {

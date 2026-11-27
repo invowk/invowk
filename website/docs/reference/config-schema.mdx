@@ -380,7 +380,7 @@ When `true`, the root-level `includes` entries are automatically inherited by au
 
 **Type:** `string`
 **Required:** No
-**Default:** *(empty — uses platform-specific default, typically `~/.cache/invowk/provision`)*
+**Default:** *(empty — defaults to `~/.cache/invowk/provision` when home is available, falling back to `~/invowk-build` or a temporary `invowk-build-*` directory in the OS temp dir)*
 
 Overrides the parent directory used for provision build contexts and cached image metadata.
 

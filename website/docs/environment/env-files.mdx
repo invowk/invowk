@@ -41,7 +41,7 @@ Files are loaded in order; later files override earlier ones:
 
 <Snippet id="environment/env-files-order" />
 
-Example with `ENV=production`:
+Example:
 
 <Snippet id="environment/env-files-order-example" />
 
@@ -59,13 +59,9 @@ For modules, paths are relative to the module root, and every env file must reso
 
 Env files of a plain `invowkfile.cue` (not in a module) are not restricted this way: a `.env` that is a link to a file elsewhere, such as `~/secrets/.env`, keeps working.
 
-## Variable Interpolation
+## Literal File Paths
 
-Use `${VAR}` to include other environment variables:
-
-<Snippet id="environment/env-files-interpolation" />
-
-<Snippet id="environment/env-files-interpolation-result" />
+`env.files` entries are treated as literal paths (apart from the optional trailing `?` suffix) and do not expand `${VAR}` environment variables. To select per-environment files dynamically at runtime, pass `--ivk-env-file` on the command line or define separate commands/implementations.
 
 ## Scope Levels
 
@@ -123,7 +119,7 @@ CLI files have highest priority and override all invowkfile-defined sources.
 
 1. **Use `.env` for defaults**: Base configuration that works for everyone
 2. **Use `.env.local` for overrides**: Developer-specific settings, not in git
-3. **Use `.env.{environment}` for environments**: Production, staging, etc.
+3. **Use separate files per environment**: Load `.env.production` or `.env.staging` via `--ivk-env-file` or dedicated commands
 4. **Mark sensitive files optional**: They may not exist in all environments
 5. **Don't commit secrets**: Add `.env.secrets`, `.env.local` to `.gitignore`
 

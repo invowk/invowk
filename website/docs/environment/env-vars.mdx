@@ -20,13 +20,11 @@ Variables are key-value string pairs:
 
 All values are strings. The shell interprets them as needed.
 
-## Referencing Other Variables
+## Literal Values and Shell Expansion
 
-Reference system environment variables:
+Values in `env.vars` are injected verbatim as literal strings without expanding `${VAR}` references or `$(...)` command substitutions. When you need variable defaults, concatenation, or command substitution, evaluate them inside your `script` where the shell runs:
 
 <Snippet id="environment/env-vars-references" />
-
-Note: References are expanded at runtime, not definition time.
 
 ## Scope Levels
 
@@ -94,7 +92,7 @@ Variables are passed into containers:
 
 ## Best Practices
 
-1. **Use defaults**: `${VAR:-default}` for optional config
+1. **Keep `env.vars` literal**: Apply `${VAR:-default}` fallbacks inside `script` where the shell expands them
 2. **Keep secrets out**: Don't hardcode secrets; use env files or external secrets
 3. **Document variables**: Add comments explaining each variable
 4. **Use consistent naming**: `UPPER_SNAKE_CASE` convention
