@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -37,7 +38,7 @@ func physicalDir(dir string) (string, error) {
 	var buf [unix.PathMax]byte
 	for {
 		//nolint:gosec // G103: unsafe.Pointer is required by Darwin F_GETPATH fcntl buffer semantics.
-		_, _, errno := unix.Syscall(unix.SYS_FCNTL, uintptr(fd), unix.F_GETPATH, uintptr(unsafe.Pointer(&buf[0])))
+		_, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), unix.F_GETPATH, uintptr(unsafe.Pointer(&buf[0])))
 		if errno == unix.EINTR {
 			continue
 		}

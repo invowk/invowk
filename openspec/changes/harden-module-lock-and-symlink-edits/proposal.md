@@ -9,13 +9,13 @@ Two module-hardening gaps remain deferred from the module command locking and co
 
 - **Darwin physical directory resolution (`MA2`)**:
   - Narrow `internal/modulelock/physical_unix.go` build constraint to `//go:build !windows && !darwin`.
-  - Add `internal/modulelock/physical_darwin.go` (`//go:build darwin`) resolving `PhysicalDir` to its canonical on-disk path (including canonical letter case, resolved symlinks, and firmlinks) via Darwin `fcntl(..., F_GETPATH, ...)` (`unix.Syscall(unix.SYS_FCNTL, ...)` in `golang.org/x/sys/unix` v0.50.0, since `unix.FcntlGetpath` does not exist in v0.50.0).
+  - Add `internal/modulelock/physical_darwin.go` (`//go:build darwin`) resolving `PhysicalDir` to its canonical on-disk path (including canonical letter case, resolved symlinks, and firmlinks) via Darwin `fcntl(..., F_GETPATH, ...)` (`syscall.Syscall(syscall.SYS_FCNTL, ...)` with `unix.F_GETPATH`, since `unix.FcntlGetpath` does not exist in `golang.org/x/sys/unix` v0.50.0 and `unix.SYS_FCNTL` is deprecated under `staticcheck`).
   - Add Darwin case-variant tests in `internal/modulelock/physical_darwin_test.go`.
   - Remove the macOS letter-case known limit from `openspec/specs/module-command-locking/spec.md`, `README.md`, and the EN / pt-BR module dependency CLI docs under `website/`.
 - **Regular-file symlink preservation with fail-closed validation (`MA5`, Option A1)**:
   - Introduce a shared regular-file write-target resolver helper in `pkg/fspath` that inspects `os.Lstat`, resolves symlinks with `filepath.EvalSymlinks`, fails closed on dangling symlinks, broken loops, or targets that are not regular files (directories, FIFOs, sockets, devices), and returns the canonical regular target path and permissions for `fspath.AtomicWriteFile`.
   - Update `pkg/invowkmod.AddRequirement` and `pkg/invowkmod.RemoveRequirementIfPresent` (`pkg/invowkmod/invowkmod_edit.go`) to resolve targets with this helper so symlinks to regular files stay intact (writes atomically update the resolved target file) and dangling/non-regular symlinks fail closed (preserving `fs.ErrNotExist` for `AddRequirement` while no longer treating a dangling `invowkmod.cue` symlink as absent in `RemoveRequirementIfPresent`).
-  - Update `internal/agentcmd/module.go` (`readModuleFiles` and `writeModuleFiles`) so `agent mod change` applies the same Option A1 rules to `invowkmod.cue` and `invowkfile.cue`, and does not fall back to default `invowkfile.cue` bytes when `invowkfile.cue` is a dangling symlink.
+  - Update `internal/agentcmd/module.go` (`readModuleFiles` and `writeModuleFiles`) so the `agent mod change` read/write layer applies the same Option A1 rules as defense in depth (for example, if a symlink appears concurrently after validation), while keeping upfront `verifyModule` (`invowkmod.Validate`) symlink rejection intact, and without falling back to default `invowkfile.cue` bytes when `invowkfile.cue` is a dangling symlink.
   - Update `internal/app/modulesync/use_cases.go` (`fileSnapshot`, `readFileSnapshot`, `restore`) so symlinks pointing to regular files snapshot both the symlink target string and the resolved target file's path, bytes, and permissions, and rollback restores target content atomically plus restores/preserves the symlink entry. Dangling or directory symlinks continue to snapshot link-only.
 
 ## Capabilities
@@ -28,7 +28,7 @@ _(None — this change hardens existing module locking, persistence, and authori
 
 - `module-command-locking`: Remove the macOS case-insensitive volume known limit from lock serialization and documentation; require macOS project lock normalization to match Windows across letter-case path variants of the same directory.
 - `module-lock-persistence`: Require `invowkmod.cue` edit operations (`AddRequirement`, `RemoveRequirementIfPresent`) to follow symlinks to regular files, write the resolved target atomically while keeping the symlink intact, fail closed on dangling or non-regular symlinks, and update rollback snapshots so symlinks to regular files restore both the target content atomically and the symlink entry.
-- `agent-authoring-crud`: Require `agent mod change` reads and writes of `invowkmod.cue` and `invowkfile.cue` to follow symlinks to regular files, keep symlinks intact via atomic writes to the resolved target, and fail closed on dangling or non-regular symlinks.
+- `agent-authoring-crud`: Require upfront `.invowkmod` module validation in `agent mod change` to reject symlinks inside `.invowkmod` directories before invoking the LLM, and require the `readModuleFiles` / `writeModuleFiles` defense-in-depth layer to preserve regular-file symlinks via atomic target replacement and fail closed on dangling or non-regular symlinks.
 
 ## Impact
 

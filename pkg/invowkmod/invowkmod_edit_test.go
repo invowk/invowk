@@ -574,6 +574,49 @@ func TestAddRequirement_SymlinkTarget(t *testing.T) {
 		}
 	})
 
+	t.Run("cross-directory relative symlink preserves link and updates target from outside sub", func(t *testing.T) {
+		t.Parallel()
+
+		root := t.TempDir()
+		subDir := filepath.Join(root, "sub")
+		sharedDir := filepath.Join(root, "shared")
+		if mkdirErr := os.MkdirAll(subDir, 0o755); mkdirErr != nil {
+			t.Fatalf("MkdirAll(subDir) error = %v", mkdirErr)
+		}
+		if mkdirErr := os.MkdirAll(sharedDir, 0o755); mkdirErr != nil {
+			t.Fatalf("MkdirAll(sharedDir) error = %v", mkdirErr)
+		}
+		realPath := filepath.Join(sharedDir, "real.cue")
+		if writeErr := os.WriteFile(realPath, []byte(baseContent), 0o600); writeErr != nil {
+			t.Fatalf("WriteFile() error = %v", writeErr)
+		}
+		relTarget := filepath.Join("..", "shared", "real.cue")
+		linkPath := filepath.Join(subDir, "invowkmod.cue")
+		fstree.MustSymlink(t, relTarget, linkPath)
+
+		if addErr := AddRequirement(types.FilesystemPath(linkPath), req); addErr != nil {
+			t.Fatalf("AddRequirement() error = %v", addErr)
+		}
+
+		assertSymlinkPreserved(t, linkPath, relTarget)
+		data, readErr := os.ReadFile(realPath)
+		if readErr != nil {
+			t.Fatalf("ReadFile(realPath) error = %v", readErr)
+		}
+		if !strings.Contains(string(data), string(req.GitURL)) {
+			t.Fatalf("resolved target missing requirement %q:\n%s", req.GitURL, data)
+		}
+		if runtime.GOOS != "windows" {
+			info, statErr := os.Stat(realPath)
+			if statErr != nil {
+				t.Fatalf("Stat(realPath) error = %v", statErr)
+			}
+			if gotPerm := info.Mode().Perm(); gotPerm != 0o600 {
+				t.Fatalf("resolved target perm = %v, want 0600", gotPerm)
+			}
+		}
+	})
+
 	t.Run("multi-hop symlink preserves all links and updates final target", func(t *testing.T) {
 		t.Parallel()
 
@@ -675,6 +718,53 @@ requires: [
 		}
 
 		assertSymlinkPreserved(t, linkPath, realPath)
+		data, readErr := os.ReadFile(realPath)
+		if readErr != nil {
+			t.Fatalf("ReadFile(realPath) error = %v", readErr)
+		}
+		if strings.Contains(string(data), string(toolsURL)) {
+			t.Fatalf("resolved target still contains removed entry:\n%s", data)
+		}
+		if runtime.GOOS != "windows" {
+			info, statErr := os.Stat(realPath)
+			if statErr != nil {
+				t.Fatalf("Stat(realPath) error = %v", statErr)
+			}
+			if gotPerm := info.Mode().Perm(); gotPerm != 0o600 {
+				t.Fatalf("resolved target perm = %v, want 0600", gotPerm)
+			}
+		}
+	})
+
+	t.Run("cross-directory relative symlink preserves link and removes entry from outside sub", func(t *testing.T) {
+		t.Parallel()
+
+		root := t.TempDir()
+		subDir := filepath.Join(root, "sub")
+		sharedDir := filepath.Join(root, "shared")
+		if mkdirErr := os.MkdirAll(subDir, 0o755); mkdirErr != nil {
+			t.Fatalf("MkdirAll(subDir) error = %v", mkdirErr)
+		}
+		if mkdirErr := os.MkdirAll(sharedDir, 0o755); mkdirErr != nil {
+			t.Fatalf("MkdirAll(sharedDir) error = %v", mkdirErr)
+		}
+		realPath := filepath.Join(sharedDir, "real.cue")
+		if writeErr := os.WriteFile(realPath, []byte(withReq), 0o600); writeErr != nil {
+			t.Fatalf("WriteFile() error = %v", writeErr)
+		}
+		relTarget := filepath.Join("..", "shared", "real.cue")
+		linkPath := filepath.Join(subDir, "invowkmod.cue")
+		fstree.MustSymlink(t, relTarget, linkPath)
+
+		written, rmErr := RemoveRequirementIfPresent(types.FilesystemPath(linkPath), toolsURL, "")
+		if rmErr != nil {
+			t.Fatalf("RemoveRequirementIfPresent() error = %v", rmErr)
+		}
+		if !written {
+			t.Fatal("RemoveRequirementIfPresent() written = false, want true")
+		}
+
+		assertSymlinkPreserved(t, linkPath, relTarget)
 		data, readErr := os.ReadFile(realPath)
 		if readErr != nil {
 			t.Fatalf("ReadFile(realPath) error = %v", readErr)

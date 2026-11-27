@@ -516,7 +516,7 @@ func readSymlinkTargetPath(path types.FilesystemPath) (types.FilesystemPath, err
 }
 
 func populateResolvedSymlinkTarget(path types.FilesystemPath, snapshot *fileSnapshot) error {
-	if resolvedTarget, inspectErr := fspath.InspectWritableTarget(string(path)); inspectErr == nil && resolvedTarget.Exists {
+	if resolvedTarget, inspectErr := fspath.InspectWritableTarget(string(path)); inspectErr == nil && resolvedTarget.Exists && resolvedTarget.WasSymlink {
 		resolvedFSPath, targetData, err := readResolvedSymlinkTarget(resolvedTarget)
 		if err != nil {
 			return err

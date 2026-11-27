@@ -94,6 +94,43 @@ func TestInspectWritableTarget(t *testing.T) {
 		}
 	})
 
+	t.Run("cross_directory_relative_symlink", func(t *testing.T) {
+		t.Parallel()
+		fstree.Require(t, fstree.CapSymlink)
+
+		root := t.TempDir()
+		subDir := filepath.Join(root, "sub")
+		sharedDir := filepath.Join(root, "shared")
+		if err := os.MkdirAll(subDir, 0o755); err != nil {
+			t.Fatalf("MkdirAll(subDir) error = %v", err)
+		}
+		if err := os.MkdirAll(sharedDir, 0o755); err != nil {
+			t.Fatalf("MkdirAll(sharedDir) error = %v", err)
+		}
+		realPath := filepath.Join(sharedDir, "real.cue")
+		if err := os.WriteFile(realPath, []byte("ok"), 0o600); err != nil {
+			t.Fatalf("WriteFile() error = %v", err)
+		}
+		linkPath := filepath.Join(subDir, "invowkmod.cue")
+		fstree.MustSymlink(t, filepath.Join("..", "shared", "real.cue"), linkPath)
+
+		wantResolved, err := filepath.EvalSymlinks(realPath)
+		if err != nil {
+			t.Fatalf("EvalSymlinks() error = %v", err)
+		}
+
+		got, err := fspath.InspectWritableTarget(linkPath)
+		if err != nil {
+			t.Fatalf("InspectWritableTarget() error = %v", err)
+		}
+		if got.Path != wantResolved || !got.Exists || !got.WasSymlink {
+			t.Fatalf("InspectWritableTarget() = %+v, want Path=%q Exists=true WasSymlink=true", got, wantResolved)
+		}
+		if runtime.GOOS != "windows" && got.Perm != 0o600 {
+			t.Fatalf("Perm = %v, want 0600", got.Perm)
+		}
+	})
+
 	t.Run("multi_hop_symlink_to_regular_file", func(t *testing.T) {
 		t.Parallel()
 		fstree.Require(t, fstree.CapSymlink)
