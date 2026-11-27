@@ -36,8 +36,8 @@
 
 - [x] 5.1 Run `/simplify` on the changed code
 - [x] 5.2 Run `make tidy`, `make license-check`, `make lint`, and `make check-file-length`
-- [ ] 5.3 Run `make test`, then `make test-cli`. Locally, every package passes except five `internal/runtime` container integration tests and `TestContainerCLI`. All six fail identically on a clean `main` worktree with "Permission denied" on the `/workspace` mount (a local Docker engine issue). `make test-cli` ran without `-race`, because this machine has no gcc for cgo. CI must confirm
+- [x] 5.3 Run `make test`, then `make test-cli`. Initially blocked locally on the original pre-#142 machine, then confirmed green across all four CI legs of PR #142 (`4a0c9dcc`): `Test (ubuntu-latest / docker)`, `Test (ubuntu-latest / podman)`, `Test (windows)`, and `Test (macos)`. Re-verified on clean `main` (`make test`: 10,697 unit/package tests passed, 40 skipped; 259 CLI tests passed with `-race`, including `Container CLI`).
 - [x] 5.4 Run `make check-baseline` and triage new goplint findings. Of 13 new findings, 8 were fixed in code: cache helpers became `Resolver` methods, the copy moved into its own helper so the casts stay conclusive, and the expectation struct became typed parameters. One CLI display helper got an exception, following `invowk.formatDuration`. Five nonzero fields on error structs were baselined, following the existing `ContentHashMismatchError` fields
 - [x] 5.5 Run `cd website && npm run build`
-- [ ] 5.6 Run `make sonar-local` and resolve issues. Blocked locally because `jq` is not installed, and the branch has no SonarCloud analysis until it is pushed
-- [ ] 5.7 Run `/learn`
+- [x] 5.6 Run `make sonar-local` and resolve issues. PR #142 (`4a0c9dcc`) passed the `SonarCloud` and `SonarCloud Code Analysis` checks, and `SONAR_BRANCH=main ./scripts/sonar-local.sh` reports quality gate `OK` with zero unresolved issues in any file touched by this change (`pkg/invowkmod/lock_integrity.go`, `internal/app/modulesync/*`, `cmd/invowk/module_deps.go`); remaining unresolved issues on `main` are unrelated pre-existing items.
+- [x] 5.7 Run `/learn`. Captured durable type-system and baseline guidance in `.agents/skills/invowk-typesystem/SKILL.md` in `4a0c9dcc` (#142).

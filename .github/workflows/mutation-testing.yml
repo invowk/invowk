@@ -16,6 +16,21 @@ on:
         options:
           - root
           - formal-bindings
+      symbol:
+        description: "Optional symbol filter for formal-bindings (comma-separated [file:]symbol)"
+        required: false
+        type: string
+        default: ""
+      stale:
+        description: "Scope formal-bindings run to stale survivors only"
+        required: false
+        type: boolean
+        default: false
+      jobs:
+        description: "Optional parallel worker count for formal-bindings (blank = auto)"
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: mutation-testing-${{ github.ref }}
@@ -29,8 +44,9 @@ jobs:
   manual-full:
     name: Manual full advisory (${{ github.event.inputs.target_set }})
     runs-on: ubuntu-latest
-    # The formal-bindings executor forces one worker and replays golden vectors
-    # without -short; raise this budget (not -short) if a run outgrows it.
+    # The formal-bindings executor replays golden vectors without -short and
+    # shards files across parallel worker worktrees (MUTATION_FORMAL_JOBS);
+    # keep the 90 min budget for un-scoped runs and scope with symbol/stale when needed.
     timeout-minutes: ${{ github.event.inputs.target_set == 'formal-bindings' && 90 || 60 }}
     permissions:
       contents: read
@@ -53,8 +69,20 @@ jobs:
         env:
           SELECTED_MODULE: ${{ github.event.inputs.module }}
           SELECTED_TARGET_SET: ${{ github.event.inputs.target_set }}
+          SELECTED_SYMBOL: ${{ github.event.inputs.symbol }}
+          SELECTED_STALE: ${{ github.event.inputs.stale }}
+          SELECTED_JOBS: ${{ github.event.inputs.jobs }}
         run: |
           if [ "$SELECTED_TARGET_SET" = "formal-bindings" ]; then
+            if [ -n "$SELECTED_SYMBOL" ]; then
+              export MUTATION_FORMAL_SYMBOL="$SELECTED_SYMBOL"
+            fi
+            if [ "$SELECTED_STALE" = "true" ]; then
+              export MUTATION_FORMAL_STALE=1
+            fi
+            if [ -n "$SELECTED_JOBS" ]; then
+              export MUTATION_FORMAL_JOBS="$SELECTED_JOBS"
+            fi
             make mutation-formal MUTATION_MODE=advisory
           else
             make mutation-full MUTATION_MODULE="$SELECTED_MODULE" MUTATION_MODE=advisory

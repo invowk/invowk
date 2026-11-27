@@ -35,7 +35,6 @@ on:
       - 'tools/mutation/**'
       - 'formal/**'
       - '.github/workflows/**'
-      - '.github/workflows/lint.yml'
       - 'openspec/specs/lint-tooling-quality-gates/**'
   # Every pull request must report the required "goplint consumer gates"
   # check, so the pull_request trigger carries no path filter; the consumer
@@ -94,6 +93,9 @@ jobs:
 
       - name: Run full lint gate
         run: make lint
+
+      - name: Run Darwin build-tag lint gate
+        run: make lint-darwin
 
   goplint-consumer:
     name: goplint consumer gates

@@ -67,6 +67,7 @@ write_fake_tools() {
 #!/usr/bin/env bash
 {
 	printf 'pwd=%s\n' "$PWD"
+	printf 'goos=%s goarch=%s\n' "${GOOS:-}" "${GOARCH:-}"
 	printf 'args='
 	printf '%q ' "$@"
 	printf '\n'
@@ -122,6 +123,21 @@ test_run_dispatch() {
 
 	assert_file_contains "run executes from repo root" "pwd=$REPO_ROOT" "$tmp/golangci.log"
 	assert_file_contains "run passes config and package pattern" "args=run --config=.golangci.toml --show-stats=false ./... " "$tmp/golangci.log"
+}
+
+test_run_darwin_dispatch() {
+	local tmp
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"' RETURN
+	write_fake_tools "$tmp" "v2.13.1"
+	run_wrapper "$tmp" run-darwin --show-stats=false
+
+	assert_file_contains "run-darwin executes from repo root" "pwd=$REPO_ROOT" "$tmp/golangci.log"
+	assert_file_contains "run-darwin sets darwin/arm64 environment" "goos=darwin goarch=arm64" "$tmp/golangci.log"
+	assert_file_contains "run-darwin targets Darwin build-tagged packages" \
+		"args=run --config=.golangci.toml --show-stats=false ./internal/modulelock/... ./internal/tui/... " \
+		"$tmp/golangci.log"
 }
 
 test_formatter_and_config_dispatch() {
@@ -212,6 +228,7 @@ test_unknown_command_fails() {
 }
 
 test_run_dispatch
+test_run_darwin_dispatch
 test_formatter_and_config_dispatch
 test_linter_inspection_and_version
 test_version_mismatch_fails
