@@ -1,0 +1,141 @@
+# Design
+
+## Context
+
+See `proposal.md` ("Why") for motivation and `specs/interactive-mode-terminal/spec.md` for the observable requirements. The relevant code paths today:
+
+- **Two unsynchronized `tea.Program.Send` producers feed one stateful emulator.**
+  - **Command PTY stream (`outputMsg`):** `RunInteractiveSession` (`internal/tui/interactive_session.go:54-58`) spawns `streamInteractiveOutput(p, terminal)` (`:93-104`), which reads up to 4096 bytes per `terminal.Read(buf)` call (`:94-99`) and calls `program.Send(outputMsg{data: ...})`. When `terminal.Read` returns an error (`:100-102`), the reader returns and closes `readerDone` (`:56`) without emitting an end-of-stream message. The waiter goroutine (`:59-63`) waits on `awaitOutputEnd(readerDone, interactiveOutputGrace)` (`250ms` at `:25`, `:81-88`) and emits `doneMsg{result: result}`.
+  - **Delegated styled write (`ComponentTypeWrite` / `tuiclient.Client.Write`):** Note that `cmd/invowk/tui_write.go:67-68` delegates the interactive multi-line `invowk tui write` editor to `ComponentTextArea`, whereas `ComponentTypeWrite` (`internal/tui/component/component.go:22-23`, `internal/tuiclient/client.go:36-37, 427-435`) is the styled text output component (`WriteRequest`). `InteractiveExecutor.Execute` (`internal/app/commandadapters/interactive.go:109-111`) installs `OnProgramReady`, spawning `bridgeTUIRequests(tuiServer, p)` (`:191-206`). Each HTTP `POST /tui` request (`internal/tuiserver/server.go:309-372`, serialized against other HTTP `/tui` requests by `s.mu` at `:337-338`) reaches `componentRequestFromProtocol` (`internal/app/commandadapters/interactive_protocol.go:112-133`), which decodes `WriteRequest` into `tui.StyledTextOptions` (`internal/tui/tui.go:117-121`) and sends `tui.TUIComponentMsg` to Bubble Tea (`interactive.go:199-203`), forwarding the reply asynchronously (`:204, 208-211`).
+  - **Protocol / transport timing in `commandadapters`:** `bridgeTUIRequests` (`internal/app/commandadapters/interactive.go:191-206`) and `streamInteractiveOutput` (`internal/tui/interactive_session.go:93-104`) operate over independent OS transport channels (loopback/bridge HTTP vs PTY master file descriptor, wrapped on Unix by `nonBlockingTerminal` in `internal/app/commandadapters/interactive_session_unix.go:45-48, 103-113`). Neither `commandadapters` nor `tuiserver` has visibility into kernel PTY `Read` chunk boundaries or in-flight `outputMsg` reads, so no barrier in `commandadapters` can prevent `TUIComponentMsg{Component: ComponentTypeWrite}` from landing between two `outputMsg` chunks in Bubble Tea's `program.Send` queue.
+- **Unprotected `vt.Emulator.Write` callers in `internal/tui/interactive_model.go`:**
+  - `outputMsg` (`:57-59`) calls `m.applyOutput(msg)` (`:300-306`) -> `m.writeScreen(out)` (`:310-312`) -> `m.screen.emu.Write(out.data)` (`:311`).
+  - `TUIComponentMsg{Component: ComponentTypeWrite}` (`:74-76, 238-241`) calls `m.handleStyledTextRequest` (`:266-296`), which validates options (`:267-279`), renders `style.Apply(opts.Text.String())` (`:281-285`), ensures a trailing newline (`:286-288`), converts `\n` to `\r\n`, passes the result directly to `m.applyOutput` (`:291`) without SGR attribute isolation or parser ground-state verification, and immediately sends `ComponentResponse{}` (`:292-294`). `TestInteractiveModel_HandleStyledTextRequest` (`internal/tui/tui_interactive_model_test.go:258-260`) explicitly asserts that `handleTUIComponentRequest` for `ComponentTypeWrite` returns `cmd == nil` (synchronous model update).
+  - `doneMsg` (`:66-72`) writes `leaveAltScreen = "\x1b[?1049l"` (`:22`) via `m.writeScreen` (`:69-71`) when `m.screen.emu.IsAltScreen()` is true, also without checking parser ground state.
+- **Why interleaving corrupts both streams (`charmbracelet/x/vt` v0.1.0 & `charmbracelet/x/ansi` v0.11.9):**
+  - `vt.Emulator` (`github.com/charmbracelet/x/vt@v0.1.0/emulator.go:50, 283-299`) keeps an unexported `*ansi.Parser` (`:50`), `gsingle` (`:67`, `handlers.go:290-300`, `utf8.go:96-97`), and `e.scr.cur.Pen` (`screen.go:15`, `csi_sgr.go:11`) across `Write` calls (only `e.grapheme` is flushed at the end of each `Write`, `emulator.go:294-296`).
+  - When chunk 1 ends mid-sequence (e.g., `\x1b`, `\x1b[3`, `\x1b]0;title`, `\x1bP`, `\x1b(`, or leading UTF-8 bytes), `e.parser` stays in a non-ground state (`ansi/parser/const.go:41-60`). An interleaved `handleStyledTextRequest` write then executes inside that state:
+    - Unstyled or plain text (`"status\r\n"`) in `EscapeState` or `CsiParamState` has its first byte (`'s'`) consumed as a command final byte (`ESC s` or `CSI 3 s`), printing `"tatus"` and leaving the command's tail (`"1m"`) to render literally.
+    - Styled text starting with `\x1b[...m` in `CsiParamState` aborts the command's partial CSI (`transition_table.go:99`), dropping the command's attribute sequence and printing `"1m"` literally; in `DcsEntryState` (`\x1bP`), `0x1B` transitions to `DcsStringState` (`transition_table.go:186`), swallowing the entire `\x1b[...m...` styled output inside DCS; in `Utf8State`, `ansi.Parser.advanceUtf8` (`ansi/parser.go:162-164, 181-204`) bypasses `parser.Table` and consumes `0x1B` as a UTF-8 continuation byte!
+  - Furthermore, `handleStyledTextRequest` currently writes neither a leading nor a trailing SGR reset (`\x1b[0m`), so active command colors leak into styled output and lipgloss's `\x1b[0m` (or missing reset on unstyled text) alters/leaks SGR attributes across the boundary. Note that `DECSC`/`DECRC` (`\x1b7`/`\x1b8`) cannot preserve `Pen` because `vt`'s `Screen.SaveCursor`/`RestoreCursor` (`vt/screen.go:221-234`, `vt/cursor.go:16-25`, `vt/handlers.go:359-369`) saves and restores cursor `Position` too and overwrites the command's saved cursor slot.
+- **Tmux CLI tests (`tests/cli/tui_tmux_test.go`):**
+  - `newTmuxSession` creates a `100x30` pane (`tests/cli/tui_tmux_test.go:47-67`, `:59`). Several `TestTUI_*` subtests match substrings already present in the shell-echoed command line (violating `.agents/skills/tmux-testing/SKILL.md:68-76`):
+    - `TestTUI_Confirm` (`:140-201`): `:152, 180` type `&& echo INVOWK_CONFIRMED || echo INVOWK_REJECTED`, and `:164, 192` call `waitFor("INVOWK_REJECTED")` / `waitFor("INVOWK_CONFIRMED")` against literals already echoed on the command line.
+    - `TestTUI_Choose/navigate_and_select` (`:210-246`): `:216` types `'Apple' 'Banana' 'Cherry'`; `:219` polls `waitFor("Apple")` (matches echoed CLI args immediately before `invowk tui choose` draws); `:230` checks `strings.Contains(output, "Banana")`, which passes vacuously on short paths and **fails when a long `binaryPath` wraps `'Banana'` across column 100 (`'Banan\na'`)**; `:238` checks `"INVOWK_EXIT:"` without `:0`; `:243` matches `"Banana"` against the command line rather than stdout.
+    - `TestTUI_Input/type_and_submit` (`:256-287`): `:262` passes nonexistent flag `--header` (`cmd/invowk/tui_input.go:44` defines `--title`, not `--header`), `:265` waits for `"name"` (matches `'Enter name:'` in the echoed command line), `:279` accepts any `"INVOWK_EXIT:"` (even exit 1 from Cobra's unknown-flag error!), and `:284` matches `"Hello World"` echoed into the shell after `invowk` exited!
+    - `TestTUI_Write/multiline_submit` (`:295-318`): `:305` types immediately after `waitFor("ctrl+d submit")` (`internal/tui/write.go:102`) without `tuiInputSettleDelay`, and `:315` checks `strings.Contains(output, "Line 1")` without verifying stdout lines separately from editor text.
+    - `TestTUI_Filter/dismiss_with_escape` (`:326-342`): `:330` types `export INVOWK_FILTER_ONE=alpha_opt ...` directly in the pane, so `:333` `waitFor("alpha_opt")` matches the `export` line before `tui filter` even starts, and `:337` sends `"Escape"` with no `tuiInputSettleDelay`.
+    - `TestTUI_File/cancel_with_escape` (`:350-376`): `:359` types `|| echo INVOWK_FILE_ABORTED`, `:366` sends `"Escape"` without `tuiInputSettleDelay`, and `:368` polls `waitFor("INVOWK_FILE_ABORTED")` against the echoed command line.
+    - `TestTUI_Table/select_row` (`:384-409`) and `display_on_terminal` (`:413-438`): `:399` and `:426` poll `waitFor("name")`, a generic word susceptible to matching `tmpDir`/`binaryPath`/prompt (unlike `waitForTableRows` / `paneLineWithFields` at `:443-476, 596-624` and `tblhdr_name` in `tests/cli/tui_tmux_capture_test.go:162-166`).
+    - `TestTUI_Spin/run_command` (`:507-523`): `:512` echoes `export INVOWK_SPIN_MARKER=<spinMarker>`, so `:520` `strings.Contains(output, spinMarker)` matches the `export` line regardless of stdout (unlike `ctrl_c_cancels_command` at `:536, 558` which splits env vars and uses `paneHasLine`).
+    - `TestTUI_Pager/dismiss_with_q` (`:642-672`): `:658` polls `"Line 01"` rather than pager chrome (`"↑/↓: navigate • q/Enter: close"` at `internal/tui/pager.go:125`) and `:662` sends `"q"` without `tuiInputSettleDelay`.
+  - `TestTUIExemptionTmuxCoverage` (`cmd/invowk/cmd_coverage_test.go:120-304`) AST-parses `tui_tmux_test.go` and requires every `tui <cmd>` command to be passed to `s.sendKeys(...)` either as `binaryPath+" tui <cmd> ..."` or `fmt.Sprintf("%s tui <cmd> ...", binaryPath, ...)` directly or via a same-function local variable (`:224-271`).
+
+## Goals / Non-Goals
+
+**Goals:**
+- Prevent split ANSI/VT escape sequences and UTF-8 runes in PTY `outputMsg` streams from leaking partial parser state to `vt.Emulator` across chunk boundaries, while flushing complete bytes immediately.
+- Guarantee bounded flush of legitimate lone `ESC` bytes and truncated tails on idle timeout, stream end, buffer cap, or completion without stalling the viewer.
+- Guarantee `handleStyledTextRequest` (`ComponentTypeWrite`) and `leaveAltScreen` (`doneMsg`) execute only when `vt.Emulator` is at `GroundState`, preserving any still-held incomplete command sequence in the stream buffer and isolating SGR attributes around styled text.
+- Make every `TestTUI_*` subtest in `tests/cli/tui_tmux_test.go` assert genuine TUI rendering, UI focus transitions, and expanded stdout/exit markers independent of `binaryPath` length and shell command echoing.
+
+**Non-Goals:**
+- Modifying `go.mod` to promote `github.com/charmbracelet/x/ansi` to a direct dependency (avoided by keeping the boundary scanner self-contained in `internal/tui/`).
+- Altering `internal/app/commandadapters/interactive*.go` or `internal/tuiserver` transport protocols (the race is resolved at the `internal/tui/` emulator boundary).
+- Preserving/restoring command SGR pen across `ComponentTypeWrite` via `DECSC`/`DECRC` (`\x1b7`/`\x1b8`), which moves the cursor and overwrites saved cursor state (`vt/screen.go:221-234`).
+- Changing modal overlay components (`Input`, `Confirm`, `Choose`, etc.) or `tui-component-terminal-io` behavior.
+
+## Decisions
+
+### D1. Self-contained `ansiStreamBuffer` at the `interactiveModel` PTY boundary
+
+Add a dedicated `ansiStreamBuffer` (`internal/tui/interactive_ansi_buffer.go`) owned by `interactiveModel` (which runs exclusively on the Bubble Tea event loop, requiring no mutex) and applied to PTY `outputMsg` chunks inside `applyOutput` / `applyPTYOutput`.
+
+**Scanner states and golden invariant:** `ansiStreamBuffer` tracks DEC ANSI + UTF-8 parser state aligned with `charmbracelet/x/ansi`'s `parser.Table` (`transition_table.go:87-273`, `ansi/parser.go:160-204`) plus single-shift (`SS2`/`SS3`) awareness:
+- `GroundState`: complete ASCII, C0 controls (`0x00..0x1A`, `0x1C..0x1F`, excluding `0x1B`), DEL (`0x7F`), and completed sequences advance `lastSafeEnd` immediately -> flushed to `m.screen.emu.Write` with zero buffering latency.
+- `EscapeState` (`0x1B`): waits for next byte.
+  - `[` -> `CSIEntry`; `]` -> `OSCString`; `P` -> `DCSEntry`; `X` -> `SOSString`; `^` -> `PMString`; `_` -> `APCString`.
+  - `N` (`0x4E`, SS2) / `O` (`0x4F`, SS3) (and C1 `0x8E` / `0x8F` from `GroundState`) -> `SingleShift` expecting 1 subsequent graphic/UTF-8 character (flushing cleanly when `0x1B` interrupts or on idle timer/EOF if standalone). Note: while `vt`'s `parser.Table` dispatches 7-bit `ESC N`/`ESC O` directly to `GroundState` (`transition_table.go:140`), C1 `0x8E`/`0x8F` sets `e.gsingle` (`vt/handlers.go:290-300`), which `vt.Emulator` clears on the next grapheme (`vt/utf8.go:96-97`) or `fullReset` (`vt/esc.go:32`) rather than via `CAN` (`0x18`); holding both 7-bit and 8-bit single-shifts for one trailing character keeps `ESC N`/`ESC O`/`0x8E`/`0x8F` atomic with their target character and protects `e.gsingle` against interleaved writes during normal streaming.
+  - `0x20..0x2F` -> `EscapeIntermediate` (holds through `0x20..0x2F`, completes on `0x30..0x7E`).
+  - All other `0x30..0x7E` (2-byte `ESC` sequences such as `ESC 7`, `ESC 8`, `ESC =`, `ESC >`, `ESC c`, `ESC M`, `ESC \`) -> complete back to `GroundState`.
+- `CSIEntry` / `CSIParam` / `CSIIntermediate` (`ESC [` or 8-bit `0x9B`): holds `0x30..0x3F` (params), `0x20..0x2F` (intermediates), C0/DEL; completes on `0x40..0x7E` (and `0x30..0x3F` in `CSIIntermediate`, matching `transition_table.go:244`).
+- `OSCString` (`ESC ]` or `0x9D`), `DCS*` (`ESC P` or `0x90`), `SOSString` (`ESC X` or `0x98`), `PMString` (`ESC ^` or `0x9E`), `APCString` (`ESC _` or `0x9F`):
+  - `OSCString` completes on `BEL` (`0x07`), `ST` (`0x9C`), `CAN`/`SUB` (`0x18`/`0x1A`), or `ESC \` (`0x1B 0x5C` via `EscapeState`). Crucially, `0x1B` inside `OSCString`/`DCSString`/`SOSString`/`PMString`/`APCString` transitions to `EscapeState` **without** advancing `lastSafeEnd`, so a chunk split between `\x1b` and `\` of ST keeps the sequence held until `\` completes `ST` and returns to `GroundState`!
+  - `DCSEntry` + `0x1B` enters `DCSString` (matching `transition_table.go:186` passthrough rule) rather than `EscapeState`.
+  - UTF-8 bytes `0x80..0xFF` inside `OSCString`/`DCSString` stay in string state (`transition_table.go:217, 264`) except `0x9C` (`ST`).
+- `UTF8State` (`0xC2..0xDF` -> 1 byte, `0xE0..0xEF` -> 2 bytes, `0xF0..0xF4` -> 3 bytes): matches `ansi.Parser.utf8ByteLen` (`ansi/parser.go:406-417`), holding split multi-byte UTF-8 runes across reads until complete so `vt` never enters `Utf8State` at a write boundary.
+- Interruptions (`CAN` `0x18`, `SUB` `0x1A`, `0x99`, `0x9A`, `0x9C` outside string states, or `0x1B` starting a new `EscapeState`): `lastSafeEnd` advances **only** when reaching `GroundState`, guaranteeing that whenever `ready` bytes are flushed to `m.screen.emu`, `m.screen.emu` remains in `GroundState` with `e.gsingle == 0`.
+
+**Alternatives considered:**
+- *Import `github.com/charmbracelet/x/ansi/parser` directly:* Rejected because `parser.Table.Transition` does not advance `Utf8State` (`ansi/parser.go:162-164`), does not hold 7-bit `ESC N`/`O` single-shifts, and promotes an `// indirect` dependency in `go.mod`.
+- *Put the buffer in `streamInteractiveOutput` (`interactive_session.go`):* Rejected because `streamInteractiveOutput` cannot coordinate idle timer flushes with Bubble Tea `Update` or expose ground state to `handleStyledTextRequest` and `doneMsg`.
+
+### D2. Bounded flush triggers (`escapeFlushMsg`, cap overflow, `outputEndMsg`, `doneMsg`) and dirty-parser tracking
+
+Holding an incomplete sequence forever would stall a command that prints a legitimate standalone `\x1b` (or pauses mid-sequence / exits truncated). `ansiStreamBuffer` and `interactiveModel` flush pending bytes on four bounded conditions:
+1. **Idle timer (`escapeFlushMsg{seq uint64}`):** Whenever `ansiStreamBuffer` retains non-empty pending bytes after an `outputMsg`, `interactiveModel` increments a monotonic `seq` and schedules `tea.Tick(m.escapeFlushDelay(), func(time.Time) tea.Msg { return escapeFlushMsg{seq: seq} })` (`interactiveEscapeFlushDelay = 25 * time.Millisecond`, shorter than `interactiveOutputGrace = 250ms` in `interactive_session.go:25`, overridable in tests via the `interactiveModel.escapeFlushTimeout` field). When `escapeFlushMsg` arrives, if `msg.seq == m.ansiBuf.seq` and pending bytes remain, it force-flushes them to `m.screen.emu` (and schedules `scheduleCompletedRebuild()` if `state == stateCompleted`); stale ticks with mismatched `seq` are ignored.
+2. **Buffer cap (`maxEscapeHoldBytes = 64 << 10`, matching `interactiveInputQueueBytes`):** If a pathological unclosed OSC/DCS/SOS/PM/APC exceeds 64 KiB, `push` flushes all buffered bytes immediately so memory stays bounded.
+3. **Stream end (`outputEndMsg`):** `streamInteractiveOutput` (`internal/tui/interactive_session.go:93-104`) calls `program.Send(outputEndMsg{})` right before returning on `readErr != nil` (before `close(readerDone)`). `sessionProbe.filter` (`tui_interactive_session_test.go:79-89`) ignores unknown message types, preserving `TestInteractiveSessionOutputOrder` and `TestInteractiveSessionLastChunkWithinGrace`.
+4. **Completion (`doneMsg`):** Before checking `m.screen.emu.IsAltScreen()` and writing `leaveAltScreen`, `doneMsg` (`interactive_model.go:66-72`) force-flushes any pending bytes in `m.ansiBuf` (covering cases where `readerDone` stayed open past the 250 ms grace period, e.g., background child or Windows ConPTY).
+
+**Tracking forced-flush parser state:** Whenever a force-flush (idle timer, cap overflow, `outputEndMsg`, `doneMsg`) writes bytes to `m.screen.emu` while `ansiStreamBuffer` was in a non-ground state, `ansiStreamBuffer` updates `emuState` to mirror what was actually flushed into `m.screen.emu`:
+- If `1m` arrives *after* the idle timer flushed `\x1b[3`, `emuState` advances `\x1b[3` + `1m` back to `ansiStateGround` cleanly.
+- If `handleStyledTextRequest` or `leaveAltScreen` runs *while* `emuState` is still non-ground (e.g., lone `\x1b`, truncated `\x1b[`, `\x1bP`, or `\xC3` was force-flushed), `ensureEmulatorGroundState()` writes `CAN` (`\x18`, or 3× `\x18` when `emuState == ansiStateUTF8`, completing the truncated UTF-8 sequence as `U+FFFD` while ignoring `CAN` in all other parser states) and clears `emuState` to `ansiStateGround` before writing styled text or `leaveAltScreen`. Note that for C1 `SS2`/`SS3` (`0x8E`/`0x8F`), `vt.Emulator` clears `e.gsingle` on the next grapheme (`vt/utf8.go:96-97`) or `fullReset` (`vt/esc.go:32`) rather than via `CAN` (`0x18`).
+
+### D3. Ground-state & SGR attribute isolation for `handleStyledTextRequest` and `leaveAltScreen`
+
+In `handleStyledTextRequest` (`internal/tui/interactive_model.go:266-296`):
+1. **Do NOT flush `ansiStreamBuffer`'s held incomplete command sequence:** When `TUIComponentMsg{Component: ComponentTypeWrite}` arrives while `ansiStreamBuffer` holds an incomplete trailing sequence (e.g., `\x1b[3`), `m.screen.emu` is **already** in `GroundState`. `handleStyledTextRequest` leaves the held `\x1b[3` untouched in `ansiStreamBuffer`, calls `m.ensureEmulatorGroundState()` (no-op when clean; emits `CAN` recovery only if an earlier forced flush left `m.screen.emu` non-ground), writes the styled text directly via `m.writeScreen` / `m.applyOutput` (bypassing `ansiStreamBuffer`), and replies synchronously on `msg.ResponseCh` (`cmd == nil` in `stateExecuting`, satisfying `TestInteractiveModel_HandleStyledTextRequest` at `tui_interactive_model_test.go:258-260`). When `1m...` arrives in the next `outputMsg`, `ansiStreamBuffer` prepends `\x1b[3` and applies `\x1b[31m...` cleanly.
+2. **Isolate SGR attributes around styled text:** Wrap the `\r\n`-normalized styled output in leading and trailing SGR resets: `"\x1b[0m" + body + "\x1b[0m"`. Additionally, scan `body` with the same state scanner before the trailing `\x1b[0m`: if user-provided `opts.Text` itself ends inside an incomplete escape/UTF-8 sequence (e.g., unclosed `\x1bP`), append `CAN` (`\x18`, or 3× `\x18` for `UTF8State`) before the trailing `\x1b[0m` so `ComponentTypeWrite` can never leave `m.screen.emu` outside `GroundState` or with leaked SGR attributes.
+3. **`leaveAltScreen` (`doneMsg`):** Call `m.ensureEmulatorGroundState()` before writing `leaveAltScreen = "\x1b[?1049l"` (`interactive_model.go:70`) so a crashed full-screen app that ended mid-escape still returns cleanly to the main screen.
+
+**Alternatives considered:**
+- *Deferring `ComponentTypeWrite` in a pending queue until `ansiStreamBuffer` empties:* Rejected because if a command writes a truncated escape and then calls `client.Write` waiting for HTTP completion, holding `ResponseCh` would block the HTTP client for at least the idle timeout (and `handleTUIComponentRequest` already needs synchronous `cmd == nil` semantics per existing tests); keeping `m.screen.emu` at `GroundState` allows immediate non-blocking styled writes without interfering with the buffered command sequence.
+- *Saving/restoring SGR via `\x1b7`/`\x1b8` (`DECSC`/`DECRC`):* Rejected because `vt`'s `SaveCursor`/`RestoreCursor` moves cursor `Position` back to before the styled text and clobbers the command's own saved cursor (`vt/screen.go:221-234`).
+
+### D4. `internal/app/commandadapters/interactive*.go` audit result
+
+Audited `internal/app/commandadapters/interactive.go`, `interactive_protocol.go`, `interactive_session.go`, `interactive_session_unix.go`, `interactive_session_other.go`:
+- `InteractiveExecutor` (`interactive.go:109-116`) only wires `bridgeTUIRequests` (`:191-206`) and calls `runInteractiveCmd` (`interactive_session.go:26-56`).
+- `tuiserver` serializes `/tui` HTTP requests (`server.go:337-338`) and forwards `ComponentTypeWrite` via `bridgeTUIRequests` (`interactive.go:199-203`) independently of `streamInteractiveOutput` (`interactive_session.go:93-104`).
+- Conclusion: `commandadapters` does not write to `vt.Emulator` and cannot observe PTY read chunking; no code changes are needed in `internal/app/commandadapters/` or `internal/tuiserver/`.
+
+### D5. Hardening `tests/cli/tui_tmux_test.go` against command-line echo and column-100 wraps
+
+Update every affected `TestTUI_*` subtest in `tests/cli/tui_tmux_test.go` while keeping `s.sendKeys(...)` first arguments in the AST forms matched by `TestTUIExemptionTmuxCoverage` (`binaryPath+" tui <cmd> ..."` or `fmt.Sprintf("%s tui <cmd> ...", binaryPath, ...)`, `cmd/invowk/cmd_coverage_test.go:224-271`):
+
+| Subtest | Current Flake / Echo Bug (`tui_tmux_test.go`) | Hardened Marker & Synchronization |
+|---|---|---|
+| `TestTUI_Confirm` (`reject_with_shortcut`, `accept_with_shortcut`) | `:164, 192` wait for `"INVOWK_REJECTED"` / `"INVOWK_CONFIRMED"` which appear verbatim in `:152, 180` | Emit dynamic marker via `&& rc=CONFIRMED \|\| rc=REJECTED; echo "INVOWK_CONFIRM:$rc"` and wait for `"INVOWK_CONFIRM:REJECTED"` / `"INVOWK_CONFIRM:CONFIRMED"` |
+| `TestTUI_Choose/navigate_and_select` | `:219` waits for `"Apple"`, `:230` checks `Contains("Banana")` (breaks on column-100 wrap `'Banan\na'` when `binaryPath` is long), `:238` checks `"INVOWK_EXIT:"`, `:243` checks `Contains("Banana")` | Run `sel=$(%s tui choose 'Apple' 'Banana' 'Cherry'); echo "INVOWK_EXIT:$? INVOWK_CHOSEN:$sel"`; wait for TUI help line `"↑/k up • ↓/j down • enter submit • esc cancel"` (`choose.go:305`) + focused line `│\s*Apple\s*$`; send `Down` and poll for focused line `│\s*Banana\s*$` (using a line-regexp wait helper); send `Enter` and wait for `"INVOWK_EXIT:0 INVOWK_CHOSEN:Banana"` |
+| `TestTUI_Input/type_and_submit` | `:262` passes invalid `--header` (`cmd/invowk/tui_input.go:44` is `--title`), `:265` waits for `"name"` (echoed), `:279` waits for `"INVOWK_EXIT:"` (matches exit 1), `:284` matches shell echo | Switch to `--title 'Enter name:'`, capture `val=$(%s tui input --title 'Enter name:'); echo "INVOWK_EXIT:$? INVOWK_VAL:$val"`, wait for TUI help line `"enter submit • esc cancel"` (`input.go:101`), type `"Hello World"` + settle + `"Enter"`, wait for `"INVOWK_EXIT:0 INVOWK_VAL:Hello World"` |
+| `TestTUI_Write/multiline_submit` | `:305` lacks `tuiInputSettleDelay`; `:315` checks substring `"Line 1"` / `"Line 2"` in pane | Add `time.Sleep(tuiInputSettleDelay)` after `waitFor("ctrl+d submit")`; check `INVOWK_EXIT:0` and `paneHasLine` (or capture stdout in `$val` and print serialized lines) so stdout output is verified |
+| `TestTUI_Filter/dismiss_with_escape` | `:330` echoes `alpha_opt` into the pane, satisfying `:333` `waitFor("alpha_opt")` before `tui filter` renders; `:337` lacks settle delay | Split env var pieces (`INVOWK_F1=alpha INVOWK_F2=_opt` etc. so `"alpha_opt"` never appears in echoed shell commands), wait for TUI-rendered `│` + `"alpha_opt"` line (or filter help text) + `tuiInputSettleDelay` before `"Escape"`, wait for `"INVOWK_EXIT:0"` |
+| `TestTUI_File/cancel_with_escape` | `:366` lacks settle delay; `:368` waits for `"INVOWK_FILE_ABORTED"` present in `:359` | Add `tuiInputSettleDelay` after `waitFor("enter select")`; emit `&& rc=SELECTED \|\| rc=ABORTED; echo "INVOWK_FILE:$rc"` and wait for `"INVOWK_FILE:ABORTED"` |
+| `TestTUI_Table` (`select_row`, `display_on_terminal`) | `:399, 426` wait for generic `"name"` | Use distinctive CSV headers (`tblhdr_name,tblhdr_age`) absent from paths/prompts and poll via line-field helper (`paneLineWithFields(pane, "tblhdr_name", "tblhdr_age")` + data rows) before `Escape` |
+| `TestTUI_Spin/run_command` | `:512` echoes `export INVOWK_SPIN_MARKER=<spinMarker>`, matching `:520` `Contains(spinMarker)` vacuously | Split marker (`export INVOWK_SM1=... INVOWK_SM2=...`) as in `ctrl_c_cancels_command` (`:536`) and assert `paneHasLine(output, spinMarker)` |
+| `TestTUI_Pager/dismiss_with_q` | `:658` checks `"Line 01"` without pager chrome; `:662` lacks settle delay | Wait for both `"↑/↓: navigate • q/Enter: close"` (`pager.go:125`) and `"Line 01"`, sleep `tuiInputSettleDelay`, send `"q"`, wait for `"INVOWK_EXIT:0"` |
+
+**Shared helper hygiene:** Add small local helpers in `tests/cli/tui_tmux_test.go` (e.g., `waitForLineRegexp(re *regexp.Regexp, timeout time.Duration)` or reuse `paneLineWithFields` / `paneHasLine`) without importing/duplicating into `interactive_viewer_tmux_test.go` beyond package-local helpers.
+
+## Risks / Trade-offs
+
+- [A command deliberately outputs a standalone `\x1b` followed by plain text inside the 25 ms idle window] -> A real terminal (and `vt` directly) also treats `ESC` + next byte as an escape sequence; the 25 ms bounded flush only delays flushing the trailing `ESC` across separate reads, never complete sequences, and preserves exact terminal semantics.
+- [An unclosed OSC/DCS exceeds `maxEscapeHoldBytes` (64 KiB) or hits the 25 ms idle flush before its ST terminator] -> The buffer flushes cleanly to bound memory/latency, tracks `emuState`, and `ensureEmulatorGroundState()` neutralizes any lingering parser state with `CAN` (`0x18`) before `handleStyledTextRequest` or `leaveAltScreen`.
+- [SGR pen is reset (`\x1b[0m`) around `ComponentTypeWrite` rather than saved/restored] -> Since `vt.Emulator` does not expose `e.scr.cur.Pen` and `DECSC`/`DECRC` moves cursor position (`vt/screen.go:221-234`), resetting before and after styled text prevents cross-stream color bleeding cleanly; documented in `design.md`.
+- [Long `binaryPath` wrapping in 100x30 tmux panes during CI or deep worktree builds] -> Hardened commands avoid matching static echoed arguments and are verified directly with a built binary at a long (>= 85 char) path.
+
+## Migration Plan
+
+No configuration, schema, CLI flag, or public API changes. Roll back by reverting the change commits.
+
+## Maintainer decisions (2026-11-26)
+
+- **Scope:** Resolve both (1) the interactive viewer styled-write (`ComponentTypeWrite` / `handleStyledTextRequest`) escape-sequence split and SGR bleed race in `internal/tui/` and (2) echoed-command-line / column-100 line-wrap flakiness across `tests/cli/tui_tmux_test.go` in one change (`fix-interactive-styled-write-escape-race`).
+- **Dependency boundary:** Keep the ANSI/VT boundary scanner self-contained in `internal/tui/` (`ansiStreamBuffer`) rather than promoting `github.com/charmbracelet/x/ansi` to a direct `go.mod` requirement.
+- **TUI protocol adapters:** Audit confirmed `internal/app/commandadapters/interactive*.go` and `internal/tuiserver` need no changes; cross-channel ordering and ground-state invariants belong in `internal/tui/`.
+- **Verification gates:** Require `-race` interleaving unit/session tests in `internal/tui/`, long-`binaryPath` tmux verification of `TestTUI_`, `TestTUIExemptionTmuxCoverage`, and full `.agents/rules/checklist.md` gates (including `make test`).
+
+## Open questions
+
+None.

@@ -98,6 +98,7 @@ func streamInteractiveOutput(program *tea.Program, terminal InteractiveTerminal)
 			program.Send(outputMsg{data: append([]byte(nil), buf[:n]...)})
 		}
 		if readErr != nil {
+			program.Send(outputEndMsg{})
 			return
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -98,6 +99,21 @@ func (s *tmuxSession) waitFor(pattern string, timeout time.Duration) bool {
 	return false
 }
 
+// waitForLineRegexp polls the tmux pane until at least one line matches re.
+func (s *tmuxSession) waitForLineRegexp(re *regexp.Regexp, timeout time.Duration) bool {
+	s.t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		for line := range strings.SplitSeq(s.capturePlain(), "\n") {
+			if re.MatchString(line) {
+				return true
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
+}
+
 func (s *tmuxSession) kill() {
 	ctx, cancel := context.WithTimeout(context.Background(), tmuxCleanupTimeout)
 	defer cancel()
@@ -147,27 +163,22 @@ func TestTUI_Confirm(t *testing.T) {
 
 		s := newTmuxSession(t, "confirm-reject")
 
-		// Launch confirm; rejected (No) returns exit 1. Use && / || to emit
-		// a deterministic marker regardless of Cobra's styled error rendering.
-		s.sendKeys(binaryPath+" tui confirm 'Proceed?' && echo INVOWK_CONFIRMED || echo INVOWK_REJECTED", "Enter")
+		// Launch confirm; rejected (No) returns exit 1. Assemble the marker
+		// dynamically so the echoed command line cannot satisfy waitFor.
+		s.sendKeys(binaryPath+" tui confirm 'Proceed?'; st=$?; [ $st -eq 0 ] && rc=CONFIRMED || rc=REJECTED:$st; echo \"INVOWK_CONFIRM:$rc\"", "Enter")
 
-		// Wait for TUI to fully render (help text only appears after TUI init)
-		if !s.waitFor("enter submit", tmuxWaitTimeout) {
-			t.Fatal("TUI did not render within timeout")
+		// Wait for TUI chrome (help text only appears after TUI init).
+		if !s.waitFor("enter submit • y yes • n no • esc cancel", tmuxWaitTimeout) {
+			t.Fatalf("TUI did not render within timeout, pane:\n%s", s.capturePlain())
 		}
 
-		// Use "n" shortcut key to select No and submit (exit 1)
+		// Use "n" shortcut key to select No and submit (exit 1).
 		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("n")
 
-		// Wait for the rejection marker
-		if !s.waitFor("INVOWK_REJECTED", tmuxWaitTimeout) {
-			t.Fatal("command did not exit within timeout")
-		}
-
-		output := s.capturePlain()
-		if !strings.Contains(output, "INVOWK_REJECTED") {
-			t.Errorf("expected INVOWK_REJECTED marker, got:\n%s", output)
+		// Wait for the dynamically expanded rejection marker.
+		if !s.waitFor("INVOWK_CONFIRM:REJECTED:1", tmuxWaitTimeout) {
+			t.Fatalf("command did not exit 1 within timeout, pane:\n%s", s.capturePlain())
 		}
 	})
 
@@ -177,25 +188,20 @@ func TestTUI_Confirm(t *testing.T) {
 		s := newTmuxSession(t, "confirm-accept")
 
 		// Launch confirm; accepted (Yes) returns exit 0.
-		s.sendKeys(binaryPath+" tui confirm 'Proceed?' && echo INVOWK_CONFIRMED || echo INVOWK_REJECTED", "Enter")
+		s.sendKeys(binaryPath+" tui confirm 'Proceed?'; st=$?; [ $st -eq 0 ] && rc=CONFIRMED || rc=REJECTED:$st; echo \"INVOWK_CONFIRM:$rc\"", "Enter")
 
-		// Wait for TUI to fully render
-		if !s.waitFor("enter submit", tmuxWaitTimeout) {
-			t.Fatal("TUI did not render within timeout")
+		// Wait for TUI chrome.
+		if !s.waitFor("enter submit • y yes • n no • esc cancel", tmuxWaitTimeout) {
+			t.Fatalf("TUI did not render within timeout, pane:\n%s", s.capturePlain())
 		}
 
-		// Use "y" shortcut key to select Yes and submit (exit 0)
+		// Use "y" shortcut key to select Yes and submit (exit 0).
 		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("y")
 
-		// Wait for the confirmation marker
-		if !s.waitFor("INVOWK_CONFIRMED", tmuxWaitTimeout) {
-			t.Fatal("command did not exit within timeout")
-		}
-
-		output := s.capturePlain()
-		if !strings.Contains(output, "INVOWK_CONFIRMED") {
-			t.Errorf("expected INVOWK_CONFIRMED marker, got:\n%s", output)
+		// Wait for the dynamically expanded confirmation marker.
+		if !s.waitFor("INVOWK_CONFIRM:CONFIRMED", tmuxWaitTimeout) {
+			t.Fatalf("command did not confirm within timeout, pane:\n%s", s.capturePlain())
 		}
 	})
 }
@@ -210,39 +216,37 @@ func TestTUI_Choose(t *testing.T) {
 	t.Run("navigate_and_select", func(t *testing.T) {
 		t.Parallel()
 
+		outPath := filepath.Join(t.TempDir(), "out")
 		s := newTmuxSession(t, "choose-nav")
 
-		// Launch choose with done marker
-		s.sendKeys(binaryPath+" tui choose 'Apple' 'Banana' 'Cherry'; echo INVOWK_EXIT:$?", "Enter")
+		command := fmt.Sprintf("%s tui choose 'Apple' 'Banana' 'Cherry' > %s; echo \"INVOWK_EXIT:$? INVOWK_CHOSEN:$(cat %s)\"", binaryPath, shellQuote(outPath), shellQuote(outPath))
+		s.sendKeys(command, "Enter")
 
-		// Wait for TUI to render
-		if !s.waitFor("Apple", tmuxWaitTimeout) {
-			t.Fatal("TUI did not render within timeout")
+		// Wait for rendered TUI help line and focused Apple row (immune to
+		// echoed CLI args and column-100 wrapping).
+		if !s.waitFor("↑/k up • ↓/j down • enter submit • esc cancel", tmuxWaitTimeout) {
+			t.Fatalf("choose TUI help line did not render within timeout, pane:\n%s", s.capturePlain())
+		}
+		if !s.waitForLineRegexp(regexp.MustCompile(`│\s*Apple\s*$`), tmuxWaitTimeout) {
+			t.Fatalf("Apple focus row did not render within timeout, pane:\n%s", s.capturePlain())
 		}
 
-		// Navigate down to Banana
+		// Navigate down to Banana and wait for the TUI focus marker to move.
 		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("Down")
-		time.Sleep(tuiInputSettleDelay)
-
-		// Verify Banana is visible in the TUI
-		output := s.capturePlain()
-		if !strings.Contains(output, "Banana") {
-			t.Fatal("Banana not visible in TUI")
+		if !s.waitForLineRegexp(regexp.MustCompile(`│\s*Banana\s*$`), tmuxWaitTimeout) {
+			t.Fatalf("Banana focus row not visible in TUI, pane:\n%s", s.capturePlain())
 		}
 
-		// Select Banana
+		// Select Banana.
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("Enter")
 
-		// Wait for command to finish — "Banana" should be printed to stdout
-		if !s.waitFor("INVOWK_EXIT:", tmuxWaitTimeout) {
-			t.Fatal("command did not exit within timeout")
+		// Wait for dynamically expanded exit code and stdout value.
+		if !s.waitFor("INVOWK_EXIT:0 INVOWK_CHOSEN:Banana", tmuxWaitTimeout) {
+			t.Fatalf("expected INVOWK_EXIT:0 INVOWK_CHOSEN:Banana within timeout, pane:\n%s", s.capturePlain())
 		}
-
-		output = s.capturePlain()
-		if !strings.Contains(output, "Banana") {
-			t.Errorf("expected output to contain 'Banana' (selected option), got:\n%s", output)
-		}
+		assertFileContent(t, outPath, "Banana\n")
 	})
 }
 
@@ -256,34 +260,30 @@ func TestTUI_Input(t *testing.T) {
 	t.Run("type_and_submit", func(t *testing.T) {
 		t.Parallel()
 
+		outPath := filepath.Join(t.TempDir(), "out")
 		s := newTmuxSession(t, "input-type")
 
-		// Launch input with done marker
-		s.sendKeys(binaryPath+" tui input --header 'Enter name:'; echo INVOWK_EXIT:$?", "Enter")
+		command := fmt.Sprintf("%s tui input --title 'Enter name:' > %s; echo \"INVOWK_EXIT:$? INVOWK_VAL:$(cat %s)\"", binaryPath, shellQuote(outPath), shellQuote(outPath))
+		s.sendKeys(command, "Enter")
 
-		// Wait for TUI to render
-		if !s.waitFor("name", tmuxWaitTimeout) {
-			t.Fatal("TUI did not render within timeout")
+		// Wait for rendered TUI help chrome (absent from command line).
+		if !s.waitFor("enter submit • esc cancel", tmuxWaitTimeout) {
+			t.Fatalf("input TUI did not render within timeout, pane:\n%s", s.capturePlain())
 		}
 
 		time.Sleep(tuiInputSettleDelay)
-
-		// Type some text
 		s.sendKeys("Hello World")
-		time.Sleep(tuiInputSettleDelay)
+		if !s.waitForLineRegexp(regexp.MustCompile(`^\s*>\s*Hello World\s*$`), tmuxWaitTimeout) {
+			t.Fatalf("typed text did not render on input prompt row, pane:\n%s", s.capturePlain())
+		}
 
-		// Submit
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("Enter")
 
-		// Wait for command to finish — "Hello World" should be printed to stdout
-		if !s.waitFor("INVOWK_EXIT:", tmuxWaitTimeout) {
-			t.Fatal("command did not exit within timeout")
+		if !s.waitFor("INVOWK_EXIT:0 INVOWK_VAL:Hello World", tmuxWaitTimeout) {
+			t.Fatalf("expected INVOWK_EXIT:0 INVOWK_VAL:Hello World within timeout, pane:\n%s", s.capturePlain())
 		}
-
-		output := s.capturePlain()
-		if !strings.Contains(output, "Hello World") {
-			t.Errorf("expected output to contain 'Hello World' (entered text), got:\n%s", output)
-		}
+		assertFileContent(t, outPath, "Hello World\n")
 	})
 }
 
@@ -295,26 +295,26 @@ func TestTUI_Write(t *testing.T) {
 	t.Run("multiline_submit", func(t *testing.T) {
 		t.Parallel()
 
+		outPath := filepath.Join(t.TempDir(), "out")
 		s := newTmuxSession(t, "write-submit")
-		s.sendKeys(binaryPath+" tui write --title 'Enter notes'; echo INVOWK_EXIT:$?", "Enter")
+		command := fmt.Sprintf("%s tui write --title 'Enter notes' > %s; echo \"INVOWK_EXIT:$? INVOWK_WRITE:$(tr '\\n' '|' < %s)\"", binaryPath, shellQuote(outPath), shellQuote(outPath))
+		s.sendKeys(command, "Enter")
 
-		if !s.waitFor("ctrl+d submit", tmuxWaitTimeout) {
-			t.Fatal("write TUI did not render within timeout")
+		if !s.waitFor("ctrl+d submit • esc cancel", tmuxWaitTimeout) {
+			t.Fatalf("write TUI did not render within timeout, pane:\n%s", s.capturePlain())
 		}
 
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("Line 1")
 		s.sendKeys("Enter")
 		s.sendKeys("Line 2")
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("C-d")
 
-		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
-			t.Fatal("write command did not exit within timeout")
+		if !s.waitFor("INVOWK_EXIT:0 INVOWK_WRITE:Line 1|Line 2|", tmuxWaitTimeout) {
+			t.Fatalf("expected INVOWK_EXIT:0 INVOWK_WRITE:Line 1|Line 2| within timeout, pane:\n%s", s.capturePlain())
 		}
-
-		output := s.capturePlain()
-		if !strings.Contains(output, "Line 1") || !strings.Contains(output, "Line 2") {
-			t.Errorf("expected submitted text in output, got:\n%s", output)
-		}
+		assertFileContent(t, outPath, "Line 1\nLine 2\n")
 	})
 }
 
@@ -327,17 +327,19 @@ func TestTUI_Filter(t *testing.T) {
 		t.Parallel()
 
 		s := newTmuxSession(t, "filter-select")
-		s.sendKeys("export INVOWK_FILTER_ONE=alpha_opt INVOWK_FILTER_TWO=beta_opt INVOWK_FILTER_THREE=gamma_opt", "Enter")
-		s.sendKeys(binaryPath+" tui filter \"$INVOWK_FILTER_ONE\" \"$INVOWK_FILTER_TWO\" \"$INVOWK_FILTER_THREE\"; echo INVOWK_EXIT:$?", "Enter")
+		// Assemble options via split env vars so the echoed export line cannot match waitFor.
+		s.sendKeys("export INVOWK_F1A=alpha INVOWK_F1B=_opt INVOWK_F2A=beta INVOWK_F2B=_opt INVOWK_F3A=gamma INVOWK_F3B=_opt", "Enter")
+		s.sendKeys(binaryPath+" tui filter \"$INVOWK_F1A$INVOWK_F1B\" \"$INVOWK_F2A$INVOWK_F2B\" \"$INVOWK_F3A$INVOWK_F3B\"; echo INVOWK_EXIT:$?", "Enter")
 
-		if !s.waitFor("alpha_opt", tmuxWaitTimeout) {
-			t.Fatal("filter TUI did not render within timeout")
+		if !s.waitForLineRegexp(regexp.MustCompile(`│\s*alpha_opt\s*$`), tmuxWaitTimeout) {
+			t.Fatalf("filter TUI did not render focused option within timeout, pane:\n%s", s.capturePlain())
 		}
 
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("Escape")
 
 		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
-			t.Fatal("filter command did not exit within timeout")
+			t.Fatalf("filter command did not exit within timeout, pane:\n%s", s.capturePlain())
 		}
 	})
 }
@@ -356,22 +358,21 @@ func TestTUI_File(t *testing.T) {
 		}
 
 		s := newTmuxSession(t, "file-cancel")
-		command := fmt.Sprintf("%s tui file --allowed .txt %s && echo INVOWK_FILE_SELECTED || echo INVOWK_FILE_ABORTED", binaryPath, shellQuote(tmpDir))
+		command := fmt.Sprintf("%s tui file --allowed .txt %s && rc=SELECTED || rc=ABORTED; echo \"INVOWK_FILE:$rc\"", binaryPath, shellQuote(tmpDir))
 		s.sendKeys(command, "Enter")
 
-		if !s.waitFor("enter select", tmuxWaitTimeout) {
-			t.Fatal("file picker did not render within timeout")
+		if !s.waitFor("enter select • esc cancel", tmuxWaitTimeout) {
+			t.Fatalf("file picker did not render help chrome within timeout, pane:\n%s", s.capturePlain())
+		}
+		if !s.waitFor("picked.txt", tmuxWaitTimeout) {
+			t.Fatalf("file picker did not list picked.txt within timeout, pane:\n%s", s.capturePlain())
 		}
 
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("Escape")
 
-		if !s.waitFor("INVOWK_FILE_ABORTED", tmuxWaitTimeout) {
-			t.Fatal("file picker command did not abort within timeout")
-		}
-
-		output := s.capturePlain()
-		if !strings.Contains(output, "INVOWK_FILE_ABORTED") {
-			t.Errorf("expected cancellation marker in output, got:\n%s", output)
+		if !s.waitFor("INVOWK_FILE:ABORTED", tmuxWaitTimeout) {
+			t.Fatalf("file picker command did not abort within timeout, pane:\n%s", s.capturePlain())
 		}
 	})
 }
@@ -386,7 +387,7 @@ func TestTUI_Table(t *testing.T) {
 
 		tmpDir := t.TempDir()
 		csvPath := filepath.Join(tmpDir, "rows.csv")
-		csvData := "name,age\nAlice,30\nBob,25\n"
+		csvData := "tblhdr_name,tblhdr_age\nAlice,30\nBob,25\n"
 		if err := os.WriteFile(csvPath, []byte(csvData), 0o644); err != nil {
 			t.Fatalf("failed to create csv file: %v", err)
 		}
@@ -395,16 +396,12 @@ func TestTUI_Table(t *testing.T) {
 		command := fmt.Sprintf("%s tui table --file %s --selectable; echo INVOWK_EXIT:$?", binaryPath, shellQuote(csvPath))
 		s.sendKeys(command, "Enter")
 
-		// Wait for the table header to render before interacting.
-		if !s.waitFor("name", tmuxWaitTimeout) {
-			t.Log("table header 'name' not found in pane, pane content:\n" + s.capturePlain())
-			t.Fatal("table TUI did not render within timeout")
-		}
+		waitForTableContent(t, s, []string{"tblhdr_name", "tblhdr_age"}, []string{"Alice", "30"}, []string{"Bob", "25"})
 		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("Escape")
 
 		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
-			t.Fatal("table command did not exit within timeout")
+			t.Fatalf("table command did not exit within timeout, pane:\n%s", s.capturePlain())
 		}
 	})
 
@@ -415,7 +412,7 @@ func TestTUI_Table(t *testing.T) {
 
 		tmpDir := t.TempDir()
 		csvPath := filepath.Join(tmpDir, "rows.csv")
-		if err := os.WriteFile(csvPath, []byte("name,age\nAlice,30\nBob,25\n"), 0o644); err != nil {
+		if err := os.WriteFile(csvPath, []byte("tblhdr_name,tblhdr_age\nAlice,30\nBob,25\n"), 0o644); err != nil {
 			t.Fatalf("failed to create csv file: %v", err)
 		}
 
@@ -423,9 +420,7 @@ func TestTUI_Table(t *testing.T) {
 		command := fmt.Sprintf("%s tui table --file %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(csvPath))
 		s.sendKeys(command, "Enter")
 
-		if !s.waitFor("name", tmuxWaitTimeout) {
-			t.Fatalf("table did not render within timeout, pane:\n%s", s.capturePlain())
-		}
+		waitForTableContent(t, s, []string{"tblhdr_name", "tblhdr_age"}, []string{"Alice", "30"}, []string{"Bob", "25"})
 		time.Sleep(tuiInputSettleDelay)
 		if pane := s.capturePlain(); strings.Contains(pane, "INVOWK_EXIT:0") {
 			t.Fatalf("table exited before a key press, pane:\n%s", pane)
@@ -507,18 +502,33 @@ func TestTUI_Spin(t *testing.T) {
 	t.Run("run_command", func(t *testing.T) {
 		t.Parallel()
 
+		goPath := filepath.Join(t.TempDir(), "go")
 		s := newTmuxSession(t, "spin-run")
-		spinMarker := fmt.Sprintf("INVOWK_SPIN_DONE_%d", time.Now().UnixNano())
-		s.sendKeys("export INVOWK_SPIN_MARKER="+spinMarker, "Enter")
-		s.sendKeys(binaryPath+" tui spin --title 'Running...' -- sh -c \"echo $INVOWK_SPIN_MARKER\"; echo INVOWK_EXIT:$?", "Enter")
+		suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
+		spinMarker := "INVOWK_SPIN_DONE_" + suffix
+		// Split title and marker across env vars so the echoed command line cannot
+		// satisfy checks, and hold exit via goPath until the spinner is rendered
+		// and startup terminal replies have drained cleanly.
+		s.sendKeys("export INVOWK_RT1=Spin INVOWK_RT2=Running INVOWK_SM1=INVOWK_SPIN_DONE_ INVOWK_SM2="+suffix, "Enter")
+		command := fmt.Sprintf(`%s tui spin --title "$INVOWK_RT1$INVOWK_RT2" -- sh -c 'while [ ! -f %s ]; do sleep 0.05; done; echo "$INVOWK_SM1$INVOWK_SM2"'; echo INVOWK_EXIT:$?`,
+			binaryPath, shellQuote(goPath))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("SpinRunning", tmuxWaitTimeout) {
+			t.Fatalf("spinner did not render within timeout, pane:\n%s", s.capturePlain())
+		}
+		time.Sleep(tuiInputSettleDelay)
+		if err := os.WriteFile(goPath, nil, 0o644); err != nil {
+			t.Fatalf("failed to write spin gate file: %v", err)
+		}
 
 		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
-			t.Fatal("spin command did not exit within timeout")
+			t.Fatalf("spin command did not exit within timeout, pane:\n%s", s.capturePlain())
 		}
 
 		output := s.capturePlain()
-		if !strings.Contains(output, spinMarker) {
-			t.Errorf("expected spin command output in pane, got:\n%s", output)
+		if !paneHasLine(output, spinMarker) {
+			t.Errorf("expected spin command output line %q in pane, got:\n%s", spinMarker, output)
 		}
 	})
 
@@ -595,18 +605,32 @@ func writeTableRowsCSV(t *testing.T) string {
 // below their titles, each row on its own line, and fails the test otherwise.
 func waitForTableRows(t *testing.T, s *tmuxSession) {
 	t.Helper()
+	waitForTableContent(t, s, []string{"name", "age", "city"}, []string{"Alice", "30", "NYC"}, []string{"Bob", "25", "LA"})
+}
+
+// waitForTableContent polls until the pane displays every expected table row
+// strictly in order, each on its own line.
+func waitForTableContent(t *testing.T, s *tmuxSession, expectedRows ...[]string) {
+	t.Helper()
 
 	deadline := time.Now().Add(tmuxWaitTimeout)
 	for {
 		pane := s.capturePlain()
-		header := paneLineWithFields(pane, "name", "age", "city")
-		alice := paneLineWithFields(pane, "Alice", "30", "NYC")
-		bob := paneLineWithFields(pane, "Bob", "25", "LA")
-		if header >= 0 && alice > header && bob > alice {
+		prev := -1
+		matched := true
+		for _, fields := range expectedRows {
+			idx := paneLineWithFields(pane, fields...)
+			if idx <= prev {
+				matched = false
+				break
+			}
+			prev = idx
+		}
+		if matched {
 			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("table rows not drawn on separate lines below the titles (header %d, Alice %d, Bob %d), pane:\n%s", header, alice, bob, pane)
+			t.Fatalf("table rows %v not drawn in order on separate lines, pane:\n%s", expectedRows, pane)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -655,19 +679,18 @@ func TestTUI_Pager(t *testing.T) {
 		command := fmt.Sprintf("%s tui pager %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(pagerPath))
 		s.sendKeys(command, "Enter")
 
+		if !s.waitFor("↑/↓: navigate • q/Enter: close", tmuxWaitTimeout) {
+			t.Fatalf("pager help chrome did not render within timeout, pane:\n%s", s.capturePlain())
+		}
 		if !s.waitFor("Line 01", tmuxWaitTimeout) {
-			t.Fatal("pager did not render within timeout")
+			t.Fatalf("pager content did not render within timeout, pane:\n%s", s.capturePlain())
 		}
 
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("q")
 
 		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
-			t.Fatal("pager command did not exit within timeout")
-		}
-
-		output := s.capturePlain()
-		if !strings.Contains(output, "INVOWK_EXIT:0") {
-			t.Errorf("expected zero exit marker in output, got:\n%s", output)
+			t.Fatalf("pager command did not exit within timeout, pane:\n%s", s.capturePlain())
 		}
 	})
 
