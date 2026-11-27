@@ -58,10 +58,7 @@ func (p virtualInteractiveSubprocess) Validate() error {
 //goplint:ignore -- internal helper coordinates temp script labels from runtime adapters.
 func prepareVirtualInteractiveSubprocess(
 	ctx *ExecutionContext,
-	script string,
-	tempPattern string,
-	scriptLabel string,
-	interactiveLabel string,
+	script, tempPattern, scriptLabel, interactiveLabel string,
 	envBuilder EnvBuilder,
 ) (*virtualInteractiveSubprocess, error) {
 	tempPath, err := writeVirtualInteractiveScript(script, tempPattern, scriptLabel)

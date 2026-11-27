@@ -48,8 +48,7 @@ func CheckMissingVendoredTransitiveDeps(requirements []ModuleRequirement, vendor
 
 func appendMissingTransitiveDeps(
 	diags *[]MissingTransitiveDepDiagnostic,
-	seen map[ModuleRefKey]bool,
-	rootKeys map[ModuleRefKey]bool,
+	seen, rootKeys map[ModuleRefKey]bool,
 	requiringModule ModuleID,
 	requiringURL GitURL,
 	deps []ModuleRef,

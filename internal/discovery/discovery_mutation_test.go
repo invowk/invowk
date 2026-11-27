@@ -469,10 +469,8 @@ func discoveryMutationInvowkfile(t *testing.T, moduleID invowkmod.ModuleID) *inv
 
 func discoveryMutationModuleFile(
 	t *testing.T,
-	modulePath string,
-	filePath string,
-	moduleID invowkmod.ModuleID,
-	invowkfileModuleID invowkmod.ModuleID,
+	modulePath, filePath string,
+	moduleID, invowkfileModuleID invowkmod.ModuleID,
 ) *DiscoveredFile {
 	t.Helper()
 
@@ -490,8 +488,7 @@ func discoveryMutationModuleFile(
 func discoveryMutationVendoredModuleFile(
 	t *testing.T,
 	modulePath string,
-	moduleID invowkmod.ModuleID,
-	parentID invowkmod.ModuleID,
+	moduleID, parentID invowkmod.ModuleID,
 	namespace SourceID,
 ) *DiscoveredFile {
 	t.Helper()

@@ -272,8 +272,7 @@ func validationStructureCommandMutationInvowkfile() *Invowkfile {
 func requireValidationStructureCommandIssue(
 	t *testing.T,
 	errs ValidationErrors,
-	wantField string,
-	wantMessage string,
+	wantField, wantMessage string,
 ) ValidationError {
 	t.Helper()
 

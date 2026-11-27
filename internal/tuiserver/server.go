@@ -22,9 +22,14 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// maxBindAttempts bounds how often Start retries binding every plan address
-// at one shared port.
-const maxBindAttempts = 5
+const (
+	// maxBindAttempts bounds how often Start retries binding every plan address
+	// at one shared port.
+	maxBindAttempts = 5
+
+	// headerContentType is the HTTP Content-Type response header name.
+	headerContentType = "Content-Type"
+)
 
 // errServerStoppedDuringStart is returned by Start when Stop ran before the
 // server became ready.
@@ -265,7 +270,7 @@ func (s *Server) serveListeners(listeners []net.Listener) error {
 			if serveErr := s.httpServer.Serve(l); !errors.Is(serveErr, http.ErrServerClosed) {
 				s.shutdownOnce.Do(func() { close(s.shutdownCh) })
 				s.closeRequestChannel()
-				if failedErr := s.base.TransitionToFailed(fmt.Errorf("serve error: %w", serveErr)); failedErr != nil {
+				if s.base.TransitionToFailed(fmt.Errorf("serve error: %w", serveErr)) != nil {
 					_ = s.httpServer.Close() // Stop the remaining listeners.
 				}
 			}
@@ -288,7 +293,7 @@ func (s *Server) requireToken(next http.Handler) http.Handler {
 	expected := []byte("Bearer " + string(s.token))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), expected) != 1 {
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Header().Set(headerContentType, "text/plain; charset=utf-8")
 			w.WriteHeader(http.StatusUnauthorized)
 			_, _ = w.Write([]byte("unauthorized"))
 			return
@@ -362,7 +367,7 @@ func (s *Server) handleTUI(w http.ResponseWriter, r *http.Request) {
 	// Wait for the response from the parent Bubbletea program
 	select {
 	case resp := <-responseCh:
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(headerContentType, "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
 	case <-s.shutdownCh:
 		s.sendError(w, "server shutting down", http.StatusServiceUnavailable)
@@ -373,7 +378,7 @@ func (s *Server) handleTUI(w http.ResponseWriter, r *http.Request) {
 
 // sendError sends an error response.
 func (s *Server) sendError(w http.ResponseWriter, msg string, statusCode int) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, "application/json")
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(Response{Error: msg})
 }

@@ -73,7 +73,7 @@ func TestDiscoveryRequestCacheReuseMatchesNoCwd(t *testing.T) {
 	cwdCtx := ContextWithDiscoveryRequestCache(ContextWithNoCwd(t.Context(), false))
 	cwdCache := discoveryCacheFromContext(cwdCtx)
 
-	if got := discoveryCacheFromContext(ContextWithDiscoveryRequestCache(cwdCtx)); got != cwdCache {
+	if discoveryCacheFromContext(ContextWithDiscoveryRequestCache(cwdCtx)) != cwdCache {
 		t.Fatal("same no-cwd value must reuse the parent cache")
 	}
 	noCwdCtx := ContextWithDiscoveryRequestCache(ContextWithNoCwd(cwdCtx, true))

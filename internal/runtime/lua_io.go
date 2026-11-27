@@ -49,8 +49,7 @@ func installLuaIOBridge(
 	pathValidator virtualPathValidator,
 	workDir string,
 	stdin io.Reader,
-	stdout io.Writer,
-	stderr io.Writer,
+	stdout, stderr io.Writer,
 ) []*luart.GoFunction {
 	if stdin == nil {
 		stdin = bytes.NewReader(nil)

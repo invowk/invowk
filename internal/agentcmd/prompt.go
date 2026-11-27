@@ -185,9 +185,7 @@ func RenderModulePrompt(format, operation string) (string, error) {
 }
 
 func renderPrompt(
-	format string,
-	target string,
-	operation string,
+	format, target, operation string,
 	build func(AuthoringOperation) PromptDocument,
 ) (string, error) {
 	ops, err := promptOperations(operation)

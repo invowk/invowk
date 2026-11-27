@@ -256,8 +256,7 @@ func assertArtifactWalkerVisitorFailure(
 	t *testing.T,
 	root types.FilesystemPath,
 	action artifactWalkAction,
-	visitorErr error,
-	want error,
+	visitorErr, want error,
 	wantText string,
 ) {
 	t.Helper()

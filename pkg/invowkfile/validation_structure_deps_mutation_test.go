@@ -304,8 +304,7 @@ func validationStructureDepsMutationInvowkfile() *Invowkfile {
 func requireValidationStructureDepsIssue(
 	t *testing.T,
 	errs ValidationErrors,
-	wantField string,
-	wantMessage string,
+	wantField, wantMessage string,
 ) ValidationError {
 	t.Helper()
 

@@ -504,8 +504,7 @@ func runFilepathAlternativeValidation(
 	fp invowkfile.FilepathDependency,
 	invowkDir types.FilesystemPath,
 	probeErrors map[types.FilesystemPath]error,
-	useWrapper bool,
-	nilProbe bool,
+	useWrapper, nilProbe bool,
 ) error {
 	if useWrapper {
 		return ValidateFilepathAlternatives(fp, invowkDir)

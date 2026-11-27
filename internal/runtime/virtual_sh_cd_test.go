@@ -154,7 +154,7 @@ func TestVirtualShCdQuietCases(t *testing.T) {
 		if run.exit != 1 {
 			t.Errorf("cd \"\" exit = %d, want 1", run.exit)
 		}
-		if got := strings.TrimSpace(run.stderr); got != "cd: empty directory path" {
+		if strings.TrimSpace(run.stderr) != "cd: empty directory path" {
 			t.Errorf("stderr = %q, want only mvdan's empty-path message", run.stderr)
 		}
 	})

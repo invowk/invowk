@@ -134,7 +134,7 @@ func TestRescopeRegisteredCommand(t *testing.T) {
 	if got := rescopeRegisteredCommand(noCwdCtx, env.app, "g glob"); got == nil || got.Name != "g glob" {
 		t.Fatalf("rescope(g glob) under --ivk-no-cwd = %v, want the user commands dir command", got)
 	}
-	if got := rescopeRegisteredCommand(contextWithDiscoveryScope(t.Context(), "", false), env.app, "local"); got == nil {
+	if rescopeRegisteredCommand(contextWithDiscoveryScope(t.Context(), "", false), env.app, "local") == nil {
 		t.Fatal("rescope(local) without the switch = nil, want the cwd command")
 	}
 }

@@ -41,8 +41,7 @@ type FileProcessor func(r io.Reader, filename string, index, total int) error
 func ProcessFilesOrStdin(
 	args []string,
 	stdin io.Reader,
-	workDir string,
-	cmdName string,
+	workDir, cmdName string,
 	processor FileProcessor,
 ) (err error) {
 	return ProcessFilesOrStdinWithContext(args, &HandlerContext{Stdin: stdin, Dir: workDir}, cmdName, processor)

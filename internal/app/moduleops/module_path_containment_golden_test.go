@@ -34,15 +34,27 @@ const (
 	absoluteInModuleLinkClass = "in-module link with an absolute target"
 )
 
-// goldenPass is one materialisation of the golden. absoluteClass holds the
-// read kinds whose code is physically contained through os.Root, so that a
-// read through an absolute-target link is denied where the model accepts it.
-type goldenPass struct {
-	name          string
-	opts          fstree.Options
-	linksOnly     bool
-	absoluteClass map[mpctree.OpKind]bool
-}
+type (
+	// goldenPass is one materialisation of the golden. absoluteClass holds the
+	// read kinds whose code is physically contained through os.Root, so that a
+	// read through an absolute-target link is denied where the model accepts it.
+	goldenPass struct {
+		name          string
+		opts          fstree.Options
+		linksOnly     bool
+		absoluteClass map[mpctree.OpKind]bool
+	}
+
+	envReadReplay struct {
+		pass       string
+		index      int
+		c          mpctree.Case
+		built      *fstree.Built
+		admit      bool
+		validates  bool
+		classified bool
+	}
+)
 
 // TestModulePathContainment_GoldenVectors replays every operation in design D5.2
 // against the real functions on a materialised filesystem: for each instance it
@@ -187,7 +199,15 @@ func replayInstance(report *mpctree.Reporter, pass string, i int, c mpctree.Case
 			}
 		}
 	case mpctree.EnvRead:
-		replayEnvRead(report, pass, i, c, b, admit, gotValidate, classified)
+		replayEnvRead(report, envReadReplay{
+			pass:       pass,
+			index:      i,
+			c:          c,
+			built:      b,
+			admit:      admit,
+			validates:  gotValidate,
+			classified: classified,
+		})
 	case mpctree.ContainerfileRef, mpctree.WorkdirCwd, mpctree.VendorCopy, mpctree.Hash, mpctree.Unpack:
 		// no read effect replayed here (copy and hash: assertCopyHashNoEscape)
 	}
@@ -220,43 +240,43 @@ func realCustomCheckRead(moduleRoot, pathStr string) (accept bool, touched strin
 // carries; a touched node that is not a regular file, or none at all, must
 // make LoadEnvFile fail with a non-containment error. A denied vector merges
 // no variable.
-func replayEnvRead(report *mpctree.Reporter, pass string, i int, c mpctree.Case, b *fstree.Built, admit, validates, classified bool) {
-	wantAccept := c.Accepts && !classified
-	if !admit || !validates {
+func replayEnvRead(report *mpctree.Reporter, replay envReadReplay) {
+	wantAccept := replay.c.Accepts && !replay.classified
+	if !replay.admit || !replay.validates {
 		if wantAccept {
-			report.Errorf("%s instance %d EnvRead: real admit=%v validate=%v, model accepts", pass, i, admit, validates)
+			report.Errorf("%s instance %d EnvRead: real admit=%v validate=%v, model accepts", replay.pass, replay.index, replay.admit, replay.validates)
 		}
 		return
 	}
 	env := map[string]string{}
-	moduleRoot := b.Path[c.OwnerAtom]
-	err := ivkruntime.LoadEnvFile(env, c.RelPath(b), moduleRoot, moduleRoot)
+	moduleRoot := replay.built.Path[replay.c.OwnerAtom]
+	err := ivkruntime.LoadEnvFile(env, replay.c.RelPath(replay.built), moduleRoot, moduleRoot)
 	codeAccept := !errors.Is(err, ivkruntime.ErrEnvFileOutsideModule)
 	if codeAccept != wantAccept {
 		report.Errorf("%s instance %d EnvRead: real accept=%v, want %v (model %v, classified %v, err %v)",
-			pass, i, codeAccept, wantAccept, c.Accepts, classified, err)
+			replay.pass, replay.index, codeAccept, wantAccept, replay.c.Accepts, replay.classified, err)
 		return
 	}
 	if !codeAccept {
 		if len(env) != 0 {
-			report.Errorf("%s instance %d EnvRead: denied read merged %v", pass, i, env)
+			report.Errorf("%s instance %d EnvRead: denied read merged %v", replay.pass, replay.index, env)
 		}
 		return
 	}
-	touch := nodeByAtom(c, c.TouchAtom)
-	if c.TouchAtom == "" || touch.Kind != fstree.KindFile {
+	touch := nodeByAtom(replay.c, replay.c.TouchAtom)
+	if replay.c.TouchAtom == "" || touch.Kind != fstree.KindFile {
 		if err == nil {
 			report.Errorf("%s instance %d EnvRead: LoadEnvFile loaded %q, but the model touches no regular file (atom %q)",
-				pass, i, env[mpctree.AtomEnvKey], c.TouchAtom)
+				replay.pass, replay.index, env[mpctree.AtomEnvKey], replay.c.TouchAtom)
 		}
 		return
 	}
 	if err != nil {
-		report.Errorf("%s instance %d EnvRead: LoadEnvFile failed on the model's touched file %q: %v", pass, i, c.TouchAtom, err)
+		report.Errorf("%s instance %d EnvRead: LoadEnvFile failed on the model's touched file %q: %v", replay.pass, replay.index, replay.c.TouchAtom, err)
 		return
 	}
-	if got, want := env[mpctree.AtomEnvKey], mpctree.AtomTag(c.TouchAtom); got != want {
-		report.Errorf("%s instance %d EnvRead: LoadEnvFile loaded %q, model touches %q", pass, i, got, want)
+	if got, want := env[mpctree.AtomEnvKey], mpctree.AtomTag(replay.c.TouchAtom); got != want {
+		report.Errorf("%s instance %d EnvRead: LoadEnvFile loaded %q, model touches %q", replay.pass, replay.index, got, want)
 	}
 }
 
