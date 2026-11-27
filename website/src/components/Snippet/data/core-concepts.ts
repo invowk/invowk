@@ -793,13 +793,13 @@ platforms: [
 
 // Native runtime: no additional fields
 #RuntimeConfigNative: close({
-    #RuntimeConfigBase
+    #RuntimeConfigBase...
     name: "native"
 })
 
 // Virtual-sh runtime
 #RuntimeConfigVirtualSh: close({
-    #RuntimeConfigBase
+    #RuntimeConfigBase...
     name: "virtual-sh"
     allowed_binaries?: [...string]
     binary_lookup_mode?: "host" | "strict"
@@ -807,7 +807,7 @@ platforms: [
 
 // Virtual-lua runtime
 #RuntimeConfigVirtualLua: close({
-    #RuntimeConfigBase
+    #RuntimeConfigBase...
     name: "virtual-lua"
     allowed_binaries?: [...string]
     binary_lookup_mode?: "host" | "strict"
@@ -817,7 +817,7 @@ platforms: [
 
 // Container runtime: exactly one source + extras
 #RuntimeConfigContainerBase: {
-    #RuntimeConfigBase
+    #RuntimeConfigBase...
     name:              "container"
     enable_host_ssh?:  bool
     volumes?:          [...string]
@@ -826,13 +826,13 @@ platforms: [
 }
 
 #RuntimeConfigContainerWithImage: close({
-    #RuntimeConfigContainerBase
+    #RuntimeConfigContainerBase...
     image:          string
     containerfile?: _|_
 })
 
 #RuntimeConfigContainerWithContainerfile: close({
-    #RuntimeConfigContainerBase
+    #RuntimeConfigContainerBase...
     containerfile: string
     image?:        _|_
 })

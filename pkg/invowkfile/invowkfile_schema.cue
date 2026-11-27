@@ -81,12 +81,12 @@ import "strings"
 }
 
 #RuntimeConfigNative: close({
-	#RuntimeConfigBase
+	#RuntimeConfigBase...
 	name: "native"
 })
 
 #RuntimeConfigVirtualBase: {
-	#RuntimeConfigBase
+	#RuntimeConfigBase...
 
 	// allowed_binaries lists host binaries this virtual runtime may execute.
 	// "*" allows any resolved host binary.
@@ -98,12 +98,12 @@ import "strings"
 }
 
 #RuntimeConfigVirtualSh: close({
-	#RuntimeConfigVirtualBase
+	#RuntimeConfigVirtualBase...
 	name: "virtual-sh"
 })
 
 #RuntimeConfigVirtualLua: close({
-	#RuntimeConfigVirtualBase
+	#RuntimeConfigVirtualBase...
 	name: "virtual-lua"
 
 	// cpu_limit sets an optional golua CPU quota. Zero or omission means unlimited.
@@ -116,7 +116,7 @@ import "strings"
 #RuntimeConfigContainer: #RuntimeConfigContainerWithImage | #RuntimeConfigContainerWithContainerfile
 
 #RuntimeConfigContainerBase: {
-	#RuntimeConfigBase
+	#RuntimeConfigBase...
 	name: "container"
 
 	// enable_host_ssh enables SSH access from container back to host (optional)
@@ -150,7 +150,7 @@ import "strings"
 }
 
 #RuntimeConfigContainerWithImage: close({
-	#RuntimeConfigContainerBase
+	#RuntimeConfigContainerBase...
 
 	// image specifies the pre-built container image source.
 	// Exactly one of image or containerfile is required; CUE models the parsed
@@ -163,7 +163,7 @@ import "strings"
 })
 
 #RuntimeConfigContainerWithContainerfile: close({
-	#RuntimeConfigContainerBase
+	#RuntimeConfigContainerBase...
 
 	// containerfile specifies the path to Containerfile/Dockerfile relative to invowkfile.
 	// Exactly one of containerfile or image is required; CUE models the parsed
@@ -221,7 +221,7 @@ import "strings"
 #ScriptSource: #ScriptSourceContent | #ScriptSourceFile
 
 #ScriptSourceContent: close({
-	#ScriptSourceCommon
+	#ScriptSourceCommon...
 
 	// content contains inline script text.
 	content: #NonWhitespaceString & strings.MaxRunes(10485760)
@@ -231,7 +231,7 @@ import "strings"
 })
 
 #ScriptSourceFile: close({
-	#ScriptSourceCommon
+	#ScriptSourceCommon...
 
 	// file references a script file resolved at execution time.
 	// File references are allowed only for invowkfiles loaded from an invowkmod,

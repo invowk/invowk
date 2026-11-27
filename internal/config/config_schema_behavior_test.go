@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -108,6 +109,9 @@ func TestConfigSchemaRejectsUnknownFields(t *testing.T) {
 		{name: "root unknown", cue: `future_field: true`},
 		{name: "nested ui unknown", cue: `ui: {accent_color: "blue"}`},
 		{name: "nested auto provision unknown", cue: `container: {auto_provision: {extra: true}}`},
+		{name: "llm defaults unknown", cue: `llm: {model: "gpt-5", extra: true}`},
+		{name: "llm provider unknown", cue: `llm: {provider: "codex", model: "o4", extra: true}`},
+		{name: "llm api backend unknown", cue: `llm: {api: {base_url: "https://example.com/v1"}, model: "gpt-5", extra: true}`},
 	}
 
 	for _, tt := range tests {
@@ -120,6 +124,71 @@ func TestConfigSchemaRejectsUnknownFields(t *testing.T) {
 			}
 			if !errors.Is(err, ErrConfigLoadFailed) {
 				t.Fatalf("loadWithOptions() error = %v, want ErrConfigLoadFailed", err)
+			}
+			if !strings.Contains(err.Error(), "not allowed") {
+				t.Fatalf("loadWithOptions() error = %v, want unknown-field 'not allowed' diagnostic", err)
+			}
+		})
+	}
+}
+
+func TestConfigSchemaAcceptsLLMVariantInheritedFields(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		cue       string
+		wantModel LLMModelName
+		wantTime  LLMTimeout
+		wantConc  LLMConcurrency
+		wantProv  LLMProvider
+		wantURL   LLMBaseURL
+		wantEnv   LLMCredentialEnvVar
+	}{
+		{
+			name:      "llm defaults variant",
+			cue:       `llm: {model: "gpt-5", timeout: "30s", concurrency: 2}`,
+			wantModel: "gpt-5",
+			wantTime:  "30s",
+			wantConc:  2,
+		},
+		{
+			name:      "llm provider variant",
+			cue:       `llm: {provider: "codex", model: "o4", timeout: "30s", concurrency: 1}`,
+			wantProv:  "codex",
+			wantModel: "o4",
+			wantTime:  "30s",
+			wantConc:  1,
+		},
+		{
+			name:      "llm api backend variant",
+			cue:       `llm: {api: {base_url: "https://example.com/v1", api_key_env: "OPENAI_API_KEY"}, model: "gpt-5", timeout: "45s", concurrency: 4}`,
+			wantModel: "gpt-5",
+			wantTime:  "45s",
+			wantConc:  4,
+			wantURL:   "https://example.com/v1",
+			wantEnv:   "OPENAI_API_KEY",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, err := decodeCUEConfigSource(configCUESource{
+				data:     configCUEData(tt.cue),
+				filename: configCUEFilename("llm-variant.cue"),
+			})
+			if err != nil {
+				t.Fatalf("decodeCUEConfigSource() error = %v, want nil", err)
+			}
+			if cfg.LLM.Model != tt.wantModel || cfg.LLM.Timeout != tt.wantTime || cfg.LLM.Concurrency != tt.wantConc {
+				t.Fatalf("LLM common fields = (%q, %q, %d), want (%q, %q, %d)",
+					cfg.LLM.Model, cfg.LLM.Timeout, cfg.LLM.Concurrency, tt.wantModel, tt.wantTime, tt.wantConc)
+			}
+			if cfg.LLM.Provider != tt.wantProv || cfg.LLM.API.BaseURL != tt.wantURL || cfg.LLM.API.CredentialEnv != tt.wantEnv {
+				t.Fatalf("LLM variant fields = (provider=%q, url=%q, env=%q), want (%q, %q, %q)",
+					cfg.LLM.Provider, cfg.LLM.API.BaseURL, cfg.LLM.API.CredentialEnv, tt.wantProv, tt.wantURL, tt.wantEnv)
 			}
 		})
 	}

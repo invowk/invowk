@@ -158,18 +158,18 @@ import "strings"
 }
 
 #LLMDefaultsConfig: close({
-	#LLMCommonConfig
+	#LLMCommonConfig...
 })
 
 #LLMProviderConfig: close({
-	#LLMCommonConfig
+	#LLMCommonConfig...
 
 	// provider selects a supported LLM harness/provider.
 	provider: #LLMProviderType
 })
 
 #LLMAPIBackendConfig: close({
-	#LLMCommonConfig
+	#LLMCommonConfig...
 
 	// api configures an OpenAI-compatible endpoint. Do not store raw API keys here;
 	// use api_key_env to name an environment variable that contains the secret.

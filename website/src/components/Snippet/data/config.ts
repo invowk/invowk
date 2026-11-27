@@ -206,16 +206,16 @@ container: {
 }
 
 #LLMDefaultsConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
 })
 
 #LLMProviderConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
     provider: #LLMProviderType
 })
 
 #LLMAPIBackendConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
     api: #LLMAPIConfig
 })
 
@@ -640,16 +640,16 @@ import "strings"
 }
 
 #LLMDefaultsConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
 })
 
 #LLMProviderConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
     provider: #LLMProviderType
 })
 
 #LLMAPIBackendConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
     api: #LLMAPIConfig
 })
 
@@ -726,16 +726,16 @@ import "strings"
 }
 
 #LLMDefaultsConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
 })
 
 #LLMProviderConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
     provider: #LLMProviderType
 })
 
 #LLMAPIBackendConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
     api: #LLMAPIConfig
 })
 
@@ -869,16 +869,16 @@ import "strings"
 }
 
 #LLMDefaultsConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
 })
 
 #LLMProviderConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
     provider: #LLMProviderType
 })
 
 #LLMAPIBackendConfig: close({
-    #LLMCommonConfig
+    #LLMCommonConfig...
     api: #LLMAPIConfig
 })`,
   },
