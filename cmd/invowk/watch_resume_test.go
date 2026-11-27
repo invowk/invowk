@@ -540,7 +540,7 @@ func TestRunWatchMode_RealNativeChildStripsHostToken(t *testing.T) {
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: {content: "if ($env:OSC7577_TOKEN) { \"TOK=$($env:OSC7577_TOKEN)\" } else { 'TOK=empty' } | Out-File -Append -Encoding utf8 child.out"}
+				script: {content: "$v = if ($env:OSC7577_TOKEN) { \"TOK=$($env:OSC7577_TOKEN)\" } else { 'TOK=empty' }; Add-Content -Path child.out -Value $v"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "windows"}]
 			}
