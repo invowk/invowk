@@ -279,9 +279,23 @@ When `true`, auto-provisioning failures are treated as hard errors instead of wa
 #### container.auto_provision.cache_dir
 
 **Type:** `string`
-**Default:** *(empty — uses platform-specific default, typically `~/.cache/invowk/provision`)*
+**Default:** *(empty — defaults to `~/.cache/invowk/provision` when home is available, falling back to `~/invowk-build` or a temporary `invowk-build-*` directory in the OS temp dir)*
 
 Overrides the parent directory used for provision build contexts and cached image metadata.
+
+#### container.tui_server_bind
+
+**Type:** `"restricted" | "all-interfaces"`
+**Default:** `"restricted"`
+
+Controls how widely the TUI server of an interactive container run (`-i`) may listen. Host runtimes (native, virtual-sh, virtual-lua) always bind `127.0.0.1` and ignore this key.
+
+- `"restricted"`: the server binds loopback plus, at most, the one address a verified engine mode routes to the host (the bridge gateway under local rootful Docker on Linux; nothing extra under Docker Desktop or ephemeral rootless Podman with pasta). In engine modes without such a route, an interactive run is **refused** before start (exit status 1), with an error that names this key; the same command without `-i` still runs.
+- `"all-interfaces"`: in those modes, and under Docker Desktop, the server binds `0.0.0.0` as before v0.17.0, so anyone who can reach the host can reach the port (the per-session token still guards it). Invowk prints an exposure warning at every such run. The verified narrow modes keep their narrow bind.
+
+<Snippet id="config/container-tui-server-bind" />
+
+This key is user configuration only: invowk reads it from the config file it selects, the `--ivk-config` or `INVOWK_CONFIG` file when one is given (your user config file is then not read), otherwise your user config file. It never reads it from an invowkfile or module, so a repository cannot widen the bind. See [Interactive mode](../advanced/interactive-mode.mdx#container-runtime-support) for the per-engine rules.
 
 ## Complete Example
 

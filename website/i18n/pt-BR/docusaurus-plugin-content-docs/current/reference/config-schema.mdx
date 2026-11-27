@@ -379,7 +379,7 @@ Quando `true`, as entradas de `includes` do nível raiz são automaticamente her
 
 **Tipo:** `string`
 **Obrigatório:** Não
-**Padrão:** *(vazio — usa o padrão específico da plataforma, tipicamente `~/.cache/invowk/provision`)*
+**Padrão:** *(vazio — usa `~/.cache/invowk/provision` por padrão quando a pasta home está disponível, fazendo fallback para `~/invowk-build` ou um diretório temporário `invowk-build-*` no diretório temporário do SO)*
 
 Sobrescreve o diretório pai usado para contextos de build de provisionamento e metadados de imagens em cache.
 

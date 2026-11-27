@@ -23,7 +23,8 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 | **Runtime** | `Name()`, `Execute()`, `Available()`, `Validate()` | Contrato principal de execução. Todos os runtimes implementam este. `Execute` retorna um `*Result` com exit code e erro -- exit code diferente de zero sem erro é uma saída normal de processo; erro indica falha de infraestrutura. |
 | **CapturingRuntime** | `ExecuteCapture()` | Capacidade opcional de captura de saída. Retorna um `*Result` com campos `Output` e `ErrOutput` preenchidos. Não embarca `Runtime`. |
 | **InteractiveRuntime** | `SupportsInteractive()`, `PrepareInteractive()` | Capacidade de attachment de PTY. Embarca `Runtime`. Retorna um `PreparedCommand` com um `exec.Cmd` pronto para attachment de PTY e uma função de cleanup. |
-| **HostServiceAddressProvider** | `HostServiceAddress()` | Capacidade opcional para runtimes cujos processos filhos precisam de um endereço diferente de localhost para alcançar serviços do host, como o servidor TUI. Implementada por ContainerRuntime. |
+| **HostServiceAddressProvider** | `HostServiceAddress()` | Capacidade opcional para runtimes cujos processos filhos precisam de um endereço diferente de localhost para alcançar serviços do host, como o servidor de callback SSH do host. Implementada por ContainerRuntime. O servidor TUI não a utiliza mais. |
+| **Planejador de exposição TUI** | `PlanTUIExposure()` | Capacidade opcional declarada pelo seu consumidor (`internal/app/commandadapters`). Implementada por ContainerRuntime para retornar um `containerplan.TUIExposurePlan` antes de o servidor TUI iniciar; runtimes sem ela recebem o plano loopback. |
 | **EnvBuilder** | `Build()` | Construção de variáveis de ambiente seguindo uma hierarquia de precedência de 10 níveis (env do host no nível 1 até flags CLI `--ivk-env-var` no nível 10). |
 
 ## Implementações
@@ -46,7 +47,7 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 | **ExecutionContext** | Estrutura de dados principal para execução de comandos. Composta de subtipos `IOContext`, `EnvContext` e `TUIContext` mais metadados do comando, runtime/implementação selecionados e ID de execução. |
 | **IOContext** | Agrupa streams de I/O: `Stdout`, `Stderr`, `Stdin`. Funções factory `DefaultIO()` e `CaptureIO()` fornecem configurações comuns. |
 | **EnvContext** | Agrupa configuração de variáveis de ambiente: `ExtraEnv` (INVOWK_FLAG_\*, INVOWK_ARG_\*), `RuntimeEnvVars` (--ivk-env-var), `RuntimeEnvFiles` (--ivk-env-file) e overrides de herança. |
-| **TUIContext** | Agrupa detalhes de conexão do servidor TUI: `ServerURL` e `ServerToken`. |
+| **TUIContext** | Agrupa detalhes de conexão do servidor TUI: `ServerURL`, `ServerToken` e o `NetworkMode` de container do plano (ex.: `pasta:-T,<port>` para Podman rootless). |
 | **Result** | Resultado de execução: `ExitCode`, `Error`, `Output` (stdout capturado), `ErrOutput` (stderr capturado) e `Diagnostics []InitDiagnostic` para avisos não fatais de inicialização/provisionamento do runtime. O serviço de comandos converte esses diagnósticos no resultado de execução para renderização. |
 | **PreparedCommand** | Retornado por `PrepareInteractive()`: contém um `exec.Cmd` pronto para attachment de PTY (stdio e `SysProcAttr` sem valor: o adapter interativo conecta o PTY e, no Unix, inicia o comando em uma nova sessão com o PTY como terminal de controle) e uma função `Cleanup` opcional. |
 

@@ -323,6 +323,16 @@ container: {
 }`,
   },
 
+  'config/container-tui-server-bind': {
+    language: 'cue',
+    code: `container: {
+    // Restores the pre-v0.17.0 wide bind for container modes without a
+    // narrow route, which otherwise refuse -i runs. Invowk warns at every
+    // such run.
+    tui_server_bind: "all-interfaces"
+}`,
+  },
+
   'config/minimal-example': {
     language: 'cue',
     code: `// Just override what you need
@@ -470,6 +480,27 @@ invowk --ivk-config /path/to/config.cue config show
 
 # Or use the short flag
 invowk -c /path/to/config.cue cmd build`,
+  },
+
+  'reference/config/env-config-path': {
+    language: 'bash',
+    code: `# Select the config file for every invowk call in this shell.
+# The path must be absolute; an empty value counts as unset.
+export INVOWK_CONFIG=/etc/acme/invowk/config.cue
+invowk config show
+
+# --ivk-config still wins over INVOWK_CONFIG
+invowk --ivk-config ./ci/config.cue cmd build`,
+  },
+
+  'reference/config/no-cwd': {
+    language: 'bash',
+    code: `# Ignore the current directory's invowkfile.cue and *.invowkmod modules
+invowk --ivk-no-cwd cmd
+
+# Wrappers whose commands call invowk again: use the env forms,
+# which nested invocations inherit (flags do not)
+INVOWK_CONFIG=/etc/acme/invowk/config.cue INVOWK_NO_CWD=1 invowk cmd deploy`,
   },
 
   'reference/config/init': {

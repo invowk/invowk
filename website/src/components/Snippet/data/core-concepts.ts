@@ -822,6 +822,10 @@ platforms: [
     enable_host_ssh?:  bool
     volumes?:          [...string]
     ports?:            [...string]
+    persistent?: close({
+        create_if_missing?: bool
+        name?:              #ContainerName
+    })
     depends_on?:       #DependsOn  // validated inside the container environment
 }
 

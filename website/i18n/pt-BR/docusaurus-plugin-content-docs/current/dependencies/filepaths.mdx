@@ -47,11 +47,9 @@ Caminhos completos do sistema:
 
 <Snippet id="dependencies/filepaths-absolute" />
 
-### Variáveis de Ambiente em Caminhos
+### Resolução Literal de Caminhos
 
-Expanda variáveis de ambiente:
-
-<Snippet id="dependencies/filepaths-envvars" />
+Dependências de caminho de arquivo são verificadas literalmente no sistema de arquivos e não expandem variáveis de ambiente `${VAR}`. Use caminhos relativos, caminhos absolutos literais ou implementações por plataforma.
 
 ## Verificações de Permissão
 
@@ -133,7 +131,7 @@ Ensure the required files exist with proper permissions and try again.
 
 1. **Use alternativas para arquivos de config**: `{alternatives: ["config.yaml", "config.json"]}`
 2. **Verifique permissões quando necessário**: Especialmente para scripts e diretórios de saída
-3. **Considere diferenças de plataforma**: Use variáveis de ambiente ou múltiplas implementações
+3. **Considere diferenças de plataforma**: Use múltiplas implementações ou `alternatives` para caminhos específicos de plataforma
 4. **Verifique dependências primeiro**: Verifique `node_modules` antes de executar scripts npm
 
 ## Próximos Passos

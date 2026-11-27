@@ -2,7 +2,7 @@
 #
 # Shows how DiscoveryService in internal/app/commandadapters/discovery.go memoizes
 # discovery results within a single CLI invocation. The cache is
-# attached to the request context by contextWithConfigPath() and
+# attached to the request context by contextWithDiscoveryScope() / commandadapters.ContextWithConfigPath() and
 # shared across seven callers that would otherwise trigger redundant
 # filesystem scans.
 #
@@ -41,7 +41,7 @@ Start: CLI command invocation\n(e.g., invowk cmd build) {
   style.fill: "#E8F5E9"
 }
 
-AttachCache: contextWithConfigPath()\nattaches discoveryRequestCache\nto request context {
+AttachCache: contextWithDiscoveryScope() /\ncommandadapters.ContextWithConfigPath()\nattaches discoveryRequestCache to context {
   style.fill: "#BBDEFB"
 }
 
@@ -237,7 +237,7 @@ callers.listCommands -> operations.DiscoverCommandSet: {
   style.stroke: "#1565C0"
 }
 
-callers.executeRequest -> operations.DiscoverAndValidateCommandSet: {
+callers.executeRequest -> operations.DiscoverCommandSet: {
   style.stroke: "#1565C0"
 }
 
@@ -245,7 +245,7 @@ callers.runDisambiguatedCommand -> operations.DiscoverCommandSet: {
   style.stroke: "#1565C0"
 }
 
-callers.runWatchMode -> operations.GetCommand: {
+callers.runWatchMode -> operations.DiscoverCommandSet: {
   style.stroke: "#1565C0"
 }
 

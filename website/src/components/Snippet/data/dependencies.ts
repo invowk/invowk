@@ -1334,16 +1334,6 @@ script: {content: """
 }`,
   },
 
-  'dependencies/filepaths-envvars': {
-    language: 'cue',
-    code: `depends_on: {
-    filepaths: [
-        {alternatives: ["\${HOME}/.config/myapp/config.yaml"]},
-        {alternatives: ["\${XDG_CONFIG_HOME}/myapp/config.yaml", "\${HOME}/.myapprc"]},
-    ]
-}`,
-  },
-
   'dependencies/filepaths-readable': {
     language: 'cue',
     code: `depends_on: {
@@ -1472,7 +1462,7 @@ script: {content: """
                 alternatives: [
                     "./config/production.yaml",
                     "./config/default.yaml",
-                    "\${HOME}/.myapp/config.yaml"
+                    "/etc/myapp/config.yaml"
                 ]
                 readable: true
             },

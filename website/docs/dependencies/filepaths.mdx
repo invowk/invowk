@@ -47,11 +47,9 @@ Full system paths:
 
 <Snippet id="dependencies/filepaths-absolute" />
 
-### Environment Variables in Paths
+### Literal Path Resolution
 
-Expand environment variables:
-
-<Snippet id="dependencies/filepaths-envvars" />
+Filepath dependencies are checked literally against the filesystem and do not expand `${VAR}` environment variables. Use relative paths, absolute literal paths, or per-platform implementations.
 
 ## Permission Checks
 
@@ -133,7 +131,7 @@ Ensure the required files exist with proper permissions and try again.
 
 1. **Use alternatives for config files**: `{alternatives: ["config.yaml", "config.json"]}`
 2. **Check permissions when needed**: Especially for scripts and output directories
-3. **Consider platform differences**: Use environment variables or multiple implementations
+3. **Consider platform differences**: Use multiple implementations or `alternatives` for platform-specific paths
 4. **Check dependencies first**: Verify `node_modules` before running npm scripts
 
 ## Next Steps

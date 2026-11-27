@@ -46,11 +46,9 @@ Full system paths:
 
 <Snippet id="advanced/workdir-absolute" />
 
-### Environment Variables
-
-Expand variables in paths:
-
-<Snippet id="advanced/workdir-env-vars" />
+:::note
+`workdir` paths are resolved literally and do not expand environment variables such as `${HOME}` or `${PROJECT_ROOT}`. Use relative paths, absolute literal paths, or pass `--ivk-workdir` on the command line.
+:::
 
 ## Precedence
 

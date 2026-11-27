@@ -57,6 +57,10 @@ errors: Error Categories {
   E6: Script Execution Failed {
     style.fill: "#FFCDD2"
   }
+
+  E7: TUI Server Exposure\nRefused {
+    style.fill: "#FFCDD2"
+  }
 }
 
 # ==============================================================================
@@ -87,6 +91,10 @@ Fix6: Check script content {
   style.fill: "#C8E6C9"
 }
 
+Fix7: "Set container.tui_server_bind\nor run without -i" {
+  style.fill: "#C8E6C9"
+}
+
 # ==============================================================================
 # Connections
 # ==============================================================================
@@ -98,6 +106,7 @@ Classify -> errors.E3: runtime unavailable
 Classify -> errors.E4: shell not found
 Classify -> errors.E5: os.ErrPermission
 Classify -> errors.E6: other execution error
+Classify -> errors.E7: TUI exposure refused
 
 errors.E1 -> Fix1: timed out or cancelled
 errors.E2 -> Fix2: engine not running
@@ -105,3 +114,4 @@ errors.E3 -> Fix3: runtime cannot execute
 errors.E4 -> Fix4: shell binary missing
 errors.E5 -> Fix5: access denied
 errors.E6 -> Fix6: script failure
+errors.E7 -> Fix7: exposure refused

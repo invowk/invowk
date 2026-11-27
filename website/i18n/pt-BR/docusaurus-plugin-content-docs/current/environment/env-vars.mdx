@@ -20,13 +20,11 @@ Variáveis são pares chave-valor de strings:
 
 Todos os valores são strings. O shell interpreta conforme necessário.
 
-## Referenciando Outras Variáveis
+## Valores Literais e Expansão no Shell
 
-Referencie variáveis de ambiente do sistema:
+Os valores em `env.vars` são injetados literalmente como strings, sem expandir referências `${VAR}` nem substituições de comando `$(...)`. Quando precisar de valores padrão, concatenação ou substituição de comandos, avalie-os dentro de `script`, onde o shell executa:
 
 <Snippet id="environment/env-vars-references" />
-
-Nota: Referências são expandidas em tempo de execução, não no momento da definição.
 
 ## Níveis de Escopo
 
@@ -94,7 +92,7 @@ Variáveis são passadas para containers:
 
 ## Melhores Práticas
 
-1. **Use padrões**: `${VAR:-default}` para config opcional
+1. **Mantenha `env.vars` literais**: Aplique fallbacks `${VAR:-default}` dentro de `script`, onde o shell os expande
 2. **Mantenha secrets fora**: Não hardcode secrets; use arquivos env ou secrets externos
 3. **Documente variáveis**: Adicione comentários explicando cada variável
 4. **Use nomenclatura consistente**: Convenção `UPPER_SNAKE_CASE`
