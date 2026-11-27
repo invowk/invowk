@@ -4,10 +4,13 @@ package invowkmod
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/invowk/invowk/internal/testutil/fstree"
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -275,4 +278,120 @@ func testEditModuleRef() ModuleRef {
 		GitURL:  "https://github.com/user/tools.git",
 		Version: "^1.0.0",
 	}
+}
+
+func TestInvowkmodEditMutationSymlinkContracts(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+
+	t.Run("duplicate add through symlink leaves symlink and target untouched", func(t *testing.T) {
+		t.Parallel()
+
+		root := t.TempDir()
+		content := `module: "mymodule"
+requires: [
+	{
+		git_url: "https://github.com/user/tools.git"
+		version: "^1.0.0"
+	},
+]
+`
+		realPath := filepath.Join(root, "real.cue")
+		if err := os.WriteFile(realPath, []byte(content), 0o600); err != nil {
+			t.Fatalf("WriteFile() error = %v", err)
+		}
+		linkPath := filepath.Join(root, "invowkmod.cue")
+		fstree.MustSymlink(t, realPath, linkPath)
+
+		err := AddRequirement(types.FilesystemPath(linkPath), testEditModuleRef())
+		if !errors.Is(err, ErrModuleAlreadyExists) {
+			t.Fatalf("AddRequirement() error = %v, want ErrModuleAlreadyExists", err)
+		}
+		assertSymlinkPreserved(t, linkPath, realPath)
+		assertInvowkmodEditFile(t, realPath, content)
+	})
+
+	t.Run("remove no-op through symlink leaves target untouched and returns written=false", func(t *testing.T) {
+		t.Parallel()
+
+		root := t.TempDir()
+		content := `module: "mymodule"
+version: "1.0.0"
+`
+		realPath := filepath.Join(root, "real.cue")
+		if err := os.WriteFile(realPath, []byte(content), 0o600); err != nil {
+			t.Fatalf("WriteFile() error = %v", err)
+		}
+		f, openErr := os.Open(realPath)
+		if openErr != nil {
+			t.Fatalf("Open() error = %v", openErr)
+		}
+		beforeInfo, statErr := f.Stat()
+		if closeErr := f.Close(); closeErr != nil {
+			t.Fatalf("Close() error = %v", closeErr)
+		}
+		if statErr != nil {
+			t.Fatalf("Stat() error = %v", statErr)
+		}
+
+		linkPath := filepath.Join(root, "invowkmod.cue")
+		fstree.MustSymlink(t, realPath, linkPath)
+
+		written, err := RemoveRequirementIfPresent(types.FilesystemPath(linkPath), "https://github.com/user/tools.git", "")
+		if err != nil {
+			t.Fatalf("RemoveRequirementIfPresent() error = %v", err)
+		}
+		if written {
+			t.Fatal("RemoveRequirementIfPresent() written = true on no-op")
+		}
+		assertSymlinkPreserved(t, linkPath, realPath)
+		afterInfo, afterErr := os.Stat(realPath)
+		if afterErr != nil {
+			t.Fatalf("Stat(realPath) error = %v", afterErr)
+		}
+		if !os.SameFile(beforeInfo, afterInfo) {
+			t.Fatal("no-op remove replaced symlink target file")
+		}
+	})
+
+	t.Run("dangling symlink fails closed on both add and remove", func(t *testing.T) {
+		t.Parallel()
+
+		root := t.TempDir()
+		missing := filepath.Join(root, "missing.cue")
+		linkPath := filepath.Join(root, "invowkmod.cue")
+		fstree.MustSymlink(t, missing, linkPath)
+
+		addErr := AddRequirement(types.FilesystemPath(linkPath), testEditModuleRef())
+		if !errors.Is(addErr, fs.ErrNotExist) {
+			t.Fatalf("AddRequirement() error = %v, want fs.ErrNotExist", addErr)
+		}
+		written, rmErr := RemoveRequirementIfPresent(types.FilesystemPath(linkPath), "https://github.com/user/tools.git", "")
+		if !errors.Is(rmErr, fs.ErrNotExist) || written {
+			t.Fatalf("RemoveRequirementIfPresent() = (%t, %v), want (false, fs.ErrNotExist)", written, rmErr)
+		}
+		assertSymlinkPreserved(t, linkPath, missing)
+	})
+
+	t.Run("directory symlink fails closed on both add and remove", func(t *testing.T) {
+		t.Parallel()
+
+		root := t.TempDir()
+		dir := filepath.Join(root, "dir")
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			t.Fatalf("Mkdir() error = %v", err)
+		}
+		linkPath := filepath.Join(root, "invowkmod.cue")
+		fstree.MustSymlink(t, dir, linkPath)
+
+		addErr := AddRequirement(types.FilesystemPath(linkPath), testEditModuleRef())
+		if !errors.Is(addErr, fspath.ErrNonRegularTarget) {
+			t.Fatalf("AddRequirement() error = %v, want fspath.ErrNonRegularTarget", addErr)
+		}
+		written, rmErr := RemoveRequirementIfPresent(types.FilesystemPath(linkPath), "https://github.com/user/tools.git", "")
+		if !errors.Is(rmErr, fspath.ErrNonRegularTarget) || written {
+			t.Fatalf("RemoveRequirementIfPresent() = (%t, %v), want (false, fspath.ErrNonRegularTarget)", written, rmErr)
+		}
+		assertSymlinkPreserved(t, linkPath, dir)
+	})
 }

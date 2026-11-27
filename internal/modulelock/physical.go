@@ -10,8 +10,9 @@ import (
 )
 
 // PhysicalDir returns dir's physical absolute path: symbolic links resolved,
-// and on Windows also junctions, letter case and 8.3 short names, so every
-// spelling of one directory gives one path.
+// on macOS also letter case and firmlinks, and on Windows also junctions,
+// letter case and 8.3 short names, so every spelling of one directory gives
+// one path.
 func (*FileLocker) PhysicalDir(dir types.FilesystemPath) (types.FilesystemPath, error) {
 	if err := dir.Validate(); err != nil {
 		return "", fmt.Errorf("directory path: %w", err)

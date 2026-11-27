@@ -4,6 +4,7 @@ package invowkmod
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"strconv"
 	"strings"
@@ -37,14 +38,24 @@ type (
 
 // AddRequirement adds a module requirement to the requires block in invowkmod.cue.
 // If no requires block exists, one is appended to the file.
-// Returns an error if the file doesn't exist or the requirement is a duplicate
-// (same git_url and path).
+// Symlinks resolving to regular files are followed so the resolved target is
+// replaced atomically with its permissions preserved; dangling or non-regular
+// symlinks fail closed. Returns an error if the file doesn't exist or the
+// requirement is a duplicate (same git_url and path).
 func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 	if err := req.ValidateDeclaration(); err != nil {
 		return fmt.Errorf("invalid requirement declaration: %w", err)
 	}
 
-	data, err := os.ReadFile(string(invowkmodPath))
+	target, err := fspath.InspectWritableTarget(string(invowkmodPath))
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", invowkmodPath, err)
+	}
+	if !target.Exists {
+		return fmt.Errorf("failed to read %s: %w", invowkmodPath, fs.ErrNotExist)
+	}
+
+	data, err := os.ReadFile(target.Path)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", invowkmodPath, err)
 	}
@@ -99,7 +110,7 @@ func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 	if err := checkEditKeepsCUEValid(invowkmodPath, data, []byte(out)); err != nil {
 		return err
 	}
-	return fspath.AtomicWriteFile(string(invowkmodPath), []byte(out), fspath.DefaultFilePerm)
+	return fspath.AtomicWriteFile(target.Path, []byte(out), target.Perm)
 }
 
 // RemoveRequirement removes a module requirement matching gitURL and subPath
@@ -119,16 +130,22 @@ func RemoveRequirement(invowkmodPath types.FilesystemPath, gitURL GitURL, subPat
 // RemoveRequirement describes and reports whether it wrote invowkmodPath:
 // written is false when the file does not exist, has no requires block or has
 // no entry matching gitURL and subPath (the file is left untouched), and true
-// only after the atomic write replaced the file with the entry removed. On any
-// error (read, write) written is false. The flag is reporting only; it never
-// changes when the file is written.
+// only after the atomic write replaced the resolved regular target with the
+// entry removed while preserving symlinks and permissions. Dangling or
+// non-regular symlinks fail closed and return written=false. On any error
+// (read, write) written is false. The flag is reporting only; it never changes
+// when the file is written.
 func RemoveRequirementIfPresent(invowkmodPath types.FilesystemPath, gitURL GitURL, subPath SubdirectoryPath) (written bool, err error) {
-	pathStr := string(invowkmodPath)
-	data, err := os.ReadFile(pathStr)
+	target, err := fspath.InspectWritableTarget(string(invowkmodPath))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil // Idempotent: file doesn't exist
-		}
+		return false, fmt.Errorf("failed to read %s: %w", invowkmodPath, err)
+	}
+	if !target.Exists {
+		return false, nil // Idempotent: file doesn't exist
+	}
+
+	data, err := os.ReadFile(target.Path)
+	if err != nil {
 		return false, fmt.Errorf("failed to read %s: %w", invowkmodPath, err)
 	}
 	text := string(data)
@@ -161,7 +178,7 @@ func RemoveRequirementIfPresent(invowkmodPath types.FilesystemPath, gitURL GitUR
 	if err := checkEditKeepsCUEValid(invowkmodPath, data, []byte(out)); err != nil {
 		return false, err
 	}
-	if writeErr := fspath.AtomicWriteFile(pathStr, []byte(out), fspath.DefaultFilePerm); writeErr != nil {
+	if writeErr := fspath.AtomicWriteFile(target.Path, []byte(out), target.Perm); writeErr != nil {
 		return false, writeErr
 	}
 	return true, nil

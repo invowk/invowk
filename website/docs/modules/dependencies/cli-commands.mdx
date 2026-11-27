@@ -247,9 +247,10 @@ The lock files live in the `locks` directory of the module cache (`INVOWK_MODULE
 
 Read-only commands never wait: `module deps`, `module list`, `validate`, `audit` and running commands do not take the lock, and the `locks` directory is not a project input, even when the module cache sits inside the project.
 
+Project paths are canonicalized across symbolic links on every system—plus letter case and firmlinks on macOS, and junctions, letter case, and 8.3 short names on Windows—so commands started through different path spellings of the same directory share one lock.
+
 Known limits:
 - Two runs with different `INVOWK_MODULES_PATH` values use different `locks` directories and do not wait for each other.
-- On a case-insensitive macOS volume, the same project reached through paths that differ only in letter case (`~/Proj` and `~/proj`) gets two lock files, so commands started through the two spellings do not wait for each other. On Windows the path is normalised, and on every system a symbolic link (or a Windows junction) to the project leads to the same lock.
 - The locks are advisory locks between invowk processes on one machine. They do not stop an editor or another tool from changing the files, and on a network file system they may not exclude processes on other machines.
 
 ## Common Workflows

@@ -1,0 +1,38 @@
+# Tasks
+
+## 1. Darwin Project Lock Identity (MA2)
+
+- [x] 1.1 Narrow `internal/modulelock/physical_unix.go` build constraint from `//go:build !windows` to `//go:build !windows && !darwin` and implement `internal/modulelock/physical_darwin.go` (`//go:build darwin`) resolving canonical directory path via `unix.Open` (`O_RDONLY|O_CLOEXEC`), `unix.Syscall(unix.SYS_FCNTL, uintptr(fd), unix.F_GETPATH, uintptr(unsafe.Pointer(&buf[0])))` with `unix.EINTR` retry, NUL trimming, and strict error propagation; verify `GOOS=darwin GOARCH=arm64` and `GOOS=darwin GOARCH=amd64` compile and pass `go vet`.
+- [x] 1.2 Add Darwin letter-case normalization tests in `internal/modulelock/physical_darwin_test.go` (`//go:build darwin`) verifying identical `PhysicalDir` across uppercase/lowercase/mixed-case inputs matching on-disk case (skipping only when the volume is case-sensitive) and verify `GOOS=darwin GOARCH=arm64 go test -c -o /dev/null ./internal/modulelock` compiles cleanly.
+- [x] 1.3 Remove the macOS case-insensitive volume known limit from `README.md`, `website/docs/modules/dependencies/cli-commands.mdx`, and `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/modules/dependencies/cli-commands.mdx`, documenting macOS case normalization parity alongside Windows, and verify documentation parity (`cd website && npm run docs:parity`).
+- [x] 1.4 Run the narrow verification suite for MA2: `GOOS=darwin GOARCH=arm64 go vet ./internal/modulelock/... && GOOS=darwin GOARCH=amd64 go vet ./internal/modulelock/... && GOOS=darwin GOARCH=arm64 go test -c -o /dev/null ./internal/modulelock && go test -race ./internal/modulelock/...`.
+
+## 2. Shared Regular-File Symlink Target Helper (MA5 Option A1 Foundation)
+
+- [x] 2.1 Implement `pkg/fspath/target.go` (`// SPDX-License-Identifier: MPL-2.0`) exposing `ErrNonRegularTarget`, `FileTarget`, and `InspectWritableTarget(path string) (FileTarget, error)` with `os.Lstat`, `filepath.EvalSymlinks`, regular-file verification, preserved target `Perm`, and fail-closed errors on dangling, circular, or non-regular symlink targets; verify compilation with `go build ./pkg/fspath/...`.
+- [x] 2.2 Add unit tests in `pkg/fspath/target_test.go` covering regular files (including non-default `0600` mode), absent paths, regular-file symlinks, multi-hop symlinks, dangling symlinks (`errors.Is(err, fs.ErrNotExist)`), symlink loops, and symlinks to directories/non-regular files (`errors.Is(err, fspath.ErrNonRegularTarget)`), and verify `go test -race ./pkg/fspath/... && go test ./tests/coverage -run TestPathMatrixSurfaces_AreCovered` passes.
+
+## 3. Manifest Requirement Edits via Symlinks (`pkg/invowkmod`)
+
+- [x] 3.1 Update `AddRequirement` and `RemoveRequirementIfPresent` in `pkg/invowkmod/invowkmod_edit.go` to resolve write targets via `fspath.InspectWritableTarget`, keep regular-file symlinks intact by reading and calling `fspath.AtomicWriteFile` on `target.Path` with `target.Perm`, keep absent `RemoveRequirementIfPresent` as `(false, nil)`, and fail closed on dangling or non-regular symlinks (`AddRequirement` continues wrapping `fs.ErrNotExist` when missing); verify compilation with `go build ./pkg/invowkmod/...`.
+- [x] 3.2 Add tests in `pkg/invowkmod/invowkmod_edit_test.go` and `pkg/invowkmod/invowkmod_edit_mutation_test.go` covering add/remove through regular-file symlinks (asserting symlink preservation, `0600` permission preservation, and updated resolved target), dangling symlinks (fail closed for both `AddRequirement` and `RemoveRequirementIfPresent` with `written=false`), and directory/non-regular symlink targets, then run narrow check `go test -race ./pkg/invowkmod/...`.
+
+## 4. Agent Module Change Symlink Safety (`internal/agentcmd`)
+
+- [x] 4.1 Update `readModuleFiles` and `writeModuleFiles` in `internal/agentcmd/module.go` to resolve `invowkmod.cue` and `invowkfile.cue` via `fspath.InspectWritableTarget` so symlinks to regular files read/write atomically against `target.Path` with `target.Perm`, truly absent `invowkfile.cue` continues using `defaultInvowkfileContent` / `moduleFilePerm`, and dangling or non-regular symlinks fail closed at both read and write time; verify compilation with `go build ./internal/agentcmd/...`.
+- [x] 4.2 Add unit tests in `internal/agentcmd/module_test.go` verifying `readModuleFiles`, `writeChangedModuleFiles`, and `writeModuleFiles` preserve regular-file symlinks and target permissions, reject dangling `invowkmod.cue` and `invowkfile.cue` symlinks without falling back to `defaultInvowkfileContent`, and reject non-regular symlink targets, then run narrow check `go test -race ./internal/agentcmd/...`.
+
+## 5. Rollback Snapshot & Restore for Symlinked Manifests (`internal/app/modulesync`)
+
+- [x] 5.1 Extend `fileSnapshot`, `readFileSnapshot`, `fileSnapshot.Validate`, and `fileSnapshot.restore` in `internal/app/modulesync/use_cases.go` so symlinks resolving to regular files snapshot `targetPath`, target bytes, and target permissions alongside `linkTarget` (while dangling or non-regular symlinks remain link-only snapshots), and rollback atomically restores `targetPath` via `fileWriter()` and preserves/restores the symlink via `restoreLink()`, joining any errors; verify compilation with `go build ./internal/app/modulesync/...`.
+- [x] 5.2 Add rollback tests in `internal/app/modulesync/use_cases_rollback_test.go` verifying symlinked `invowkmod.cue` whose resolved target was modified during a multi-step operation before a subsequent failure restores both the resolved target bytes/permissions atomically and keeps the symlink intact, while existing dangling `invowkmod.cue` and linked `invowk.mod.lock` rollback contracts still hold; then run narrow check `go test -race ./internal/app/modulesync/...`.
+
+## 6. Integration, Formal Verification, Mutation & Completion Gates
+
+- [ ] 6.1 Run CLI integration and path-coverage tests (`make test-scripts && go test -race ./tests/coverage/...`) to confirm end-to-end lock/symlink behavior and coverage guardrails pass.
+- [ ] 6.2 Run formal verification checks (`python3 scripts/formal.py affected --event pull_request`, `python3 scripts/formal.py correspondence`, `make formal-reach`, and `make formal` if TLC/Java is available) and run scoped formal mutation verification (`make mutation-formal` / `make mutation-formal-refresh` if anchored line numbers or survivors in `RemoveRequirementIfPresent` or `fileSnapshot.restore` shifted), confirming zero unexamined survivors or stale bindings.
+- [ ] 6.3 Run `.agents/rules/checklist.md` completion gates: review diff and run `/simplify` where beneficial, then verify `make build`, `make tidy`, `make license-check`, `make check-agent-docs`, `make check-goplint-consumer-routed`, `make check-baseline`, `make check-file-length`, `make lint`, `make test`, `make sonar-local`, `make check-windows-build`, `GOOS=darwin GOARCH=arm64 go vet ./... && GOOS=darwin GOARCH=amd64 go vet ./...`, and `(cd website && npm run docs:parity && npm run build)` all pass; run `/learn` if durable repository lessons emerge.
+
+## Workflow follow-up
+
+- Review all changes against `openspec/changes/harden-module-lock-and-symlink-edits/specs/` and archive the completed change (`openspec archive harden-module-lock-and-symlink-edits`) after review and signing gates pass.

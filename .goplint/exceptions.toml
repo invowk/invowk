@@ -855,6 +855,10 @@ reason = "composite pattern; has Add() mutation method"
 
 # Per-package bulk patterns — all flagged types in these packages are DTOs
 [[exceptions]]
+pattern = "fspath.FileTarget.constructor"
+reason = "result DTO returned by InspectWritableTarget; constructed via struct literals"
+
+[[exceptions]]
 pattern = "invowkfile.*.constructor"
 reason = "CUE-parsed DTOs; constructed via CUE decode or struct literals"
 
@@ -1752,6 +1756,14 @@ reason = "CUE content parsing boundary"
 [[exceptions]]
 pattern = "fspath.AtomicWriteFile.*"
 reason = "filepath/byte boundary — generic utility accepting raw filesystem types"
+
+[[exceptions]]
+pattern = "fspath.InspectWritableTarget.path"
+reason = "filepath boundary — generic utility accepting raw filesystem path matching fspath.AtomicWriteFile"
+
+[[exceptions]]
+pattern = "fspath.FileTarget.Path"
+reason = "filepath boundary — resolved target path returned for fspath.AtomicWriteFile"
 
 # invowkfile — parse/shebang boundary
 [[exceptions]]
