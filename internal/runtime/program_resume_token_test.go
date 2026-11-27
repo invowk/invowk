@@ -330,3 +330,48 @@ func TestNativeRuntimePreservesProgramResumeTokenAndRespectsDeny(t *testing.T) {
 		}
 	})
 }
+
+func TestDefaultEnvBuilderStripProgramResumeToken(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))}
+	cmd := testCommandWithScript("watch-child", "echo hi", invowkfile.RuntimeNative)
+	builder := &DefaultEnvBuilder{
+		Environ: func() []string {
+			return []string{ansi.ProgramResumeTokenEnv + "=host-secret", "KEEP_VAR=visible"}
+		},
+	}
+
+	t.Run("strips when StripProgramResumeToken is true", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := NewExecutionContext(t.Context(), cmd, inv)
+		ctx.Env.StripProgramResumeToken = true
+		ctx.Env.RuntimeEnvVars = map[string]string{ansi.ProgramResumeTokenEnv: "cli-override"}
+
+		env, err := builder.Build(ctx, invowkfile.EnvInheritAll)
+		if err != nil {
+			t.Fatalf("Build() error = %v", err)
+		}
+		if _, exists := env[ansi.ProgramResumeTokenEnv]; exists {
+			t.Fatalf("Build() leaked %s when StripProgramResumeToken=true", ansi.ProgramResumeTokenEnv)
+		}
+		if env["KEEP_VAR"] != "visible" {
+			t.Fatalf("Build() dropped KEEP_VAR = %q, want visible", env["KEEP_VAR"])
+		}
+	})
+
+	t.Run("preserves when StripProgramResumeToken is false", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := NewExecutionContext(t.Context(), cmd, inv)
+		env, err := builder.Build(ctx, invowkfile.EnvInheritAll)
+		if err != nil {
+			t.Fatalf("Build() error = %v", err)
+		}
+		if env[ansi.ProgramResumeTokenEnv] != "host-secret" {
+			t.Fatalf("Build()[%s] = %q, want host-secret", ansi.ProgramResumeTokenEnv, env[ansi.ProgramResumeTokenEnv])
+		}
+	})
+}

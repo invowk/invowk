@@ -175,6 +175,7 @@ func hostCustomCheckEnvMap() map[string]string {
 			env[name] = value
 		}
 	}
+	invowkruntime.StripProgramResumeToken(env)
 	return env
 }
 

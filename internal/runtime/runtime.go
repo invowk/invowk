@@ -128,6 +128,11 @@ type (
 		// Cwd overrides the working directory for --ivk-env-file path resolution.
 		// When empty, os.Getwd() is used.
 		Cwd invowkfile.WorkDir
+		// StripProgramResumeToken removes OSC7577_TOKEN from the built environment
+		// regardless of inheritance mode, env files, or overrides. Used for watch
+		// mode child executions (including non-interactive native children) so watched
+		// children cannot overwrite the watcher's resume record.
+		StripProgramResumeToken bool
 	}
 
 	//goplint:validate-all

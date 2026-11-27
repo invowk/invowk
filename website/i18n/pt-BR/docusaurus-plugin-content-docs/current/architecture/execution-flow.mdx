@@ -113,6 +113,8 @@ Quando `--ivk-watch` é passado, a execução é envolvida em um loop de watch:
 
 **Tratamento de erros:** Códigos de saída diferentes de zero do comando continuam o loop de watch. Erros de infraestrutura abortam o loop após 3 falhas consecutivas.
 
+**Program Resume do Terminal (`OSC 7577`):** Em terminais compatíveis com `OSC7577_TOKEN` definido, `--ivk-watch` reporta um comando assinado via `OSC 7577` para que o terminal possa restaurar o watcher após reinício ou falha, removendo `OSC7577_TOKEN` dos processos filhos monitorados (inclusive execuções `native` não interativas). O reporte é omitido quando `--ivk-env-var` é usado ou quando argumentos/caminhos excedem os limites de `OSC 7577` (`> 2048` bytes codificados, `> 64` argumentos ou caracteres de controle); `Ctrl+C` (`SIGINT`) ou erros após a inicialização emitem `clear=1`, enquanto `SIGHUP` / `SIGTERM` no Unix preservam o registro.
+
 ## Pontos de Tratamento de Erros
 
 <Diagram id="architecture/execution-errors" />

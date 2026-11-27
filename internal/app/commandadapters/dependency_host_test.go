@@ -497,3 +497,16 @@ func TestDependencyLockProvider_LoadCommandScopeLock(t *testing.T) {
 		t.Fatalf("LoadCommandScopeLock(v2) = (%v, %v), want v2 lock", got, err)
 	}
 }
+
+func TestHostCustomCheckEnvMapStripsProgramResumeToken(t *testing.T) {
+	t.Setenv("OSC7577_TOKEN", "secret-host-token")
+	t.Setenv("INVOWK_TEST_CUSTOM_CHECK_KEEP", "kept-value")
+
+	env := hostCustomCheckEnvMap()
+	if _, exists := env["OSC7577_TOKEN"]; exists {
+		t.Fatalf("hostCustomCheckEnvMap() leaked OSC7577_TOKEN: %v", env["OSC7577_TOKEN"])
+	}
+	if env["INVOWK_TEST_CUSTOM_CHECK_KEEP"] != "kept-value" {
+		t.Fatalf("hostCustomCheckEnvMap()[INVOWK_TEST_CUSTOM_CHECK_KEEP] = %q, want kept-value", env["INVOWK_TEST_CUSTOM_CHECK_KEEP"])
+	}
+}

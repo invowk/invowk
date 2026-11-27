@@ -307,6 +307,27 @@ func TestValidateDepsUsesInjectedCapabilityChecker(t *testing.T) {
 	}
 }
 
+func TestBuildExecContextPropagatesStripProgramResumeToken(t *testing.T) {
+	t.Parallel()
+
+	service := &Service{}
+	cmdInfo := commandsvcTestCommandInfo(t, "watch-child")
+
+	execCtx, err := service.buildExecContext(
+		t.Context(),
+		Request{Name: "watch-child", StripProgramResumeToken: true},
+		cmdInfo,
+		resolvedDefinitions{},
+		mustResolveRuntime(t, cmdInfo.Command),
+	)
+	if err != nil {
+		t.Fatalf("buildExecContext() = %v", err)
+	}
+	if !execCtx.Env.StripProgramResumeToken {
+		t.Fatal("execCtx.Env.StripProgramResumeToken = false, want true")
+	}
+}
+
 func unsupportedPlatform() invowkfile.PlatformType {
 	switch invowkfile.CurrentPlatform() {
 	case invowkfile.PlatformLinux:
