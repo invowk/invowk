@@ -6,14 +6,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/invowk/invowk/pkg/cueutil"
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// Cache schema bytes once to avoid per-parse string conversion allocations.
-var invowkmodSchemaBytes = []byte(invowkmodSchema)
+// Compile the embedded invowkmod schema lazily once so CLI commands that never
+// parse modules pay zero init cost while repeated parses skip schema and stdlib
+// ("strings") recompilation.
+var compiledInvowkmodSchema = sync.OnceValues(func() (*cueutil.CompiledSchema, error) {
+	return cueutil.CompileSchema([]byte(invowkmodSchema), "#Invowkmod")
+})
 
 // SchemaCUE returns the embedded invowkmod.cue schema used for validation.
 func SchemaCUE() string {
@@ -30,14 +35,17 @@ func ParseInvowkmod(path types.FilesystemPath) (*Invowkmod, error) {
 	return ParseInvowkmodBytes(data, path)
 }
 
-// ParseInvowkmodBytes parses module metadata content from bytes.
-// Uses cueutil.ParseAndDecodeString for the 3-step CUE parsing flow:
-// compile schema -> compile user data -> validate and decode.
+// ParseInvowkmodBytes parses module metadata content from bytes using the lazily
+// precompiled #Invowkmod schema.
 func ParseInvowkmodBytes(data []byte, path types.FilesystemPath) (*Invowkmod, error) {
-	result, err := cueutil.ParseAndDecode[Invowkmod](
-		invowkmodSchemaBytes,
+	schema, err := compiledInvowkmodSchema()
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := cueutil.ParseAndDecodeCompiled[Invowkmod](
+		schema,
 		data,
-		"#Invowkmod",
 		cueutil.WithFilename(string(path)),
 	)
 	if err != nil {

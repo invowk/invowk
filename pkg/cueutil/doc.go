@@ -11,17 +11,31 @@
 //
 // # Usage
 //
+// For embedded schemas parsed repeatedly, precompile once with [CompileSchema]
+// (for example via [sync.OnceValues]) and pass the result to
+// [ParseAndDecodeCompiled]:
+//
 //	//go:embed invowkfile_schema.cue
 //	var schemaBytes []byte
 //
-//	result, err := cueutil.ParseAndDecode[Invowkfile](
-//	    schemaBytes,
+//	var compiledSchema = sync.OnceValues(func() (*cueutil.CompiledSchema, error) {
+//	    return cueutil.CompileSchema(schemaBytes, "#Invowkfile")
+//	})
+//
+//	schema, err := compiledSchema()
+//	if err != nil {
+//	    return nil, err
+//	}
+//	result, err := cueutil.ParseAndDecodeCompiled[Invowkfile](
+//	    schema,
 //	    userFileBytes,
-//	    "#Invowkfile",
 //	    cueutil.WithFilename("invowkfile.cue"),
 //	)
 //	if err != nil {
 //	    return nil, err  // Error includes CUE path for debugging
 //	}
 //	return result.Value, nil
+//
+// For one-off parses, [ParseAndDecode] and [ParseAndDecodeString] compile the
+// schema and user data together in a single call.
 package cueutil

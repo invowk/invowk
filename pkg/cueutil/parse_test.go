@@ -5,9 +5,14 @@ package cueutil
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+
+	cueerrors "cuelang.org/go/cue/errors"
 )
 
 // Simple test schema for parsing tests
@@ -286,5 +291,432 @@ enabled: true
 	// Verify we can access the unified value
 	if result.Unified.Err() != nil {
 		t.Errorf("unified value has error: %v", result.Unified.Err())
+	}
+}
+
+func TestCompileSchema(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid schema compiles successfully", func(t *testing.T) {
+		t.Parallel()
+
+		compiled, err := CompileSchema([]byte(testSchema), "#TestConfig")
+		if err != nil {
+			t.Fatalf("CompileSchema() error = %v", err)
+		}
+		if compiled == nil || !compiled.compiled {
+			t.Fatalf("CompileSchema() = %#v, want initialized CompiledSchema", compiled)
+		}
+	})
+
+	t.Run("empty or whitespace schema path returns ErrInvalidCUEPath", func(t *testing.T) {
+		t.Parallel()
+
+		for _, rawPath := range []CUEPath{"", "   \t "} {
+			_, err := CompileSchema([]byte(testSchema), rawPath)
+			if !errors.Is(err, ErrInvalidCUEPath) {
+				t.Errorf("CompileSchema(%q) error = %v, want ErrInvalidCUEPath", rawPath, err)
+			}
+		}
+	})
+
+	t.Run("malformed schema syntax wraps CUE error", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := CompileSchema([]byte(`#TestConfig: {name: `), "#TestConfig")
+		if err == nil || !strings.Contains(err.Error(), "internal error: failed to compile schema:") {
+			t.Fatalf("CompileSchema() error = %v, want internal compile schema error", err)
+		}
+		if _, ok := errors.AsType[cueerrors.Error](err); !ok {
+			t.Fatalf("CompileSchema() error = %v, want wrapped CUE error", err)
+		}
+	})
+
+	t.Run("missing schema definition wraps CUE error", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := CompileSchema([]byte(testSchema), "#Missing")
+		if err == nil || !strings.Contains(err.Error(), "internal error: schema definition #Missing not found:") {
+			t.Fatalf("CompileSchema() error = %v, want missing definition error", err)
+		}
+		if _, ok := errors.AsType[cueerrors.Error](err); !ok {
+			t.Fatalf("CompileSchema() error = %v, want wrapped CUE error", err)
+		}
+	})
+}
+
+func TestParseAndDecodeCompiled(t *testing.T) {
+	t.Parallel()
+
+	compiled, err := CompileSchema([]byte(testSchema), "#TestConfig")
+	if err != nil {
+		t.Fatalf("CompileSchema() error = %v", err)
+	}
+
+	t.Run("nil and zero-value schemas fail with ErrInvalidCompiledSchema", func(t *testing.T) {
+		t.Parallel()
+
+		data := []byte(`name: "test"
+count: 1
+enabled: true
+`)
+		for _, tc := range []struct {
+			name   string
+			schema *CompiledSchema
+		}{
+			{name: "nil schema", schema: nil},
+			{name: "zero-value schema", schema: &CompiledSchema{}},
+		} {
+			_, gotErr := ParseAndDecodeCompiled[TestConfig](tc.schema, data)
+			if !errors.Is(gotErr, ErrInvalidCompiledSchema) {
+				t.Errorf("%s: error = %v, want ErrInvalidCompiledSchema", tc.name, gotErr)
+			}
+		}
+	})
+
+	t.Run("matches ParseAndDecode parity across valid and invalid inputs", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name         string
+			data         string
+			options      []Option
+			want         TestConfig
+			wantErr      bool
+			wantErrText  string
+			wantSentinel error
+		}{
+			{
+				name: "valid config",
+				data: `
+name: "compiled"
+count: 7
+enabled: true
+description: "ok"
+`,
+				want: TestConfig{Name: "compiled", Count: 7, Enabled: true, Description: "ok"},
+			},
+			{
+				name: "optional omitted",
+				data: `
+name: "minimal"
+count: 2
+enabled: false
+`,
+				want: TestConfig{Name: "minimal", Count: 2},
+			},
+			{
+				name: "syntax error formats filename",
+				data: `name: [`,
+				options: []Option{
+					WithFilename("bad-syntax.cue"),
+				},
+				wantErr:     true,
+				wantErrText: "bad-syntax.cue:",
+			},
+			{
+				name: "concrete validation error formats path and filename",
+				data: `
+name: "missing-count"
+enabled: true
+`,
+				options: []Option{
+					WithFilename("incomplete.cue"),
+				},
+				wantErr:     true,
+				wantErrText: "incomplete.cue: #TestConfig.count:",
+			},
+			{
+				name: "size limit enforced",
+				data: `name: "too-long"`,
+				options: []Option{
+					WithMaxFileSize(4),
+					WithFilename("big.cue"),
+				},
+				wantErr:      true,
+				wantErrText:  "big.cue:",
+				wantSentinel: ErrFileSizeExceeded,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				result, gotErr := ParseAndDecodeCompiled[TestConfig](compiled, []byte(tt.data), tt.options...)
+				legacyResult, legacyErr := ParseAndDecode[TestConfig]([]byte(testSchema), []byte(tt.data), "#TestConfig", tt.options...)
+				if (gotErr != nil) != tt.wantErr {
+					t.Fatalf("ParseAndDecodeCompiled() error = %v, wantErr %t", gotErr, tt.wantErr)
+				}
+				if (legacyErr != nil) != tt.wantErr {
+					t.Fatalf("ParseAndDecode() error = %v, wantErr %t", legacyErr, tt.wantErr)
+				}
+				if tt.wantErr {
+					if gotErr.Error() != legacyErr.Error() {
+						t.Errorf("error mismatch:\n  compiled: %q\n  legacy:   %q", gotErr.Error(), legacyErr.Error())
+					}
+					if tt.wantErrText != "" && !strings.Contains(gotErr.Error(), tt.wantErrText) {
+						t.Errorf("error = %v, want substring %q", gotErr, tt.wantErrText)
+					}
+					if tt.wantSentinel != nil && !errors.Is(gotErr, tt.wantSentinel) {
+						t.Errorf("error = %v, want sentinel %v", gotErr, tt.wantSentinel)
+					}
+					return
+				}
+
+				if *result.Value != tt.want {
+					t.Errorf("value = %#v, want %#v", *result.Value, tt.want)
+				}
+				if *result.Value != *legacyResult.Value {
+					t.Errorf("value mismatch: compiled = %#v, legacy = %#v", *result.Value, *legacyResult.Value)
+				}
+				if result.Unified.Err() != nil {
+					t.Errorf("unified value error = %v", result.Unified.Err())
+				}
+			})
+		}
+	})
+
+	t.Run("decode error formats filename identically to ParseAndDecode", func(t *testing.T) {
+		t.Parallel()
+
+		const decodeSchema = `
+#DecodeTarget: {
+	count: string
+}
+`
+		type decodeTarget struct {
+			Count int `json:"count"`
+		}
+
+		decodeCompiled, decodeCompileErr := CompileSchema([]byte(decodeSchema), "#DecodeTarget")
+		if decodeCompileErr != nil {
+			t.Fatalf("CompileSchema() error = %v", decodeCompileErr)
+		}
+
+		data := []byte(`count: "forty-two"`)
+		_, gotErr := ParseAndDecodeCompiled[decodeTarget](decodeCompiled, data, WithFilename("decode.cue"))
+		_, legacyErr := ParseAndDecode[decodeTarget]([]byte(decodeSchema), data, "#DecodeTarget", WithFilename("decode.cue"))
+		if gotErr == nil || legacyErr == nil {
+			t.Fatalf("expected decode errors, got compiled=%v legacy=%v", gotErr, legacyErr)
+		}
+		if gotErr.Error() != legacyErr.Error() {
+			t.Errorf("decode error mismatch:\n  compiled: %q\n  legacy:   %q", gotErr.Error(), legacyErr.Error())
+		}
+		if !strings.Contains(gotErr.Error(), "decode.cue:") {
+			t.Errorf("error = %v, want decode.cue:", gotErr)
+		}
+	})
+
+	t.Run("non-concrete option matches ParseAndDecode behavior", func(t *testing.T) {
+		t.Parallel()
+
+		const looseSchema = `
+#Loose: {
+	mode?:    "on" | "off"
+	required: string
+}
+`
+		type looseConfig struct {
+			Mode string `json:"mode,omitempty"`
+		}
+
+		looseCompiled, looseErr := CompileSchema([]byte(looseSchema), "#Loose")
+		if looseErr != nil {
+			t.Fatalf("CompileSchema() error = %v", looseErr)
+		}
+
+		// WithConcrete(true) rejects missing required field; WithConcrete(false) skips concreteness check.
+		if _, strictErr := ParseAndDecodeCompiled[looseConfig](looseCompiled, []byte(`mode: "on"`)); strictErr == nil {
+			t.Fatal("expected default concrete validation to reject missing required field")
+		}
+		okRes, okErr := ParseAndDecodeCompiled[looseConfig](looseCompiled, []byte(`mode: "on"`), WithConcrete(false))
+		if okErr != nil {
+			t.Fatalf("non-concrete parse error = %v", okErr)
+		}
+		if okRes.Value.Mode != "on" {
+			t.Errorf("Mode = %q, want %q", okRes.Value.Mode, "on")
+		}
+
+		_, badErr := ParseAndDecodeCompiled[looseConfig](looseCompiled, []byte(`mode: "bad"`), WithConcrete(false), WithFilename("loose.cue"))
+		_, legacyBadErr := ParseAndDecode[looseConfig]([]byte(looseSchema), []byte(`mode: "bad"`), "#Loose", WithConcrete(false), WithFilename("loose.cue"))
+		if badErr == nil || legacyBadErr == nil || badErr.Error() != legacyBadErr.Error() {
+			t.Fatalf("invalid non-concrete error mismatch: compiled=%v legacy=%v", badErr, legacyBadErr)
+		}
+		if !strings.Contains(badErr.Error(), "loose.cue:") || !strings.Contains(badErr.Error(), "#Loose.mode:") {
+			t.Fatalf("invalid non-concrete error = %v, want loose.cue and #Loose.mode", badErr)
+		}
+	})
+
+	t.Run("stdlib strings import constraints work across parses", func(t *testing.T) {
+		t.Parallel()
+
+		const maxRunesSchema = `
+import "strings"
+
+#Bounded: {
+	name: string & strings.MaxRunes(8)
+}
+`
+		type bounded struct {
+			Name string `json:"name"`
+		}
+
+		boundedSchema, compileErr := CompileSchema([]byte(maxRunesSchema), "#Bounded")
+		if compileErr != nil {
+			t.Fatalf("CompileSchema() error = %v", compileErr)
+		}
+
+		okRes, okErr := ParseAndDecodeCompiled[bounded](boundedSchema, []byte(`name: "eightchr"`), WithFilename("ok.cue"))
+		if okErr != nil {
+			t.Fatalf("expected valid 8-rune input to pass, got %v", okErr)
+		}
+		if okRes.Value.Name != "eightchr" {
+			t.Errorf("Name = %q, want %q", okRes.Value.Name, "eightchr")
+		}
+
+		_, badErr := ParseAndDecodeCompiled[bounded](boundedSchema, []byte(`name: "ninechars"`), WithFilename("too-long.cue"))
+		if badErr == nil {
+			t.Fatal("expected 9-rune input to fail validation")
+		}
+		if !strings.Contains(badErr.Error(), "too-long.cue:") {
+			t.Errorf("error = %v, want filename %q", badErr, "too-long.cue:")
+		}
+	})
+}
+
+func TestParseAndDecodeCompiledConcurrent(t *testing.T) {
+	t.Parallel()
+
+	const concurrentSchema = `
+import "strings"
+
+#ConcurrentDoc: {
+	name:  string & strings.MaxRunes(32)
+	count: int
+}
+`
+	type concurrentDoc struct {
+		Name  string `json:"name"`
+		Count int    `json:"count"`
+	}
+
+	compiled, err := CompileSchema([]byte(concurrentSchema), "#ConcurrentDoc")
+	if err != nil {
+		t.Fatalf("CompileSchema() error = %v", err)
+	}
+
+	const (
+		goroutines = 16
+		iterations = 50
+	)
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, goroutines*iterations)
+
+	for g := range goroutines {
+		wg.Go(func() {
+			for i := range iterations {
+				switch i % 4 {
+				case 0:
+					wantName := fmt.Sprintf("worker-%d-item-%d", g, i)
+					data := fmt.Appendf(nil, "name: %q\ncount: %d\n", wantName, i)
+					res, parseErr := ParseAndDecodeCompiled[concurrentDoc](compiled, data, WithFilename("valid.cue"))
+					if parseErr != nil {
+						errCh <- fmt.Errorf("valid case (%d,%d): %w", g, i, parseErr)
+						return
+					}
+					if res.Value.Name != wantName || res.Value.Count != i {
+						errCh <- fmt.Errorf("valid case (%d,%d): got %+v, want {%s %d}", g, i, *res.Value, wantName, i)
+						return
+					}
+				case 1:
+					data := fmt.Appendf(nil, "name: %q\ncount: %d\n", strings.Repeat("x", 40), i)
+					if _, parseErr := ParseAndDecodeCompiled[concurrentDoc](compiled, data, WithFilename("too-long.cue")); parseErr == nil {
+						errCh <- fmt.Errorf("constraint violation (%d,%d) unexpectedly succeeded", g, i)
+						return
+					}
+				case 2:
+					if _, parseErr := ParseAndDecodeCompiled[concurrentDoc](compiled, []byte(`name: [`), WithFilename("syntax.cue")); parseErr == nil {
+						errCh <- fmt.Errorf("syntax error (%d,%d) unexpectedly succeeded", g, i)
+						return
+					}
+				case 3:
+					data := fmt.Appendf(nil, "import \"strings\"\nimport \"list\"\nname: strings.ToLower(\"W%d_%d\")\ncount: list.Sum([1, %d])\n", g, i, i)
+					res, parseErr := ParseAndDecodeCompiled[concurrentDoc](compiled, data, WithFilename("user-imports.cue"))
+					if parseErr != nil {
+						errCh <- fmt.Errorf("user-imports case (%d,%d): %w", g, i, parseErr)
+						return
+					}
+					wantName := fmt.Sprintf("w%d_%d", g, i)
+					if res.Value.Name != wantName || res.Value.Count != i+1 {
+						errCh <- fmt.Errorf("user-imports case (%d,%d): got %+v, want {%s %d}", g, i, *res.Value, wantName, i+1)
+						return
+					}
+				}
+			}
+		})
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Error(err)
+	}
+}
+
+// Not parallel: measures process-wide HeapAlloc growth across many parses.
+func TestParseAndDecodeCompiledBoundedMemory(t *testing.T) { //nolint:paralleltest // Measures process-wide HeapAlloc growth across sequential parses.
+	const (
+		boundedSchema = `
+import "strings"
+
+#LeakCheck: {
+	name:    string & strings.MaxRunes(64)
+	payload: string
+}
+`
+		iterations         = 1500
+		payloadSizeBytes   = 1024
+		maxHeapGrowthBytes = 16 << 20
+	)
+	type leakCheck struct {
+		Name    string `json:"name"`
+		Payload string `json:"payload"`
+	}
+
+	compiled, err := CompileSchema([]byte(boundedSchema), "#LeakCheck")
+	if err != nil {
+		t.Fatalf("CompileSchema() error = %v", err)
+	}
+
+	padding := strings.Repeat("a", payloadSizeBytes)
+	runBatch := func(offset int) {
+		for i := range iterations {
+			idx := offset + i
+			data := fmt.Appendf(nil, "name: \"entry-%d\"\npayload: \"%06d-%s\"\n", idx, idx, padding)
+			filename := fmt.Sprintf("file-%d.cue", idx)
+			if _, parseErr := ParseAndDecodeCompiled[leakCheck](compiled, data, WithFilename(filename)); parseErr != nil {
+				t.Fatalf("ParseAndDecodeCompiled(%d) error = %v", idx, parseErr)
+			}
+		}
+	}
+
+	// Warm up compiled schema and runtime allocations before measuring steady-state retention.
+	runBatch(0)
+	runtime.GC()
+	runtime.GC()
+	var before runtime.MemStats
+	runtime.ReadMemStats(&before)
+
+	runBatch(iterations)
+	runtime.GC()
+	runtime.GC()
+	var after runtime.MemStats
+	runtime.ReadMemStats(&after)
+
+	if after.HeapAlloc > before.HeapAlloc && after.HeapAlloc-before.HeapAlloc > maxHeapGrowthBytes {
+		t.Fatalf("live heap grew by %d bytes after %d parses (limit %d bytes)", after.HeapAlloc-before.HeapAlloc, iterations, maxHeapGrowthBytes)
 	}
 }
