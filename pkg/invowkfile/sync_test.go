@@ -10,6 +10,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	cueerrors "cuelang.org/go/cue/errors"
 
 	"github.com/invowk/invowk/internal/testutil/schematest"
 )
@@ -155,9 +156,13 @@ func validateCUE(t *testing.T, cueData string) error {
 func TestInvowkfileSchemaRejectsUnknownFieldsByClosure(t *testing.T) {
 	t.Parallel()
 
+	schema, ctx := getCUESchema(t)
+
 	tests := []struct {
-		name string
-		cue  string
+		name    string
+		cue     string
+		leafDef string
+		leafCUE string
 	}{
 		{
 			name: "nested command unknown field",
@@ -173,7 +178,7 @@ cmds: [{
 			cue: `
 cmds: [{
 	name: "test"
-	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native", extra: true}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native", env_inherit_mode: "none", extra: true}], platforms: [{name: "linux"}]}]
 }]`,
 		},
 		{
@@ -181,7 +186,7 @@ cmds: [{
 			cue: `
 cmds: [{
 	name: "test"
-	implementations: [{script: {content: "echo test"}, runtimes: [{name: "virtual-sh", extra: true}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "virtual-sh", env_inherit_mode: "none", allowed_binaries: ["echo"], extra: true}], platforms: [{name: "linux"}]}]
 }]`,
 		},
 		{
@@ -189,7 +194,7 @@ cmds: [{
 			cue: `
 cmds: [{
 	name: "test"
-	implementations: [{script: {content: "echo test"}, runtimes: [{name: "virtual-lua", extra: true}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "virtual-lua", env_inherit_mode: "all", allowed_binaries: ["*"], extra: true}], platforms: [{name: "linux"}]}]
 }]`,
 		},
 		{
@@ -197,23 +202,27 @@ cmds: [{
 			cue: `
 cmds: [{
 	name: "test"
-	implementations: [{script: {content: "echo test"}, runtimes: [{name: "container", image: "debian:stable-slim", extra: true}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "container", image: "debian:stable-slim", env_inherit_mode: "none", extra: true}], platforms: [{name: "linux"}]}]
 }]`,
+			leafDef: "#RuntimeConfigContainerWithImage",
+			leafCUE: `{name: "container", image: "debian:stable-slim", env_inherit_mode: "none", extra: true}`,
 		},
 		{
 			name: "containerfile runtime unknown field",
 			cue: `
 cmds: [{
 	name: "test"
-	implementations: [{script: {content: "echo test"}, runtimes: [{name: "container", containerfile: "Containerfile", extra: true}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "container", containerfile: "Containerfile", env_inherit_mode: "all", extra: true}], platforms: [{name: "linux"}]}]
 }]`,
+			leafDef: "#RuntimeConfigContainerWithContainerfile",
+			leafCUE: `{name: "container", containerfile: "Containerfile", env_inherit_mode: "all", extra: true}`,
 		},
 		{
 			name: "script content source unknown field",
 			cue: `
 cmds: [{
 	name: "test"
-	implementations: [{script: {content: "echo test", extra: true}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {content: "echo test", interpreter: "/bin/sh", extra: true}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
 }]`,
 		},
 		{
@@ -221,7 +230,7 @@ cmds: [{
 			cue: `
 cmds: [{
 	name: "test"
-	implementations: [{script: {file: "scripts/run.sh", extra: true}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {file: "scripts/run.sh", interpreter: "auto", extra: true}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
 }]`,
 		},
 	}
@@ -230,8 +239,24 @@ cmds: [{
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := validateCUE(t, tt.cue); err == nil {
+			err := validateCUE(t, tt.cue)
+			if err == nil {
 				t.Fatal("validateCUE() succeeded, want closed-schema rejection")
+			}
+			checkErr := err
+			if tt.leafDef != "" {
+				leafSchema := schematest.LookupDefinition(t, schema, tt.leafDef)
+				leafVal := ctx.CompileString(tt.leafCUE)
+				if leafVal.Err() != nil {
+					t.Fatalf("compile leaf CUE: %v", leafVal.Err())
+				}
+				checkErr = leafSchema.Unify(leafVal).Validate(cue.Concrete(true))
+				if checkErr == nil {
+					t.Fatalf("%s accepted unknown field, want closed-schema rejection", tt.leafDef)
+				}
+			}
+			if details := cueerrors.Details(checkErr, nil); !strings.Contains(details, "not allowed") {
+				t.Fatalf("validation details = %s, want unknown-field 'not allowed' diagnostic", details)
 			}
 		})
 	}
@@ -275,7 +300,7 @@ cmds: [{
 	name: "test"
 	implementations: [{
 		script: {content: "print('hi')"}
-		runtimes: [{name: "virtual-lua", env_inherit_mode: "all", allowed_binaries: ["*"], cpu_limit: 1000, memory_limit: "64MB"}]
+		runtimes: [{name: "virtual-lua", env_inherit_mode: "all", allowed_binaries: ["*"], binary_lookup_mode: "host", cpu_limit: 1000, memory_limit: "64MB"}]
 		platforms: [{name: "linux"}]
 	}]
 }]`,
@@ -287,16 +312,17 @@ cmds: [{
 	name: "test"
 	implementations: [{
 		script: {content: "echo container"}
-		runtimes: [{name: "container", image: "debian:stable-slim", env_inherit_mode: "none", enable_host_ssh: false, volumes: ["./data:/data"], ports: ["8080:80"]}]
+		runtimes: [{name: "container", image: "debian:stable-slim", env_inherit_mode: "none", enable_host_ssh: false, volumes: ["./data:/data"], ports: ["8080:80"], depends_on: {tools: [{alternatives: ["sh"]}]}}]
 		platforms: [{name: "linux"}]
 	}]
 }]`,
 		},
 		{
-			name: "containerfile runtime with container and base fields",
+			name: "containerfile runtime with container and base fields and custom check file script",
 			cue: `
 cmds: [{
 	name: "test"
+	depends_on: {custom_checks: [{name: "check", script: {file: "scripts/check.sh", interpreter: "auto"}}]}
 	implementations: [{
 		script: {content: "echo containerfile"}
 		runtimes: [{name: "container", containerfile: "Containerfile", env_inherit_mode: "all", persistent: {create_if_missing: true, name: "dev-env"}}]

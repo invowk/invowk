@@ -52,7 +52,7 @@ fi
 "${SCRIPT_DIR}/goplint.sh" build
 # Ensure direct ./bin/goplint execution resolves the module's active toolchain
 # rather than an older ambient Go shim on PATH (matching `go tool` behavior).
-resolved_goroot="$(cd "$ROOT_DIR" && "${GO_CMD:-go}" env GOROOT)"
+resolved_goroot="$(cd "$ROOT_DIR" && env -u GOROOT "${GO_CMD:-go}" env GOROOT)"
 time_file="$(mktemp)"
 trap 'rm -f "$time_file"' EXIT
 set +e
