@@ -123,6 +123,10 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.
 	maps.Copy(env, ctx.Env.RuntimeEnvVars)
 	maps.Copy(env, reserved)
 
+	if ctx.Env.StripProgramResumeToken {
+		StripProgramResumeToken(env)
+	}
+
 	return env, nil
 }
 

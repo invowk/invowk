@@ -31,11 +31,12 @@ type (
 	// the CLI layer — all Cobra command handlers receive an App reference and delegate
 	// business logic through its service interfaces (Commands, Discovery, Config).
 	App struct {
-		Config      config.Provider
-		Discovery   DiscoveryService
-		Commands    CommandService
-		Watchers    WatchRunnerCreator
-		Diagnostics DiagnosticRenderer
+		Config        config.Provider
+		Discovery     DiscoveryService
+		Commands      CommandService
+		Watchers      WatchRunnerCreator
+		Diagnostics   DiagnosticRenderer
+		WatchTerminal WatchTerminalOpener
 		// Getenv is the only way CLI handlers read INVOWK_CONFIG and
 		// INVOWK_NO_CWD, so tests never depend on the process environment.
 		Getenv func(string) string
@@ -47,11 +48,12 @@ type (
 	// replaced with production defaults by NewApp. Tests can supply mock implementations
 	// to isolate specific service behavior.
 	Dependencies struct {
-		Config      config.Provider
-		Discovery   DiscoveryService
-		Commands    CommandService
-		Watchers    WatchRunnerCreator
-		Diagnostics DiagnosticRenderer
+		Config        config.Provider
+		Discovery     DiscoveryService
+		Commands      CommandService
+		Watchers      WatchRunnerCreator
+		Diagnostics   DiagnosticRenderer
+		WatchTerminal WatchTerminalOpener
 		// Getenv reads INVOWK_CONFIG and INVOWK_NO_CWD; nil means os.Getenv.
 		// The default config provider is built from the same function.
 		Getenv func(string) string
@@ -171,16 +173,20 @@ func NewApp(d Dependencies) (*App, error) {
 	if d.Watchers == nil {
 		d.Watchers = productionWatchRunnerCreator{}
 	}
+	if d.WatchTerminal == nil {
+		d.WatchTerminal = defaultWatchTerminalOpener{stdout: d.Stdout}
+	}
 
 	return &App{
-		Config:      d.Config,
-		Discovery:   d.Discovery,
-		Commands:    d.Commands,
-		Watchers:    d.Watchers,
-		Diagnostics: d.Diagnostics,
-		Getenv:      d.Getenv,
-		stdout:      d.Stdout,
-		stderr:      d.Stderr,
+		Config:        d.Config,
+		Discovery:     d.Discovery,
+		Commands:      d.Commands,
+		Watchers:      d.Watchers,
+		Diagnostics:   d.Diagnostics,
+		WatchTerminal: d.WatchTerminal,
+		Getenv:        d.Getenv,
+		stdout:        d.Stdout,
+		stderr:        d.Stderr,
 	}, nil
 }
 

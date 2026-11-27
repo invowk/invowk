@@ -97,6 +97,9 @@ type (
 		// injects command-level env vars. When nil, Execute() populates it eagerly
 		// via the UserEnvProvider callback. Tests can set this to inject a controlled env.
 		UserEnv map[string]string
+		// StripProgramResumeToken strips OSC7577_TOKEN from the constructed child
+		// environment (used for --ivk-watch child executions).
+		StripProgramResumeToken bool
 	}
 
 	//goplint:validate-all

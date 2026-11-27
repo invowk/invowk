@@ -1316,6 +1316,26 @@ reason = "source name display normalization"
 pattern = "invowk.newServiceError.styledMessage"
 reason = "pre-rendered error display text"
 
+[[exceptions]]
+pattern = "invowk.watchResumeOptions.rawArgs"
+reason = "OS/CLI boundary — raw os.Args[1:] slice for OSC 7577 resume reconstruction"
+
+[[exceptions]]
+pattern = "invowk.watchResumeReporter.token"
+reason = "ANSI/OS boundary — OSC7577_TOKEN value passed to ansi.SetProgramResume"
+
+[[exceptions]]
+pattern = "invowk.watchResumeReporter.pid"
+reason = "OS/ANSI boundary — process PID passed to ansi.SetProgramResume"
+
+[[exceptions]]
+pattern = "invowk.buildWatchResumeArgs.*"
+reason = "CLI/ANSI boundary — raw argv tokens for ansi.ProgramResume.Args"
+
+[[exceptions]]
+pattern = "invowk.buildWatchResumeArgs.return.*"
+reason = "CLI/ANSI boundary — reconstructed argv slice for ansi.ProgramResume.Args"
+
 # =============================================================================
 # Primitive Exceptions — Container / Runtime Boundary
 # =============================================================================

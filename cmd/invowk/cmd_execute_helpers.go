@@ -19,12 +19,13 @@ import (
 )
 
 type executeRequestOptions struct {
-	Name            string   //goplint:ignore -- raw command token from Cobra/discovery boundary
-	Args            []string //goplint:ignore -- raw positional tokens from Cobra/discovery boundary
-	FromSource      discovery.SourceID
-	ResolvedCommand *discovery.CommandInfo
-	FlagDefs        []invowkfile.Flag
-	ArgDefs         []invowkfile.Argument
+	Name                    string   //goplint:ignore -- raw command token from Cobra/discovery boundary
+	Args                    []string //goplint:ignore -- raw positional tokens from Cobra/discovery boundary
+	FromSource              discovery.SourceID
+	ResolvedCommand         *discovery.CommandInfo
+	FlagDefs                []invowkfile.Flag
+	ArgDefs                 []invowkfile.Argument
+	StripProgramResumeToken bool
 }
 
 func (opts executeRequestOptions) Validate() error {
@@ -124,28 +125,29 @@ func buildCommandExecuteRequest(cmd *cobra.Command, rootFlags *rootFlagValues, c
 	verbose, interactive, verboseSet, interactiveSet := explicitUIFlags(cmd, rootFlags)
 	//goplint:ignore -- raw CLI values cross into typed request fields and are validated by the command service boundary.
 	req := ExecuteRequest{
-		Name:            opts.Name,
-		Args:            opts.Args,
-		Runtime:         parsedRuntime,
-		Interactive:     interactive,
-		InteractiveSet:  interactiveSet,
-		Verbose:         verbose,
-		VerboseSet:      verboseSet,
-		FromSource:      opts.FromSource,
-		ForceRebuild:    cmdFlags.forceRebuild,
-		ContainerName:   invowkfile.ContainerName(cmdFlags.containerName),
-		Workdir:         invowkfile.WorkDir(stringFlagValue(cmd, "ivk-workdir")),
-		EnvFiles:        toDotenvFilePaths(stringArrayFlagValue(cmd, "ivk-env-file")),
-		EnvVars:         envVars,
-		ConfigPath:      types.FilesystemPath(rootFlags.configPath),
-		FlagValues:      flagValuesFromCobra(cmd, opts.FlagDefs),
-		FlagDefs:        opts.FlagDefs,
-		ArgDefs:         opts.ArgDefs,
-		EnvInheritMode:  envInheritMode,
-		EnvInheritAllow: toEnvVarNames(stringArrayFlagValue(cmd, "ivk-env-inherit-allow")),
-		EnvInheritDeny:  toEnvVarNames(stringArrayFlagValue(cmd, "ivk-env-inherit-deny")),
-		DryRun:          cmdFlags.dryRun,
-		ResolvedCommand: opts.ResolvedCommand,
+		Name:                    opts.Name,
+		Args:                    opts.Args,
+		Runtime:                 parsedRuntime,
+		Interactive:             interactive,
+		InteractiveSet:          interactiveSet,
+		Verbose:                 verbose,
+		VerboseSet:              verboseSet,
+		FromSource:              opts.FromSource,
+		ForceRebuild:            cmdFlags.forceRebuild,
+		ContainerName:           invowkfile.ContainerName(cmdFlags.containerName),
+		Workdir:                 invowkfile.WorkDir(stringFlagValue(cmd, "ivk-workdir")),
+		EnvFiles:                toDotenvFilePaths(stringArrayFlagValue(cmd, "ivk-env-file")),
+		EnvVars:                 envVars,
+		ConfigPath:              types.FilesystemPath(rootFlags.configPath),
+		FlagValues:              flagValuesFromCobra(cmd, opts.FlagDefs),
+		FlagDefs:                opts.FlagDefs,
+		ArgDefs:                 opts.ArgDefs,
+		EnvInheritMode:          envInheritMode,
+		EnvInheritAllow:         toEnvVarNames(stringArrayFlagValue(cmd, "ivk-env-inherit-allow")),
+		EnvInheritDeny:          toEnvVarNames(stringArrayFlagValue(cmd, "ivk-env-inherit-deny")),
+		DryRun:                  cmdFlags.dryRun,
+		ResolvedCommand:         opts.ResolvedCommand,
+		StripProgramResumeToken: opts.StripProgramResumeToken,
 	}
 	if err := validateReservedFlagValues(req); err != nil {
 		return ExecuteRequest{}, newUsageError(err)

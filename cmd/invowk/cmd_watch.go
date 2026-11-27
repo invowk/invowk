@@ -93,6 +93,19 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	}
 
 	args = append([]string{resolvedReq.Name}, resolvedReq.Args...)
+	interactiveWatch := resolvedReq.Interactive || isInteractiveWatchRun(cmd, rootFlags)
+
+	watchCtx, stopSignals, preserveResume := watchShutdownSignals(ctx)
+	defer stopSignals()
+
+	reporter := newWatchResumeReporter(watchCtx, app, cmd, rootFlags, watchResumeOptions{})
+	defer reporter.Close()
+	defer func() {
+		if !preserveResume() {
+			reporter.Clear()
+		}
+	}()
+	reporter.Report()
 
 	// Build a re-execution closure that runs the command through the command
 	// service and keeps command exit codes separate from infrastructure errors.
@@ -109,12 +122,13 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		childFlags.watch = false
 		cmd.SetContext(execCtx)
 		req, buildErr := buildCommandExecuteRequest(cmd, rootFlags, &childFlags, executeRequestOptions{
-			Name:            resolvedReq.Name,
-			Args:            resolvedReq.Args,
-			FromSource:      resolvedReq.FromSource,
-			ResolvedCommand: cmdInfo,
-			FlagDefs:        commandFlagDefs(cmdInfo),
-			ArgDefs:         commandArgDefs(cmdInfo),
+			Name:                    resolvedReq.Name,
+			Args:                    resolvedReq.Args,
+			FromSource:              resolvedReq.FromSource,
+			ResolvedCommand:         cmdInfo,
+			FlagDefs:                commandFlagDefs(cmdInfo),
+			ArgDefs:                 commandArgDefs(cmdInfo),
+			StripProgramResumeToken: true,
 		})
 		if buildErr != nil {
 			return commandsvc.WatchExecutionOutcome{Err: buildErr}
@@ -132,12 +146,15 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	// Execute the command once immediately before starting the watcher.
 	fmt.Fprintf(app.stdout, "%s Watch mode: initial execution of '%s'\n", VerboseHighlightStyle.Render("→"), args[0])
-	outcome, err := session.InitialExecution(ctx)
+	outcome, err := session.InitialExecution(watchCtx)
 	if err != nil {
 		return err
 	}
 	if outcome.ExitCode != 0 {
 		fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
+	}
+	if interactiveWatch && !preserveResume() {
+		reporter.Report()
 	}
 
 	fmt.Fprintf(app.stdout, "\n%s Watching for changes (Ctrl+C to stop)...\n\n", VerboseHighlightStyle.Render("→"))
@@ -162,6 +179,9 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 			if handleErr != nil {
 				return handleErr
 			}
+			if interactiveWatch && !preserveResume() {
+				reporter.Report()
+			}
 			fmt.Fprintf(app.stdout, "\n%s Watching for changes...\n\n", VerboseHighlightStyle.Render("→"))
 			return nil
 		},
@@ -175,7 +195,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	}
 	// Use the config-path-enhanced context so --ivk-config is respected
 	// during re-execution, not the bare cmd.Context().
-	return w.Run(ctx)
+	return w.Run(watchCtx)
 }
 
 func executeWatchRequest(ctx context.Context, cmd *cobra.Command, app *App, req ExecuteRequest) (ExecuteResult, error) {

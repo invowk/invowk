@@ -90,7 +90,7 @@ Native runtime has full access to your environment:
 
 <Snippet id="runtime-modes/native-env-vars" />
 
-In non-interactive mode, host variables such as `OSC7577_TOKEN` pass through transparently (subject to `env_inherit_mode` / `env_inherit_deny`). Interactive mode (`-i`) strips `OSC7577_TOKEN` at the nested PTY boundary.
+In non-interactive mode (outside `--ivk-watch`), host variables such as `OSC7577_TOKEN` pass through transparently (subject to `env_inherit_mode` / `env_inherit_deny`). Interactive mode (`-i`) and `--ivk-watch` child executions strip `OSC7577_TOKEN` at the terminal boundary.
 
 ## Accessing Flags and Arguments
 

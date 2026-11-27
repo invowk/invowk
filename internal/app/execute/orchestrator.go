@@ -78,6 +78,9 @@ type (
 		// Platform is the resolved platform for this execution.
 		// Injected as INVOWK_PLATFORM so scripts can self-introspect the target platform.
 		Platform invowkfile.Platform
+		// StripProgramResumeToken strips OSC7577_TOKEN from the constructed child
+		// environment across all runtimes (used by watch mode).
+		StripProgramResumeToken bool
 	}
 )
 
@@ -274,6 +277,7 @@ func BuildExecutionContext(ctx context.Context, opts BuildExecutionContextOption
 	execCtx.CommandFullName = opts.CommandFullName
 	execCtx.Env.RuntimeEnvFiles = opts.EnvFiles
 	execCtx.Env.RuntimeEnvVars = opts.EnvVars
+	execCtx.Env.StripProgramResumeToken = opts.StripProgramResumeToken
 
 	applyEnvInheritOverrides(opts, execCtx)
 
