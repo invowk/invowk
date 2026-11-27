@@ -1,0 +1,118 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Diretório de Trabalho
+
+Controle onde seus comandos executam com a configuração `workdir`. Isso é especialmente útil para monorepos e projetos com estruturas de diretório complexas.
+
+## Comportamento Padrão
+
+Por padrão, comandos do invowkfile raiz rodam no diretório onde o invowkfile está localizado. Para módulos, comandos rodam no diretório raiz do módulo. Caminhos `workdir` relativos são resolvidos a partir desses locais.
+
+## Definindo o Diretório de Trabalho
+
+### Nível de Comando
+
+<Snippet id="advanced/workdir-command" />
+
+### Nível de Implementação
+
+<Snippet id="advanced/workdir-implementation" />
+
+### Nível Raiz
+
+<Snippet id="advanced/workdir-root" />
+
+### Sobrescrita pela CLI
+
+Sobrescreva o diretório de trabalho em tempo de execução:
+
+<Snippet id="advanced/workdir-cli" />
+
+## Tipos de Caminho
+
+### Caminhos Relativos
+
+Relativo à localização do invowkfile:
+
+<Snippet id="advanced/workdir-relative" />
+
+### Caminhos Absolutos
+
+Caminhos completos do sistema:
+
+<Snippet id="advanced/workdir-absolute" />
+
+:::note
+Os caminhos de `workdir` são resolvidos literalmente e não expandem variáveis de ambiente como `${HOME}` ou `${PROJECT_ROOT}`. Use caminhos relativos, caminhos absolutos literais ou passe `--ivk-workdir` na linha de comando.
+:::
+
+## Precedência
+
+Sobrescrita pela CLI (`--ivk-workdir`) sobrescreve implementação, que sobrescreve comando, que sobrescreve raiz:
+
+<Snippet id="advanced/workdir-precedence" />
+
+## Padrão Monorepo
+
+Perfeito para monorepos com múltiplos pacotes:
+
+<Snippet id="advanced/workdir-monorepo" />
+
+## Diretório de Trabalho em Container
+
+Para containers, o diretório atual é montado em `/workspace`:
+
+<Snippet id="advanced/workdir-container-default" />
+
+Com `workdir`, esse subdiretório se torna o diretório de trabalho do container:
+
+<Snippet id="advanced/workdir-container-subdir" />
+
+## Runtimes Virtuais
+
+Com o acesso ao sistema de arquivos padrão `restricted` dos runtimes `virtual-sh` e `virtual-lua`, o diretório de trabalho também é uma raiz permitida para o acesso a arquivos do script, com uma exceção: um `workdir` que o próprio invowkfile de um módulo declara (no nível raiz, do comando ou da implementação) e que resolve para fora do diretório do módulo. Links e junctions são seguidos, e um diretório de trabalho que não pode ser resolvido, ou que fica em outra unidade, conta como fora. Aqui, o invowkfile de um módulo é aquele que o Invowk carrega como parte de um módulo.
+
+Esse diretório continua sendo o diretório de trabalho do script, e `@work`, `INVOWK_ANCHOR_WORK` e `invowk.path("@work")` continuam apontando para ele, mas leituras e gravações ali são recusadas com `virtual path denied`, a menos que outra raiz permitida as cubra. A mesma verificação vale para `cd` e para os testes de arquivo do shell: `cd` para um diretório ali falha, e um teste como `[ -f settings.json ]` é falso mesmo quando o arquivo existe. Binários do host listados em `allowed_binaries` não são verificados: eles rodam como processos nativos do host, com esse diretório como diretório de trabalho, e mantêm seu acesso ao host, porque os runtimes virtuais não isolam binários do host (use o runtime `container` para isolamento). Para mantê-lo legível e gravável pelo próprio script:
+
+- declare-o em `virtual.filesystem.paths` da plataforma selecionada, por exemplo `WORK: "@work"`;
+- ou passe `--ivk-workdir` com esse diretório: um diretório de trabalho escolhido na linha de comando é sempre uma raiz permitida.
+
+Estes diretórios de trabalho continuam sendo raízes permitidas, como antes: o override `--ivk-workdir`, qualquer diretório de trabalho de um invowkfile que o Invowk não carrega como parte de um módulo (como `../packages/x` em um monorepo), o diretório de trabalho padrão de um módulo e um diretório de trabalho de módulo dentro do módulo. `virtual.filesystem.access: "full"`, o runtime `native` e o runtime `container` não são afetados. Veja [Acesso a Arquivos](../runtime-modes/virtual#acesso-a-arquivos) para as outras raízes.
+
+## Caminhos Multiplataforma
+
+Use barras para frente para compatibilidade multiplataforma:
+
+<Snippet id="advanced/workdir-cross-platform" />
+
+O Invowk™ converte automaticamente para separadores de caminho nativos em tempo de execução.
+
+## Exemplos do Mundo Real
+
+### Divisão Frontend/Backend
+
+<Snippet id="advanced/workdir-frontend-backend" />
+
+### Organização de Testes
+
+<Snippet id="advanced/workdir-tests" />
+
+### Build em Subdiretório
+
+<Snippet id="advanced/workdir-build-subdir" />
+
+## Melhores Práticas
+
+1. **Use caminhos relativos**: Mais portável entre máquinas
+2. **Barras para frente**: Compatível com múltiplas plataformas
+3. **Nível raiz para padrões**: Sobrescreva onde necessário
+4. **Mantenha caminhos curtos**: Mais fácil de entender
+
+## Próximos Passos
+
+- [Interpretadores](./interpreters) - Usar interpretadores não-shell
+- [Específico de Plataforma](./platform-specific) - Implementações por plataforma

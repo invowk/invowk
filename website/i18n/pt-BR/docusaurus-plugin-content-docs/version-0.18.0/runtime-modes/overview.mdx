@@ -1,0 +1,145 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral dos Modos de Runtime
+
+O Invowk™ oferece quatro formas diferentes de executar comandos, cada uma com seus próprios pontos fortes. Escolha o runtime certo para seu caso de uso.
+
+## Os Quatro Runtimes
+
+| Runtime | Descrição | Melhor Para |
+|---------|-----------|-------------|
+| **native** | Shell padrão do sistema | Desenvolvimento diário, performance |
+| **virtual-sh** | Shell POSIX integrado | Scripts shell multiplataforma, portabilidade |
+| **virtual-lua** | Interpretador Lua integrado | Automação Lua multiplataforma |
+| **container** | Container Docker/Podman | Reprodutibilidade, isolamento |
+
+## Comparação Rápida
+
+<Snippet id="runtime-modes/comparison" />
+
+## Quando Usar Cada Runtime
+
+### Runtime Native
+
+Use **native** quando você quiser:
+- Máxima performance
+- Acesso a todas as ferramentas do sistema
+- Recursos específicos do shell (bash completions, plugins do zsh)
+- Integração com seu ambiente de desenvolvimento
+
+<Snippet id="runtime-modes/native-basic" />
+
+### Runtime Virtual-Sh
+
+Use **virtual-sh** quando você quiser:
+- Comportamento consistente entre plataformas
+- Scripts POSIX-compatíveis que funcionam em qualquer lugar
+- Sem dependência de shell externo (o interpretador é integrado, e scripts podem chamar binários do host explicitamente permitidos)
+- Debug mais simples de scripts shell
+
+:::caution
+O runtime `virtual-sh` **não é um sandbox**. Binários do host são negados a menos que sejam listados explicitamente em `allowed_binaries`. Para isolamento de execução, use o runtime **container**.
+:::
+
+<Snippet id="runtime-modes/virtual-basic" />
+
+### Runtime Virtual-Lua
+
+Use **virtual-lua** quando você quiser:
+- Automação Lua portátil sem exigir um binário Lua no host
+- Scripts estruturados com tabelas, funções e `require` local ao módulo
+- E/S de arquivos validada por caminho pelo harness virtual do Invowk
+- Chamadas explícitas da ponte para utilitários e binários do host permitidos
+
+:::caution
+O runtime `virtual-lua` **não é um sandbox**. Binários do host permitidos ainda executam como processos nativos. Para isolamento de execução, use o runtime **container**.
+:::
+
+<Snippet id="runtime-modes/virtual-lua-basic" />
+
+### Runtime Container
+
+Use **container** quando você quiser:
+- Builds reproduzíveis
+- Ambientes isolados
+- Versões específicas de ferramentas
+- Execução em ambiente limpo
+
+<Snippet id="runtime-modes/container-basic" />
+
+## Múltiplos Runtimes Por Comando
+
+Comandos podem suportar múltiplos runtimes. O primeiro é o padrão:
+
+<Snippet id="runtime-modes/multiple-runtimes" />
+
+### Sobrescrevendo em Tempo de Execução
+
+<Snippet id="runtime-modes/override-cli" />
+
+## Listagem de Comandos
+
+A lista de comandos mostra runtimes disponíveis com um asterisco marcando o padrão:
+
+<Snippet id="runtime-modes/list-output" />
+
+## Fluxo de Seleção de Runtime
+
+O runtime é resolvido usando um modelo de precedência de 3 níveis:
+
+1. **Flag CLI** (`--ivk-runtime`) — Sobrescrita rígida. Erro se o runtime especificado não for compatível com o comando na plataforma atual.
+2. **Runtime padrão do config** (`default_runtime` no config) — Sobrescrita flexível. Se o runtime padrão do config for compatível com o comando, é usado. Caso contrário, passa silenciosamente para o Nível 3.
+3. **Padrão por comando** — Primeiro runtime da primeira implementação correspondente para a plataforma atual.
+
+```
+                    ┌──────────────────┐
+                    │  invowk cmd run  │
+                    └────────┬─────────┘
+                             │
+                  ┌──────────▼───────────┐
+                  │ Nível 1: flag        │
+                  │ --ivk-runtime?       │
+                  └──────────┬───────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              │ Sim                         │ Não
+              ▼                             ▼
+    ┌─────────────────────┐      ┌──────────────────────┐
+    │ Usar runtime        │      │ Nível 2: config      │
+    │ especificado (erro  │      │ default_runtime      │
+    │ se incompatível)    │      │ definido?            │
+    └─────────────────────┘      └──────────┬───────────┘
+                                            │
+                                ┌───────────┴────────────┐
+                                │ Sim & compatível       │ Não / incompatível
+                                ▼                        ▼
+                     ┌─────────────────────┐   ┌─────────────────────┐
+                     │ Usar runtime padrão │   │ Nível 3: padrão por │
+                     │ do config           │   │ comando (primeiro   │
+                     └─────────────────────┘   │ runtime compatível) │
+                                               └─────────────────────┘
+```
+
+## Validação de Dependências
+
+Entradas `depends_on` no nível raiz, comando e implementação são sempre validadas contra o sistema host, independentemente do runtime selecionado. `depends_on` no nível de runtime só está disponível em configurações de runtime container, onde valida dependências dentro do ambiente do container.
+
+| Escopo | Dependências Validadas Contra |
+|--------|-------------------------------|
+| `depends_on` de raiz / comando / implementação | Sistema host |
+| `depends_on` do runtime container | Ambiente da imagem do container |
+
+Isso significa que uma dependência `tools` no nível do comando, como `go`, verifica se `go` está disponível no host. Para verificar se `go` está instalado dentro de uma imagem de container, coloque essa dependência dentro do bloco de runtime container.
+
+## Próximos Passos
+
+Aprofunde-se em cada runtime:
+
+- [Runtime Native](./native) - Execução no shell do sistema
+- [Runtime Virtual-Sh](./virtual) - Runtime de shell POSIX integrado
+- [Runtime Virtual-Lua](./virtual-lua) - Runtime Lua integrado
+- [Runtime Container](./container) - Execução em Docker/Podman

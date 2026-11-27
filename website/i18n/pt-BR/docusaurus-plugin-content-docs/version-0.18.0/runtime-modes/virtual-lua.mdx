@@ -1,0 +1,84 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Runtime Virtual-Lua
+
+O runtime **virtual-lua** executa comandos com o interpretador Lua embarcado do Invowk. Ele é útil para automações portáveis que querem tabelas, funções e módulos Lua sem exigir uma instalação de Lua no host.
+
+## Uso Básico
+
+<Snippet id="runtime-modes/virtual-lua-basic" />
+
+## API Da Ponte
+
+Scripts Lua interagem com o Invowk por meio de uma tabela `invowk` somente leitura:
+
+| API | Finalidade |
+|-----|------------|
+| `invowk.path(nameOrAnchor)` | Resolver âncoras padrão como `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state` e nomes de `virtual.filesystem.paths` da plataforma selecionada |
+| `invowk.env.NAME` / `os.getenv("NAME")` | Ler o ambiente efetivo do comando |
+| `invowk.state.bin_path` | Inspecionar o último caminho de binário de host resolvido |
+| `invowk.cmd.<name>(...)` | Enviar um utilitário habilitado ou binário de host permitido para stdout/stderr do comando |
+| `invowk.capture.<name>(...)` | Retornar stdout, stderr e código de saída |
+
+<Snippet id="runtime-modes/virtual-lua-bridge" />
+
+## Caminhos E Arquivos
+
+A E/S de arquivos Lua usa o validador de caminhos virtual do Invowk. Caminhos relativos são resolvidos a partir do diretório de trabalho do comando. Âncoras padrão são expostas como metadados, e as raízes implícitas de leitura/escrita são `@work` (exceto o diretório de trabalho de um módulo fora do módulo: veja [Diretório de Trabalho](../advanced/workdir#runtimes-virtuais)), `@tmp`, `@config`, `@data`, `@cache`, `@state`, a raiz do script ou módulo e `/tmp` (exceto no Windows).
+
+No acesso restrito (o padrão), o validador resolve o caminho antes de verificá-lo:
+
+- **Os links são seguidos primeiro.** Todo link simbólico e toda junction do Windows no caminho é resolvido, mesmo quando as últimas partes do caminho ainda não existem. O caminho resolvido precisa estar dentro de uma raiz permitida.
+- **Um link que sai das raízes permitidas é negado em qualquer profundidade**, com `virtual path denied`. Isso inclui um caminho novo vários diretórios abaixo desse link e um link quebrado cujo destino inexistente fica fora. Um link ou junction cujo destino fica dentro de uma raiz permitida funciona, assim como uma raiz permitida que é alcançada por um link (por exemplo `/tmp` no macOS).
+- **Um caminho que não pode ser resolvido é recusado**: um ciclo de links, um destino de link que sobe com `..` a partir de um diretório que não existe, ou uma unidade ou compartilhamento inexistente. Uma entrada de `virtual.filesystem.paths` que não pode ser resolvida faz o comando falhar antes de o script rodar.
+- **`/dev/stdout`, `/dev/stderr` e `/dev/stdin` não são arquivos quando o stream é um pipe** (Linux), então não podem ser abertos como caminhos, mesmo com `/dev` declarado. Use `io.stdout` e `io.stderr`.
+
+Com `virtual.filesystem.access: "full"` não há verificação de raízes permitidas, e um caminho que o validador não consegue resolver é passado ao sistema operacional como está.
+
+Nos dois modos de acesso, um caminho que pode ser resolvido é usado na forma resolvida, exceto pelas operações que atuam sobre o próprio último componente:
+
+- **Os caminhos são informados na forma resolvida.** Os resultados de `invowk.path`, os valores de `INVOWK_PATH_*` e as mensagens `virtual path denied` mostram o destino do link ou da junction, não o link. Para as operações que atuam sobre o próprio link (abaixo), mostram o caminho do link: o seu diretório resolvido unido ao seu nome.
+- **A maioria das operações segue um link ou junction até o destino:** as funções de `io`, `invowk.cmd.cat`, `invowk.cmd.cp` e o destino de `invowk.cmd.mv`. O destino de `mv` é uma diferença conhecida em relação a um shell do host: quando o destino é um link para um arquivo, esse arquivo é substituído e o link mantido, enquanto um shell do host substitui o link.
+- **`invowk.cmd.rm`, as origens de `invowk.cmd.mv` e o nome do link de `invowk.cmd.ln` atuam sobre o próprio link** e não seguem o último componente: `invowk.cmd.rm("link")` e `invowk.cmd.rm("-r", "link")` removem o link e mantêm o destino, `invowk.cmd.mv("link", "dir")` move o link, e `invowk.cmd.ln("-sf", "destino", "link")` substitui um link existente, nunca o seu destino. Com acesso restrito, um link dentro de uma raiz permitida pode ser removido ou movido mesmo quando o destino fica fora delas; o destino permanece. No Windows, `invowk.cmd.rm("-rf", ...)` de uma junction remove a junction e mantém a árvore de destino. No macOS, um `invowk.cmd.rm("-r", "/tmp")` restrito é recusado, porque o link `/tmp` fica fora da raiz permitida `/private/tmp`.
+- **Um separador no final pede um diretório.** Um operando dessas chamadas que termina em separador, `.` ou `..` é resolvido por completo: `invowk.cmd.rm("-r", "dirlink/")` remove o diretório de destino e mantém o link. Quando ele nomeia um link para um arquivo, a chamada falha com `not a directory`, nomeando o caminho resolvido, e nada muda.
+- **Os utilitários de `invowk.cmd` encontram os operandos do jeito que cada um interpreta os seus argumentos.** `--` encerra as opções, e todo operando é verificado, comece com o que começar. Os valores de opções passam como foram escritos, exceto os que nomeiam caminhos, como `tar -f`, que também são verificados, assim como o arquivo que o `gzip` grava para cada operando. `gzip -S` recusa um sufixo que contenha um separador de caminho.
+- **`invowk.cmd.cp` e `invowk.cmd.tar` com `-x` verificam os caminhos que derivam dos seus operandos**, como no [virtual-sh](./virtual): com acesso restrito, todo caminho que eles criam, gravam ou cujo modo alteram, e todo link de origem que o `cp` segue sem `-P`, precisa ser resolvido dentro de uma raiz permitida, e uma recusa recusa a chamada inteira com `virtual path denied` antes que algo seja gravado. Um `cp` restrito também recusa uma origem posterior que não existe quando ele começa, o `cp -r` não grava em uma árvore de origem da mesma chamada, o `cp -P` recusa uma cópia que criaria um link ao lado de outras entradas, e o `tar -x` só lê o arquivo de um arquivo regular. `virtual.filesystem.access: "full"` mantém o comportamento do u-root.
+
+Essa é uma política para as APIs de arquivo do próprio runtime. Um binário do host permitido roda como um processo normal do host e não tem seus caminhos verificados; use o [runtime container](./container) para isolamento.
+
+As bases das âncoras são sempre absolutas. Um `XDG_*_HOME`, `APPDATA` ou `LOCALAPPDATA` relativo é ignorado e o padrão baseado no diretório home é usado. Quando o próprio diretório home é relativo ou não está definido (e nenhum valor absoluto de `XDG_*`/AppData cobre a âncora), `@home`, `@config`, `@data`, `@cache` e `@state` ficam indisponíveis: suas variáveis `INVOWK_ANCHOR_*` ficam vazias, elas não são raízes permitidas, e `invowk.path("@config")` ou uma entrada de `virtual.filesystem.paths` como `"@home/.dotfiles"` falha com `virtual path anchor "@config" is unavailable`.
+
+`@home` pode ser resolvida para metadados, mas o acesso restrito ao filesystem não a torna uma raiz ampla permitida. Para disponibilizar um caminho do host às APIs de arquivo Lua em modo restrito, defina uma entrada `platforms[].virtual.filesystem.paths`. A chave vira `INVOWK_PATH_<KEY>` e pode ser resolvida com `invowk.path("<KEY>/file")`. Use `platforms[].virtual.filesystem.access: "full"` apenas quando operações de arquivo Lua controladas pela VM puderem acessar caminhos normalizados do filesystem do host além desses handles nomeados.
+
+<Snippet id="runtime-modes/virtual-lua-filesystem-paths" />
+
+## Require Local Ao Módulo
+
+`require("helpers.format")` carrega arquivos-fonte Lua dentro da árvore do script ou módulo, como `helpers/format.lua` ou `helpers/format/init.lua`. Travessia de diretórios, caminhos absolutos e carregamento de bibliotecas nativas compartilhadas são bloqueados.
+
+## Binários Do Host E Utilitários
+
+Quando `virtual.utilities.enabled` é `true`, `invowk.cmd` e `invowk.capture` podem chamar os utilitários u-root embutidos do Invowk. Binários do host continuam negados por padrão e precisam ser listados em `allowed_binaries`.
+
+<Snippet id="runtime-modes/virtual-lua-host-binary" />
+
+:::caution Não É Sandbox
+O runtime virtual-lua **não é um sandbox de segurança**. Binários do host permitidos executam como processos nativos com acesso ao host. Para isolamento de execução, use o runtime **container**.
+:::
+
+## Limite Da Biblioteca Padrão Lua
+
+Virtual-lua intencionalmente não expõe APIs irrestritas voltadas ao host, como `os.execute`, `io.popen`, `package.loadlib`, `debug`, `dofile`, `loadfile` ou imports dinâmicos de `golib`. Use a ponte do Invowk, funções `io` validadas por caminho e `require` local ao módulo.
+
+## Argumentos E Modo Interativo
+
+Argumentos do comando ficam disponíveis tanto por varargs Lua quanto pela tabela `arg`. O modo interativo conecta stdin, stdout e stderr ao processo Lua; ele não inicia um REPL Lua.
+
+## Próximos Passos
+
+- [Runtime Virtual-Sh](./virtual) - Para scripts shell POSIX portáveis
+- [Runtime Container](./container) - Para execução isolada

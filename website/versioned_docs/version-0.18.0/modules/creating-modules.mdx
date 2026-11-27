@@ -1,0 +1,113 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Creating Modules
+
+Learn how to create, structure, and organize modules for your commands.
+
+## Quick Create
+
+Use `module create` to scaffold a new module:
+
+<Snippet id="modules/create-options" />
+
+## Generated Structure
+
+Basic module:
+
+<Snippet id="modules/quick-create-output" />
+
+With `--scripts`:
+
+<Snippet id="modules/create-with-scripts" />
+
+## Module Metadata (invowkmod.cue)
+
+The generated `invowkmod.cue` contains module identity and dependencies:
+
+<Snippet id="modules/template-invowkmod" />
+
+## Template Invowkfile
+
+The generated `invowkfile.cue` contains commands only:
+
+<Snippet id="modules/template-invowkfile" />
+
+## Manual Creation
+
+You can also create modules manually:
+
+<Snippet id="modules/manual-create" />
+
+## Adding Scripts
+
+### Inline vs External
+
+Choose based on complexity:
+
+<Snippet id="modules/inline-vs-external" />
+
+### Script Organization
+
+<Snippet id="modules/script-organization" />
+
+### Script Paths
+
+Always use forward slashes:
+
+<Snippet id="modules/script-paths-good-bad" />
+
+## Environment Files
+
+Include `.env` files in your module:
+
+<Snippet id="modules/env-files-structure" />
+
+Reference them:
+
+<Snippet id="modules/env-files-ref" />
+
+A module's env files must resolve inside the module directory, with every link on the path followed. An absolute path, a path that leaves the module, a link to a file outside it (also under `invowk_modules/`), a link with an absolute target, or a link that does not resolve makes the command fail with `env file resolves outside module` before it runs, even for an optional `?` file. An optional file is skipped only when nothing exists at its path.
+
+## Documentation
+
+Include a README for users:
+
+<Snippet id="modules/docs-structure" />
+
+## Real-World Examples
+
+### Build Tools Module
+
+<Snippet id="modules/buildtools-structure" />
+
+<Snippet id="modules/buildtools-invowkfile" />
+
+### DevOps Module
+
+<Snippet id="modules/devops-structure" />
+
+## Best Practices
+
+1. **Use RDNS naming**: Prevents conflicts with other modules
+2. **Keep scripts focused**: One task per script
+3. **Include documentation**: README with usage examples
+4. **Version your module**: Set the version in `invowkmod.cue`
+5. **Forward slashes only**: Cross-platform compatibility
+6. **Validate before sharing**: Run `invowk validate ./your-module.invowkmod`
+
+## Validating Your Module
+
+Before sharing, validate:
+
+<Snippet id="modules/validate-before-share" />
+
+See [Validating](./validating) for details.
+
+## Next Steps
+
+- [Validating](./validating) - Ensure module integrity
+- [Distributing](./distributing) - Share your module

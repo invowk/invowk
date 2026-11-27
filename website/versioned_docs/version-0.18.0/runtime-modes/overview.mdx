@@ -1,0 +1,144 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Runtime Modes Overview
+
+Invowk™ gives you four different ways to execute commands, each with its own strengths. Choose the right runtime for your use case.
+
+## The Four Runtimes
+
+| Runtime | Description | Best For |
+|---------|-------------|----------|
+| **native** | System's default shell | Daily development, performance |
+| **virtual-sh** | Built-in POSIX shell | Cross-platform shell scripts, portability |
+| **virtual-lua** | Built-in Lua interpreter | Cross-platform Lua automation |
+| **container** | Docker/Podman container | Reproducibility, isolation |
+
+## Quick Comparison
+
+<Snippet id="runtime-modes/comparison" />
+
+## When to Use Each Runtime
+
+### Native Runtime
+
+Use **native** when you want:
+- Maximum performance
+- Access to all system tools
+- Shell-specific features (bash completions, zsh plugins)
+- Integration with your development environment
+
+<Snippet id="runtime-modes/native-basic" />
+
+### Virtual-Sh Runtime
+
+Use **virtual-sh** when you want:
+- Consistent behavior across platforms
+- POSIX-compatible scripts that work everywhere
+- No external shell dependency (the interpreter is built in, and scripts can call explicitly allowed host binaries)
+- Simpler debugging of shell scripts
+
+:::caution
+The virtual-sh runtime is **not a sandbox**. Host binaries are denied unless explicitly listed with `allowed_binaries`. For execution isolation, use the **container** runtime.
+:::
+
+<Snippet id="runtime-modes/virtual-basic" />
+
+### Virtual-Lua Runtime
+
+Use **virtual-lua** when you want:
+- Portable Lua automation without requiring a host Lua binary
+- Structured scripts with tables, functions, and module-local `require`
+- Path-validated file I/O through Invowk's virtual safety harness
+- Explicit bridge calls for utilities and allowed host binaries
+
+:::caution
+The virtual-lua runtime is **not a sandbox**. Allowed host binaries still run as native host processes. For execution isolation, use the **container** runtime.
+:::
+
+<Snippet id="runtime-modes/virtual-lua-basic" />
+
+### Container Runtime
+
+Use **container** when you want:
+- Reproducible builds
+- Isolated environments
+- Specific tool versions
+- Clean-room execution
+
+<Snippet id="runtime-modes/container-basic" />
+
+## Multiple Runtimes Per Command
+
+Commands can support multiple runtimes. The first one is the default:
+
+<Snippet id="runtime-modes/multiple-runtimes" />
+
+### Overriding at Runtime
+
+<Snippet id="runtime-modes/override-cli" />
+
+## Command Listing
+
+The command list shows available runtimes with an asterisk marking the default:
+
+<Snippet id="runtime-modes/list-output" />
+
+## Runtime Selection Flow
+
+The runtime is resolved using a 3-tier precedence model:
+
+1. **CLI flag** (`--ivk-runtime`) — Hard override. Errors if the specified runtime is not compatible with the command on the current platform.
+2. **Config default runtime** (`default_runtime` in config) — Soft override. If the config-level default runtime is compatible with the command, use it. Otherwise, silently fall through to Tier 3.
+3. **Per-command default** — First runtime of the first matching implementation for the current platform.
+
+```
+                    ┌──────────────────┐
+                    │  invowk cmd run  │
+                    └────────┬─────────┘
+                             │
+                  ┌──────────▼───────────┐
+                  │ Tier 1: --ivk-runtime│
+                  │ flag provided?       │
+                  └──────────┬───────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              │ Yes                         │ No
+              ▼                             ▼
+    ┌─────────────────────┐      ┌──────────────────────┐
+    │ Use specified        │      │ Tier 2: config       │
+    │ runtime (hard error  │      │ default_runtime set? │
+    │ if incompatible)     │      └──────────┬───────────┘
+    └─────────────────────┘                  │
+                                ┌────────────┴────────────┐
+                                │ Yes & compatible        │ No / incompatible
+                                ▼                         ▼
+                     ┌─────────────────────┐   ┌─────────────────────┐
+                     │ Use config default  │   │ Tier 3: per-command │
+                     │ runtime             │   │ default (first      │
+                     └─────────────────────┘   │ matching runtime)   │
+                                               └─────────────────────┘
+```
+
+## Dependency Validation
+
+Root, command, and implementation-level `depends_on` entries are always validated against the host system, regardless of the selected runtime. Runtime-level `depends_on` is only available in container runtime configs, where it validates dependencies inside the container environment.
+
+| Scope | Dependencies Validated Against |
+|-------|-------------------------------|
+| Root / command / implementation `depends_on` | Host system |
+| Container runtime `depends_on` | Container image environment |
+
+This means a command-level `tools` dependency like `go` checks whether `go` is available on the host. To check whether `go` is installed inside a container image, put that dependency inside the container runtime block.
+
+## Next Steps
+
+Dive deeper into each runtime:
+
+- [Native Runtime](./native) - System shell execution
+- [Virtual-Sh Runtime](./virtual) - Built-in POSIX shell runtime
+- [Virtual-Lua Runtime](./virtual-lua) - Embedded Lua runtime
+- [Container Runtime](./container) - Docker/Podman execution
