@@ -108,6 +108,9 @@ func TestConfigSchemaRejectsUnknownFields(t *testing.T) {
 		{name: "root unknown", cue: `future_field: true`},
 		{name: "nested ui unknown", cue: `ui: {accent_color: "blue"}`},
 		{name: "nested auto provision unknown", cue: `container: {auto_provision: {extra: true}}`},
+		{name: "llm defaults unknown", cue: `llm: {extra: true}`},
+		{name: "llm provider unknown", cue: `llm: {provider: "codex", extra: true}`},
+		{name: "llm api backend unknown", cue: `llm: {api: {base_url: "https://example.com/v1"}, extra: true}`},
 	}
 
 	for _, tt := range tests {
@@ -120,6 +123,41 @@ func TestConfigSchemaRejectsUnknownFields(t *testing.T) {
 			}
 			if !errors.Is(err, ErrConfigLoadFailed) {
 				t.Fatalf("loadWithOptions() error = %v, want ErrConfigLoadFailed", err)
+			}
+		})
+	}
+}
+
+func TestConfigSchemaAcceptsLLMVariantInheritedFields(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		cue  string
+	}{
+		{
+			name: "llm defaults variant",
+			cue:  `llm: {model: "gpt-5", timeout: "30s", concurrency: 2}`,
+		},
+		{
+			name: "llm provider variant",
+			cue:  `llm: {provider: "codex", model: "o4", timeout: "30s", concurrency: 1}`,
+		},
+		{
+			name: "llm api backend variant",
+			cue:  `llm: {api: {base_url: "https://example.com/v1", api_key_env: "OPENAI_API_KEY"}, model: "gpt-5", timeout: "45s", concurrency: 4}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if _, err := decodeCUEConfigSource(configCUESource{
+				data:     configCUEData(tt.cue),
+				filename: configCUEFilename("llm-variant.cue"),
+			}); err != nil {
+				t.Fatalf("decodeCUEConfigSource() error = %v, want nil", err)
 			}
 		})
 	}

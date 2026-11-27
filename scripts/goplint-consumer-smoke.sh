@@ -50,10 +50,13 @@ if [[ ! -x /usr/bin/time ]]; then
   exit 1
 fi
 "${SCRIPT_DIR}/goplint.sh" build
+# Ensure direct ./bin/goplint execution resolves the module's active toolchain
+# rather than an older ambient Go shim on PATH (matching `go tool` behavior).
+resolved_goroot="$(cd "$ROOT_DIR" && "${GO_CMD:-go}" env GOROOT)"
 time_file="$(mktemp)"
 trap 'rm -f "$time_file"' EXIT
 set +e
-(cd "$ROOT_DIR" && /usr/bin/time -f 'goplint-smoke-time %e %M' -o "$time_file" \
+(cd "$ROOT_DIR" && env -u GOROOT PATH="${resolved_goroot}/bin:${PATH}" /usr/bin/time -f 'goplint-smoke-time %e %M' -o "$time_file" \
   ./bin/goplint -test=false -check-all -check-enum-sync \
   -baseline=.goplint/baseline.toml \
   -config=.goplint/exceptions.toml \

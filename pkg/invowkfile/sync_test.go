@@ -168,6 +168,62 @@ cmds: [{
 	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
 }]`,
 		},
+		{
+			name: "native runtime unknown field",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native", extra: true}], platforms: [{name: "linux"}]}]
+}]`,
+		},
+		{
+			name: "virtual-sh runtime unknown field",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "virtual-sh", extra: true}], platforms: [{name: "linux"}]}]
+}]`,
+		},
+		{
+			name: "virtual-lua runtime unknown field",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "virtual-lua", extra: true}], platforms: [{name: "linux"}]}]
+}]`,
+		},
+		{
+			name: "container image runtime unknown field",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "container", image: "debian:stable-slim", extra: true}], platforms: [{name: "linux"}]}]
+}]`,
+		},
+		{
+			name: "containerfile runtime unknown field",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "container", containerfile: "Containerfile", extra: true}], platforms: [{name: "linux"}]}]
+}]`,
+		},
+		{
+			name: "script content source unknown field",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{script: {content: "echo test", extra: true}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+}]`,
+		},
+		{
+			name: "script file source unknown field",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{script: {file: "scripts/run.sh", extra: true}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+}]`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -176,6 +232,86 @@ cmds: [{
 
 			if err := validateCUE(t, tt.cue); err == nil {
 				t.Fatal("validateCUE() succeeded, want closed-schema rejection")
+			}
+		})
+	}
+}
+
+func TestInvowkfileSchemaAcceptsEmbeddedVariantFields(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		cue  string
+	}{
+		{
+			name: "native runtime with base fields and content interpreter",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: {content: "echo test", interpreter: "/bin/sh"}
+		runtimes: [{name: "native", env_inherit_mode: "allow", env_inherit_allow: ["PATH"], env_inherit_deny: ["SECRET"]}]
+		platforms: [{name: "linux"}]
+	}]
+}]`,
+		},
+		{
+			name: "virtual-sh runtime with virtual base and base fields",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: {file: "scripts/run.sh", interpreter: "auto"}
+		runtimes: [{name: "virtual-sh", env_inherit_mode: "none", allowed_binaries: ["echo"], binary_lookup_mode: "strict"}]
+		platforms: [{name: "linux"}]
+	}]
+}]`,
+		},
+		{
+			name: "virtual-lua runtime with limits and virtual base fields",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: {content: "print('hi')"}
+		runtimes: [{name: "virtual-lua", env_inherit_mode: "all", allowed_binaries: ["*"], cpu_limit: 1000, memory_limit: "64MB"}]
+		platforms: [{name: "linux"}]
+	}]
+}]`,
+		},
+		{
+			name: "container image runtime with container and base fields",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: {content: "echo container"}
+		runtimes: [{name: "container", image: "debian:stable-slim", env_inherit_mode: "none", enable_host_ssh: false, volumes: ["./data:/data"], ports: ["8080:80"]}]
+		platforms: [{name: "linux"}]
+	}]
+}]`,
+		},
+		{
+			name: "containerfile runtime with container and base fields",
+			cue: `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: {content: "echo containerfile"}
+		runtimes: [{name: "container", containerfile: "Containerfile", env_inherit_mode: "all", persistent: {create_if_missing: true, name: "dev-env"}}]
+		platforms: [{name: "linux"}]
+	}]
+}]`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if err := validateCUE(t, tt.cue); err != nil {
+				t.Fatalf("validateCUE() error = %v, want nil", err)
 			}
 		})
 	}

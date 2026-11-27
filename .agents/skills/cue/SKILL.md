@@ -183,7 +183,7 @@ hard-code the version in this skill.
 
 When upgrading the CUE library version:
 
-1. **Review Changelog**: Check for breaking changes in the CUE release notes
+1. **Review Changelog**: Check for breaking changes in the CUE release notes (for CUE `v0.18.0+`, `explicitopen` is stable and enabled by default, requiring `#Base...` when embedding shared definitions inside derived or `close({...})` structs)
 2. **Run Full Test Suite**: `make test` including all schema sync tests
 3. **Check API Deprecations**: Search for deprecated function usage
 4. **Verify Error Formats**: Manually test that error messages still include paths
