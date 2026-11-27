@@ -2,8 +2,8 @@
 
 ## 1. ANSI/VT escape-sequence boundary buffer (`internal/tui`)
 
-- [x] 1.1 Implement `ansiStreamBuffer` in `internal/tui/interactive_ansi_buffer.go` covering `GroundState`, lone `ESC`, 2-byte and intermediate `ESC` sequences, `CSI` (`ESC [` and `0x9B`), `OSC` (`ESC ]` and `0x9D` with `BEL`, `0x9C`, and split `ESC \` `ST`), `DCS`/`SOS`/`PM`/`APC` (`ESC P`/`X`/`^`/`_` and 8-bit equivalents, including `DCSEntry` + `0x1B` passthrough), `SS2`/`SS3` (`ESC N`/`ESC O` and `0x8E`/`0x8F`), multi-byte UTF-8 (`0xC2..0xF4`), `maxEscapeHoldBytes` (`64 KiB`) overflow flush, and `emuParserState` tracking, verifying that complete leading prefixes flush immediately at `LastSafeEnd` (`GroundState`).
-- [x] 1.2 Add comprehensive unit tests in `internal/tui/tui_interactive_ansi_buffer_test.go` covering byte-by-byte and chunk-boundary splits across every sequence family (lone `ESC`, CSI, OSC with `BEL` and split `ST`, DCS/SOS/PM/APC, `SS2`/`SS3`, intermediate `ESC`, 2/3/4-byte UTF-8, UTF-8 inside OSC titles, interrupted sequences, `maxEscapeHoldBytes` overflow, and `emuParserState` transitions).
+- [x] 1.1 Implement `ansiStreamBuffer` in `internal/tui/interactive_ansi_buffer.go` covering `GroundState`, lone `ESC`, 2-byte and intermediate `ESC` sequences, `CSI` (`ESC [` and `0x9B`), `OSC` (`ESC ]` and `0x9D` with `BEL`, `0x9C`, and split `ESC \` `ST`), `DCS`/`SOS`/`PM`/`APC` (`ESC P`/`X`/`^`/`_` and 8-bit equivalents, including `DCSEntry` + `0x1B` passthrough), `SS2`/`SS3` (`ESC N`/`ESC O` and `0x8E`/`0x8F`), multi-byte UTF-8 (`0xC2..0xF4`), `maxEscapeHoldBytes` (`64 KiB`) overflow flush, and `emuState` tracking, verifying that complete leading prefixes flush immediately at `lastSafeEnd` (`GroundState`).
+- [x] 1.2 Add comprehensive unit tests in `internal/tui/tui_interactive_ansi_buffer_test.go` covering byte-by-byte and chunk-boundary splits across every sequence family (lone `ESC`, CSI, OSC with `BEL` and split `ST`, DCS/SOS/PM/APC, `SS2`/`SS3`, intermediate `ESC`, 2/3/4-byte UTF-8, UTF-8 inside OSC titles, interrupted sequences, `maxEscapeHoldBytes` overflow, and `emuState` transitions).
 - [x] 1.3 Narrowest check: run `go test -race -run TestANSIStreamBuffer ./internal/tui/...` and verify every test passes.
 
 ## 2. Interactive viewer ground-state guard, bounded flush, and SGR isolation (`internal/tui`)
@@ -27,4 +27,4 @@
 ## Workflow follow-up
 
 - Run `/learn` (`.agents/skills/learn/SKILL.md`) as the final step after implementation and gates pass.
-- Archive the completed change via `openspec-archive-change` once review and checks succeed.
+- [x] Archive the completed change via `openspec-archive-change` (synced to `openspec/specs/interactive-mode-terminal/spec.md` and archived).
