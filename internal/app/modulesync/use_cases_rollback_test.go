@@ -303,6 +303,12 @@ _firstDep: requires[0].git_url
 		t.Fatalf("EvalSymlinks(realManifest) error = %v", err)
 	}
 	beforeInfo := statFileIdentity(t, resolvedRealManifest)
+	// Keep the pre-edit file identity allocated across Step 1 + rollback so
+	// POSIX filesystems (e.g. ext4 LIFO inode reuse) cannot reassign it to the
+	// replacement file and cause a false os.SameFile positive.
+	if linkErr := os.Link(resolvedRealManifest, filepath.Join(filepath.Dir(resolvedRealManifest), "pinned-before")); linkErr != nil {
+		t.Fatalf("Link(pinned-before) error = %v", linkErr)
+	}
 
 	invowkmodPath := filepath.Join(workDir, "invowkmod.cue")
 	fstree.MustSymlink(t, realManifest, invowkmodPath)
@@ -428,6 +434,9 @@ _firstDep: requires[0].git_url
 			t.Fatalf("EvalSymlinks(subReal) error = %v", evalErr)
 		}
 		subBeforeInfo := statFileIdentity(t, resolvedSubReal)
+		if linkErr := os.Link(resolvedSubReal, filepath.Join(filepath.Dir(resolvedSubReal), "pinned-sub-before")); linkErr != nil {
+			t.Fatalf("Link(pinned-sub-before) error = %v", linkErr)
+		}
 
 		relTarget := filepath.Join("..", "shared", "real.cue")
 		subLink := filepath.Join(subDir, "invowkmod.cue")
