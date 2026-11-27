@@ -65,6 +65,10 @@ type (
 		mode os.FileMode
 		// linkTarget is the os.Readlink target of a symbolic-link snapshot.
 		linkTarget *types.FilesystemPath
+		// targetPath is the resolved regular-file destination when kind ==
+		// snapshotSymlink and the symlink resolved to a regular file at
+		// snapshot time (nil for dangling or non-regular symlinks).
+		targetPath *types.FilesystemPath
 		// writeFile and createLink are the Resolver's restore seams, carried
 		// into the snapshot when it is taken.
 		writeFile  restoreFileWriter
@@ -417,12 +421,20 @@ func (s fileSnapshot) Validate() error {
 	if err := s.kind.Validate(); err != nil {
 		return err
 	}
+	if s.kind != snapshotSymlink && s.targetPath != nil {
+		return errors.New("file snapshot target path is only valid for symlink snapshots")
+	}
 	if s.kind == snapshotSymlink {
 		if s.linkTarget == nil {
 			return errors.New("file snapshot link target is required")
 		}
 		if err := s.linkTarget.Validate(); err != nil {
 			return fmt.Errorf("file snapshot link target: %w", err)
+		}
+		if s.targetPath != nil {
+			if err := s.targetPath.Validate(); err != nil {
+				return fmt.Errorf("file snapshot target path: %w", err)
+			}
 		}
 	}
 	return s.path.Validate()
@@ -452,9 +464,10 @@ func (m *Resolver) readFileSnapshot(path types.FilesystemPath) (fileSnapshot, er
 	return snapshot, nil
 }
 
-// readFileSnapshot records what is at path without following a symbolic link:
-// a dangling link is a link, not a missing file, and a link to a regular file
-// is restored as that link (design D8).
+// readFileSnapshot records what is at path without following a symbolic link
+// for the entry itself: a dangling link is a link-only snapshot, and a link
+// that resolves to an existing regular file snapshots both the link target and
+// the resolved target file's path, bytes, and permissions (MA5 Option A1).
 func readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
 	snapshot := fileSnapshot{path: &path}
 	info, err := os.Lstat(string(path))
@@ -468,13 +481,15 @@ func readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
 	snapshot.mode = info.Mode()
 	switch {
 	case info.Mode()&os.ModeSymlink != 0:
-		target, readErr := os.Readlink(string(path))
+		linkTarget, readErr := readSymlinkTargetPath(path)
 		if readErr != nil {
-			return fileSnapshot{}, fmt.Errorf("read link before dependency edit: %w", readErr)
+			return fileSnapshot{}, readErr
 		}
-		linkTarget := types.FilesystemPath(target) //goplint:ignore -- os.Readlink result, validated with the snapshot.
 		snapshot.kind = snapshotSymlink
 		snapshot.linkTarget = &linkTarget
+		if targetErr := populateResolvedSymlinkTarget(path, &snapshot); targetErr != nil {
+			return fileSnapshot{}, targetErr
+		}
 	case snapshotsBytes(info.Mode(), runtime.GOOS):
 		data, readErr := os.ReadFile(string(path))
 		if readErr != nil {
@@ -486,6 +501,43 @@ func readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
 		snapshot.kind = snapshotOther
 	}
 	return snapshot, nil
+}
+
+func readSymlinkTargetPath(path types.FilesystemPath) (types.FilesystemPath, error) {
+	target, err := os.Readlink(string(path))
+	if err != nil {
+		return "", fmt.Errorf("read link before dependency edit: %w", err)
+	}
+	linkTarget := types.FilesystemPath(target)
+	if err := linkTarget.Validate(); err != nil {
+		return "", fmt.Errorf("invalid link target before dependency edit: %w", err)
+	}
+	return linkTarget, nil
+}
+
+func populateResolvedSymlinkTarget(path types.FilesystemPath, snapshot *fileSnapshot) error {
+	if resolvedTarget, inspectErr := fspath.InspectWritableTarget(string(path)); inspectErr == nil && resolvedTarget.Exists && resolvedTarget.WasSymlink {
+		resolvedFSPath, targetData, err := readResolvedSymlinkTarget(resolvedTarget)
+		if err != nil {
+			return err
+		}
+		snapshot.targetPath = &resolvedFSPath
+		snapshot.data = targetData
+		snapshot.mode = resolvedTarget.Perm
+	}
+	return nil
+}
+
+func readResolvedSymlinkTarget(target fspath.FileTarget) (types.FilesystemPath, fileSnapshotData, error) {
+	targetData, err := os.ReadFile(target.Path)
+	if err != nil {
+		return "", nil, fmt.Errorf("read symlink target before dependency edit: %w", err)
+	}
+	resolvedFSPath := types.FilesystemPath(target.Path)
+	if err := resolvedFSPath.Validate(); err != nil {
+		return "", nil, fmt.Errorf("invalid resolved symlink target before dependency edit: %w", err)
+	}
+	return resolvedFSPath, fileSnapshotData(targetData), nil
 }
 
 // snapshotsBytes reports whether a file of mode is snapshotted by its bytes:
@@ -526,7 +578,14 @@ func (s fileSnapshot) restore() error {
 		}
 		return nil
 	case snapshotSymlink:
-		return s.restoreLink()
+		var targetErr error
+		if s.targetPath != nil {
+			if err := s.fileWriter()(string(*s.targetPath), []byte(s.data), s.mode.Perm()); err != nil {
+				targetErr = fmt.Errorf("rollback target %s: %w", *s.targetPath, err)
+			}
+		}
+		linkErr := s.restoreLink()
+		return errors.Join(targetErr, linkErr)
 	case snapshotOther:
 		return nil
 	default:

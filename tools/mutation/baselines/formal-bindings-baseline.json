@@ -1826,133 +1826,161 @@
       "id": "699806855c12f3f4db0be73620a4c5f3",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "expression/error-guard",
-      "line": 513,
+      "line": 565,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "6a1bc7fd7b5ba35d285b8e310e69ecac",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "branch/if",
-      "line": 514,
+      "line": 566,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "d5f0c3e6499bdcc3461fddfcb7e24ba5",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "expression/errorf-wrap",
-      "line": 514,
+      "line": 566,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "ab34dd51ea8fb76b71007f4d1020ae45",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "statement/return",
-      "line": 514,
+      "line": 566,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "63a352812180b4a2437fe0047884dfaa",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "conditional/negated",
-      "line": 519,
+      "line": 571,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "12b33245e00345e35aba1ac4e99a243e",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "conditional/not",
-      "line": 519,
+      "line": 571,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "794a9de735227037e3f6cd6ec327d563",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "expression/logical",
-      "line": 519,
+      "line": 571,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "0886669dea4d49e2b27bf57663f08582",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "expression/remove",
-      "line": 519,
+      "line": 571,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "50f217a1cd0f9784083015ea47bfd699",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "expression/remove",
-      "line": 519,
+      "line": 571,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "2d91abb6deb5e79014461a17efc38e1e",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "branch/if",
-      "line": 520,
+      "line": 572,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "34631018bc37ebdd06f90b89e7c47731",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "expression/errorf-wrap",
-      "line": 520,
+      "line": 572,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "436f31f5fe763e8c257196ff3e328de9",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "statement/return",
-      "line": 520,
+      "line": 572,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "2a97b1e6ae310e9c1532e92f783e3261",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "conditional/negated",
-      "line": 524,
+      "line": 576,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "b5d240abdbbf892ccff0a2bde9d8d363",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "expression/error-guard",
-      "line": 524,
+      "line": 576,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "03ac657131b4c5e6444ad2f06314f477",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "branch/if",
-      "line": 525,
+      "line": 577,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "649c40de05b231d88e63dbb4d311a9bc",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "expression/errorf-wrap",
-      "line": 525,
+      "line": 577,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
       "id": "3bbbb82c884f0f4daad12b6ede5900a5",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "statement/return",
-      "line": 525,
+      "line": 577,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
-      "id": "0d146fc7cec5a069bd110d569a437c4b",
+      "id": "8157c6997e13c26509973cfdb04d9065",
       "file": "internal/app/modulesync/use_cases.go",
-      "mutator": "statement/return",
-      "line": 529,
-      "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
+      "mutator": "conditional/negated",
+      "line": 582,
+      "digest": "c57f8f4fbb59097024a32947b1f39224d3747a772df2472949fd915a1ca7d36e"
+    },
+    {
+      "id": "bce16f798a6f2fce2a6a1ea1469c7ba8",
+      "file": "internal/app/modulesync/use_cases.go",
+      "mutator": "conditional/negated",
+      "line": 583,
+      "digest": "c57f8f4fbb59097024a32947b1f39224d3747a772df2472949fd915a1ca7d36e"
+    },
+    {
+      "id": "ad7bf1e60c6c9d40432a5632b0796b88",
+      "file": "internal/app/modulesync/use_cases.go",
+      "mutator": "expression/error-guard",
+      "line": 583,
+      "digest": "c57f8f4fbb59097024a32947b1f39224d3747a772df2472949fd915a1ca7d36e"
+    },
+    {
+      "id": "6baa5f1ee6a52bfed0e1d2c966750cf4",
+      "file": "internal/app/modulesync/use_cases.go",
+      "mutator": "branch/if",
+      "line": 584,
+      "digest": "c57f8f4fbb59097024a32947b1f39224d3747a772df2472949fd915a1ca7d36e"
+    },
+    {
+      "id": "f3e6a3bbfe35dc976e07b6beeb3ff975",
+      "file": "internal/app/modulesync/use_cases.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 584,
+      "digest": "c57f8f4fbb59097024a32947b1f39224d3747a772df2472949fd915a1ca7d36e"
     },
     {
       "id": "7e702af0468a28a93ea03a87c7bb4eee",
       "file": "internal/app/modulesync/use_cases.go",
       "mutator": "statement/return",
-      "line": 533,
+      "line": 592,
       "digest": "adfd89a4159d08eafec1e8de0e573363628812eb1527930cac0ca42cf1ab09cf"
     },
     {
@@ -3883,63 +3911,63 @@
       "id": "f814aed4e4ffdd8dec027adf4ca4f007",
       "file": "pkg/invowkmod/invowkmod_edit.go",
       "mutator": "expression/errorf-wrap",
-      "line": 132,
+      "line": 141,
       "digest": "e26bdb9503542ae1db300ceb1e7ba581dc39d35f316787e61fe12f5dd8b15721"
     },
     {
       "id": "9c308403b858fe662d537369185e6e05",
       "file": "pkg/invowkmod/invowkmod_edit.go",
       "mutator": "branch/if",
-      "line": 138,
+      "line": 155,
       "digest": "e26bdb9503542ae1db300ceb1e7ba581dc39d35f316787e61fe12f5dd8b15721"
     },
     {
       "id": "01ca242ae2a0dbc2295294cea23c341c",
       "file": "pkg/invowkmod/invowkmod_edit.go",
       "mutator": "numbers/incrementer",
-      "line": 142,
+      "line": 159,
       "digest": "e26bdb9503542ae1db300ceb1e7ba581dc39d35f316787e61fe12f5dd8b15721"
     },
     {
       "id": "4358f1a88f1ec59e8ed1fba4e7ae89fa",
       "file": "pkg/invowkmod/invowkmod_edit.go",
       "mutator": "expression/error-guard",
-      "line": 161,
+      "line": 178,
       "digest": "e26bdb9503542ae1db300ceb1e7ba581dc39d35f316787e61fe12f5dd8b15721"
     },
     {
       "id": "ad32097b52c820b328ece732515c59d4",
       "file": "pkg/invowkmod/invowkmod_edit.go",
       "mutator": "branch/if",
-      "line": 162,
+      "line": 179,
       "digest": "e26bdb9503542ae1db300ceb1e7ba581dc39d35f316787e61fe12f5dd8b15721"
     },
     {
       "id": "612b9a41f4a07432973a00ffde6d95c4",
       "file": "pkg/invowkmod/invowkmod_edit.go",
       "mutator": "statement/return",
-      "line": 162,
+      "line": 179,
       "digest": "e26bdb9503542ae1db300ceb1e7ba581dc39d35f316787e61fe12f5dd8b15721"
     },
     {
-      "id": "d5485f0c3291923bb27eaf76f745b5f7",
+      "id": "940f5b1db9d78e4992928c56f029ae2e",
       "file": "pkg/invowkmod/invowkmod_edit.go",
       "mutator": "expression/error-guard",
-      "line": 164,
-      "digest": "e26bdb9503542ae1db300ceb1e7ba581dc39d35f316787e61fe12f5dd8b15721"
+      "line": 181,
+      "digest": "c57f8f4fbb59097024a32947b1f39224d3747a772df2472949fd915a1ca7d36e"
     },
     {
       "id": "b7cd353addad0732c6fc989b70583b88",
       "file": "pkg/invowkmod/invowkmod_edit.go",
       "mutator": "branch/if",
-      "line": 165,
+      "line": 182,
       "digest": "e26bdb9503542ae1db300ceb1e7ba581dc39d35f316787e61fe12f5dd8b15721"
     },
     {
       "id": "83e11a247b2732f29a6ac0b2c1b8d64a",
       "file": "pkg/invowkmod/invowkmod_edit.go",
       "mutator": "statement/return",
-      "line": 165,
+      "line": 182,
       "digest": "e26bdb9503542ae1db300ceb1e7ba581dc39d35f316787e61fe12f5dd8b15721"
     },
     {

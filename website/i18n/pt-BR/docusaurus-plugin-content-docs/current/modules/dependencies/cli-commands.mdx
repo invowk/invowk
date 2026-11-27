@@ -238,9 +238,10 @@ Os arquivos de lock ficam no diretório `locks` do cache de módulos (`INVOWK_MO
 
 Comandos somente leitura nunca esperam: `module deps`, `module list`, `validate`, `audit` e a execução de comandos não tomam o lock, e o diretório `locks` não é uma entrada do projeto, mesmo quando o cache de módulos fica dentro do projeto.
 
+Os caminhos de projeto são canonicalizados entre links simbólicos em todos os sistemas — além de diferenças entre maiúsculas e minúsculas e firmlinks no macOS, e junctions, maiúsculas e minúsculas e nomes curtos 8.3 no Windows — para que comandos iniciados por grafias diferentes do mesmo diretório compartilhem o mesmo lock.
+
 Limites conhecidos:
 - Duas execuções com valores diferentes de `INVOWK_MODULES_PATH` usam diretórios `locks` diferentes e não esperam uma pela outra.
-- Em um volume do macOS que não diferencia maiúsculas de minúsculas, o mesmo projeto acessado por caminhos que diferem só nisso (`~/Proj` e `~/proj`) recebe dois arquivos de lock, então comandos iniciados pelas duas grafias não esperam um pelo outro. No Windows o caminho é normalizado, e em todo sistema um link simbólico (ou uma junction do Windows) para o projeto leva ao mesmo lock.
 - Os locks são locks consultivos entre processos do invowk em uma máquina. Eles não impedem um editor ou outra ferramenta de alterar os arquivos e, em um sistema de arquivos de rede, podem não excluir processos de outras máquinas.
 
 ## Workflows Comuns

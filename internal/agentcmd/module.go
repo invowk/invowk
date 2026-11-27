@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,11 +25,11 @@ import (
 )
 
 const (
-	defaultInvowkfileContent = "cmds: []\n"
-	generatedModuleName      = "generated-module"
-	invowkfileFileName       = "invowkfile.cue"
-	invowkmodFileName        = "invowkmod.cue"
-	moduleFilePerm           = 0o644
+	defaultInvowkfileContent             = "cmds: []\n"
+	generatedModuleName                  = "generated-module"
+	invowkfileFileName                   = "invowkfile.cue"
+	invowkmodFileName                    = "invowkmod.cue"
+	moduleFilePerm           os.FileMode = 0o644
 )
 
 type (
@@ -566,23 +567,38 @@ func loadExistingModule(target string) (loadedModule, error) {
 	}, nil
 }
 
-// readModuleFiles reads a module's invowkmod.cue and invowkfile.cue; a
-// missing invowkfile.cue reads as the default content.
+// readModuleFiles reads a module's invowkmod.cue and invowkfile.cue through
+// fspath.InspectWritableTarget so regular-file symlinks are followed while
+// dangling or non-regular symlinks fail closed; only a truly absent
+// invowkfile.cue reads as the default content.
 func readModuleFiles(modulePath string) (invowkmodCUE, invowkfileCUE string, err error) {
-	invowkmodPath := filepath.Join(modulePath, invowkmodFileName)
-	invowkmodData, err := os.ReadFile(invowkmodPath)
+	invowkmodCUE, err = readModuleTargetFile(filepath.Join(modulePath, invowkmodFileName), false)
 	if err != nil {
-		return "", "", fmt.Errorf("read %s: %w", invowkmodPath, err)
+		return "", "", err
 	}
-	invowkfilePath := filepath.Join(modulePath, invowkfileFileName)
-	invowkfileData, err := os.ReadFile(invowkfilePath)
+	invowkfileCUE, err = readModuleTargetFile(filepath.Join(modulePath, invowkfileFileName), true)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			return "", "", fmt.Errorf("read %s: %w", invowkfilePath, err)
+		return "", "", err
+	}
+	return invowkmodCUE, invowkfileCUE, nil
+}
+
+func readModuleTargetFile(path string, allowMissing bool) (string, error) {
+	target, err := fspath.InspectWritableTarget(path)
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	if !target.Exists {
+		if allowMissing {
+			return defaultInvowkfileContent, nil
 		}
-		invowkfileData = []byte(defaultInvowkfileContent)
+		return "", fmt.Errorf("read %s: %w", path, fs.ErrNotExist)
 	}
-	return string(invowkmodData), string(invowkfileData), nil
+	data, err := os.ReadFile(target.Path)
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	return string(data), nil
 }
 
 // writeChangedModuleFiles writes a generated change under the module
@@ -672,31 +688,38 @@ func writeModuleBundle(modulePath, invowkmodCUE, invowkfileCUE string, createScr
 	return nil
 }
 
-// writeModuleFiles writes invowkmod.cue, then invowkfile.cue, each through
-// fspath.AtomicWriteFile, so a reader sees each file's old or new content.
-// A file that already exists keeps its permission bits, as the in-place
-// write it replaced did; a new file gets moduleFilePerm.
+// writeModuleFiles inspects both targets first and then writes invowkmod.cue
+// and invowkfile.cue through fspath.AtomicWriteFile, so a reader sees each
+// file's old or new content. Regular-file symlinks stay intact by replacing
+// their resolved targets with preserved permission bits; truly absent files get
+// moduleFilePerm; dangling or non-regular symlinks fail closed before either
+// file is written.
 func writeModuleFiles(modulePath, invowkmodCUE, invowkfileCUE string) error {
 	invowkmodPath := filepath.Join(modulePath, invowkmodFileName)
-	if err := fspath.AtomicWriteFile(invowkmodPath, []byte(invowkmodCUE), existingFilePerm(invowkmodPath)); err != nil {
-		return fmt.Errorf("write invowkmod.cue: %w", err)
+	modTarget, err := fspath.InspectWritableTarget(invowkmodPath)
+	if err != nil {
+		return fmt.Errorf("write %s: %w", invowkmodFileName, err)
 	}
 	invowkfilePath := filepath.Join(modulePath, invowkfileFileName)
-	if err := fspath.AtomicWriteFile(invowkfilePath, []byte(invowkfileCUE), existingFilePerm(invowkfilePath)); err != nil {
-		return fmt.Errorf("write invowkfile.cue: %w", err)
+	fileTarget, err := fspath.InspectWritableTarget(invowkfilePath)
+	if err != nil {
+		return fmt.Errorf("write %s: %w", invowkfileFileName, err)
 	}
-	return nil
+	if err := writeInspectedModuleFile(modTarget, invowkmodFileName, invowkmodCUE); err != nil {
+		return err
+	}
+	return writeInspectedModuleFile(fileTarget, invowkfileFileName, invowkfileCUE)
 }
 
-// existingFilePerm returns the permission bits of the file at path (through a
-// symbolic link, as os.WriteFile wrote through it), or moduleFilePerm when
-// there is none.
-func existingFilePerm(path string) os.FileMode {
-	info, err := os.Stat(path)
-	if err != nil || !info.Mode().IsRegular() {
-		return moduleFilePerm
+func writeInspectedModuleFile(target fspath.FileTarget, name, content string) error {
+	perm := moduleFilePerm
+	if target.Exists {
+		perm = target.Perm
 	}
-	return info.Mode().Perm()
+	if err := fspath.AtomicWriteFile(target.Path, []byte(content), perm); err != nil {
+		return fmt.Errorf("write %s: %w", name, err)
+	}
+	return nil
 }
 
 func verifyModule(modulePath string) error {

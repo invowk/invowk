@@ -1,0 +1,121 @@
+# Test: invowk module remove symlink preservation and fail-closed validation (MA5 Option A1)
+[!symlink] skip
+
+# Case 1: symlinked invowkmod.cue pointing to a regular file updates the resolved
+# target atomically and keeps the symlink intact.
+cd $WORK/regular
+symlink invowkmod.cue -> shared/real-invowkmod.cue
+exec invowk module remove dep
+stdout 'Removed'
+stdout 'Lock file and invowkmod.cue updated'
+! grep 'example/dep.invowkmod.git' shared/real-invowkmod.cue
+grep 'example/other.invowkmod.git' shared/real-invowkmod.cue
+[!windows] exec test -L invowkmod.cue
+
+# Case 2: dangling invowkmod.cue symlink fails closed without creating target and
+# rolls back invowkmod.lock.cue.
+cd $WORK/dangling
+symlink invowkmod.cue -> missing-invowkmod.cue
+cp invowkmod.lock.cue lock.before
+! exec invowk module remove dep
+stdout 'Could not auto-edit invowkmod.cue'
+stdout 'Lock file changes were rolled back; invowkmod.cue needs manual review'
+! stdout 'Removed'
+! exists missing-invowkmod.cue
+[!windows] exec test -L invowkmod.cue
+cmp invowkmod.lock.cue lock.before
+
+# Case 3: directory symlink invowkmod.cue fails closed and rolls back lock file.
+cd $WORK/dirlink
+mkdir targetdir
+symlink invowkmod.cue -> targetdir
+cp invowkmod.lock.cue lock.before
+! exec invowk module remove dep
+stdout 'Could not auto-edit invowkmod.cue'
+stdout 'Lock file changes were rolled back; invowkmod.cue needs manual review'
+! stdout 'Removed'
+[!windows] exec test -L invowkmod.cue
+cmp invowkmod.lock.cue lock.before
+
+-- regular/shared/real-invowkmod.cue --
+module:  "mymod"
+version: "0.1.0"
+requires: [
+	{
+		git_url: "https://github.com/example/dep.invowkmod.git"
+		version: "^1.0.0"
+	},
+	{
+		git_url: "https://github.com/example/other.invowkmod.git"
+		version: "^1.0.0"
+	},
+]
+
+-- regular/invowkfile.cue --
+cmds: []
+
+-- regular/invowkmod.lock.cue --
+// invowkmod.lock.cue - Auto-generated lock file for module dependencies
+// DO NOT EDIT MANUALLY
+
+version: "2.0"
+generated: "2025-01-01T00:00:00Z"
+
+modules: {
+	"https://github.com/example/dep.invowkmod.git": {
+		git_url:          "https://github.com/example/dep.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "dep@1.0.0"
+		command_source_id: "dep"
+		module_id:        "dep"
+		content_hash:     "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	}
+}
+
+-- dangling/invowkfile.cue --
+cmds: []
+
+-- dangling/invowkmod.lock.cue --
+// invowkmod.lock.cue - Auto-generated lock file for module dependencies
+// DO NOT EDIT MANUALLY
+
+version: "2.0"
+generated: "2025-01-01T00:00:00Z"
+
+modules: {
+	"https://github.com/example/dep.invowkmod.git": {
+		git_url:          "https://github.com/example/dep.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "dep@1.0.0"
+		command_source_id: "dep"
+		module_id:        "dep"
+		content_hash:     "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	}
+}
+
+-- dirlink/invowkfile.cue --
+cmds: []
+
+-- dirlink/invowkmod.lock.cue --
+// invowkmod.lock.cue - Auto-generated lock file for module dependencies
+// DO NOT EDIT MANUALLY
+
+version: "2.0"
+generated: "2025-01-01T00:00:00Z"
+
+modules: {
+	"https://github.com/example/dep.invowkmod.git": {
+		git_url:          "https://github.com/example/dep.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "dep@1.0.0"
+		command_source_id: "dep"
+		module_id:        "dep"
+		content_hash:     "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	}
+}

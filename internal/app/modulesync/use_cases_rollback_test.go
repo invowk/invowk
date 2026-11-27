@@ -8,8 +8,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
+	"github.com/invowk/invowk/internal/modulelock"
 	"github.com/invowk/invowk/internal/testutil/fstree"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -232,4 +234,303 @@ func TestDeclarationEditResultValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func seedMultiSubpathMonorepoLock(t *testing.T, workDir string, gitURL GitURL, subPaths ...SubdirectoryPath) []byte {
+	t.Helper()
+
+	lock := invowkmod.NewLockFile()
+	for _, subPath := range subPaths {
+		lock.AddModule(&ResolvedModule{
+			ModuleRef: ModuleRef{
+				GitURL:  gitURL,
+				Version: "^1.0.0",
+				Path:    subPath,
+			},
+			ResolvedVersion: "1.0.0",
+			GitCommit:       defaultFakeCommit,
+			ModuleID:        ModuleID("io.example." + filepath.Base(string(subPath))),
+			Namespace:       ModuleNamespace("io.example." + filepath.Base(string(subPath)) + "@1.0.0"),
+			CommandSourceID: invowkmod.ModuleSourceID("io.example." + filepath.Base(string(subPath))),
+			ContentHash:     "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		})
+	}
+	lockPath := filepath.Join(workDir, LockFileName)
+	if err := lock.Save(lockPath); err != nil {
+		t.Fatalf("Save(lock) error = %v", err)
+	}
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatalf("ReadFile(lock) error = %v", err)
+	}
+	return data
+}
+
+func TestRemoveModuleDependencyRollbackRestoresSymlinkedInvowkmodTarget(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+
+	const monorepoURL GitURL = "https://github.com/user/monorepo.git"
+	// Step 1 removes one entry while requires[0] remains valid; step 2 removes
+	// the entire requires field, which breaks _firstDep and triggers rollback.
+	const initialManifest = `module: "io.example.root"
+version: "1.0.0"
+
+requires: [
+	{
+		git_url: "https://github.com/user/monorepo.git"
+		version: "^1.0.0"
+		path:    "packages/a"
+	},
+	{
+		git_url: "https://github.com/user/monorepo.git"
+		version: "^1.0.0"
+		path:    "packages/b"
+	},
+]
+
+_firstDep: requires[0].git_url
+`
+
+	workDir := t.TempDir()
+	sharedDir := t.TempDir()
+	realManifest := filepath.Join(sharedDir, "shared-invowkmod.cue")
+	if err := os.WriteFile(realManifest, []byte(initialManifest), 0o600); err != nil {
+		t.Fatalf("WriteFile(realManifest) error = %v", err)
+	}
+	resolvedRealManifest, err := filepath.EvalSymlinks(realManifest)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(realManifest) error = %v", err)
+	}
+	beforeInfo := statFileIdentity(t, resolvedRealManifest)
+	// Keep the pre-edit file identity allocated across Step 1 + rollback so
+	// POSIX filesystems (e.g. ext4 LIFO inode reuse) cannot reassign it to the
+	// replacement file and cause a false os.SameFile positive.
+	if linkErr := os.Link(resolvedRealManifest, filepath.Join(filepath.Dir(resolvedRealManifest), "pinned-before")); linkErr != nil {
+		t.Fatalf("Link(pinned-before) error = %v", linkErr)
+	}
+
+	invowkmodPath := filepath.Join(workDir, "invowkmod.cue")
+	fstree.MustSymlink(t, realManifest, invowkmodPath)
+	lockBefore := seedMultiSubpathMonorepoLock(t, workDir, monorepoURL, "packages/a", "packages/b")
+
+	resolver, err := newLockOnlyResolver(types.FilesystemPath(workDir), WithEditLocks(EditLocks{
+		Locker:   modulelock.NewFileLocker(),
+		CacheDir: types.FilesystemPath(t.TempDir()),
+	}))
+	if err != nil {
+		t.Fatalf("newLockOnlyResolver() error = %v", err)
+	}
+
+	result, err := resolver.RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), string(monorepoURL))
+	if err != nil {
+		t.Fatalf("RemoveModuleDependency() error = %v", err)
+	}
+	if !result.LockWritten() {
+		t.Fatal("LockWritten() = false, want true")
+	}
+	decls := result.Declarations()
+	if len(decls) != 2 {
+		t.Fatalf("Declarations() = %d entries, want 2 (step 1 edit + step 2 rollback)", len(decls))
+	}
+	if !decls[0].Updated() || decls[0].Err() != nil {
+		t.Fatalf("Declarations()[0] = %+v, want step 1 edit succeeded before step 2 failure", decls[0])
+	}
+	if decls[1].Updated() {
+		t.Fatal("Declarations()[1].Updated() = true, want false after rollback")
+	}
+	if decls[1].Rollback() != DeclarationRollbackComplete {
+		t.Fatalf("Declarations()[1].Rollback() = %s, want complete", decls[1].Rollback())
+	}
+	if decls[1].Err() == nil {
+		t.Fatal("Declarations()[1].Err() = nil, want CUE edit error")
+	}
+
+	assertSameLink(t, invowkmodPath, realManifest)
+	afterData, err := os.ReadFile(resolvedRealManifest)
+	if err != nil {
+		t.Fatalf("ReadFile(resolvedRealManifest) error = %v", err)
+	}
+	if string(afterData) != initialManifest {
+		t.Fatalf("resolved target content mismatch after rollback:\ngot:\n%s\nwant:\n%s", afterData, initialManifest)
+	}
+	afterInfo := statFileIdentity(t, resolvedRealManifest)
+	if os.SameFile(beforeInfo, afterInfo) {
+		t.Fatal("resolved target kept same file identity, want atomic replace during rollback")
+	}
+	if runtime.GOOS != "windows" && afterInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("resolved target perm = %v, want 0600", afterInfo.Mode().Perm())
+	}
+	lockAfter, err := os.ReadFile(filepath.Join(workDir, LockFileName))
+	if err != nil {
+		t.Fatalf("ReadFile(lock) error = %v", err)
+	}
+	if !bytes.Equal(lockAfter, lockBefore) {
+		t.Fatalf("lock file mismatch after rollback:\ngot:\n%s\nwant:\n%s", lockAfter, lockBefore)
+	}
+
+	t.Run("target restore failure yields incomplete rollback", func(t *testing.T) {
+		t.Parallel()
+
+		subWorkDir := t.TempDir()
+		subSharedDir := t.TempDir()
+		subReal := filepath.Join(subSharedDir, "shared-invowkmod.cue")
+		if writeErr := os.WriteFile(subReal, []byte(initialManifest), 0o600); writeErr != nil {
+			t.Fatalf("WriteFile(subReal) error = %v", writeErr)
+		}
+		resolvedSubReal, evalErr := filepath.EvalSymlinks(subReal)
+		if evalErr != nil {
+			t.Fatalf("EvalSymlinks(subReal) error = %v", evalErr)
+		}
+		subLink := filepath.Join(subWorkDir, "invowkmod.cue")
+		fstree.MustSymlink(t, subReal, subLink)
+		seedMultiSubpathMonorepoLock(t, subWorkDir, monorepoURL, "packages/a", "packages/b")
+
+		injected := errors.New("injected: target restore failed")
+		subResolver, resErr := newLockOnlyResolver(types.FilesystemPath(subWorkDir), WithEditLocks(EditLocks{
+			Locker:   modulelock.NewFileLocker(),
+			CacheDir: types.FilesystemPath(t.TempDir()),
+		}))
+		if resErr != nil {
+			t.Fatalf("newLockOnlyResolver() error = %v", resErr)
+		}
+		subResolver.restoreWriter = func(path string, data []byte, perm os.FileMode) error {
+			if path == resolvedSubReal {
+				return injected
+			}
+			return os.WriteFile(path, data, perm)
+		}
+
+		subResult, rmErr := subResolver.RemoveModuleDependency(t.Context(), types.FilesystemPath(subLink), string(monorepoURL))
+		if rmErr != nil {
+			t.Fatalf("RemoveModuleDependency() error = %v", rmErr)
+		}
+		subDecls := subResult.Declarations()
+		if len(subDecls) != 2 || subDecls[1].Rollback() != DeclarationRollbackIncomplete || !errors.Is(subDecls[1].Err(), injected) {
+			t.Fatalf("Declarations() = %+v, want step 2 incomplete rollback carrying injected error", subDecls)
+		}
+		assertSameLink(t, subLink, subReal)
+	})
+
+	t.Run("cross-directory relative symlink restores resolved target from outside sub", func(t *testing.T) {
+		t.Parallel()
+
+		subRoot := t.TempDir()
+		subDir := filepath.Join(subRoot, "sub")
+		sharedDir := filepath.Join(subRoot, "shared")
+		if mkdirErr := os.MkdirAll(subDir, 0o755); mkdirErr != nil {
+			t.Fatalf("MkdirAll(subDir) error = %v", mkdirErr)
+		}
+		if mkdirErr := os.MkdirAll(sharedDir, 0o755); mkdirErr != nil {
+			t.Fatalf("MkdirAll(sharedDir) error = %v", mkdirErr)
+		}
+
+		subReal := filepath.Join(sharedDir, "real.cue")
+		if writeErr := os.WriteFile(subReal, []byte(initialManifest), 0o600); writeErr != nil {
+			t.Fatalf("WriteFile(subReal) error = %v", writeErr)
+		}
+		resolvedSubReal, evalErr := filepath.EvalSymlinks(subReal)
+		if evalErr != nil {
+			t.Fatalf("EvalSymlinks(subReal) error = %v", evalErr)
+		}
+		subBeforeInfo := statFileIdentity(t, resolvedSubReal)
+		if linkErr := os.Link(resolvedSubReal, filepath.Join(filepath.Dir(resolvedSubReal), "pinned-sub-before")); linkErr != nil {
+			t.Fatalf("Link(pinned-sub-before) error = %v", linkErr)
+		}
+
+		relTarget := filepath.Join("..", "shared", "real.cue")
+		subLink := filepath.Join(subDir, "invowkmod.cue")
+		fstree.MustSymlink(t, relTarget, subLink)
+		subLockBefore := seedMultiSubpathMonorepoLock(t, subDir, monorepoURL, "packages/a", "packages/b")
+
+		subResolver, resErr := newLockOnlyResolver(types.FilesystemPath(subDir), WithEditLocks(EditLocks{
+			Locker:   modulelock.NewFileLocker(),
+			CacheDir: types.FilesystemPath(t.TempDir()),
+		}))
+		if resErr != nil {
+			t.Fatalf("newLockOnlyResolver() error = %v", resErr)
+		}
+
+		subResult, rmErr := subResolver.RemoveModuleDependency(t.Context(), types.FilesystemPath(subLink), string(monorepoURL))
+		if rmErr != nil {
+			t.Fatalf("RemoveModuleDependency() error = %v", rmErr)
+		}
+		if !subResult.LockWritten() {
+			t.Fatal("LockWritten() = false, want true")
+		}
+		subDecls := subResult.Declarations()
+		if len(subDecls) != 2 || !subDecls[0].Updated() || subDecls[0].Err() != nil {
+			t.Fatalf("Declarations()[0] = %+v, want step 1 edit succeeded before step 2 rollback", subDecls)
+		}
+		if subDecls[1].Updated() || subDecls[1].Rollback() != DeclarationRollbackComplete || subDecls[1].Err() == nil {
+			t.Fatalf("Declarations()[1] = %+v, want step 2 complete rollback with error", subDecls[1])
+		}
+
+		assertSameLink(t, subLink, relTarget)
+		subAfterData, readErr := os.ReadFile(resolvedSubReal)
+		if readErr != nil {
+			t.Fatalf("ReadFile(resolvedSubReal) error = %v", readErr)
+		}
+		if string(subAfterData) != initialManifest {
+			t.Fatalf("resolved target content mismatch after rollback:\ngot:\n%s\nwant:\n%s", subAfterData, initialManifest)
+		}
+		subAfterInfo := statFileIdentity(t, resolvedSubReal)
+		if os.SameFile(subBeforeInfo, subAfterInfo) {
+			t.Fatal("resolved target kept same file identity, want atomic replace during rollback")
+		}
+		if runtime.GOOS != "windows" && subAfterInfo.Mode().Perm() != 0o600 {
+			t.Fatalf("resolved target perm = %v, want 0600", subAfterInfo.Mode().Perm())
+		}
+		subLockAfter, lockReadErr := os.ReadFile(filepath.Join(subDir, LockFileName))
+		if lockReadErr != nil {
+			t.Fatalf("ReadFile(lock) error = %v", lockReadErr)
+		}
+		if !bytes.Equal(subLockAfter, subLockBefore) {
+			t.Fatalf("lock file mismatch after rollback:\ngot:\n%s\nwant:\n%s", subLockAfter, subLockBefore)
+		}
+	})
+}
+
+func TestFileSnapshotSymlinkTargetValidationAndDirectoryLink(t *testing.T) {
+	t.Parallel()
+
+	p := types.FilesystemPath(filepath.Join(t.TempDir(), "invowkmod.cue"))
+	target := types.FilesystemPath(filepath.Join(t.TempDir(), "target.cue"))
+	badSnapshot := fileSnapshot{
+		path:       &p,
+		kind:       snapshotRegular,
+		targetPath: &target,
+	}
+	if err := badSnapshot.Validate(); err == nil {
+		t.Fatal("Validate() = nil for non-symlink snapshot with targetPath, want error")
+	}
+
+	fstree.Require(t, fstree.CapSymlink)
+	root := t.TempDir()
+	dirTarget := filepath.Join(root, "dir")
+	if err := os.Mkdir(dirTarget, 0o755); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+	dirLink := filepath.Join(root, "invowkmod.cue")
+	fstree.MustSymlink(t, dirTarget, dirLink)
+
+	snap, err := readFileSnapshot(types.FilesystemPath(dirLink))
+	if err != nil {
+		t.Fatalf("readFileSnapshot(dirLink) error = %v", err)
+	}
+	if snap.kind != snapshotSymlink || snap.targetPath != nil {
+		t.Fatalf("snapshot = %+v, want kind=symlink with nil targetPath", snap)
+	}
+	writerCalled := false
+	snap.writeFile = func(string, []byte, os.FileMode) error {
+		writerCalled = true
+		return nil
+	}
+	if err := snap.restore(); err != nil {
+		t.Fatalf("restore() error = %v", err)
+	}
+	if writerCalled {
+		t.Fatal("restore() called fileWriter for directory symlink")
+	}
+	assertSameLink(t, dirLink, dirTarget)
 }

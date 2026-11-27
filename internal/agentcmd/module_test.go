@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,7 +18,10 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/modulesync"
+	"github.com/invowk/invowk/internal/llm"
 	"github.com/invowk/invowk/internal/modulelock"
+	"github.com/invowk/invowk/internal/testutil/fstree"
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -40,6 +44,9 @@ type (
 		response string
 		calls    int
 	}
+
+	// panicCompleter fails the test immediately if ChangeModule reaches the LLM.
+	panicCompleter struct{}
 )
 
 func (l *agentRecordingLocker) Lock(ctx context.Context, path types.FilesystemPath, onBusy func()) (func() error, error) {
@@ -74,6 +81,14 @@ func (l *agentRecordingLocker) lockPaths() []types.FilesystemPath {
 func (c *countingCompleter) Complete(context.Context, string, string) (string, error) {
 	c.calls++
 	return c.response, nil
+}
+
+func (panicCompleter) Complete(context.Context, string, string) (string, error) {
+	panic("unexpected LLM Complete call")
+}
+
+func (panicCompleter) CompleteJSONSchema(context.Context, string, string, llm.JSONSchemaFormat) (string, error) {
+	panic("unexpected LLM CompleteJSONSchema call")
 }
 
 func TestCreateModuleDryRunDoesNotWrite(t *testing.T) { //nolint:paralleltest // t.Chdir mutates process cwd.
@@ -550,4 +565,342 @@ func statFileIdentity(t *testing.T, path string) os.FileInfo {
 		t.Fatalf("Close(%s) error = %v", path, closeErr)
 	}
 	return info
+}
+
+func assertModuleSymlink(t *testing.T, linkPath, wantTarget string) {
+	t.Helper()
+
+	info, err := os.Lstat(linkPath)
+	if err != nil {
+		t.Fatalf("Lstat(%s) error = %v", linkPath, err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("%s mode = %v, want symlink preserved", linkPath, info.Mode())
+	}
+	got, err := os.Readlink(linkPath)
+	if err != nil {
+		t.Fatalf("Readlink(%s) error = %v", linkPath, err)
+	}
+	if got != wantTarget {
+		t.Fatalf("Readlink(%s) = %q, want %q", linkPath, got, wantTarget)
+	}
+}
+
+func TestModuleFilesPreserveRegularSymlinks(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+
+	root := t.TempDir()
+	modulePath := filepath.Join(root, "io.example.tools"+invowkmod.ModuleSuffix)
+	if err := os.MkdirAll(modulePath, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	sharedDir := filepath.Join(root, "shared")
+	if err := os.MkdirAll(sharedDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(shared) error = %v", err)
+	}
+
+	realMod := filepath.Join(sharedDir, "shared-invowkmod.cue")
+	realFile := filepath.Join(sharedDir, "shared-invowkfile.cue")
+	modBefore := moduleCUE("io.example.tools")
+	fileBefore := moduleInvowkfileCUE()
+	if err := os.WriteFile(realMod, []byte(modBefore), 0o600); err != nil {
+		t.Fatalf("WriteFile(realMod) error = %v", err)
+	}
+	if err := os.WriteFile(realFile, []byte(fileBefore), 0o640); err != nil {
+		t.Fatalf("WriteFile(realFile) error = %v", err)
+	}
+
+	modLink := filepath.Join(modulePath, invowkmodFileName)
+	fileLink := filepath.Join(modulePath, invowkfileFileName)
+	fstree.MustSymlink(t, realMod, modLink)
+	fstree.MustSymlink(t, realFile, fileLink)
+
+	gotMod, gotFile, err := readModuleFiles(modulePath)
+	if err != nil {
+		t.Fatalf("readModuleFiles() error = %v", err)
+	}
+	if gotMod != modBefore || gotFile != fileBefore {
+		t.Fatalf("readModuleFiles() = (%q, %q), want (%q, %q)", gotMod, gotFile, modBefore, fileBefore)
+	}
+
+	newMod := "module: \"io.example.tools\"\nversion: \"1.2.0\"\n"
+	newFile := strings.Replace(fileBefore, "echo module", "echo updated", 1)
+	locks := modulesync.EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(t.TempDir())}
+	current := loadedModule{
+		Path:          modulePath,
+		ModuleID:      "io.example.tools",
+		InvowkmodCUE:  modBefore,
+		InvowkfileCUE: fileBefore,
+	}
+	if err := writeChangedModuleFiles(t.Context(), locks, current, newMod, newFile); err != nil {
+		t.Fatalf("writeChangedModuleFiles() error = %v", err)
+	}
+
+	assertModuleSymlink(t, modLink, realMod)
+	assertModuleSymlink(t, fileLink, realFile)
+	if got := string(readFixtureFile(t, realMod)); got != newMod {
+		t.Fatalf("realMod = %q, want %q", got, newMod)
+	}
+	if got := string(readFixtureFile(t, realFile)); got != newFile {
+		t.Fatalf("realFile = %q, want %q", got, newFile)
+	}
+	if runtime.GOOS != "windows" {
+		if info, statErr := os.Stat(realMod); statErr != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("realMod perm = %v (err=%v), want 0600", info.Mode().Perm(), statErr)
+		}
+		if info, statErr := os.Stat(realFile); statErr != nil || info.Mode().Perm() != 0o640 {
+			t.Fatalf("realFile perm = %v (err=%v), want 0640", info.Mode().Perm(), statErr)
+		}
+	}
+
+	t.Run("absent invowkfile reads default and writes regular file while keeping symlinked invowkmod", func(t *testing.T) {
+		t.Parallel()
+
+		subRoot := t.TempDir()
+		subMod := filepath.Join(subRoot, "io.example.absent"+invowkmod.ModuleSuffix)
+		if err := os.MkdirAll(subMod, 0o755); err != nil {
+			t.Fatalf("MkdirAll() error = %v", err)
+		}
+		subRealMod := filepath.Join(subRoot, "shared.cue")
+		if err := os.WriteFile(subRealMod, []byte(modBefore), 0o600); err != nil {
+			t.Fatalf("WriteFile() error = %v", err)
+		}
+		subModLink := filepath.Join(subMod, invowkmodFileName)
+		fstree.MustSymlink(t, subRealMod, subModLink)
+
+		readMod, readFile, readErr := readModuleFiles(subMod)
+		if readErr != nil {
+			t.Fatalf("readModuleFiles() error = %v", readErr)
+		}
+		if readMod != modBefore || readFile != defaultInvowkfileContent {
+			t.Fatalf("readModuleFiles() = (%q, %q), want default invowkfile", readMod, readFile)
+		}
+
+		if writeErr := writeModuleFiles(subMod, newMod, newFile); writeErr != nil {
+			t.Fatalf("writeModuleFiles() error = %v", writeErr)
+		}
+		assertModuleSymlink(t, subModLink, subRealMod)
+		if got := string(readFixtureFile(t, subRealMod)); got != newMod {
+			t.Fatalf("subRealMod = %q, want %q", got, newMod)
+		}
+		if got := string(readFixtureFile(t, filepath.Join(subMod, invowkfileFileName))); got != newFile {
+			t.Fatalf("invowkfile.cue = %q, want %q", got, newFile)
+		}
+	})
+}
+
+func TestModuleFilesFailClosedOnBrokenOrNonRegularSymlinks(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+
+	t.Run("dangling invowkmod.cue symlink fails read and write", func(t *testing.T) {
+		t.Parallel()
+
+		root := t.TempDir()
+		modulePath := filepath.Join(root, "mod.invowkmod")
+		if err := os.MkdirAll(modulePath, 0o755); err != nil {
+			t.Fatalf("MkdirAll() error = %v", err)
+		}
+		missing := filepath.Join(root, "missing-mod.cue")
+		modLink := filepath.Join(modulePath, invowkmodFileName)
+		fstree.MustSymlink(t, missing, modLink)
+		if err := os.WriteFile(filepath.Join(modulePath, invowkfileFileName), []byte(moduleInvowkfileCUE()), 0o644); err != nil {
+			t.Fatalf("WriteFile() error = %v", err)
+		}
+
+		if _, _, err := readModuleFiles(modulePath); !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("readModuleFiles() error = %v, want fs.ErrNotExist", err)
+		}
+		if err := writeModuleFiles(modulePath, moduleCUE("io.example.tools"), moduleInvowkfileCUE()); !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("writeModuleFiles() error = %v, want fs.ErrNotExist", err)
+		}
+		assertModuleSymlink(t, modLink, missing)
+		if _, statErr := os.Lstat(missing); !errors.Is(statErr, fs.ErrNotExist) {
+			t.Fatalf("missing target was created: %v", statErr)
+		}
+	})
+
+	t.Run("dangling invowkfile.cue symlink fails read without default fallback and fails write without touching invowkmod", func(t *testing.T) {
+		t.Parallel()
+
+		root := t.TempDir()
+		modulePath := filepath.Join(root, "mod.invowkmod")
+		if err := os.MkdirAll(modulePath, 0o755); err != nil {
+			t.Fatalf("MkdirAll() error = %v", err)
+		}
+		modBefore := moduleCUE("io.example.tools")
+		modPath := filepath.Join(modulePath, invowkmodFileName)
+		if err := os.WriteFile(modPath, []byte(modBefore), 0o644); err != nil {
+			t.Fatalf("WriteFile() error = %v", err)
+		}
+		missing := filepath.Join(root, "missing-file.cue")
+		fileLink := filepath.Join(modulePath, invowkfileFileName)
+		fstree.MustSymlink(t, missing, fileLink)
+
+		_, gotFile, readErr := readModuleFiles(modulePath)
+		if !errors.Is(readErr, fs.ErrNotExist) {
+			t.Fatalf("readModuleFiles() error = %v, want fs.ErrNotExist", readErr)
+		}
+		if gotFile != "" {
+			t.Fatalf("readModuleFiles() returned content %q on dangling symlink, want empty", gotFile)
+		}
+
+		if writeErr := writeModuleFiles(modulePath, "module: \"io.example.tools\"\nversion: \"2.0.0\"\n", moduleInvowkfileCUE()); !errors.Is(writeErr, fs.ErrNotExist) {
+			t.Fatalf("writeModuleFiles() error = %v, want fs.ErrNotExist", writeErr)
+		}
+		assertModuleSymlink(t, fileLink, missing)
+		if got := string(readFixtureFile(t, modPath)); got != modBefore {
+			t.Fatalf("invowkmod.cue changed on failed write: %q", got)
+		}
+	})
+
+	t.Run("writeChangedModuleFiles rejects dangling invowkfile.cue introduced before lock", func(t *testing.T) {
+		t.Parallel()
+
+		modulePath := writeModuleFixture(t, t.TempDir(), "io.example.tools")
+		modBefore := string(readFixtureFile(t, filepath.Join(modulePath, invowkmodFileName)))
+		fileBefore := string(readFixtureFile(t, filepath.Join(modulePath, invowkfileFileName)))
+		filePath := filepath.Join(modulePath, invowkfileFileName)
+		if err := os.Remove(filePath); err != nil {
+			t.Fatalf("Remove() error = %v", err)
+		}
+		missing := filepath.Join(modulePath, "missing.cue")
+		fstree.MustSymlink(t, missing, filePath)
+
+		locks := modulesync.EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(t.TempDir())}
+		current := loadedModule{
+			Path:          modulePath,
+			ModuleID:      "io.example.tools",
+			InvowkmodCUE:  modBefore,
+			InvowkfileCUE: fileBefore,
+		}
+		err := writeChangedModuleFiles(t.Context(), locks, current, "module: \"io.example.tools\"\nversion: \"2.0.0\"\n", defaultInvowkfileContent)
+		if !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("writeChangedModuleFiles() error = %v, want fs.ErrNotExist", err)
+		}
+		assertModuleSymlink(t, filePath, missing)
+		if got := string(readFixtureFile(t, filepath.Join(modulePath, invowkmodFileName))); got != modBefore {
+			t.Fatalf("invowkmod.cue modified after lock failure: %q", got)
+		}
+	})
+
+	t.Run("directory symlink fails closed for read and write", func(t *testing.T) {
+		t.Parallel()
+
+		for _, linkName := range []string{invowkmodFileName, invowkfileFileName} {
+			t.Run(linkName, func(t *testing.T) {
+				t.Parallel()
+
+				root := t.TempDir()
+				modulePath := filepath.Join(root, "mod.invowkmod")
+				if err := os.MkdirAll(modulePath, 0o755); err != nil {
+					t.Fatalf("MkdirAll() error = %v", err)
+				}
+				otherName := invowkfileFileName
+				otherContent := moduleInvowkfileCUE()
+				if linkName == invowkfileFileName {
+					otherName = invowkmodFileName
+					otherContent = moduleCUE("io.example.tools")
+				}
+				otherPath := filepath.Join(modulePath, otherName)
+				if err := os.WriteFile(otherPath, []byte(otherContent), 0o644); err != nil {
+					t.Fatalf("WriteFile() error = %v", err)
+				}
+				dirTarget := filepath.Join(root, "dir")
+				if err := os.Mkdir(dirTarget, 0o755); err != nil {
+					t.Fatalf("Mkdir() error = %v", err)
+				}
+				linkPath := filepath.Join(modulePath, linkName)
+				fstree.MustSymlink(t, dirTarget, linkPath)
+
+				if _, _, err := readModuleFiles(modulePath); !errors.Is(err, fspath.ErrNonRegularTarget) {
+					t.Fatalf("readModuleFiles() error = %v, want ErrNonRegularTarget", err)
+				}
+				if err := writeModuleFiles(modulePath, "module: \"io.example.tools\"\nversion: \"2.0.0\"\n", defaultInvowkfileContent); !errors.Is(err, fspath.ErrNonRegularTarget) {
+					t.Fatalf("writeModuleFiles() error = %v, want ErrNonRegularTarget", err)
+				}
+				assertModuleSymlink(t, linkPath, dirTarget)
+				if got := string(readFixtureFile(t, otherPath)); got != otherContent {
+					t.Fatalf("%s modified on failed write: %q", otherName, got)
+				}
+			})
+		}
+	})
+}
+
+func TestChangeModuleRejectsSymlinkedManifestUpfront(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+
+	for _, linkName := range []string{invowkmodFileName, invowkfileFileName} {
+		t.Run(linkName, func(t *testing.T) {
+			t.Parallel()
+
+			root := t.TempDir()
+			modulePath := filepath.Join(root, "io.example.tools"+invowkmod.ModuleSuffix)
+			if mkdirErr := os.MkdirAll(modulePath, 0o755); mkdirErr != nil {
+				t.Fatalf("MkdirAll(modulePath) error = %v", mkdirErr)
+			}
+			sharedDir := filepath.Join(root, "shared")
+			if mkdirErr := os.MkdirAll(sharedDir, 0o755); mkdirErr != nil {
+				t.Fatalf("MkdirAll(sharedDir) error = %v", mkdirErr)
+			}
+
+			modContent := moduleCUE("io.example.tools")
+			fileContent := moduleInvowkfileCUE()
+			targetContent := modContent
+			otherName := invowkfileFileName
+			otherContent := fileContent
+			if linkName == invowkfileFileName {
+				targetContent = fileContent
+				otherName = invowkmodFileName
+				otherContent = modContent
+			}
+
+			otherPath := filepath.Join(modulePath, otherName)
+			if writeErr := os.WriteFile(otherPath, []byte(otherContent), 0o644); writeErr != nil {
+				t.Fatalf("WriteFile(%s) error = %v", otherName, writeErr)
+			}
+
+			realTarget := filepath.Join(sharedDir, "real-"+linkName)
+			if writeErr := os.WriteFile(realTarget, []byte(targetContent), 0o600); writeErr != nil {
+				t.Fatalf("WriteFile(realTarget) error = %v", writeErr)
+			}
+			beforeTargetInfo := statFileIdentity(t, realTarget)
+
+			linkPath := filepath.Join(modulePath, linkName)
+			relTarget := filepath.Join("..", "shared", "real-"+linkName)
+			fstree.MustSymlink(t, relTarget, linkPath)
+
+			cacheDir := t.TempDir()
+			_, changeErr := ChangeModule(t.Context(), ModuleChangeOptions{
+				Target:      modulePath,
+				Description: "change the module",
+				Completer:   panicCompleter{},
+				EditLocks:   modulesync.EditLocks{Locker: modulelock.NewFileLocker(), CacheDir: types.FilesystemPath(cacheDir)},
+			})
+			if changeErr == nil || !strings.Contains(changeErr.Error(), "symlink") {
+				t.Fatalf("ChangeModule() error = %v, want upfront verifyModule symlink rejection", changeErr)
+			}
+
+			assertModuleSymlink(t, linkPath, relTarget)
+			if got := string(readFixtureFile(t, realTarget)); got != targetContent {
+				t.Fatalf("target file changed after rejected ChangeModule():\ngot:\n%s\nwant:\n%s", got, targetContent)
+			}
+			afterTargetInfo := statFileIdentity(t, realTarget)
+			if !os.SameFile(beforeTargetInfo, afterTargetInfo) {
+				t.Fatal("target file identity changed after rejected ChangeModule()")
+			}
+			if runtime.GOOS != "windows" && afterTargetInfo.Mode().Perm() != 0o600 {
+				t.Fatalf("target file perm = %v, want 0600 preserved", afterTargetInfo.Mode().Perm())
+			}
+			if got := string(readFixtureFile(t, otherPath)); got != otherContent {
+				t.Fatalf("%s modified after rejected ChangeModule(): %q", otherName, got)
+			}
+			if _, statErr := os.Stat(filepath.Join(cacheDir, "locks")); !errors.Is(statErr, fs.ErrNotExist) {
+				t.Fatalf("locks directory stat error = %v, want not exist", statErr)
+			}
+		})
+	}
 }
