@@ -176,7 +176,7 @@ A verificação cobre apenas as operações de arquivo do próprio interpretador
 
 ## Variáveis de Ambiente
 
-Variáveis de ambiente funcionam da mesma forma que no native:
+Variáveis de ambiente funcionam da mesma forma que no native, exceto que `OSC7577_TOKEN` é removido nos limites dos runtimes virtuais para que scripts restritos não possam agendar binários arbitrários do host no reinício do terminal (use `native` para lançadores transparentes de TUI no host):
 
 <Snippet id="runtime-modes/virtual-env-vars" />
 

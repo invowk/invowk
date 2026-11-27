@@ -86,7 +86,7 @@ Analyzes environment configuration and script content for credential exposure ri
 
 **Detects:**
 - Risky `env_inherit_mode: "all"` and unset native/virtual-sh runtime `env_inherit_mode` defaults (both expose all host environment variables)
-- Access to sensitive variables: `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, `DATABASE_URL`, passwords, private keys
+- Access to sensitive variables: `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, `DATABASE_URL`, `OSC7577_TOKEN`, passwords, private keys
 - Credential extraction patterns in scripts
 
 ### Lock File Checker

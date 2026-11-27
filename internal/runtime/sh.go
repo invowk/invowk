@@ -380,6 +380,7 @@ func RunShScript(ctx context.Context, opts ShScriptOptions) error {
 
 	rt := NewShRuntime(opts.EnableUroot)
 	env := SliceToEnv(opts.Env)
+	StripProgramResumeToken(env)
 	pathResolver, err := newVirtualPathResolverForInteractiveConfig(
 		opts.WorkDir,
 		opts.WorkDirModuleRoot,
@@ -450,6 +451,9 @@ func (r *ShRuntime) prepareShExec(ctx *ExecutionContext, stdIO interp.RunnerOpti
 	if err != nil {
 		return nil, nil, NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
 	}
+	// Strip OSC7577_TOKEN at the virtual-runtime boundary so restricted scripts
+	// cannot register arbitrary host binaries for restart via OSC 7577.
+	StripProgramResumeToken(env)
 	pathValidator, err := newVirtualPathValidator(ctx)
 	if err != nil {
 		return nil, nil, NewErrorResult(1, err)

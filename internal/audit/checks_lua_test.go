@@ -120,6 +120,40 @@ version: "1.0.0"
 	}
 }
 
+func TestLuaCheckerDetectsOSC7577TokenReads(t *testing.T) {
+	t.Parallel()
+
+	scripts := []struct {
+		name   string
+		script string
+	}{
+		{"os.getenv", `print(os.getenv("OSC7577_TOKEN"))`},
+		{"invowk.env dot", `print(invowk.env.OSC7577_TOKEN)`},
+		{"invowk.env double-quoted bracket", `print(invowk.env["OSC7577_TOKEN"])`},
+		{"invowk.env single-quoted bracket", `print(invowk.env['OSC7577_TOKEN'])`},
+	}
+
+	for _, tt := range scripts {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			sc := newLuaScriptContext(
+				t,
+				tt.script,
+				invowkfile.RuntimeConfig{Name: invowkfile.RuntimeVirtualLua},
+				nil,
+			)
+			findings, err := NewLuaChecker().Check(t.Context(), sc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !hasFindingCode(findings, codeLuaSensitiveEnvRead) {
+				t.Fatalf("%s: findings = %+v, want %s", tt.name, findings, codeLuaSensitiveEnvRead)
+			}
+		})
+	}
+}
+
 func newLuaScriptContext(
 	t *testing.T,
 	script string,

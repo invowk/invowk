@@ -10,12 +10,15 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	goruntime "runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"charm.land/log/v2"
 	"charm.land/ssh"
 	"charm.land/wish/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/invowk/invowk/internal/core/serverbase"
 	"github.com/invowk/invowk/pkg/types"
@@ -279,7 +282,7 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 
 	cmd := s.newCommand(sess.Context(), shell)
 	cmd.WaitDelay = cmdWaitDelay
-	cmd.Env = append(os.Environ(), sess.Environ()...)
+	cmd.Env = filterProgramResumeToken(append(os.Environ(), sess.Environ()...))
 
 	ptyReq, winCh, isPty := sess.Pty()
 	if isPty {
@@ -328,7 +331,7 @@ func (s *Server) runCommand(sess ssh.Session, args []string) {
 	}
 	cmd.WaitDelay = cmdWaitDelay
 
-	cmd.Env = append(os.Environ(), sess.Environ()...)
+	cmd.Env = filterProgramResumeToken(append(os.Environ(), sess.Environ()...))
 	cmd.Stdin = sess
 	cmd.Stdout = sess
 	cmd.Stderr = sess.Stderr()
@@ -357,4 +360,27 @@ func isClosedConnError(err error) bool {
 		return opErr.Err.Error() == "use of closed network connection"
 	}
 	return false
+}
+
+// filterProgramResumeToken returns a copy of env with OSC7577_TOKEN removed
+// so SSH host-callback sessions never receive the terminal's Program Resume
+// secret from either the host process environment or client SSH env requests.
+func filterProgramResumeToken(env []string) []string {
+	filtered := make([]string, 0, len(env))
+	for _, entry := range env {
+		name, _, ok := strings.Cut(entry, "=")
+		if !ok {
+			filtered = append(filtered, entry)
+			continue
+		}
+		if goruntime.GOOS == "windows" {
+			if strings.EqualFold(name, ansi.ProgramResumeTokenEnv) {
+				continue
+			}
+		} else if name == ansi.ProgramResumeTokenEnv {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+	return filtered
 }

@@ -11,9 +11,12 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	goruntime "runtime"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/containerplan"
@@ -686,6 +689,50 @@ func FilterInvowkEnvVars(environ []string) []string {
 		result = append(result, e)
 	}
 	return result
+}
+
+// StripProgramResumeToken removes the OSC 7577 Program Resume Protocol token
+// (OSC7577_TOKEN) from env. It is enforced unconditionally at container,
+// virtual-runtime, and interactive PTY boundaries while leaving non-interactive
+// native execution transparent. On Windows, environment variable names are
+// matched case-insensitively to match OS semantics.
+func StripProgramResumeToken(env map[string]string) {
+	if len(env) == 0 {
+		return
+	}
+	if goruntime.GOOS != "windows" {
+		delete(env, ansi.ProgramResumeTokenEnv)
+		return
+	}
+	for k := range env {
+		if isProgramResumeTokenVar(k) {
+			delete(env, k)
+		}
+	}
+}
+
+// FilterProgramResumeToken returns a copy of environ with OSC7577_TOKEN removed.
+// On Windows, variable names are matched case-insensitively.
+func FilterProgramResumeToken(environ []string) []string {
+	if len(environ) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(environ))
+	for _, entry := range environ {
+		name, _, ok := strings.Cut(entry, "=")
+		if ok && isProgramResumeTokenVar(name) {
+			continue
+		}
+		result = append(result, entry)
+	}
+	return result
+}
+
+func isProgramResumeTokenVar(name string) bool {
+	if goruntime.GOOS == "windows" {
+		return strings.EqualFold(name, ansi.ProgramResumeTokenEnv)
+	}
+	return name == ansi.ProgramResumeTokenEnv
 }
 
 // shouldFilterEnvVar returns true if the environment variable name should be filtered

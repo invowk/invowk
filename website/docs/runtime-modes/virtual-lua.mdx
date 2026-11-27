@@ -74,9 +74,9 @@ The virtual-lua runtime is **not a security sandbox**. Allowed host binaries exe
 
 Virtual-lua intentionally does not expose unrestricted host-facing APIs such as `os.execute`, `io.popen`, `package.loadlib`, `debug`, `dofile`, `loadfile`, or dynamic `golib` imports. Use the Invowk bridge, path-validated `io` functions, and module-local `require` instead.
 
-## Arguments And Interactive Mode
+## Environment And Bridge
 
-Command arguments are available through both Lua varargs and the `arg` table. Interactive mode attaches stdin, stdout, and stderr to the Lua process; it does not start a Lua REPL.
+Command arguments are available through both Lua varargs and the `arg` table. `invowk.env` and `os.getenv` read the command's effective environment (with `OSC7577_TOKEN` stripped at the virtual-runtime boundary; use `native` for transparent host TUI launchers). Interactive mode attaches stdin, stdout, and stderr to the Lua process; it does not start a Lua REPL.
 
 ## Next Steps
 

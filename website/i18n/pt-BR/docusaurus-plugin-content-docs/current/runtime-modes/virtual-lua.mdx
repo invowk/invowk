@@ -74,9 +74,9 @@ O runtime virtual-lua **não é um sandbox de segurança**. Binários do host pe
 
 Virtual-lua intencionalmente não expõe APIs irrestritas voltadas ao host, como `os.execute`, `io.popen`, `package.loadlib`, `debug`, `dofile`, `loadfile` ou imports dinâmicos de `golib`. Use a ponte do Invowk, funções `io` validadas por caminho e `require` local ao módulo.
 
-## Argumentos E Modo Interativo
+## Ambiente E Ponte
 
-Argumentos do comando ficam disponíveis tanto por varargs Lua quanto pela tabela `arg`. O modo interativo conecta stdin, stdout e stderr ao processo Lua; ele não inicia um REPL Lua.
+Argumentos do comando ficam disponíveis tanto por varargs Lua quanto pela tabela `arg`. `invowk.env` e `os.getenv` leem o ambiente efetivo do comando (com `OSC7577_TOKEN` removido no limite do runtime virtual; use `native` para lançadores transparentes de TUI no host). O modo interativo conecta stdin, stdout e stderr ao processo Lua; ele não inicia um REPL Lua.
 
 ## Próximos Passos
 

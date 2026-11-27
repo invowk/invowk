@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"charm.land/ssh"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type (
@@ -378,5 +379,49 @@ func TestSSHCommandHelper(_ *testing.T) { //nolint:paralleltest // helper proces
 	if _, err := fmt.Sscanf(os.Getenv("SSH_COMMAND_HELPER_EXIT"), "%d", &exitCode); err != nil {
 		exitCode = 1
 	}
+	if val := os.Getenv(ansi.ProgramResumeTokenEnv); val != "" {
+		_, _ = fmt.Fprintf(os.Stdout, "LEAKED_TOKEN=%s", val)
+	}
 	os.Exit(exitCode)
+}
+
+func TestSSHServerStripsProgramResumeToken_RunCommand(t *testing.T) {
+	t.Setenv(ansi.ProgramResumeTokenEnv, "host-resume-secret")
+	t.Setenv("SSH_TEST_KEEP", "preserved")
+
+	srv, err := newWithDependencies(DefaultConfig(), realClock{}, func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, os.Args[0], "-test.run=^TestSSHCommandHelper$")
+	})
+	if err != nil {
+		t.Fatalf("newWithDependencies() error = %v", err)
+	}
+	sessionEnv := append(commandHelperEnv("ok", "", "0"), ansi.ProgramResumeTokenEnv+"=client-injected-secret")
+	session := newTestSSHSession(t, []string{"tool", "arg"}, sessionEnv, "")
+	srv.runCommand(session, session.command)
+	if session.exitCode != 0 {
+		t.Fatalf("runCommand() exitCode = %d, stderr = %q, want 0", session.exitCode, session.stderr.String())
+	}
+	if strings.Contains(session.stdout.String(), "LEAKED_TOKEN=") {
+		t.Fatalf("runCommand() leaked %s into child process: %q", ansi.ProgramResumeTokenEnv, session.stdout.String())
+	}
+}
+
+func TestSSHServerStripsProgramResumeToken_RunInteractiveShell(t *testing.T) {
+	t.Setenv(ansi.ProgramResumeTokenEnv, "host-resume-secret")
+	t.Setenv("SSH_TEST_KEEP", "preserved")
+
+	fixture := newInteractiveShellFixture(t)
+	session := newInteractiveShellSession(t, "0")
+	session.environ = append(session.environ, ansi.ProgramResumeTokenEnv+"=client-injected-secret")
+	fixture.srv.runInteractiveShell(session)
+
+	start := receiveInteractiveCall(t, fixture.startCalls, "PTY start")
+	for _, kv := range start.env {
+		if strings.HasPrefix(kv, ansi.ProgramResumeTokenEnv+"=") {
+			t.Fatalf("runInteractiveShell() leaked %s in cmd.Env: %q", ansi.ProgramResumeTokenEnv, kv)
+		}
+	}
+	if !slices.Contains(start.env, "SSH_TEST_KEEP=preserved") {
+		t.Fatalf("runInteractiveShell() dropped unrelated host env var")
+	}
 }

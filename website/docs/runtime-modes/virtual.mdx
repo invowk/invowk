@@ -176,7 +176,7 @@ The check covers the interpreter's own file operations only: an allowed host bin
 
 ## Environment Variables
 
-Environment variables work the same as in native:
+Environment variables work the same as in native, except `OSC7577_TOKEN` is stripped at virtual-runtime boundaries so restricted scripts cannot schedule arbitrary host binaries on terminal restart (use `native` for transparent host TUI launchers):
 
 <Snippet id="runtime-modes/virtual-env-vars" />
 

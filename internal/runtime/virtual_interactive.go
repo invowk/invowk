@@ -114,6 +114,7 @@ func buildVirtualInteractiveSubprocess(
 	if err != nil {
 		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
 	}
+	StripProgramResumeToken(env)
 	filesystem := selectedVirtualFilesystem(ctx)
 	pathResolver, err := newVirtualPathResolver(ctx)
 	if err != nil {

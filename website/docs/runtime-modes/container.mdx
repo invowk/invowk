@@ -117,6 +117,8 @@ Environment variables are passed into the container:
 
 <Snippet id="runtime-modes/container-env-vars" />
 
+For isolation, `OSC7577_TOKEN` (the terminal Program Resume Protocol token) is always stripped from container environments, even when `env_inherit_mode: "all"` or `env_inherit_allow` is configured.
+
 ## Host SSH Access
 
 Sometimes your container needs to execute commands on the host system. Enable SSH access back to the host:

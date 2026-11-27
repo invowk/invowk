@@ -189,6 +189,9 @@ func (r *LuaRuntime) execute(ctx *ExecutionContext, stdout, stderr io.Writer) *R
 	if err != nil {
 		return NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
 	}
+	// Strip OSC7577_TOKEN at the virtual-runtime boundary so restricted scripts
+	// cannot register arbitrary host binaries for restart via OSC 7577.
+	StripProgramResumeToken(env)
 	pathResolver, err := newVirtualPathResolver(ctx)
 	if err != nil {
 		return NewErrorResult(1, err)

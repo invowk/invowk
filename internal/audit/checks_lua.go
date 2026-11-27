@@ -20,6 +20,7 @@ var (
 	luaDisabledAPIPattern  = regexp.MustCompile(`\b(os\.execute|io\.popen|package\.loadlib|debug\b|dofile\s*\(|loadfile\s*\(|golib\b)`)
 	luaGetenvPattern       = regexp.MustCompile(`os\.getenv\s*\(\s*["']([^"']+)["']\s*\)`)
 	luaEnvIndexPattern     = regexp.MustCompile(`invowk\.env\.([A-Za-z_][A-Za-z0-9_]*)`)
+	luaEnvBracketPattern   = regexp.MustCompile(`invowk\.env\s*\[\s*["']([^"']+)["']\s*\]`)
 	networkAllowedBinaries = map[string]bool{
 		"curl": true, "wget": true, "fetch": true,
 		"nc": true, "ncat": true, "netcat": true,
@@ -118,14 +119,11 @@ func (c *LuaChecker) checkSensitiveEnvReads(ref ScriptRef, content string) []Fin
 
 func sensitiveLuaEnvNames(content string) []string {
 	var names []string
-	for _, match := range luaGetenvPattern.FindAllStringSubmatch(content, -1) {
-		if len(match) > 1 && isSensitiveEnvName(match[1]) && !containsString(names, match[1]) {
-			names = append(names, match[1])
-		}
-	}
-	for _, match := range luaEnvIndexPattern.FindAllStringSubmatch(content, -1) {
-		if len(match) > 1 && isSensitiveEnvName(match[1]) && !containsString(names, match[1]) {
-			names = append(names, match[1])
+	for _, pattern := range []*regexp.Regexp{luaGetenvPattern, luaEnvIndexPattern, luaEnvBracketPattern} {
+		for _, match := range pattern.FindAllStringSubmatch(content, -1) {
+			if len(match) > 1 && isSensitiveEnvName(match[1]) && !containsString(names, match[1]) {
+				names = append(names, match[1])
+			}
 		}
 	}
 	return names
