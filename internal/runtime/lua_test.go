@@ -4,6 +4,8 @@ package runtime
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -427,6 +429,42 @@ io.stderr:write("err:" .. line)
 	if got := stderr.String(); got != "err:stdin-value" {
 		t.Fatalf("stderr = %q, want err:stdin-value", got)
 	}
+}
+
+func TestLuaRuntimeExecuteContextHandling(t *testing.T) {
+	t.Parallel()
+
+	t.Run("cancelled context aborts before running chunk", func(t *testing.T) {
+		t.Parallel()
+
+		execCtx, stdout, _ := newLuaExecutionContext(t, `print("should-not-run")`, invowkfile.RuntimeConfig{Name: invowkfile.RuntimeVirtualLua}, nil)
+		cancelledCtx, cancel := context.WithCancel(t.Context())
+		cancel()
+		execCtx.Context = cancelledCtx
+
+		result := NewLuaRuntime(false).Execute(execCtx)
+		if result.Success() || !errors.Is(result.Error, context.Canceled) {
+			t.Fatalf("Execute() result = %#v, want failure wrapping context.Canceled", result)
+		}
+		if stdout.Len() != 0 {
+			t.Fatalf("stdout = %q, want empty on pre-cancelled context", stdout.String())
+		}
+	})
+
+	t.Run("nil context runs chunk normally", func(t *testing.T) {
+		t.Parallel()
+
+		execCtx, stdout, _ := newLuaExecutionContext(t, `print("nil-ctx")`, invowkfile.RuntimeConfig{Name: invowkfile.RuntimeVirtualLua}, nil)
+		execCtx.Context = nil
+
+		result := NewLuaRuntime(false).Execute(execCtx)
+		if !result.Success() {
+			t.Fatalf("Execute() result = %#v, want success", result)
+		}
+		if got := stdout.String(); got != "nil-ctx\n" {
+			t.Fatalf("stdout = %q, want nil-ctx newline", got)
+		}
+	})
 }
 
 func newLuaExecutionContext(
