@@ -75,7 +75,7 @@ Os prefixos `ivk-`, `invowk-` e `i-` são reservados para flags do sistema e nã
 :::
 
 :::note
-Quando `--ivk-watch` executa conectado a um terminal com `OSC7577_TOKEN` definido, o Invowk emite relatórios assinados OSC 7577 de Program Resume (`clear=1` em `Ctrl+C` ou erros após a inicialização, preservado em `SIGHUP`/`SIGTERM` no Unix, omitido quando `--ivk-env-var` é usado ou limites são excedidos) e remove `OSC7577_TOKEN` dos comandos filhos monitorados.
+Quando `--ivk-watch` executa conectado a um terminal com `OSC7577_TOKEN` definido, o Invowk emite relatórios assinados OSC 7577 de Program Resume (`clear=1` em `Ctrl+C` ou erros após a inicialização, preservado em `SIGHUP`/`SIGTERM` no Unix, omitido quando `--ivk-env-var` é usado ou limites são excedidos) e remove `OSC7577_TOKEN` dos comandos filhos monitorados. Em terminais conectados, `--ivk-watch`, `-i` e `invowk tui *` também emitem Program Status via `OSC 7501` (`app="invowk"`, limpo ao sair), mantendo `invowk cmd` não interativo silencioso.
 :::
 
 **Exemplos:**

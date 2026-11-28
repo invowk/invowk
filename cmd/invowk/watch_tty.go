@@ -9,7 +9,7 @@ import (
 
 type (
 	// WatchTerminalOpener resolves an interactive terminal writer for watch-mode
-	// terminal protocol sequences (e.g., OSC 7577).
+	// terminal protocol sequences (OSC 7577 and OSC 7501).
 	WatchTerminalOpener interface {
 		OpenWatchTerminal() (w io.Writer, cleanup func(), ok bool)
 	}

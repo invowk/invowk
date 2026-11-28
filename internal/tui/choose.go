@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/invowk/invowk/pkg/types"
+
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -41,6 +43,8 @@ type (
 		isMulti     bool
 		done        bool
 		cancelled   bool
+		forModal    bool
+		title       types.DescriptionText
 		width       TerminalDimension
 		height      TerminalDimension
 
@@ -311,7 +315,11 @@ func (m *chooseModel) View() tea.View {
 	if m.width > 0 {
 		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
 	}
-	return tea.NewView(view)
+	v := tea.NewView(view)
+	if !m.forModal {
+		v.ProgramStatus = statusForTUIComponent(ComponentTypeChoose, programStatusMeta{title: m.title})
+	}
+	return v
 }
 
 // IsDone implements EmbeddableComponent.

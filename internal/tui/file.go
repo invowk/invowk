@@ -99,10 +99,15 @@ func (m *fileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View implements tea.Model.
 func (m *fileModel) View() tea.View {
+	var status *tea.ProgramStatus
+	if !m.done && !m.forModal {
+		status = statusForTUIComponent(ComponentTypeFile, programStatusMeta{title: m.title})
+	}
 	return renderComponentView(componentViewParams{
 		done: m.done, forModal: m.forModal, title: m.title,
 		description: m.description, width: m.width,
 		componentView: m.picker.View(), helpText: "enter select • esc cancel",
+		programStatus: status,
 	})
 }
 

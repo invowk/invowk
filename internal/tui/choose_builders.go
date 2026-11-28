@@ -4,6 +4,8 @@ package tui
 
 import (
 	"charm.land/bubbles/v2/list"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // NewChoose creates a new ChooseBuilder with default options.
@@ -213,12 +215,15 @@ func newSingleChooseModel(opts ChooseStringOptions, forModal bool) *chooseModel 
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
+	l.DisableQuitKeybindings()
 	applyListStyles(&l, forModal)
 
 	return &chooseModel{
 		list:      l,
 		result:    &result,
 		isMulti:   false,
+		forModal:  forModal,
+		title:     types.DescriptionText(opts.Title), //goplint:ignore -- display label
 		options:   opts.Options,
 		selected:  map[int]bool{},
 		limit:     1,
@@ -277,12 +282,15 @@ func newMultiChooseModelWithTheme(opts ChooseStringOptions, forModal bool) *choo
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false) // Disable filtering for choose (use filter.go for that)
 	l.SetShowHelp(false)
+	l.DisableQuitKeybindings()
 	applyListStyles(&l, forModal)
 
 	return &chooseModel{
 		list:        l,
 		multiResult: &results,
 		isMulti:     true,
+		forModal:    forModal,
+		title:       types.DescriptionText(opts.Title), //goplint:ignore -- display label
 		options:     opts.Options,
 		selected:    selected,
 		limit:       opts.Limit,

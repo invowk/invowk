@@ -99,6 +99,7 @@ func (p *sessionProbe) filter(m tea.Model, msg tea.Msg) tea.Msg {
 
 func (p *sessionProbe) options() InteractiveOptions {
 	return InteractiveOptions{
+		StatusClearWriter: io.Discard,
 		OnProgramReady: func(prog *tea.Program) {
 			p.program = prog
 			close(p.ready)

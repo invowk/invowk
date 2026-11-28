@@ -107,6 +107,10 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	}()
 	reporter.Report()
 
+	statusReporter := newWatchStatusReporter(app, cmdInfo.Command.Name)
+	defer statusReporter.Close()
+	defer statusReporter.Clear()
+
 	// Build a re-execution closure that runs the command through the command
 	// service and keeps command exit codes separate from infrastructure errors.
 	// The closure disables watch mode on the child request to prevent recursion.
@@ -146,12 +150,18 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	// Execute the command once immediately before starting the watcher.
 	fmt.Fprintf(app.stdout, "%s Watch mode: initial execution of '%s'\n", VerboseHighlightStyle.Render("→"), args[0])
+	statusReporter.Working()
 	outcome, err := session.InitialExecution(watchCtx)
 	if err != nil {
 		return err
 	}
 	if outcome.ExitCode != 0 {
 		fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
+	}
+	if outcome.Err != nil || outcome.ExitCode != 0 {
+		statusReporter.Error()
+	} else {
+		statusReporter.Idle()
 	}
 	if interactiveWatch && !preserveResume() {
 		reporter.Report()
@@ -170,6 +180,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 			}
 			fmt.Fprintf(app.stdout, "%s Detected %d change(s). Re-executing '%s'...\n",
 				VerboseHighlightStyle.Render("→"), len(changed), args[0])
+			statusReporter.Working()
 			outcome, handleErr := session.HandleChange(cbCtx, changed)
 			if outcome.Err != nil {
 				fmt.Fprintf(app.stderr, "%s Execution failed: %v\n", WarningStyle.Render("!"), outcome.Err)
@@ -178,6 +189,11 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 			}
 			if handleErr != nil {
 				return handleErr
+			}
+			if outcome.Err != nil || outcome.ExitCode != 0 {
+				statusReporter.Error()
+			} else {
+				statusReporter.Idle()
 			}
 			if interactiveWatch && !preserveResume() {
 				reporter.Report()

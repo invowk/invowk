@@ -75,7 +75,7 @@ The `ivk-`, `invowk-`, and `i-` prefixes are reserved for system flags and canno
 :::
 
 :::note
-When `--ivk-watch` runs attached to a terminal with `OSC7577_TOKEN` set, Invowk emits signed OSC 7577 Program Resume reports (`clear=1` on `Ctrl+C` or post-setup errors, preserved on Unix `SIGHUP`/`SIGTERM`, skipped when `--ivk-env-var` is passed or limits are exceeded) and strips `OSC7577_TOKEN` from watched child commands.
+When `--ivk-watch` runs attached to a terminal with `OSC7577_TOKEN` set, Invowk emits signed OSC 7577 Program Resume reports (`clear=1` on `Ctrl+C` or post-setup errors, preserved on Unix `SIGHUP`/`SIGTERM`, skipped when `--ivk-env-var` is passed or limits are exceeded) and strips `OSC7577_TOKEN` from watched child commands. On attached terminals, `--ivk-watch` and `-i` / `invowk tui *` also emit `OSC 7501` Program Status (`app="invowk"`, cleared on exit) while keeping non-interactive `invowk cmd` silent.
 :::
 
 **Examples:**

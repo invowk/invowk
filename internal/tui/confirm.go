@@ -154,7 +154,11 @@ func (m *confirmModel) View() tea.View {
 		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
 	}
 
-	return tea.NewView(view)
+	v := tea.NewView(view)
+	if !m.forModal {
+		v.ProgramStatus = statusForTUIComponent(ComponentTypeConfirm, programStatusMeta{title: m.title})
+	}
+	return v
 }
 
 // IsDone implements EmbeddableComponent.

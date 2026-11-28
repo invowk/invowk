@@ -310,7 +310,7 @@ func CreateEmbeddableComponent(componentType ComponentType, options any, width, 
 		if err != nil {
 			return nil, fmt.Errorf("invalid spin options: %w", err)
 		}
-		model := NewSpinModel(context.Background(), opts)
+		model := NewSpinModelForModal(context.Background(), opts)
 		model.SetSize(width, height)
 		return model, nil
 

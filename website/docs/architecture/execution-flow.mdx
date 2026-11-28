@@ -115,6 +115,8 @@ When `--ivk-watch` is passed, execution is wrapped in a watch loop:
 
 **Terminal Program Resume (`OSC 7577`):** On supporting terminals with `OSC7577_TOKEN` set, `--ivk-watch` reports a signed `OSC 7577` resume command so the terminal can restart the watcher after a terminal crash or reboot, while stripping `OSC7577_TOKEN` from watched children (including non-interactive `native` runs). Reporting is skipped when `--ivk-env-var` is used or when arguments/paths exceed `OSC 7577` limits (`> 2048` encoded bytes, `> 64` arguments, or control characters); `Ctrl+C` (`SIGINT`) or errors after setup emit `clear=1`, whereas `SIGHUP` / `SIGTERM` on Unix preserve the record.
 
+**Terminal Program Status (`OSC 7501`):** When attached to a terminal, `--ivk-watch` also emits `OSC 7501` status updates (`app="invowk"`) to the controlling TTY without writing escape sequences to redirected non-TTY stdout: `working` during each execution, `idle` while awaiting changes after a passing run, `error` while awaiting changes after a non-fatal failing run, and `state=clear` on exit.
+
 ## Error Handling Points
 
 <Diagram id="architecture/execution-errors" />

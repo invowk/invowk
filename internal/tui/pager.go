@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/invowk/invowk/pkg/types"
+
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -133,6 +135,11 @@ func (m *pagerModel) View() tea.View {
 
 	view := tea.NewView(content)
 	view.AltScreen = m.altScreen
+	if !m.forModal {
+		view.ProgramStatus = statusForTUIComponent(ComponentTypePager, programStatusMeta{
+			title: types.DescriptionText(m.title), //goplint:ignore -- display label
+		})
+	}
 	return view
 }
 

@@ -128,6 +128,13 @@ func TestTUI_CaptureValue(t *testing.T) {
 			want:   wantValue("Hello World"),
 		},
 		{
+			name:   "input_password",
+			assign: `v=$("$INVOWK" tui input --title 'Capture secret' --password)`,
+			ready:  "Capture secret",
+			keys:   [][]string{{"s3cr3t"}, {"Enter"}},
+			want:   wantValue("s3cr3t"),
+		},
+		{
 			name:   "choose",
 			assign: `v=$("$INVOWK" tui choose --title 'Pick fruit' Apple Banana Cherry)`,
 			ready:  "Pick fruit",

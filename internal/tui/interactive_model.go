@@ -10,6 +10,9 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -85,6 +88,10 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.result = &msg.result
 		m.state = stateCompleted
+		m.activeComponent = nil
+		m.activeComponentType = ""
+		m.activeComponentMeta = programStatusMeta{}
+		m.componentDoneCh = nil
 		if m.screen.emu.IsAltScreen() {
 			m.ensureEmulatorGroundState()
 			m.writeScreen(outputMsg{data: []byte(leaveAltScreen)})
@@ -128,6 +135,7 @@ func (m *interactiveModel) View() tea.View {
 	if !m.ready {
 		view := tea.NewView("Initializing...")
 		view.AltScreen = true
+		view.ProgramStatus = m.programStatus()
 		return view
 	}
 
@@ -160,7 +168,42 @@ func (m *interactiveModel) View() tea.View {
 	if m.state == stateCompleted {
 		view.MouseMode = tea.MouseModeCellMotion
 	}
+	view.ProgramStatus = m.programStatus()
 	return view
+}
+
+func (m *interactiveModel) programStatus() *tea.ProgramStatus {
+	if m.quitting {
+		return nil
+	}
+	switch m.state {
+	case stateTUI:
+		return statusForTUIComponentWithTitle(
+			m.activeComponentType,
+			types.DescriptionText(m.cmdName), //goplint:ignore -- display label
+			m.activeComponentMeta.title,
+			m.activeComponentMeta,
+		)
+	case stateCompleted:
+		state := ansi.ProgramStateError
+		if m.result != nil && m.result.ExitCode == 0 && m.result.Error == nil {
+			state = ansi.ProgramStateDone
+		}
+		return NormalizeProgramStatus(tea.ProgramStatus{
+			State: state,
+			Title: m.cmdName,
+		})
+	case stateExecuting:
+		return NormalizeProgramStatus(tea.ProgramStatus{
+			State: ansi.ProgramStateWorking,
+			Title: m.cmdName,
+		})
+	default:
+		return NormalizeProgramStatus(tea.ProgramStatus{
+			State: ansi.ProgramStateWorking,
+			Title: m.cmdName,
+		})
+	}
 }
 
 // writeHeader writes the title line and the separator.
@@ -214,6 +257,7 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	case stateExecuting:
 		// Emergency escape: force quit, never forwarded to the command.
 		if isForceQuitKey(msg) {
+			m.quitting = true
 			return m, tea.Quit
 		}
 		if event, ok := encodeInteractiveKey(msg); ok {
@@ -224,6 +268,7 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		// After completion, handle UI navigation
 		switch msg.String() {
 		case keyCtrlC, "q", "esc", "enter":
+			m.quitting = true
 			return m, tea.Quit
 		case "up", "k":
 			m.viewport.ScrollUp(1)
@@ -240,6 +285,17 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		}
 
 	case stateTUI:
+		if isForceQuitKey(msg) {
+			m.quitting = true
+			if m.componentDoneCh != nil {
+				ch := m.componentDoneCh
+				m.componentDoneCh = nil
+				go func() {
+					ch <- ComponentResponse{Err: ErrCancelled}
+				}()
+			}
+			return m, tea.Quit
+		}
 		// When displaying a TUI component, delegate to the component
 		if m.activeComponent != nil {
 			updatedModel, cmd := m.activeComponent.Update(msg)
@@ -276,6 +332,7 @@ func (m *interactiveModel) handleTUIComponentRequest(msg TUIComponentMsg) (tea.M
 	// Store the component, type, and response channel
 	m.activeComponent = component
 	m.activeComponentType = msg.Component
+	m.activeComponentMeta = programStatusMetaFromOptions(msg.Component, msg.Options)
 	m.componentDoneCh = msg.ResponseCh
 	m.state = stateTUI
 
@@ -412,6 +469,7 @@ func (m *interactiveModel) handleTUIComponentDone(msg tuiComponentDoneMsg) (tea.
 	// Clean up and return to previous state
 	m.activeComponent = nil
 	m.activeComponentType = ""
+	m.activeComponentMeta = programStatusMeta{}
 	m.componentDoneCh = nil
 	m.state = stateExecuting
 
