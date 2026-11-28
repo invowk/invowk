@@ -499,12 +499,12 @@ invowk agent mod remove io.example.tools --dry-run`,
 
   'reference/cli/completion-syntax': {
     language: 'bash',
-    code: `invowk completion [shell]`,
+    code: `invowk completion [bash|zsh|fish|powershell] [--alias <name>] [--prefix <tokens>]`,
   },
 
   'reference/cli/completion-examples': {
     language: 'bash',
-    code: `# Bash
+    code: `# Bash (V2; requires bash-completion v2+)
 eval "$(invowk completion bash)"
 
 # Zsh
@@ -515,6 +515,19 @@ invowk completion fish > ~/.config/fish/completions/invowk.fish
 
 # PowerShell
 invowk completion powershell | Out-String | Invoke-Expression`,
+  },
+
+  'reference/cli/completion-wrapper': {
+    language: 'bash',
+    code: `# Example standalone wrapper (/usr/local/bin/cst):
+#!/usr/bin/env sh
+exec invowk -c /etc/cst/config.cue --ivk-no-cwd --ivk-color=auto cmd cst "$@"
+
+# Generate shell completions bound to 'cst' (non-colliding with 'invowk'):
+eval "$(invowk completion bash --alias cst --prefix "-c /etc/cst/config.cue --ivk-no-cwd cmd cst")"
+eval "$(invowk completion zsh --alias cst --prefix "-c /etc/cst/config.cue --ivk-no-cwd cmd cst")"
+invowk completion fish --alias cst --prefix "-c /etc/cst/config.cue --ivk-no-cwd cmd cst" > ~/.config/fish/completions/cst.fish
+invowk completion powershell --alias cst --prefix "-c /etc/cst/config.cue --ivk-no-cwd cmd cst" | Out-String | Invoke-Expression`,
   },
 
   'reference/cli/help-syntax': {
