@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/invowk/invowk/internal/tui"
-
+	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
+
+	"github.com/invowk/invowk/internal/tui"
 )
 
 // newTUIFormatCommand creates the `invowk tui format` command.
@@ -80,6 +81,11 @@ func runTuiFormat(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unknown format type: %s (use markdown, code, emoji, or template)", formatType)
 	}
 
+	neverColor := colorModeFromCmd(cmd) == colorModeNever
+	if neverColor && formatTheme == "" {
+		formatTheme = glamourThemeNotty.String()
+	}
+
 	result, err := tui.Format(tui.FormatOptions{
 		Content:      content,
 		Type:         formatTypeEnum,
@@ -90,9 +96,14 @@ func runTuiFormat(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	_, _ = fmt.Fprint(cmd.OutOrStdout(), result) // Terminal output; error non-critical
+	// Opt-in styling: preserve raw stdout in pipelines unless --ivk-color=never.
+	out := cmd.OutOrStdout()
+	if neverColor {
+		out = &colorprofile.Writer{Forward: out, Profile: colorprofile.NoTTY}
+	}
+	_, _ = fmt.Fprint(out, result) // Terminal output; error non-critical
 	if result != "" && result[len(result)-1] != '\n' {
-		_, _ = fmt.Fprintln(cmd.OutOrStdout())
+		_, _ = fmt.Fprintln(out)
 	}
 	return nil
 }

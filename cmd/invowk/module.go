@@ -67,7 +67,7 @@ Examples:
 	}
 
 	// Core module commands
-	modCmd.AddCommand(newModuleCreateCommand())
+	modCmd.AddCommand(newModuleCreateCommand(app))
 	modCmd.AddCommand(&cobra.Command{
 		Use:   "list",
 		Short: "List all discovered modules",
@@ -87,17 +87,17 @@ Examples:
 			return runModuleList(ctx, app)
 		},
 	})
-	modCmd.AddCommand(newModuleArchiveCommand())
-	modCmd.AddCommand(newModuleImportCommand())
-	modCmd.AddCommand(newModuleVendorCommand())
+	modCmd.AddCommand(newModuleArchiveCommand(app))
+	modCmd.AddCommand(newModuleImportCommand(app))
+	modCmd.AddCommand(newModuleVendorCommand(app))
 
 	// Dependency management commands
-	modCmd.AddCommand(newModuleAddCommand())
-	modCmd.AddCommand(newModuleRemoveCommand())
-	modCmd.AddCommand(newModuleSyncCommand())
-	modCmd.AddCommand(newModuleUpdateCommand())
-	modCmd.AddCommand(newModuleDepsCommand())
-	modCmd.AddCommand(newModuleTidyCommand())
+	modCmd.AddCommand(newModuleAddCommand(app))
+	modCmd.AddCommand(newModuleRemoveCommand(app))
+	modCmd.AddCommand(newModuleSyncCommand(app))
+	modCmd.AddCommand(newModuleUpdateCommand(app))
+	modCmd.AddCommand(newModuleDepsCommand(app))
+	modCmd.AddCommand(newModuleTidyCommand(app))
 
 	return modCmd
 }
@@ -107,15 +107,15 @@ func runModuleList(ctx context.Context, app *App) error {
 	if errors.Is(err, config.ErrExplicitConfig) {
 		// Fail closed before printing anything: no module list from a broken
 		// explicit config source.
-		return renderExplicitConfigError(app.stderr, err)
+		return renderExplicitConfigError(app.errUI(), err)
 	}
-	w := app.stdout
+	w := app.outUI()
 	fmt.Fprintln(w, moduleTitleStyle.Render("Discovered Modules"))
 	if err != nil {
-		app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
+		app.Diagnostics.Render(ctx, result.Diagnostics, app.errUI())
 		return fmt.Errorf("failed to discover modules: %w", err)
 	}
-	app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
+	app.Diagnostics.Render(ctx, result.Diagnostics, app.errUI())
 
 	if len(result.Modules) == 0 {
 		fmt.Fprintf(w, "%s No modules found\n", moduleWarningIcon)

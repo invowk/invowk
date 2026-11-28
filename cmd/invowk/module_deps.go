@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"path/filepath"
 
@@ -21,7 +22,7 @@ const (
 )
 
 // newModuleAddCommand creates the `invowk module add` command.
-func newModuleAddCommand() *cobra.Command {
+func newModuleAddCommand(app *App) *cobra.Command {
 	var (
 		addAlias string
 		addPath  string
@@ -47,7 +48,7 @@ Examples:
   invowk module add https://github.com/user/monorepo.git ^1.0.0 --path modules/utils`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleAdd(cmd.Context(), args, addAlias, addPath)
+			return runModuleAdd(cmd.Context(), app.uiWriterForOut(cmd), args, addAlias, addPath)
 		},
 	}
 
@@ -58,7 +59,7 @@ Examples:
 }
 
 // newModuleRemoveCommand creates the `invowk module remove` command.
-func newModuleRemoveCommand() *cobra.Command {
+func newModuleRemoveCommand(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove <identifier>",
 		Short: "Remove a module dependency",
@@ -78,13 +79,13 @@ Examples:
   invowk module remove modulename`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleRemove(cmd.Context(), args)
+			return runModuleRemove(cmd.Context(), app.uiWriterForOut(cmd), args)
 		},
 	}
 }
 
 // newModuleSyncCommand creates the `invowk module sync` command.
-func newModuleSyncCommand() *cobra.Command {
+func newModuleSyncCommand(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
 		Short: "Sync dependencies from invowkmod.cue",
@@ -102,13 +103,13 @@ Examples:
   invowk module sync`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runModuleSync(cmd.Context())
+			return runModuleSync(cmd.Context(), app.uiWriterForOut(cmd))
 		},
 	}
 }
 
 // newModuleUpdateCommand creates the `invowk module update` command.
-func newModuleUpdateCommand() *cobra.Command {
+func newModuleUpdateCommand(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update [identifier]",
 		Short: "Update module dependencies",
@@ -130,13 +131,13 @@ Examples:
   invowk module update modulename`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleUpdate(cmd.Context(), args)
+			return runModuleUpdate(cmd.Context(), app.uiWriterForOut(cmd), args)
 		},
 	}
 }
 
 // newModuleDepsCommand creates the `invowk module deps` command.
-func newModuleDepsCommand() *cobra.Command {
+func newModuleDepsCommand(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "deps",
 		Short: "List module dependencies",
@@ -148,16 +149,16 @@ Examples:
   invowk module deps`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runModuleDeps(cmd.Context())
+			return runModuleDeps(cmd.Context(), app.uiWriterForOut(cmd))
 		},
 	}
 }
 
-func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) error {
+func runModuleAdd(ctx context.Context, w io.Writer, args []string, addAlias, addPath string) error {
 	gitURL := args[0]
 	version := args[1]
 
-	fmt.Println(moduleTitleStyle.Render("Add Module Dependency"))
+	fmt.Fprintln(w, moduleTitleStyle.Render("Add Module Dependency"))
 
 	// Create requirement
 	req := invowkmod.ModuleRef{
@@ -167,32 +168,32 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 		Path:    invowkmod.SubdirectoryPath(addPath),
 	}
 
-	fmt.Printf("%s Resolving %s@%s...\n", moduleInfoIcon, gitURL, version)
+	fmt.Fprintf(w, "%s Resolving %s@%s...\n", moduleInfoIcon, gitURL, version)
 
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
 	result, err := modulesync.AddModuleDependency(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodPath), req) //goplint:ignore -- relative path from current dir
 	if err != nil {
-		fmt.Printf("%s Failed to add module: %v\n", moduleErrorIcon, err)
-		printLockIntegrityHint(err)
+		fmt.Fprintf(w, "%s Failed to add module: %v\n", moduleErrorIcon, err)
+		printLockIntegrityHint(w, err)
 		return err
 	}
 
 	resolved := result.Resolved()
-	fmt.Printf("%s Module resolved\n", moduleSuccessIcon)
-	fmt.Println()
-	fmt.Printf("%s Git URL:   %s\n", moduleInfoIcon, modulePathStyle.Render(string(resolved.ModuleRef.GitURL)))
-	fmt.Printf("%s Version:   %s → %s\n", moduleInfoIcon, version, CmdStyle.Render(string(resolved.ResolvedVersion)))
-	fmt.Printf("%s Namespace: %s\n", moduleInfoIcon, CmdStyle.Render(string(resolved.Namespace)))
-	fmt.Printf("%s Cache:     %s\n", moduleInfoIcon, moduleDetailStyle.Render(string(resolved.CachePath)))
+	fmt.Fprintf(w, "%s Module resolved\n", moduleSuccessIcon)
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s Git URL:   %s\n", moduleInfoIcon, modulePathStyle.Render(string(resolved.ModuleRef.GitURL)))
+	fmt.Fprintf(w, "%s Version:   %s → %s\n", moduleInfoIcon, version, CmdStyle.Render(string(resolved.ResolvedVersion)))
+	fmt.Fprintf(w, "%s Namespace: %s\n", moduleInfoIcon, CmdStyle.Render(string(resolved.Namespace)))
+	fmt.Fprintf(w, "%s Cache:     %s\n", moduleInfoIcon, moduleDetailStyle.Render(string(resolved.CachePath)))
 
 	declaration := result.Declaration()
 	if declaration.Err() != nil {
-		fmt.Println()
-		fmt.Println(moduleAddDeclarationFailureLine(declaration))
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, moduleAddDeclarationFailureLine(declaration))
 		return moduleDeclarationExitError(declaration)
 	}
-	fmt.Println(moduleAddLockLine(result.LockWritten()))
-	fmt.Printf("%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
+	fmt.Fprintln(w, moduleAddLockLine(result.LockWritten()))
+	fmt.Fprintf(w, "%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
 
 	return nil
 }
@@ -208,21 +209,21 @@ func moduleDeclarationExitError(declaration modulesync.DeclarationEditResult) er
 	return &ExitError{Code: 1, Err: declaration.Err()}
 }
 
-func runModuleRemove(ctx context.Context, args []string) error {
+func runModuleRemove(ctx context.Context, w io.Writer, args []string) error {
 	identifier := args[0]
 
-	fmt.Println(moduleTitleStyle.Render("Remove Module Dependency"))
+	fmt.Fprintln(w, moduleTitleStyle.Render("Remove Module Dependency"))
 
-	fmt.Printf("%s Removing %s...\n", moduleInfoIcon, identifier)
+	fmt.Fprintf(w, "%s Removing %s...\n", moduleInfoIcon, identifier)
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
 	result, err := modulesync.RemoveModuleDependency(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		// Format ambiguous matches nicely
 		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {
-			fmt.Printf("%s %v\n", moduleErrorIcon, ambigErr)
+			fmt.Fprintf(w, "%s %v\n", moduleErrorIcon, ambigErr)
 			return err
 		}
-		fmt.Printf("%s Failed to remove module: %v\n", moduleErrorIcon, err)
+		fmt.Fprintf(w, "%s Failed to remove module: %v\n", moduleErrorIcon, err)
 		return err
 	}
 
@@ -231,7 +232,7 @@ func runModuleRemove(ctx context.Context, args []string) error {
 	var rollbackErr error
 	for i := range declarations {
 		if declarations[i].Err() != nil {
-			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, declarations[i].Err())
+			fmt.Fprintf(w, "%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, declarations[i].Err())
 		}
 		if rollbackErr == nil {
 			rollbackErr = moduleDeclarationExitError(declarations[i])
@@ -241,12 +242,12 @@ func runModuleRemove(ctx context.Context, args []string) error {
 	// After a rollback nothing was removed: print only what persisted.
 	if rollbackErr == nil {
 		for i := range removed {
-			fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(string(removed[i].RemovedEntry.Namespace)))
+			fmt.Fprintf(w, "%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(string(removed[i].RemovedEntry.Namespace)))
 		}
 	}
 
-	fmt.Println()
-	fmt.Println(moduleRemoveSummaryLine(declarations, result.LockWritten()))
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, moduleRemoveSummaryLine(declarations, result.LockWritten()))
 
 	return rollbackErr
 }
@@ -334,38 +335,38 @@ func moduleNoUpdatesLines(lockWritten bool) []string {
 	return []string{moduleInfoIcon + " No modules to update", moduleLockFileLine(lockWritten)}
 }
 
-func runModuleSync(ctx context.Context) error {
-	fmt.Println(moduleTitleStyle.Render("Sync Module Dependencies"))
+func runModuleSync(ctx context.Context, w io.Writer) error {
+	fmt.Fprintln(w, moduleTitleStyle.Render("Sync Module Dependencies"))
 
 	invowkmodulePath := filepath.Join(".", invowkmodCueFileName)
 	result, err := modulesync.SyncModule(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		if missingErr, ok := errors.AsType[*modulesync.MissingTransitiveDepError](err); ok {
-			renderMissingTransitiveDeps(missingErr)
+			renderMissingTransitiveDeps(w, missingErr)
 			return err
 		}
-		fmt.Printf("%s Failed to sync modules: %v\n", moduleErrorIcon, err)
-		printLockIntegrityHint(err)
+		fmt.Fprintf(w, "%s Failed to sync modules: %v\n", moduleErrorIcon, err)
+		printLockIntegrityHint(w, err)
 		return err
 	}
 
 	requirements := result.Requirements()
 	if len(requirements) == 0 {
-		fmt.Printf("%s No requires field found in invowkmod.cue\n", moduleInfoIcon)
+		fmt.Fprintf(w, "%s No requires field found in invowkmod.cue\n", moduleInfoIcon)
 		return nil
 	}
 
-	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
+	fmt.Fprintf(w, "%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
 
-	fmt.Println()
+	fmt.Fprintln(w)
 	for _, p := range result.Resolved() {
-		fmt.Printf("%s %s → %s\n", moduleSuccessIcon,
+		fmt.Fprintf(w, "%s %s → %s\n", moduleSuccessIcon,
 			CmdStyle.Render(string(p.Namespace)),
 			moduleDetailStyle.Render(string(p.ResolvedVersion)))
 	}
 
-	fmt.Println()
-	fmt.Println(moduleLockFileLine(result.LockWritten()))
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, moduleLockFileLine(result.LockWritten()))
 
 	return nil
 }
@@ -388,35 +389,35 @@ func lockIntegrityHint(err error) string {
 }
 
 // printLockIntegrityHint prints lockIntegrityHint's guidance when there is any.
-func printLockIntegrityHint(err error) {
+func printLockIntegrityHint(w io.Writer, err error) {
 	if hint := lockIntegrityHint(err); hint != "" {
-		fmt.Println(renderHintStyle.Render(hint))
+		fmt.Fprintln(w, renderHintStyle.Render(hint))
 	}
 }
 
-func renderMissingTransitiveDeps(err *modulesync.MissingTransitiveDepError) {
-	fmt.Printf("%s Failed to sync modules: %v\n", moduleErrorIcon, err)
+func renderMissingTransitiveDeps(w io.Writer, err *modulesync.MissingTransitiveDepError) {
+	fmt.Fprintf(w, "%s Failed to sync modules: %v\n", moduleErrorIcon, err)
 	for _, diag := range err.Diagnostics {
-		fmt.Println()
-		fmt.Printf("Module %q (%s) requires\n", diag.RequiringModule, diag.RequiringURL)
-		fmt.Printf("%q but it is not declared in your invowkmod.cue.\n", diag.MissingRef.GitURL)
-		fmt.Println()
-		fmt.Println("Add it to your requires list:")
-		fmt.Println(diag.CUESnippet())
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "Module %q (%s) requires\n", diag.RequiringModule, diag.RequiringURL)
+		fmt.Fprintf(w, "%q but it is not declared in your invowkmod.cue.\n", diag.MissingRef.GitURL)
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Add it to your requires list:")
+		fmt.Fprintln(w, diag.CUESnippet())
 	}
-	fmt.Println()
-	fmt.Println("Or run: invowk module tidy")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Or run: invowk module tidy")
 }
 
-func runModuleUpdate(ctx context.Context, args []string) error {
-	fmt.Println(moduleTitleStyle.Render("Update Module Dependencies"))
+func runModuleUpdate(ctx context.Context, w io.Writer, args []string) error {
+	fmt.Fprintln(w, moduleTitleStyle.Render("Update Module Dependencies"))
 
 	var identifier string
 	if len(args) > 0 {
 		identifier = args[0]
-		fmt.Printf("%s Updating %s...\n", moduleInfoIcon, identifier)
+		fmt.Fprintf(w, "%s Updating %s...\n", moduleInfoIcon, identifier)
 	} else {
-		fmt.Printf("%s Updating all modules...\n", moduleInfoIcon)
+		fmt.Fprintf(w, "%s Updating all modules...\n", moduleInfoIcon)
 	}
 
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
@@ -424,37 +425,37 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 	if err != nil {
 		// Format ambiguous matches nicely
 		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {
-			fmt.Printf("%s %v\n", moduleErrorIcon, ambigErr)
+			fmt.Fprintf(w, "%s %v\n", moduleErrorIcon, ambigErr)
 			return err
 		}
-		fmt.Printf("%s Failed to update modules: %v\n", moduleErrorIcon, err)
-		printLockIntegrityHint(err)
+		fmt.Fprintf(w, "%s Failed to update modules: %v\n", moduleErrorIcon, err)
+		printLockIntegrityHint(w, err)
 		return err
 	}
 
 	updated := result.Updated()
 	if len(updated) == 0 {
 		for _, line := range moduleNoUpdatesLines(result.LockWritten()) {
-			fmt.Println(line)
+			fmt.Fprintln(w, line)
 		}
 		return nil
 	}
 
-	fmt.Println()
+	fmt.Fprintln(w)
 	for _, p := range updated {
-		fmt.Printf("%s %s → %s\n", moduleSuccessIcon,
+		fmt.Fprintf(w, "%s %s → %s\n", moduleSuccessIcon,
 			CmdStyle.Render(string(p.Namespace)),
 			moduleDetailStyle.Render(string(p.ResolvedVersion)))
 	}
 
-	fmt.Println()
-	fmt.Println(moduleLockFileLine(result.LockWritten()))
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, moduleLockFileLine(result.LockWritten()))
 
 	return nil
 }
 
-func runModuleDeps(ctx context.Context) error {
-	fmt.Println(moduleTitleStyle.Render("Module Dependencies"))
+func runModuleDeps(ctx context.Context, w io.Writer) error {
+	fmt.Fprintln(w, moduleTitleStyle.Render("Module Dependencies"))
 
 	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
 	deps, err := modulesync.ListModuleDependencies(ctx, types.FilesystemPath(invowkmodPath)) //goplint:ignore -- relative path from current dir
@@ -463,24 +464,24 @@ func runModuleDeps(ctx context.Context) error {
 	}
 
 	if len(deps) == 0 {
-		fmt.Printf("%s No module dependencies found\n", moduleInfoIcon)
-		fmt.Println()
-		fmt.Printf("%s To add modules, use: %s\n", moduleInfoIcon, CmdStyle.Render("invowk module add <git-url> <version>"))
+		fmt.Fprintf(w, "%s No module dependencies found\n", moduleInfoIcon)
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "%s To add modules, use: %s\n", moduleInfoIcon, CmdStyle.Render("invowk module add <git-url> <version>"))
 		return nil
 	}
 
-	fmt.Printf("%s Found %d module dependency(ies)\n", moduleInfoIcon, len(deps))
-	fmt.Println()
+	fmt.Fprintf(w, "%s Found %d module dependency(ies)\n", moduleInfoIcon, len(deps))
+	fmt.Fprintln(w)
 
 	for _, dep := range deps {
-		fmt.Printf("%s %s\n", moduleSuccessIcon, CmdStyle.Render(string(dep.Namespace)))
-		fmt.Printf("   Git URL:  %s\n", dep.ModuleRef.GitURL)
-		fmt.Printf("   Version:  %s → %s\n", dep.ModuleRef.Version, moduleDetailStyle.Render(string(dep.ResolvedVersion)))
+		fmt.Fprintf(w, "%s %s\n", moduleSuccessIcon, CmdStyle.Render(string(dep.Namespace)))
+		fmt.Fprintf(w, "   Git URL:  %s\n", dep.ModuleRef.GitURL)
+		fmt.Fprintf(w, "   Version:  %s → %s\n", dep.ModuleRef.Version, moduleDetailStyle.Render(string(dep.ResolvedVersion)))
 		if len(dep.GitCommit) >= 12 {
-			fmt.Printf("   Commit:   %s\n", moduleDetailStyle.Render(string(dep.GitCommit[:12])))
+			fmt.Fprintf(w, "   Commit:   %s\n", moduleDetailStyle.Render(string(dep.GitCommit[:12])))
 		}
-		fmt.Printf("   Cache:    %s\n", moduleDetailStyle.Render(string(dep.CachePath)))
-		fmt.Println()
+		fmt.Fprintf(w, "   Cache:    %s\n", moduleDetailStyle.Render(string(dep.CachePath)))
+		fmt.Fprintln(w)
 	}
 
 	return nil

@@ -245,7 +245,7 @@ version: "1.0.0"
 	cmd.SetErr(&stderr)
 
 	targetPath := filepath.Join(modulePath, "invowkfile.cue")
-	if err := runPathValidation(cmd, targetPath); err != nil {
+	if err := runPathValidation(cmd, nil, targetPath); err != nil {
 		t.Fatalf("runPathValidation() error = %v, stderr = %s", err, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "Module is valid") {

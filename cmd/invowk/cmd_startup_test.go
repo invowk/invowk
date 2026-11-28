@@ -70,14 +70,34 @@ func TestShouldRegisterDiscoveredCommands(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "cmd with separate color flag",
+			args: []string{"--ivk-color", "always", "cmd", "build"},
+			want: true,
+		},
+		{
+			name: "cmd with inline color flag",
+			args: []string{"--ivk-color=never", "cmd", "build"},
+			want: true,
+		},
+		{
 			name: "shell completion for cmd",
 			args: []string{"__complete", "cmd", "bu"},
 			want: true,
 		},
 		{
-			name: "shell completion no-desc for cmd",
-			args: []string{"__completeNoDesc", "cmd", "bu"},
+			name: "shell completion for cmd after separate color flag",
+			args: []string{"__complete", "--ivk-color", "always", "cmd", "bu"},
 			want: true,
+		},
+		{
+			name: "shell completion no-desc for cmd after inline color flag",
+			args: []string{"__completeNoDesc", "--ivk-color=never", "cmd", "bu"},
+			want: true,
+		},
+		{
+			name: "non-cmd command after separate color flag",
+			args: []string{"--ivk-color", "always", "init"},
+			want: false,
 		},
 		{
 			name: "non-cmd command",

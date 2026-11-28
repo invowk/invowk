@@ -12,6 +12,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/charmbracelet/colorprofile"
+	"github.com/spf13/cobra"
+
 	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/app/deps"
@@ -39,9 +42,13 @@ type (
 		WatchTerminal WatchTerminalOpener
 		// Getenv is the only way CLI handlers read INVOWK_CONFIG and
 		// INVOWK_NO_CWD, so tests never depend on the process environment.
-		Getenv func(string) string
-		stdout io.Writer
-		stderr io.Writer
+		Getenv           func(string) string
+		stdout           io.Writer
+		stderr           io.Writer
+		uiOut            *colorprofile.Writer
+		uiErr            *colorprofile.Writer
+		resolveUIProfile func(io.Writer) colorprofile.Profile
+		alwaysColor      bool
 	}
 
 	// Dependencies defines the injection points for building an App. Nil fields are
@@ -125,6 +132,14 @@ func NewApp(d Dependencies) (*App, error) {
 	if d.Getenv == nil {
 		d.Getenv = os.Getenv
 	}
+	uiOut := &colorprofile.Writer{
+		Forward: d.Stdout,
+		Profile: resolveColorProfile(colorModeAuto, d.Stdout, d.Getenv),
+	}
+	uiErr := &colorprofile.Writer{
+		Forward: d.Stderr,
+		Profile: resolveColorProfile(colorModeAuto, d.Stderr, d.Getenv),
+	}
 	if d.Config == nil {
 		d.Config = config.NewProviderWithEnv(d.Getenv)
 	}
@@ -168,7 +183,7 @@ func NewApp(d Dependencies) (*App, error) {
 				commandadapters.NewDependencyScriptFileReader(),
 			),
 		)
-		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
+		d.Commands = &cliCommandAdapter{svc: svc, stdout: uiOut}
 	}
 	if d.Watchers == nil {
 		d.Watchers = productionWatchRunnerCreator{}
@@ -178,16 +193,114 @@ func NewApp(d Dependencies) (*App, error) {
 	}
 
 	return &App{
-		Config:        d.Config,
-		Discovery:     d.Discovery,
-		Commands:      d.Commands,
-		Watchers:      d.Watchers,
-		Diagnostics:   d.Diagnostics,
-		WatchTerminal: d.WatchTerminal,
-		Getenv:        d.Getenv,
-		stdout:        d.Stdout,
-		stderr:        d.Stderr,
+		Config:           d.Config,
+		Discovery:        d.Discovery,
+		Commands:         d.Commands,
+		Watchers:         d.Watchers,
+		Diagnostics:      d.Diagnostics,
+		WatchTerminal:    d.WatchTerminal,
+		Getenv:           d.Getenv,
+		stdout:           d.Stdout,
+		stderr:           d.Stderr,
+		uiOut:            uiOut,
+		uiErr:            uiErr,
+		resolveUIProfile: func(w io.Writer) colorprofile.Profile { return resolveColorProfile(colorModeAuto, w, d.Getenv) },
 	}, nil
+}
+
+func (a *App) setColorMode(mode colorMode) {
+	if a == nil {
+		return
+	}
+	a.alwaysColor = mode == colorModeAlways
+	a.resolveUIProfile = func(w io.Writer) colorprofile.Profile {
+		return resolveColorProfile(mode, w, a.Getenv)
+	}
+	if a.uiOut != nil {
+		a.uiOut.Profile = a.resolveUIProfile(a.stdout)
+	}
+	if a.uiErr != nil {
+		a.uiErr.Profile = a.resolveUIProfile(a.stderr)
+	}
+}
+
+func (a *App) outUI() io.Writer {
+	if a != nil && a.uiOut != nil {
+		return a.uiOut
+	}
+	if a != nil && a.stdout != nil {
+		return a.stdout
+	}
+	return os.Stdout
+}
+
+func (a *App) errUI() io.Writer {
+	if a != nil && a.uiErr != nil {
+		return a.uiErr
+	}
+	if a != nil && a.stderr != nil {
+		return a.stderr
+	}
+	return os.Stderr
+}
+
+func (a *App) uiWriterForOut(cmd *cobra.Command) io.Writer {
+	if cmd != nil {
+		if out := cmd.OutOrStdout(); out != os.Stdout {
+			return &colorprofile.Writer{
+				Forward: out,
+				Profile: a.profileForWriter(out),
+			}
+		}
+	}
+	if a != nil && a.uiOut != nil {
+		return a.uiOut
+	}
+	return os.Stdout
+}
+
+func (a *App) uiWriterForErr(cmd *cobra.Command) io.Writer {
+	if cmd != nil {
+		if errW := cmd.ErrOrStderr(); errW != os.Stderr {
+			return &colorprofile.Writer{
+				Forward: errW,
+				Profile: a.profileForWriter(errW),
+			}
+		}
+	}
+	if a != nil && a.uiErr != nil {
+		return a.uiErr
+	}
+	return os.Stderr
+}
+
+func (a *App) profileForWriter(w io.Writer) colorprofile.Profile {
+	if a != nil && a.resolveUIProfile != nil {
+		return a.resolveUIProfile(w)
+	}
+	var getenv func(string) string
+	if a != nil {
+		getenv = a.Getenv
+	}
+	return resolveColorProfile(colorModeAuto, w, getenv)
+}
+
+func (a *App) glamourStyle(ctx context.Context, rootFlags *rootFlagValues) glamourTheme {
+	if a == nil || a.uiErr == nil || !colorEnabled(a.uiErr.Profile) {
+		return glamourThemeNotty
+	}
+	scheme := config.ColorSchemeAuto
+	if cfg, err := loadUIConfig(ctx, a, rootFlags); err == nil && cfg != nil {
+		scheme = cfg.UI.ColorScheme
+	}
+	style := resolveGlamourStyle(true, scheme)
+	// Glamour's "auto" style checks os.Stdout.Fd() and falls back to "notty"
+	// when stdout is piped; use "dark" when color is forced/enabled on stderr
+	// while stdout is non-TTY so styling is not silently dropped.
+	if style == glamourThemeAuto && !stdoutIsTerminal(a.stdout) {
+		return glamourThemeDark
+	}
+	return style
 }
 
 func (o *cliExecutionObserver) CommandStarting(name invowkfile.CommandName) {

@@ -57,7 +57,7 @@ func newAgentCmdCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	cmd.AddCommand(newAgentCmdPromptCommand())
 	cmd.AddCommand(newAgentCmdCreateCommand(app, rootFlags))
 	cmd.AddCommand(newAgentCmdChangeCommand(app, rootFlags))
-	cmd.AddCommand(newAgentCmdRemoveCommand())
+	cmd.AddCommand(newAgentCmdRemoveCommand(app))
 	return cmd
 }
 
@@ -178,7 +178,7 @@ command object.`,
 	return cmd
 }
 
-func newAgentCmdRemoveCommand() *cobra.Command {
+func newAgentCmdRemoveCommand(app *App) *cobra.Command {
 	var (
 		targetPath string
 		dryRun     bool
@@ -201,7 +201,7 @@ func newAgentCmdRemoveCommand() *cobra.Command {
 			if err != nil {
 				return &ExitError{Code: agentExitFailure, Err: err}
 			}
-			renderAgentCmdRemoveResult(cmd, result, dryRun)
+			renderAgentCmdRemoveResult(app.uiWriterForOut(cmd), result, dryRun)
 			return nil
 		},
 	}
@@ -220,7 +220,7 @@ func newAgentModCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	cmd.AddCommand(newAgentModPromptCommand())
 	cmd.AddCommand(newAgentModCreateCommand(app, rootFlags))
 	cmd.AddCommand(newAgentModChangeCommand(app, rootFlags))
-	cmd.AddCommand(newAgentModRemoveCommand())
+	cmd.AddCommand(newAgentModRemoveCommand(app))
 	return cmd
 }
 
@@ -337,7 +337,7 @@ generated module file bundle.`,
 	return cmd
 }
 
-func newAgentModRemoveCommand() *cobra.Command {
+func newAgentModRemoveCommand(app *App) *cobra.Command {
 	var (
 		dryRun bool
 		force  bool
@@ -359,7 +359,7 @@ func newAgentModRemoveCommand() *cobra.Command {
 			if err != nil {
 				return &ExitError{Code: agentExitFailure, Err: err}
 			}
-			renderAgentModRemoveResult(cmd, result, dryRun)
+			renderAgentModRemoveResult(app.uiWriterForOut(cmd), result, dryRun)
 			return nil
 		},
 	}
@@ -397,7 +397,7 @@ func runAgentCmdCreate(
 		}
 	}
 
-	renderAgentCmdCreateResult(cmd, result, createOpts, verify)
+	renderAgentCmdCreateResult(app.uiWriterForOut(cmd), result, createOpts, verify)
 	return nil
 }
 
@@ -445,7 +445,7 @@ func runAgentCmdChange(
 		}
 	}
 
-	renderAgentCmdChangeResult(cmd, result, changeOpts, verify)
+	renderAgentCmdChangeResult(app.uiWriterForOut(cmd), result, changeOpts, verify)
 	return nil
 }
 
@@ -485,7 +485,7 @@ func runAgentModCreate(
 		return &ExitError{Code: agentExitFailure, Err: err}
 	}
 
-	renderAgentModCreateResult(cmd, result, createOpts)
+	renderAgentModCreateResult(app.uiWriterForOut(cmd), result, createOpts)
 	return nil
 }
 
@@ -520,7 +520,7 @@ func runAgentModChange(
 		return &ExitError{Code: agentExitFailure, Err: err}
 	}
 
-	renderAgentModChangeResult(cmd, result, changeOpts)
+	renderAgentModChangeResult(app.uiWriterForOut(cmd), result, changeOpts)
 	return nil
 }
 
@@ -562,12 +562,11 @@ func resolveAgentAuthoringCompleter(
 }
 
 func renderAgentCmdCreateResult(
-	cmd *cobra.Command,
+	w io.Writer,
 	result *agentcmd.CreateResult,
 	createOpts agentcmd.CreateOptions,
 	verify bool,
 ) {
-	w := cmd.OutOrStdout()
 	switch {
 	case createOpts.PrintOnly:
 		fmt.Fprintln(w, result.CommandCUE)
@@ -589,12 +588,11 @@ func renderAgentCmdCreateWriteResult(w io.Writer, result *agentcmd.CreateResult,
 }
 
 func renderAgentCmdChangeResult(
-	cmd *cobra.Command,
+	w io.Writer,
 	result *agentcmd.ChangeResult,
 	changeOpts agentcmd.ChangeOptions,
 	verify bool,
 ) {
-	w := cmd.OutOrStdout()
 	switch {
 	case changeOpts.PrintOnly:
 		fmt.Fprintln(w, result.CommandCUE)
@@ -615,8 +613,7 @@ func renderAgentCmdChangeWriteResult(w io.Writer, result *agentcmd.ChangeResult,
 	}
 }
 
-func renderAgentCmdRemoveResult(cmd *cobra.Command, result *agentcmd.RemoveResult, dryRun bool) {
-	w := cmd.OutOrStdout()
+func renderAgentCmdRemoveResult(w io.Writer, result *agentcmd.RemoveResult, dryRun bool) {
 	if dryRun {
 		fmt.Fprint(w, result.Diff)
 		return
@@ -624,8 +621,7 @@ func renderAgentCmdRemoveResult(cmd *cobra.Command, result *agentcmd.RemoveResul
 	fmt.Fprintf(w, "%s Removed command %q from %s\n", SuccessStyle.Render("✓"), result.CommandName, result.TargetPath)
 }
 
-func renderAgentModCreateResult(cmd *cobra.Command, result *agentcmd.ModuleResult, createOpts agentcmd.ModuleCreateOptions) {
-	w := cmd.OutOrStdout()
+func renderAgentModCreateResult(w io.Writer, result *agentcmd.ModuleResult, createOpts agentcmd.ModuleCreateOptions) {
 	switch {
 	case createOpts.PrintOnly:
 		renderAgentModPrintResult(w, result)
@@ -636,8 +632,7 @@ func renderAgentModCreateResult(cmd *cobra.Command, result *agentcmd.ModuleResul
 	}
 }
 
-func renderAgentModChangeResult(cmd *cobra.Command, result *agentcmd.ModuleResult, changeOpts agentcmd.ModuleChangeOptions) {
-	w := cmd.OutOrStdout()
+func renderAgentModChangeResult(w io.Writer, result *agentcmd.ModuleResult, changeOpts agentcmd.ModuleChangeOptions) {
 	switch {
 	case changeOpts.PrintOnly:
 		renderAgentModPrintResult(w, result)
@@ -667,8 +662,7 @@ func renderAgentModWriteResult(w io.Writer, verb string, result *agentcmd.Module
 	}
 }
 
-func renderAgentModRemoveResult(cmd *cobra.Command, result *agentcmd.ModuleResult, dryRun bool) {
-	w := cmd.OutOrStdout()
+func renderAgentModRemoveResult(w io.Writer, result *agentcmd.ModuleResult, dryRun bool) {
 	if dryRun {
 		fmt.Fprint(w, result.Diff)
 		return

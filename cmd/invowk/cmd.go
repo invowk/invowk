@@ -337,14 +337,14 @@ func firstTopLevelToken(args []string) (token string, remaining []string) {
 			strings.HasPrefix(arg, "--ivk-verbose="), strings.HasPrefix(arg, "--ivk-interactive="):
 			continue
 		// Root config flag with separate value.
-		case arg == "--ivk-config", arg == "-c":
+		case arg == "--ivk-config", arg == "-c", arg == longColorFlag:
 			if i+1 < len(args) {
 				i++
 			}
 			continue
-		// Root config flag with inline value.
-		case strings.HasPrefix(arg, longConfigFlagInlinePrefix), strings.HasPrefix(arg, "-c="),
-			(strings.HasPrefix(arg, "-c") && len(arg) > 2):
+		// Root config/color flag with inline value.
+		case strings.HasPrefix(arg, longConfigFlagInlinePrefix), strings.HasPrefix(arg, longColorFlagInline),
+			strings.HasPrefix(arg, "-c="), (strings.HasPrefix(arg, "-c") && len(arg) > 2):
 			continue
 		// Any other flag-like token (keep scanning for the command token).
 		case strings.HasPrefix(arg, "-"):
@@ -368,10 +368,10 @@ func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 
 	// Cobra adapters always render service diagnostics in the CLI layer.
 	result, diags, err := app.Commands.Execute(reqCtx, req)
-	app.Diagnostics.Render(reqCtx, diags, app.stderr)
+	app.Diagnostics.Render(reqCtx, diags, app.errUI())
 	if err != nil {
 		if svcErr, ok := errors.AsType[*ServiceError](err); ok {
-			renderServiceError(app.stderr, svcErr)
+			renderServiceError(app.errUI(), svcErr, app.glamourStyle(reqCtx, &rootFlagValues{configPath: string(req.ConfigPath)}))
 		}
 		return err
 	}
@@ -392,7 +392,7 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 
 	cfg, err := loadUIConfig(ctx, app, rootFlags)
 	if err != nil {
-		fmt.Fprintln(app.stderr, WarningStyle.Render("Warning: ")+formatErrorForDisplay(err, rootFlags.verbose))
+		fmt.Fprintln(app.errUI(), WarningStyle.Render("Warning: ")+formatErrorForDisplay(err, rootFlags.verbose))
 		return verbose, interactive
 	}
 
@@ -437,13 +437,13 @@ func validateCommandTree(ctx context.Context, app *App) error {
 	}
 
 	// Error path: downstream callers won't execute, so render diagnostics here.
-	app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
+	app.Diagnostics.Render(ctx, result.Diagnostics, app.errUI())
 	if errors.Is(err, config.ErrExplicitConfig) {
-		return renderExplicitConfigError(app.stderr, err)
+		return renderExplicitConfigError(app.errUI(), err)
 	}
 
 	if conflictErr, ok := errors.AsType[*discovery.ArgsSubcommandConflictError](err); ok {
-		fmt.Fprintf(app.stderr, "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))
+		fmt.Fprintf(app.errUI(), "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))
 	}
 
 	return err

@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/invowk/invowk/internal/tui"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
+
+	"github.com/invowk/invowk/internal/tui"
 )
 
 // newTUIStyleCommand creates the `invowk tui style` command.
@@ -113,7 +115,12 @@ func runTuiStyle(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if _, err := fmt.Fprintln(cmd.OutOrStdout(), style.Apply(content)); err != nil {
+	// Opt-in styling: preserve raw stdout in pipelines unless --ivk-color=never.
+	out := cmd.OutOrStdout()
+	if colorModeFromCmd(cmd) == colorModeNever {
+		out = &colorprofile.Writer{Forward: out, Profile: colorprofile.NoTTY}
+	}
+	if _, err := fmt.Fprintln(out, style.Apply(content)); err != nil {
 		return fmt.Errorf("failed to write styled output: %w", err)
 	}
 	return nil

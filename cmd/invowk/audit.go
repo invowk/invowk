@@ -275,16 +275,18 @@ Exit codes:
 func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 	ctx := cmd.Context()
 	w := cmd.OutOrStdout()
+	uiOut := app.uiWriterForOut(cmd)
+	errW := app.uiWriterForErr(cmd)
 
 	if err := opts.Validate(); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", err)
+		fmt.Fprintf(errW, "invalid LLM configuration: %v\n", err)
 		return &ExitError{Code: auditExitError, Err: err}
 	}
 
 	// Parse minimum severity.
 	minSev, err := audit.ParseSeverity(opts.minSeverity)
 	if err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "invalid severity: %v\n", err)
+		fmt.Fprintf(errW, "invalid severity: %v\n", err)
 		return &ExitError{Code: auditExitError, Err: err}
 	}
 
@@ -304,24 +306,24 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 	}
 	scanner, err := audit.NewScanner(app.Config, scannerOpts...)
 	if err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "invalid scanner configuration: %v\n", err)
+		fmt.Fprintf(errW, "invalid scanner configuration: %v\n", err)
 		return &ExitError{Code: auditExitError, Err: err}
 	}
 
 	// Run scan.
 	report, scanErr := scanner.Scan(ctx, types.FilesystemPath(opts.path), opts.includeGlobal) //goplint:ignore -- CLI arg path from Cobra, validated by filepath.Abs in BuildScanContext
 	if scanErr != nil && report == nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "scan error: %v\n", scanErr)
+		fmt.Fprintf(errW, "scan error: %v\n", scanErr)
 		return &ExitError{Code: auditExitError, Err: scanErr}
 	}
 	if scanErr != nil && audit.ScanFailureIsFatal(scanErr) {
-		fmt.Fprintf(cmd.ErrOrStderr(), "scan error: %v\n", scanErr)
+		fmt.Fprintf(errW, "scan error: %v\n", scanErr)
 		return &ExitError{Code: auditExitError, Err: scanErr}
 	}
 
 	// If scanner returned partial results with errors, warn on stderr.
 	if scanErr != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: some checkers failed: %v\n", scanErr)
+		fmt.Fprintf(errW, "warning: some checkers failed: %v\n", scanErr)
 	}
 
 	triage := report.Triage()
@@ -334,14 +336,14 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 		}
 	case "text":
 		renderAuditTextWithTriage(
-			w,
+			uiOut,
 			report,
 			triage,
 			types.FilesystemPath(opts.path), //goplint:ignore -- CLI arg path from Cobra, validated by filepath.Abs in BuildScanContext.
 			minSev,
 		)
 	default:
-		fmt.Fprintf(cmd.ErrOrStderr(), "Error: unknown output format %q (must be \"text\" or \"json\")\n", opts.format)
+		fmt.Fprintf(errW, "Error: unknown output format %q (must be \"text\" or \"json\")\n", opts.format)
 		return &ExitError{Code: auditExitError}
 	}
 

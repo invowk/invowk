@@ -143,7 +143,7 @@ func buildDiscoveredGroupCommand(app *App, rootFlags *rootFlagValues, cmdFlags *
 			diags, err := checkAmbiguousCommand(ctx, app, fullArgs)
 			if err != nil {
 				if ambigErr, ok := errors.AsType[*AmbiguousCommandError](err); ok {
-					fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
+					fmt.Fprint(app.errUI(), RenderAmbiguousCommandError(ambigErr))
 					cmd.SilenceErrors = true
 					cmd.SilenceUsage = true
 					return newUsageError(err)
@@ -433,13 +433,13 @@ func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, 
 func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error {
 	result, err := app.Discovery.DiscoverCommandSet(cmd.Context())
 	if err != nil {
-		printIssueCatalogEntry(app.stderr, issue.InvowkfileNotFoundId)
+		printIssueCatalogEntry(app.errUI(), issue.InvowkfileNotFoundId, app.glamourStyle(cmd.Context(), rootFlags))
 		return err
 	}
 
 	commandSet := result.Set
 	if commandSet == nil || len(commandSet.Commands) == 0 {
-		printIssueCatalogEntry(app.stderr, issue.InvowkfileNotFoundId)
+		printIssueCatalogEntry(app.errUI(), issue.InvowkfileNotFoundId, app.glamourStyle(cmd.Context(), rootFlags))
 		return errors.New("no commands found")
 	}
 
@@ -448,7 +448,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	// Verbose mode: render full diagnostics inline before the listing.
 	// Non-verbose mode: defer to a summary footer after the listing.
 	if verbose && len(result.Diagnostics) > 0 {
-		app.Diagnostics.Render(cmd.Context(), result.Diagnostics, app.stderr)
+		app.Diagnostics.Render(cmd.Context(), result.Diagnostics, app.errUI())
 	}
 
 	sourceStyle := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true)
@@ -460,7 +460,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	ambiguousStyle := lipgloss.NewStyle().Foreground(ColorError)
 	categoryStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Italic(true)
 
-	w := app.stdout
+	w := app.outUI()
 
 	if verbose {
 		fmt.Fprintln(w, TitleStyle.Render("Discovery Sources"))
@@ -533,7 +533,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	// Non-verbose footer: show a single summary line referencing `invowk validate`
 	// so users know how to get full diagnostics without cluttering the listing.
 	if !verbose && len(result.Diagnostics) > 0 {
-		fmt.Fprintf(app.stderr, "%s %d file(s) had issues and were skipped. Run '%s' for details.\n",
+		fmt.Fprintf(app.errUI(), "%s %d file(s) had issues and were skipped. Run '%s' for details.\n",
 			WarningStyle.Render("!"),
 			len(result.Diagnostics),
 			CmdStyle.Render("invowk validate"),

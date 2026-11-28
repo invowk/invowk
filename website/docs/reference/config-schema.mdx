@@ -183,6 +183,8 @@ Sets the color scheme for terminal output.
 | `"dark"` | Colors optimized for dark terminals |
 | `"light"` | Colors optimized for light terminals |
 
+Color theme selection is orthogonal to color enablement (`--ivk-color`, `NO_COLOR`, `CLICOLOR_FORCE`, `TERM=dumb`, TTY detection); when color is disabled, Glamour falls back to `"notty"`.
+
 ### verbose
 
 **Type:** `bool`

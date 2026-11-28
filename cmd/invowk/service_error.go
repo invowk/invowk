@@ -43,8 +43,9 @@ func (e *ServiceError) Error() string { return e.Err.Error() }
 func (e *ServiceError) Unwrap() error { return e.Err }
 
 // renderServiceError renders a ServiceError in the CLI layer.
-// It prints any styled message first, then the optional issue help section.
-func renderServiceError(stderr io.Writer, svcErr *ServiceError) {
+// It prints any styled message first, then the optional issue help section
+// using theme (falling back to writer-detected style when unset).
+func renderServiceError(stderr io.Writer, svcErr *ServiceError, theme glamourTheme) {
 	if svcErr == nil {
 		return
 	}
@@ -58,7 +59,11 @@ func renderServiceError(stderr io.Writer, svcErr *ServiceError) {
 	}
 
 	if catalogEntry := issue.Get(svcErr.IssueID); catalogEntry != nil {
-		rendered, renderErr := renderIssueCatalogEntry(catalogEntry, "dark")
+		stylePath := theme
+		if stylePath == glamourThemeUnset {
+			stylePath = resolveGlamourStyle(colorEnabledForWriter(stderr), "auto")
+		}
+		rendered, renderErr := renderIssueCatalogEntry(catalogEntry, stylePath.String())
 		if renderErr != nil {
 			slog.Warn("failed to render issue catalog entry", "issue_id", svcErr.IssueID, "error", renderErr)
 		} else {

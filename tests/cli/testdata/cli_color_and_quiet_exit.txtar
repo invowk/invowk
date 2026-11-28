@@ -1,0 +1,173 @@
+# Test: CLI color control, non-TTY cleaning, opt-in TUI styling, and quiet exit framing
+# Built-in CLI and multi-feature output test (no virtual/native mirror required).
+
+cd $WORK
+env NO_COLOR=
+env CLICOLOR_FORCE=
+env TERM=xterm-256color
+
+# Test 1: Non-TTY default (--ivk-color=auto) emits ANSI-free Invowk CLI output
+exec invowk --help
+! stdout '\x1b\['
+! stderr '\x1b\['
+
+exec invowk cmd
+! stdout '\x1b\['
+! stderr '\x1b\['
+
+exec invowk validate
+! stdout '\x1b\['
+! stderr '\x1b\['
+
+exec invowk config show
+! stdout '\x1b\['
+! stderr '\x1b\['
+
+# Test 2: NO_COLOR=1 suppresses ANSI escapes and uses Glamour notty for issue cards
+env NO_COLOR=1
+exec invowk --help
+! stdout '\x1b\['
+! stderr '\x1b\['
+
+cd $WORK/empty
+! exec invowk cmd
+! stdout '\x1b\['
+! stderr '\x1b\['
+stderr 'invowkfile'
+cd $WORK
+
+# Test 3: TERM=dumb suppresses ANSI escapes
+env NO_COLOR=
+env TERM=dumb
+exec invowk cmd
+! stdout '\x1b\['
+! stderr '\x1b\['
+
+# Test 4: CLICOLOR_FORCE=1 enables color in non-TTY pipes, overridden by --ivk-color=never
+env TERM=xterm-256color
+env CLICOLOR_FORCE=1
+exec invowk cmd
+stdout '\x1b\['
+
+exec invowk --ivk-color=never cmd
+! stdout '\x1b\['
+! stderr '\x1b\['
+
+exec invowk --ivk-color=never --help
+! stdout '\x1b\['
+! stderr '\x1b\['
+
+# Test 5: --ivk-color=always forces color even with NO_COLOR=1 and TERM=dumb in non-TTY pipes
+env CLICOLOR_FORCE=
+env NO_COLOR=1
+env TERM=dumb
+exec invowk --ivk-color=always --help
+stdout '\x1b\['
+
+exec invowk --ivk-color=always cmd
+stdout '\x1b\['
+
+# Separate --ivk-color <val> before cmd still registers discovered commands and styles dry-run/listing
+exec invowk --ivk-color always cmd hello
+stdout 'hello ran'
+
+exec invowk --ivk-color always cmd --ivk-dry-run hello
+stdout 'Dry Run'
+stdout '\x1b\['
+
+# Test 6: Invalid --ivk-color exits 2 with usage error naming --ivk-color
+exitcode 2 invowk --ivk-color=bogus cmd
+! stdout .
+stderr '--ivk-color'
+
+exitcode 2 invowk --ivk-color=bogus --help
+! stdout .
+stderr '--ivk-color'
+
+# Test 7: tui style and tui format stay opt-in in pipes unless --ivk-color=never
+env NO_COLOR=1
+env TERM=xterm-256color
+exec invowk tui style --foreground '#FF0000' 'hello'
+stdout '\x1b\['
+
+exec invowk --ivk-color=never tui style --foreground '#FF0000' 'hello'
+! stdout '\x1b\['
+stdout 'hello'
+
+exec invowk --ivk-color=never tui format --type markdown '**bold**'
+! stdout '\x1b\['
+stdout 'bold'
+
+# Test 8: Child command ANSI output is forwarded raw without Invowk re-stripping
+env NO_COLOR=
+exec invowk --ivk-color=never cmd emit-ansi
+stdout '\x1b\[31mchild-red\x1b\[0m'
+
+# Test 9: Bare ExitError suppresses fang Exit status banner unconditionally; --ivk-verbose adds one line
+env CLICOLOR_FORCE=1
+exitcode 42 invowk cmd exit42
+stdout 'exiting 42'
+! stderr 'Exit status'
+! stderr 'ERROR'
+
+exitcode 42 invowk --ivk-verbose cmd exit42
+stdout 'exiting 42'
+stderr 'exited with status 42'
+! stderr 'ERROR'
+
+# Test 10: validate failure suppresses fang Exit status banner
+cd $WORK/invalid
+exitcode 1 invowk validate
+! stderr 'Exit status'
+cd $WORK
+
+# Test 11: UsageError (unknown flag) keeps message and Try --help hint
+env CLICOLOR_FORCE=
+exitcode 2 invowk --bogus
+! stdout .
+stderr '(?i)unknown flag: --bogus'
+stderr '(?i)try --help'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "hello"
+		description: "Print hello"
+		implementations: [{
+			script: {content: "echo 'hello ran'"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "emit-ansi"
+		description: "Emit raw ANSI sequence from child command"
+		implementations: [{
+			script: {content: "printf '\\033[31mchild-red\\033[0m\\n'"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "exit42"
+		description: "Exit with code 42"
+		implementations: [{
+			script: {content: "echo 'exiting 42'; exit 42"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- empty/.gitkeep --
+
+-- invalid/invowkfile.cue --
+cmds: [{
+	name: "broken"
+	implementations: [{
+		script: {content: "echo broken"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+	bogusfield: 1
+}]

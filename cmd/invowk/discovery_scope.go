@@ -242,7 +242,7 @@ func renderExplicitConfigError(w io.Writer, err error) error {
 	if !ok {
 		return err
 	}
-	printIssueCatalogEntry(w, issue.ExplicitConfigLoadFailedId)
+	printIssueCatalogEntry(w, issue.ExplicitConfigLoadFailedId, "")
 	fmt.Fprintf(w, "%s %s\n", WarningStyle.Render("Hint:"), explicitConfigHint(explicitErr))
 	return err
 }
