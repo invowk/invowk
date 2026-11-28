@@ -152,10 +152,16 @@ func buildCLIBinary() {
 	}
 
 	binaryName := "invowk"
+	versionedBinaryName := "invowk-018"
+	develBinaryName := "invowk-devel"
 	if runtime.GOOS == "windows" {
 		binaryName = "invowk.exe"
+		versionedBinaryName = "invowk-018.exe"
+		develBinaryName = "invowk-devel.exe"
 	}
 	binaryPath = filepath.Join(binDir, binaryName)
+	versionedBinaryPath := filepath.Join(binDir, versionedBinaryName)
+	develBinaryPath := filepath.Join(binDir, develBinaryName)
 
 	// Build invowk. When GOCOVERDIR is set (e.g. via make test-cli-cover),
 	// build with -cover so the binary emits coverage data to that directory.
@@ -173,6 +179,40 @@ func buildCLIBinary() {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		panic("failed to build invowk: " + err.Error())
+	}
+
+	// Build a second test binary with ldflags Version=0.18.0 so invowk_version
+	// constraint tests exercise real release version evaluation alongside the
+	// default and true-(devel) binaries.
+	versionedArgs := []string{"build"}
+	if os.Getenv("GOCOVERDIR") != "" {
+		versionedArgs = append(versionedArgs, "-cover")
+	}
+	versionedArgs = append(versionedArgs,
+		"-ldflags", "-X github.com/invowk/invowk/cmd/invowk.Version=0.18.0",
+		"-o", versionedBinaryPath, ".",
+	)
+	versionedCmd := exec.CommandContext(context.Background(), "go", versionedArgs...)
+	versionedCmd.Dir = projectRoot
+	versionedCmd.Stdout = os.Stdout
+	versionedCmd.Stderr = os.Stderr
+	if err := versionedCmd.Run(); err != nil {
+		panic("failed to build versioned invowk test binary: " + err.Error())
+	}
+
+	// Build a true (devel) binary without VCS stamping so debug.ReadBuildInfo()
+	// reports Main.Version == "(devel)" even inside a clean git checkout.
+	develArgs := []string{"build", "-buildvcs=false"}
+	if os.Getenv("GOCOVERDIR") != "" {
+		develArgs = append(develArgs, "-cover")
+	}
+	develArgs = append(develArgs, "-o", develBinaryPath, ".")
+	develCmd := exec.CommandContext(context.Background(), "go", develArgs...)
+	develCmd.Dir = projectRoot
+	develCmd.Stdout = os.Stdout
+	develCmd.Stderr = os.Stderr
+	if err := develCmd.Run(); err != nil {
+		panic("failed to build devel invowk test binary: " + err.Error())
 	}
 }
 

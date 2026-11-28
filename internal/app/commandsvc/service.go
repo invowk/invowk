@@ -422,6 +422,9 @@ func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Con
 	}
 
 	result, err := s.discovery.DiscoverCommandSet(ctx)
+	if cwdErr := discovery.CurrentDirLoadError(result.Diagnostics); cwdErr != nil {
+		return nil, nil, req, configDiags, cwdErr
+	}
 	diags := appendDiagnostics(configDiags, result.Diagnostics...)
 	if err != nil {
 		return nil, nil, req, diags, err
@@ -465,6 +468,9 @@ func applyUIConfigDefaults(req Request, cfg *config.Config) Request {
 
 func (s *Service) discoverCommandByLookup(ctx context.Context, cfg *config.Config, req Request, diags []Diagnostic) (*config.Config, *discovery.CommandInfo, Request, []Diagnostic, error) {
 	lookup, err := s.discovery.GetCommand(ctx, req.Name)
+	if cwdErr := discovery.CurrentDirLoadError(lookup.Diagnostics); cwdErr != nil {
+		return nil, nil, req, diags, cwdErr
+	}
 	diags = appendDiagnostics(diags, lookup.Diagnostics...)
 	if err != nil {
 		return nil, nil, req, diags, err
@@ -540,6 +546,9 @@ func resolveCommandFromSet(commandSet *discovery.DiscoveredCommandSet, req Reque
 
 func (s *Service) discoverCommandFromSource(ctx context.Context, cfg *config.Config, req Request) (*config.Config, *discovery.CommandInfo, Request, []Diagnostic, error) {
 	result, err := s.discovery.DiscoverCommandSet(ctx)
+	if cwdErr := discovery.CurrentDirLoadError(result.Diagnostics); cwdErr != nil {
+		return nil, nil, req, nil, cwdErr
+	}
 	if err != nil {
 		return nil, nil, req, nil, err
 	}

@@ -571,6 +571,26 @@ func TestBehavioralSync_DeclaredSemVerConstraint(t *testing.T) {
 	)
 }
 
+// TestBehavioralSync_InvowkmodInvowkVersion verifies #Invowkmod.invowk_version matches
+// ValidateDeclaredSemVerConstraint.
+func TestBehavioralSync_InvowkmodInvowkVersion(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#Invowkmod", "invowk_version",
+		func(s string) error { return ValidateDeclaredSemVerConstraint(SemVerConstraint(s)) },
+		[]behavioralSyncCase{
+			{">=0.18.0", true, true, ""},
+			{"^1.0.0", true, true, ""},
+			{"~1.2.0", true, true, ""},
+			{"1.0.0", true, true, ""},
+			{"v0.18.0", false, false, ""},
+			{">=v0.18.0", false, false, ""},
+			{"", false, false, ""},
+		},
+	)
+}
+
 // TestBehavioralSync_GitURL verifies Go GitURL.Validate() agrees with
 // CUE #ModuleRequirement.git_url constraint (prefix regex + length).
 func TestBehavioralSync_GitURL(t *testing.T) {

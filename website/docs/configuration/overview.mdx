@@ -56,7 +56,7 @@ Earlier versions also read a `config.cue` from the current directory when no use
 
 ## Ignoring the Current Directory's Commands
 
-`--ivk-no-cwd` (or `INVOWK_NO_CWD=1`) stops command discovery from loading the current directory's `invowkfile.cue` and its sibling `*.invowkmod` modules. Configured `includes`, `~/.invowk/cmds` and provisioned modules still apply. It affects `invowk cmd` (listing, running, `@source`, `--ivk-dry-run`, `--ivk-watch`), completion, workspace `invowk validate` and `invowk module list`; explicit targets such as `invowk validate <path>` and `invowk audit <path>` are unaffected, and `invowk agent cmd create|change --verify` is rejected while the switch is on.
+`--ivk-no-cwd` (or `INVOWK_NO_CWD=1`) stops command discovery from loading the current directory's `invowkfile.cue` and its sibling `*.invowkmod` modules, including bypassing fail-closed errors if a current-directory file or module is broken. Configured `includes`, `~/.invowk/cmds` and provisioned modules still apply. It affects `invowk cmd` (listing, running, `@source`, `--ivk-dry-run`, `--ivk-watch`), completion, workspace `invowk validate` and `invowk module list`; explicit targets such as `invowk validate <path>` and `invowk audit <path>` are unaffected, and `invowk agent cmd create|change --verify` is rejected while the switch is on.
 
 `INVOWK_NO_CWD` accepts `1`, `t`, `true`, `0`, `f`, `false` (any case Go's `strconv.ParseBool` accepts); any other non-empty value is an error. An explicit `--ivk-no-cwd` or `--ivk-no-cwd=false` wins over the variable.
 

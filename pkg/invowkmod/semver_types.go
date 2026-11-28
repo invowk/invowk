@@ -6,9 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"unicode/utf8"
 )
 
 const (
+	// MaxDeclaredSemVerConstraintLength is the maximum rune length for declared
+	// SemVer constraints, mirroring strings.MaxRunes(64) in CUE schemas.
+	MaxDeclaredSemVerConstraintLength = 64
+
 	// ConstraintOpEqual is the exact equality operator (=).
 	ConstraintOpEqual ConstraintOp = "="
 	// ConstraintOpCaret is the caret operator (^), allowing non-breaking changes.
@@ -118,10 +123,11 @@ func (s SemVerConstraint) Validate() error {
 	return nil
 }
 
-// ValidateDeclaredSemVerConstraint validates a module requirement version
-// constraint as it is allowed to appear in invowkmod.cue declarations.
+// ValidateDeclaredSemVerConstraint validates a module requirement or invowk_version
+// constraint as it is allowed to appear in CUE declarations.
 func ValidateDeclaredSemVerConstraint(s SemVerConstraint) error {
-	if !declaredSemVerConstraintPattern.MatchString(string(s)) {
+	raw := string(s)
+	if utf8.RuneCountInString(raw) > MaxDeclaredSemVerConstraintLength || !declaredSemVerConstraintPattern.MatchString(raw) {
 		return &InvalidSemVerConstraintError{Value: s}
 	}
 	return nil

@@ -23,6 +23,13 @@ Every invowkfile must define at least one command in `cmds`:
 Fields like `module`, `version`, `description`, and `requires` belong in `invowkmod.cue` and are rejected in `invowkfile.cue`.
 :::
 
+### invowk_version
+
+**Type:** `string` (semver constraint, max 64 runes)  
+**Required:** No
+
+Minimum invowk CLI version constraint required to use this invowkfile (for example, `">=0.18.0"` or `"^0.18.0"`). Evaluated in a schema-less pre-pass before full schema validation so files targeting a newer version fail with an actionable upgrade error instead of unknown-field noise. True `(devel)` builds without embedded release metadata warn and continue.
+
 ### default_shell
 
 **Type:** `string`  
@@ -554,6 +561,7 @@ above:
 | Maximum runes | Fields |
 |---:|---|
 | 32 | `runtime.memory_limit`, `implementation.timeout`, `watch.debounce` |
+| 64 | `invowk_version` |
 | 128 | `runtime.persistent.name` |
 | 256 | command `name` and `category`; flag/argument `name`; tool alternatives; bare command dependency references; custom-check `name`; environment inherit allow/deny entries; container port entries; virtual filesystem logical names |
 | 512 | container `image` |

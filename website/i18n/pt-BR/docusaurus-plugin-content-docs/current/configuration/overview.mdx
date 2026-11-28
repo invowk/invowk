@@ -56,7 +56,7 @@ Versões anteriores também liam um `config.cue` do diretório atual quando não
 
 ## Ignorando os Comandos do Diretório Atual
 
-`--ivk-no-cwd` (ou `INVOWK_NO_CWD=1`) impede a descoberta de comandos de carregar o `invowkfile.cue` do diretório atual e os módulos `*.invowkmod` irmãos. Os `includes` configurados, `~/.invowk/cmds` e os módulos provisionados continuam valendo. Afeta `invowk cmd` (listagem, execução, `@source`, `--ivk-dry-run`, `--ivk-watch`), o completion, o `invowk validate` do workspace e o `invowk module list`; alvos explícitos como `invowk validate <caminho>` e `invowk audit <caminho>` não são afetados, e `invowk agent cmd create|change --verify` é rejeitado enquanto a opção estiver ligada.
+`--ivk-no-cwd` (ou `INVOWK_NO_CWD=1`) impede a descoberta de comandos de carregar o `invowkfile.cue` do diretório atual e os módulos `*.invowkmod` irmãos, inclusive contornando a falha fechada quando um arquivo ou módulo do diretório atual está quebrado. Os `includes` configurados, `~/.invowk/cmds` e os módulos provisionados continuam valendo. Afeta `invowk cmd` (listagem, execução, `@source`, `--ivk-dry-run`, `--ivk-watch`), o completion, o `invowk validate` do workspace e o `invowk module list`; alvos explícitos como `invowk validate <caminho>` e `invowk audit <caminho>` não são afetados, e `invowk agent cmd create|change --verify` é rejeitado enquanto a opção estiver ligada.
 
 `INVOWK_NO_CWD` aceita `1`, `t`, `true`, `0`, `f`, `false` (qualquer forma que o `strconv.ParseBool` do Go aceite); qualquer outro valor não vazio é um erro. Um `--ivk-no-cwd` ou `--ivk-no-cwd=false` explícito vence a variável.
 

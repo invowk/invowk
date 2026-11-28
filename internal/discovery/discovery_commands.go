@@ -229,13 +229,17 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		if file.Error != nil {
 			// Parse failures are recoverable for discovery: keep traversing and
 			// return structured diagnostics to the caller instead of writing output.
-			diagnostics = append(diagnostics, mustDiagnosticWithCause(
+			diag := mustDiagnosticWithCause(
 				SeverityWarning,
 				CodeInvowkfileParseSkipped,
 				fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
 				file.Path,
 				file.Error,
-			))
+			)
+			if file.FromCurrentDir {
+				diag = diag.WithCurrentDir()
+			}
+			diagnostics = append(diagnostics, diag)
 			continue
 		}
 		if file.Invowkfile == nil {

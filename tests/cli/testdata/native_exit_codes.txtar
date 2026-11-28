@@ -119,16 +119,15 @@ exitcode 1 invowk cmd
 stderr 'defines positional arguments but also has subcommands'
 cd $WORK
 
-# Test 14: a command missing because its invowkfile failed to parse exits 1,
-# not 2: the failure is the invalid invowkfile, not the command line
+# Test 14: a broken cwd invowkfile fails closed immediately with exit 1 and its schema error
 cd skipped
 exitcode 1 invowk cmd build
 ! stdout .
-stderr '(?i)skipping invowkfile'
-stderr 'invowkfile\.cue\s+\(invowkfile_parse_skipped\)'
+stderr 'field\s+not\s+allowed'
+stderr 'hint:\s+this\s+file\s+may\s+require\s+a\s+newer\s+version\s+of\s+invowk'
 exitcode 1 invowk cmd @invowkfile build
 ! stdout .
-stderr 'invowkfile_parse_skipped'
+stderr 'field\s+not\s+allowed'
 cd $WORK
 
 -- invowkfile.cue --

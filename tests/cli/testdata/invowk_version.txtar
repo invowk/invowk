@@ -1,0 +1,117 @@
+# Test: invowk_version constraint checking and field-not-allowed upgrade hints
+# Uses invowk-018 (Version=0.18.0) and invowk-devel (-buildvcs=false -> true (devel)).
+
+# Test 1: Satisfied invowk_version on invowkfile.cue and invowkmod.cue succeeds
+cd $WORK/satisfied
+exec invowk-018 cmd hello
+stdout 'SATISFIED-HELLO'
+exec invowk-018 cmd modhello modcmd
+stdout 'MOD-SATISFIED'
+
+# Test 2: Unsatisfied invowk_version fails in pre-pass with exit 1 even with unknown newer fields
+cd $WORK/newer_invowkfile
+exitcode 1 invowk-018 cmd hello
+! stdout .
+stderr 'requires\s+invowk\s+version'
+stderr '>=0\.19\.0'
+stderr '0\.18\.0'
+! stderr 'field\s+not\s+allowed'
+
+# Test 3: Unsatisfied invowk_version in invowkmod.cue fails in pre-pass with exit 1 even with unknown fields
+cd $WORK/newer_module
+exitcode 1 invowk-018 cmd newer modcmd
+! stdout .
+stderr 'requires\s+invowk\s+version'
+stderr '>=0\.19\.0'
+! stderr 'field\s+not\s+allowed'
+
+# Test 4: True (devel) build warns and proceeds on unsatisfied invowk_version
+cd $WORK/devel_warn
+exec invowk-devel cmd hello
+stdout 'DEVEL-OK'
+stderr 'invowk_version'
+
+# Test 5: Unknown schema field without invowk_version appends upgrade hint
+cd $WORK/unknown_field
+exitcode 1 invowk-018 cmd hello
+! stdout .
+stderr 'field\s+not\s+allowed'
+stderr 'hint:\s+this\s+file\s+may\s+require\s+a\s+newer\s+version\s+of\s+invowk'
+
+-- satisfied/invowkfile.cue --
+invowk_version: ">=0.18.0"
+cmds: [{
+	name: "hello"
+	implementations: [{
+		script: {content: "echo SATISFIED-HELLO"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- satisfied/modhello.invowkmod/invowkmod.cue --
+module: "modhello"
+version: "1.0.0"
+invowk_version: "^0.18.0"
+
+-- satisfied/modhello.invowkmod/invowkfile.cue --
+invowk_version: ">=0.18.0"
+cmds: [{
+	name: "modcmd"
+	implementations: [{
+		script: {content: "echo MOD-SATISFIED"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- newer_invowkfile/invowkfile.cue --
+invowk_version: ">=0.19.0"
+future_top_level_field: true
+cmds: [{
+	name: "hello"
+	future_cmd_field: "v0.19"
+	implementations: [{
+		script: {content: "echo SHOULD-NOT-RUN"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- newer_module/newer.invowkmod/invowkmod.cue --
+module: "newer"
+version: "1.0.0"
+invowk_version: ">=0.19.0"
+future_module_field: true
+
+-- newer_module/newer.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "modcmd"
+	implementations: [{
+		script: {content: "echo SHOULD-NOT-RUN"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- devel_warn/invowkfile.cue --
+invowk_version: ">=99.0.0"
+cmds: [{
+	name: "hello"
+	implementations: [{
+		script: {content: "echo DEVEL-OK"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- unknown_field/invowkfile.cue --
+cmds: [{
+	name: "hello"
+	unknown_future_field: true
+	implementations: [{
+		script: {content: "echo SHOULD-NOT-RUN"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]

@@ -54,6 +54,8 @@ type (
 	// This separation follows Go's pattern: invowkmod.cue is like go.mod, invowkfile.cue is like .go files.
 	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	Invowkfile struct {
+		// InvowkVersion specifies the compatible invowk CLI version constraint (optional)
+		InvowkVersion invowkmod.SemVerConstraint `json:"invowk_version,omitempty"`
 		// DefaultShell overrides the default shell for native runtime
 		DefaultShell ShellPath `json:"default_shell,omitempty"`
 		// WorkDir specifies the default working directory for all commands
@@ -266,6 +268,11 @@ func (inv *Invowkfile) HasRootLevelDependencies() bool {
 }
 
 func (inv Invowkfile) appendBaseValidationErrors(errs *[]error) {
+	if inv.InvowkVersion != "" {
+		if err := invowkmod.ValidateDeclaredSemVerConstraint(inv.InvowkVersion); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 	if err := inv.DefaultShell.Validate(); err != nil {
 		*errs = append(*errs, err)
 	}

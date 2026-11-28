@@ -380,6 +380,9 @@ func convertCommandDiagnostics(diags []commandsvc.Diagnostic) []discovery.Diagno
 				"code", diag.Code(), "error", err)
 			continue
 		}
+		if diag.FromCurrentDir() {
+			converted = converted.WithCurrentDir()
+		}
 		result = append(result, converted)
 	}
 	return result

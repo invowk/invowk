@@ -34,6 +34,13 @@ The module identifier. Local installed module directories use this value as `<mo
 
 Module version in semver format (e.g., `"1.0.0"`, `"2.1.0-beta.1"`).
 
+### invowk_version
+
+**Type:** `string` (semver constraint, max 64 runes)  
+**Required:** No
+
+Minimum invowk CLI version constraint required to use this module (for example, `">=0.18.0"` or `"^0.18.0"`). Evaluated before full schema validation so modules written for newer releases report a version mismatch instead of unknown-field errors. True `(devel)` builds without release metadata warn and continue.
+
 ### description
 
 **Type:** `string`
@@ -117,6 +124,7 @@ String limits are measured in Unicode code points (runes):
 |---|---:|
 | `module` | 256 |
 | root `version` | 64 |
+| `invowk_version` | 64 |
 | `description` | 10,240 |
 | `author` | 256 |
 | `license` | 128 |

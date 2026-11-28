@@ -3360,6 +3360,10 @@ reason = "existing Validate() is structural pipeline, not DDD field validator"
 pattern = "invowkfile.Invowkfile.Metadata.validate-delegation"
 reason = "existing Validate() is structural pipeline, not DDD field validator"
 
+[[exceptions]]
+pattern = "invowkfile.Invowkfile.InvowkVersion.validate-delegation"
+reason = "existing Validate() is structural pipeline, not DDD field validator"
+
 # --- Implementation internal field ---
 
 # --- ImplementationMatch nested pointer ---
@@ -3413,6 +3417,10 @@ reason = "slice of resolved modules; each validated during resolution"
 [[exceptions]]
 pattern = "invowkmod.Invowkmod.Version.validate-delegation"
 reason = "module metadata version declarations use ValidateDeclaredSemVer to reject v-prefixed Git tag syntax"
+
+[[exceptions]]
+pattern = "invowkmod.Invowkmod.InvowkVersion.validate-delegation"
+reason = "invowk_version constraint declarations use ValidateDeclaredSemVerConstraint rather than arbitrary SemVer ranges"
 
 [[exceptions]]
 pattern = "invowkmod.ModuleRequirement.Version.validate-delegation"

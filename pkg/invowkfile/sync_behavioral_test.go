@@ -5,6 +5,8 @@ package invowkfile
 import (
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 // =============================================================================
@@ -244,6 +246,31 @@ func TestBehavioralSync_CommandCategory(t *testing.T) {
 			// Go accepts "" (no category), CUE rejects "" as optional field
 			{"", true, false, "Go zero-value means no category; CUE uses field optionality"},
 			{"   ", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_InvowkfileInvowkVersion verifies Go SemVerConstraint validation agrees
+// with CUE #Invowkfile.invowk_version constraint (#SemVerConstraint & strings.MaxRunes(64)).
+func TestBehavioralSync_InvowkfileInvowkVersion(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#Invowkfile", "invowk_version",
+		func(s string) error {
+			if s == "" {
+				return nil
+			}
+			return invowkmod.ValidateDeclaredSemVerConstraint(invowkmod.SemVerConstraint(s))
+		},
+		[]behavioralSyncCase{
+			{"0.18.0", true, true, ""},
+			{">=0.18.0", true, true, ""},
+			{"^1.2.3", true, true, ""},
+			{"~1.2.3", true, true, ""},
+			{"", true, false, "Go zero-value means no minimum invowk version constraint; CUE uses field optionality"},
+			{"not-a-semver", false, false, ""},
+			{">=" + strings.Repeat("1", invowkmod.MaxDeclaredSemVerConstraintLength), false, false, ""},
 		},
 	)
 }

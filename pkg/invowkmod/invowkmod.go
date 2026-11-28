@@ -274,6 +274,9 @@ type (
 		// Format: MAJOR.MINOR.PATCH with optional pre-release label (e.g., "1.0.0", "2.1.0-alpha.1").
 		// No "v" prefix, no build metadata, no leading zeros on numeric segments.
 		Version SemVer `json:"version"` //goplint:ignore -- declarations intentionally reject v-prefixed and partial Git tag syntax.
+		// InvowkVersion specifies the compatible invowk CLI version constraint (optional).
+		// Evaluated before strict schema decoding so older binaries fail with an upgrade error.
+		InvowkVersion SemVerConstraint `json:"invowk_version,omitempty"` //goplint:ignore -- declarations intentionally reject v-prefixed Git tag syntax.
 		// Description provides a summary of this module's purpose (optional).
 		Description types.DescriptionText `json:"description,omitempty"`
 		// Author identifies the module author or maintainer (optional).
@@ -344,6 +347,11 @@ func (m Invowkmod) Validate() error {
 	}
 	if err := ValidateDeclaredSemVer(m.Version); err != nil {
 		errs = append(errs, err)
+	}
+	if m.InvowkVersion != "" {
+		if err := ValidateDeclaredSemVerConstraint(m.InvowkVersion); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if m.Description != "" {
 		if err := m.Description.Validate(); err != nil {

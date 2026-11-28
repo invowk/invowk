@@ -15,6 +15,41 @@ import (
 
 const invowkmodCueFileName = "invowkmod.cue"
 
+type (
+	// ModuleMetadataParseError wraps an invowkmod.cue parse, schema, or
+	// invowk_version validation failure encountered while loading a module.
+	// It preserves both the formatted module summary for invowk validate/Load
+	// callers and the underlying parse error for fail-closed CLI reporting.
+	ModuleMetadataParseError struct {
+		ModulePath *types.FilesystemPath
+		Summary    string //goplint:ignore -- formatted ValidationResult summary text.
+		Err        error
+	}
+
+	metadataValidation struct {
+		meta     *Invowkmod
+		parseErr error
+	}
+)
+
+// Error implements the error interface.
+func (e *ModuleMetadataParseError) Error() string {
+	return "invalid module: " + e.Summary
+}
+
+// Unwrap returns the underlying invowkmod.cue parse/version error.
+func (e *ModuleMetadataParseError) Unwrap() error {
+	return e.Err
+}
+
+// Validate validates the parsed module metadata when present.
+func (m metadataValidation) Validate() error {
+	if m.meta != nil {
+		return m.meta.Validate()
+	}
+	return nil
+}
+
 // Validate performs comprehensive validation of a module at the given path.
 // Returns a ValidationResult with all issues found, or an error if the path
 // cannot be accessed.
@@ -26,10 +61,10 @@ func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 // validateWithMetadata performs module validation and returns parsed metadata
 // from invowkmod.cue when available. Load() uses this to avoid parsing
 // invowkmod.cue twice on the hot discovery path.
-func validateWithMetadata(modulePath types.FilesystemPath) (*ValidationResult, *Invowkmod, error) {
+func validateWithMetadata(modulePath types.FilesystemPath) (*ValidationResult, metadataValidation, error) {
 	validatedAbsPath, err := resolveValidatedModulePath(modulePath)
 	if err != nil {
-		return nil, nil, err
+		return nil, metadataValidation{}, err
 	}
 
 	result := newValidationResult(validatedAbsPath)
@@ -37,22 +72,22 @@ func validateWithMetadata(modulePath types.FilesystemPath) (*ValidationResult, *
 
 	canContinue, err := ensureModuleDirectory(result, absPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, metadataValidation{}, err
 	}
 	if !canContinue {
-		return result, nil, nil
+		return result, metadataValidation{}, nil
 	}
 
 	populateModuleName(result, absPath)
-	parsedMetadata := validateInvowkmodFile(result, absPath)
+	metaResult := validateInvowkmodFile(result, absPath)
 	validateOptionalInvowkfile(result, absPath)
 
 	scanErr := scanModuleTree(result, absPath)
 	if scanErr != nil {
-		return nil, nil, scanErr
+		return nil, metadataValidation{}, scanErr
 	}
 
-	return result, parsedMetadata, nil
+	return result, metaResult, nil
 }
 
 func resolveValidatedModulePath(modulePath types.FilesystemPath) (types.FilesystemPath, error) {
@@ -104,45 +139,45 @@ func populateModuleName(result *ValidationResult, absPath string) {
 }
 
 //goplint:ignore -- validation helpers operate on OS-native paths derived from validated module roots.
-func validateInvowkmodFile(result *ValidationResult, absPath string) *Invowkmod {
+func validateInvowkmodFile(result *ValidationResult, absPath string) metadataValidation {
 	invowkmodPath := filepath.Join(absPath, invowkmodCueFileName)
 	invowkmodInfo, err := os.Stat(invowkmodPath)
 	switch {
 	case os.IsNotExist(err):
 		result.AddIssue(IssueTypeStructure, "missing required invowkmod.cue", "")
-		return nil
+		return metadataValidation{}
 	case err != nil:
 		result.AddIssue(IssueTypeStructure, fmt.Sprintf("cannot access invowkmod.cue: %v", err), "")
-		return nil
+		return metadataValidation{}
 	case invowkmodInfo.IsDir():
 		result.AddIssue(IssueTypeStructure, "invowkmod.cue must be a file, not a directory", "")
-		return nil
+		return metadataValidation{}
 	}
 
 	invowkmodFSPath := types.FilesystemPath(invowkmodPath)
 	if err := invowkmodFSPath.Validate(); err != nil {
 		result.AddIssue(IssueTypeStructure, fmt.Sprintf("invalid invowkmod.cue path: %v", err), "")
-		return nil
+		return metadataValidation{}
 	}
 	result.InvowkmodPath = invowkmodFSPath
 	if result.ModuleName == "" {
-		return nil
+		return metadataValidation{}
 	}
 
 	meta, parseErr := ParseInvowkmod(invowkmodFSPath)
 	switch {
 	case parseErr != nil:
 		result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), invowkmodCueFileName)
-		return nil
+		return metadataValidation{parseErr: parseErr}
 	case string(meta.Module) != string(result.ModuleName):
 		result.AddIssue(
 			IssueTypeNaming,
 			fmt.Sprintf("module field '%s' in invowkmod.cue must match folder name '%s'", meta.Module, result.ModuleName),
 			invowkmodCueFileName,
 		)
-		return nil
+		return metadataValidation{}
 	default:
-		return meta
+		return metadataValidation{meta: meta}
 	}
 }
 
@@ -238,7 +273,7 @@ func recordModuleTreeIssue(result *ValidationResult, absPath, entryPath string, 
 // Note: This loads only metadata (invowkmod.cue), not commands (invowkfile.cue).
 // To load commands as well, use pkg/invowkfile.ParseModule().
 func Load(modulePath types.FilesystemPath) (*Module, error) {
-	result, metadata, err := validateWithMetadata(modulePath)
+	result, metaResult, err := validateWithMetadata(modulePath)
 	if err != nil {
 		return nil, err
 	}
@@ -249,16 +284,25 @@ func Load(modulePath types.FilesystemPath) (*Module, error) {
 		for _, issue := range result.Issues {
 			msgs = append(msgs, issue.Error())
 		}
-		return nil, fmt.Errorf("invalid module: %s", strings.Join(msgs, "; "))
+		summary := strings.Join(msgs, "; ")
+		if metaResult.parseErr != nil {
+			modPath := result.ModulePath
+			return nil, &ModuleMetadataParseError{
+				ModulePath: &modPath,
+				Summary:    summary,
+				Err:        metaResult.parseErr,
+			}
+		}
+		return nil, fmt.Errorf("invalid module: %s", summary)
 	}
 
 	// Metadata is parsed during validation when invowkmod.cue is valid.
-	if metadata == nil {
+	if metaResult.meta == nil {
 		return nil, errors.New("failed to parse module metadata: invowkmod.cue validation did not produce metadata")
 	}
 
 	return &Module{
-		Metadata:      metadata,
+		Metadata:      metaResult.meta,
 		Path:          result.ModulePath,
 		IsLibraryOnly: result.IsLibraryOnly,
 	}, nil

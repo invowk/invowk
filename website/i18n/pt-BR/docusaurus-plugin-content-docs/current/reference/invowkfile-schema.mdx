@@ -23,6 +23,13 @@ Todo invowkfile deve definir ao menos um comando em `cmds`:
 Campos como `module`, `version`, `description` e `requires` pertencem a `invowkmod.cue` e são rejeitados em `invowkfile.cue`.
 :::
 
+### invowk_version
+
+**Tipo:** `string` (restrição semver, máx. 64 runes)  
+**Obrigatório:** Não
+
+Restrição de versão mínima da CLI do invowk necessária para usar este invowkfile (por exemplo, `">=0.18.0"` ou `"^0.18.0"`). Avaliado em uma pré-passagem sem schema antes da validação completa para que arquivos voltados a uma versão mais nova falhem com um erro de atualização claro em vez de erros de campo desconhecido. Builds `(devel)` verdadeiros sem metadados de release embutidos emitem um aviso e continuam.
+
 ### default_shell
 
 **Tipo:** `string`  
@@ -553,6 +560,7 @@ bytes. O schema aplica estes máximos além dos padrões e regras descritos acim
 | Máximo de runes | Campos |
 |---:|---|
 | 32 | `runtime.memory_limit`, `implementation.timeout`, `watch.debounce` |
+| 64 | `invowk_version` |
 | 128 | `runtime.persistent.name` |
 | 256 | `name` e `category` de comando; `name` de flag/argumento; alternativas de ferramenta; referências simples de dependência de comando; `name` de verificação customizada; entradas allow/deny de herança de ambiente; entradas de porta do container; nomes lógicos do filesystem virtual |
 | 512 | `image` do container |
