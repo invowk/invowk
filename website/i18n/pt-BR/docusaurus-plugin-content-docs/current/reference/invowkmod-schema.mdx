@@ -34,6 +34,13 @@ O identificador do módulo. Diretórios de módulos instalados localmente usam e
 
 Versão do módulo em formato semver (ex: `"1.0.0"`, `"2.1.0-beta.1"`).
 
+### invowk_version
+
+**Tipo:** `string` (restrição semver, máx. 64 runes)  
+**Obrigatório:** Não
+
+Restrição de versão mínima da CLI do invowk necessária para usar este módulo (por exemplo, `">=0.18.0"` ou `"^0.18.0"`). Avaliado antes da validação completa do schema para que módulos feitos para versões mais novas reportem incompatibilidade de versão em vez de erros de campo desconhecido. Builds `(devel)` verdadeiros sem metadados de release emitem um aviso e continuam.
+
 ### description
 
 **Tipo:** `string`
@@ -117,6 +124,7 @@ Os limites de strings são medidos em pontos de código Unicode (runes):
 |---|---:|
 | `module` | 256 |
 | `version` raiz | 64 |
+| `invowk_version` | 64 |
 | `description` | 10.240 |
 | `author` | 256 |
 | `license` | 128 |

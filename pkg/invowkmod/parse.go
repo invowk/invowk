@@ -38,6 +38,10 @@ func ParseInvowkmod(path types.FilesystemPath) (*Invowkmod, error) {
 // ParseInvowkmodBytes parses module metadata content from bytes using the lazily
 // precompiled #Invowkmod schema.
 func ParseInvowkmodBytes(data []byte, path types.FilesystemPath) (*Invowkmod, error) {
+	if err := CheckInvowkVersionCUE(data, string(path)); err != nil {
+		return nil, err
+	}
+
 	schema, err := compiledInvowkmodSchema()
 	if err != nil {
 		return nil, err
@@ -49,7 +53,7 @@ func ParseInvowkmodBytes(data []byte, path types.FilesystemPath) (*Invowkmod, er
 		cueutil.WithFilename(string(path)),
 	)
 	if err != nil {
-		return nil, err
+		return nil, AnnotateFieldNotAllowedHint(err)
 	}
 
 	meta := result.Value

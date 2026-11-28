@@ -1141,13 +1141,14 @@ invowk cmd`,
   'reference/invowkmod/root-structure': {
     language: 'cue',
     code: `#Invowkmod: {
-    module:       string               // Required - module identifier
-    version:      string               // Required - semver version (e.g., "1.0.0")
-    description?: string               // Optional - module description
-    author?:      string               // Optional - author or maintainer
-    license?:     string               // Optional - SPDX license identifier
-    repository?:  string               // Optional - canonical source URL
-    requires?:    [...#ModuleRequirement] // Optional - dependencies
+    module:          string               // Required - module identifier
+    version:         string               // Required - semver version (e.g., "1.0.0")
+    invowk_version?: string               // Optional - semver version constraint (e.g., ">=0.18.0")
+    description?:    string               // Optional - module description
+    author?:         string               // Optional - author or maintainer
+    license?:        string               // Optional - SPDX license identifier
+    repository?:     string               // Optional - canonical source URL
+    requires?:       [...#ModuleRequirement] // Optional - dependencies
 }`,
   },
 

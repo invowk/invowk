@@ -11,7 +11,9 @@ exitcode 2 invowk cmd test typo
 stderr '(?i)unknown command "typo" for "invowk cmd test"'
 ! stderr 'module_load_skipped'
 
-# Test 2: with a broken module, a group typo exits 1 and names the module
+# Test 2: with a broken non-cwd module, a group typo exits 1 and names the module
+env HOME=$WORK/home_broken
+env USERPROFILE=$WORK/home_broken
 cd $WORK/broken
 exitcode 1 invowk cmd test typo
 ! stdout .
@@ -93,13 +95,13 @@ cmds: [
 	},
 ]
 
--- broken/broken.invowkmod/invowkmod.cue --
+-- home_broken/.invowk/cmds/broken.invowkmod/invowkmod.cue --
 module: "broken"
 version: "1.0.0"
 description: "A module whose invowkmod.cue has a field the schema does not allow"
 bogusfield: 1
 
--- broken/broken.invowkmod/invowkfile.cue --
+-- home_broken/.invowk/cmds/broken.invowkmod/invowkfile.cue --
 cmds: [
 	{
 		name: "nope"

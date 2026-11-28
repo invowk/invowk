@@ -83,7 +83,7 @@ A command group is a command node that exists only to hold subcommands, such as 
 - **AND** stdout SHALL be empty
 
 #### Scenario: Typo under a discovered group while a module failed to load
-- **WHEN** commands `test unit` and `test other` exist in the invowkfile, module directory `broken.invowkmod` fails to load, and the user runs `invowk cmd test typo`
+- **WHEN** commands `test unit` and `test other` exist in the invowkfile, non-cwd module directory `broken.invowkmod` (e.g., under `~/.invowk/cmds`) fails to load, and the user runs `invowk cmd test typo`
 - **THEN** invowk SHALL exit with status 1
 - **AND** stdout SHALL be empty
 
@@ -189,38 +189,45 @@ A `@source` or `--ivk-from` value SHALL be normalized (a leading `@` and a `.inv
 - **WHEN** command `test unit` exists in the invowkfile and the user runs `invowk cmd test unit --ivk-from @invowkfile`
 - **THEN** invowk SHALL run the command and exit with status 0
 
+### Requirement: Broken current-directory sources fail closed immediately with status 1
+When `--ivk-no-cwd` is off and a current-directory source (`./invowkfile.cue` or `./*.invowkmod`) fails parse, schema, or `invowk_version` validation, `invowk cmd` SHALL abort immediately with exit status `1` and the source's load error, without falling back to global/included sources or emitting `command not found`.
+
+#### Scenario: Broken cwd invowkfile blocks global fallback with status 1
+- **WHEN** cwd `invowkfile.cue` has a schema error and `~/.invowk/cmds` defines `build`, and `invowk cmd build` runs without `--ivk-no-cwd`
+- **THEN** stderr SHALL report the `invowkfile.cue` error directly, the global command SHALL NOT run, and `invowk` SHALL exit with status `1`
+
 ### Requirement: A command missing because a source failed to load exits with status 1
-When the command or source named on the command line is not found, and discovery reported in the same invocation an invowkfile or module that it skipped because it failed to parse or load, invowk SHALL exit with status 1 instead of 2. This covers unknown commands, group typos under `invowk cmd`, unknown sources and watch mode. Policy skips, such as reserved module names, do not count. Ambiguity, argument and flag errors keep status 2.
+When `--ivk-no-cwd` is off and a cwd source fails parse or load, invowk SHALL fail closed with status `1`. When a command or source is not found and discovery reported a non-cwd source skipped for parse/load errors, invowk SHALL exit with status `1` across not-found, group typo, unknown source, and watch mode. Policy skips do not count; ambiguity, argument, and flag errors keep status `2`.
 
 #### Scenario: Command defined in an invowkfile that does not parse
-- **WHEN** the only invowkfile defines `build` but has a field the schema does not allow, and the user runs `invowk cmd build`
-- **THEN** stderr SHALL report that the invowkfile was skipped
+- **WHEN** the cwd invowkfile defines `build` but has a field the schema does not allow, and the user runs `invowk cmd build`
+- **THEN** stderr SHALL report the invowkfile's schema/parse error
 - **AND** invowk SHALL exit with status 1
 
 #### Scenario: Source filter on a skipped invowkfile
-- **WHEN** the only invowkfile does not parse and the user runs `invowk cmd @invowkfile build`
+- **WHEN** the cwd invowkfile does not parse and the user runs `invowk cmd @invowkfile build`
 - **THEN** invowk SHALL exit with status 1
 
 #### Scenario: Source filter on the skipped module
-- **WHEN** module directory `broken.invowkmod` fails to load and the user runs `invowk cmd @broken x`
+- **WHEN** non-cwd module directory `broken.invowkmod` (e.g., under `~/.invowk/cmds`) fails to load and the user runs `invowk cmd @broken x`
 - **THEN** invowk SHALL exit with status 1
 
 ### Requirement: A scoped miss in a source that loaded exits with status 2
-For a request that names a source (`@source` or `--ivk-from`), only a skipped invowkfile or module that may be that source SHALL count for the status-1 exception: a root invowkfile may be `invowkfile`, a scanned module directory the source of its name (residuals: design.md, Decision 14). Included and vendored modules, an invowkfile inside a module, and a diagnostic without a path SHALL always count. Otherwise the miss is certain and SHALL exit with status 2.
+For a request naming a source (`@source` or `--ivk-from`) while cwd sources loaded cleanly, only a skipped non-cwd source that may match (matched module name, included/vendored module, module invowkfile, or pathless diagnostic) counts for status `1` (residuals: design.md, Decision 14). Otherwise the miss is certain and SHALL exit with status `2`.
 
 #### Scenario: Scoped miss in a source that loaded
-- **WHEN** the invowkfile is valid, module directory `broken.invowkmod` fails to load, and the user runs `invowk cmd @invowkfile nope`
+- **WHEN** the invowkfile is valid, non-cwd module directory `broken.invowkmod` fails to load, and the user runs `invowk cmd @invowkfile nope`
 - **THEN** invowk SHALL exit with status 2
 
 #### Scenario: Unknown source that cannot be the skipped one
-- **WHEN** module directory `broken.invowkmod` fails to load and the user runs `invowk cmd @bogus x`
+- **WHEN** non-cwd module directory `broken.invowkmod` fails to load and the user runs `invowk cmd @bogus x`
 - **THEN** invowk SHALL exit with status 2
 
 ### Requirement: A skipped-source not-found error names the skipped sources
-When a not-found error exits with status 1 because a source failed to load, its message SHALL name each skipped source that counted by a short label (its file or module directory name, the module directory plus the file for an invowkfile inside a module, or `an unnamed source` when the diagnostic has no path), with the discovery diagnostic code (for example `broken.invowkmod (module_load_skipped)`), so a wrapper can tell why the status is 1.
+When a not-found error exits with status 1 because a non-cwd source failed to load, its message SHALL name each skipped source that counted by a short label (its file or module directory name, the module directory plus the file for an invowkfile inside a module, or `an unnamed source` when the diagnostic has no path), with the discovery diagnostic code (for example `broken.invowkmod (module_load_skipped)`), so a wrapper can tell why the status is 1.
 
 #### Scenario: The error names the skipped source
-- **WHEN** the invowkfile is valid, module directory `broken.invowkmod` fails to load, and the user runs `invowk cmd nope`
+- **WHEN** the invowkfile is valid, non-cwd module directory `broken.invowkmod` fails to load, and the user runs `invowk cmd nope`
 - **THEN** invowk SHALL exit with status 1
 - **AND** stderr SHALL contain `broken.invowkmod` and `module_load_skipped`
 

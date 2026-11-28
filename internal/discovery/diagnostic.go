@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -137,11 +138,12 @@ type (
 	// Fields are unexported for immutability; use Severity(), Code(), Message(),
 	// Path(), and Cause() accessors.
 	Diagnostic struct {
-		severity Severity
-		code     DiagnosticCode
-		message  string
-		path     types.FilesystemPath
-		cause    error
+		severity       Severity
+		code           DiagnosticCode
+		message        string
+		path           types.FilesystemPath
+		cause          error
+		fromCurrentDir bool
 	}
 
 	// CommandSetResult bundles a DiscoveredCommandSet with diagnostics produced
@@ -332,6 +334,42 @@ func (d Diagnostic) Path() types.FilesystemPath { return d.path }
 
 // Cause returns the underlying error (may be nil).
 func (d Diagnostic) Cause() error { return d.cause }
+
+// FromCurrentDir reports whether this diagnostic originated from a
+// current-directory source (./invowkfile.cue or ./*.invowkmod).
+func (d Diagnostic) FromCurrentDir() bool { return d.fromCurrentDir }
+
+// WithCurrentDir returns a copy of d marked as originating from the current
+// working directory.
+func (d Diagnostic) WithCurrentDir() Diagnostic {
+	d.fromCurrentDir = true
+	return d
+}
+
+// CurrentDirLoadError returns the combined parse, schema, or invowk_version
+// error for any current-directory source failure in diags, or nil when all
+// current-directory sources loaded cleanly (or were skipped by policy/no-cwd).
+func CurrentDirLoadError(diags []Diagnostic) error {
+	var errs []error
+	for _, diag := range diags {
+		if !diag.FromCurrentDir() {
+			continue
+		}
+		if diag.Code() == CodeInvowkfileParseSkipped && diag.Cause() != nil {
+			errs = append(errs, diag.Cause())
+			continue
+		}
+		if diag.Code() == CodeModuleLoadSkipped {
+			if metaErr, ok := errors.AsType[*invowkmod.ModuleMetadataParseError](diag.Cause()); ok && metaErr.Err != nil {
+				errs = append(errs, metaErr.Err)
+			}
+		}
+	}
+	if len(errs) == 1 {
+		return errs[0]
+	}
+	return errors.Join(errs...)
+}
 
 // Error implements the error interface for InvalidDiagnosticError.
 func (e *InvalidDiagnosticError) Error() string {

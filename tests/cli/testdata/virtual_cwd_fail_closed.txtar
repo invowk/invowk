@@ -1,0 +1,128 @@
+# Test: broken current-directory sources fail closed (virtual-sh)
+# Mirrored by native_cwd_fail_closed.txtar.
+
+# Test 1: Broken cwd invowkfile blocks global fallback and fails closed with exit 1
+cd $WORK/broken_invowkfile
+exitcode 1 invowk cmd build
+! stdout .
+! stdout 'GLOBAL-BUILD'
+stderr 'field\s+not\s+allowed'
+stderr 'hint:\s+this\s+file\s+may\s+require\s+a\s+newer\s+version\s+of\s+invowk'
+
+exitcode 1 invowk cmd
+! stdout 'GLOBAL-BUILD'
+stderr 'field\s+not\s+allowed'
+
+# --ivk-no-cwd skips broken cwd and runs global command
+exec invowk --ivk-no-cwd cmd build
+stdout 'GLOBAL-BUILD'
+
+# Test 2: Broken cwd module invowkfile blocks global module command
+cd $WORK/broken_mod_invowkfile
+exitcode 1 invowk cmd cst doctor
+! stdout 'GLOBAL-DOCTOR'
+stderr 'field\s+not\s+allowed'
+
+exec invowk --ivk-no-cwd cmd cst doctor
+stdout 'GLOBAL-DOCTOR'
+
+# Test 3: Broken cwd module invowkmod.cue blocks global module command
+cd $WORK/broken_mod_meta
+exitcode 1 invowk cmd cst doctor
+! stdout 'GLOBAL-DOCTOR'
+stderr 'field\s+not\s+allowed'
+
+exec invowk --ivk-no-cwd cmd cst doctor
+stdout 'GLOBAL-DOCTOR'
+
+# Test 4: invowk validate still reports all workspace diagnostics without aborting early
+cd $WORK/multi_broken
+! exec invowk validate
+stderr 'diagnostic issue'
+stderr 'invowkfile_parse_skipped'
+stderr 'module_load_skipped'
+
+-- .invowk/cmds/tools.invowkmod/invowkmod.cue --
+module: "tools"
+version: "1.0.0"
+
+-- .invowk/cmds/tools.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "build"
+	implementations: [{
+		script: {content: "echo GLOBAL-BUILD"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- .invowk/cmds/cst.invowkmod/invowkmod.cue --
+module: "cst"
+version: "1.0.0"
+
+-- .invowk/cmds/cst.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "doctor"
+	implementations: [{
+		script: {content: "echo GLOBAL-DOCTOR"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- broken_invowkfile/invowkfile.cue --
+cmds: [{
+	name: "build"
+	bogusfield: 1
+	implementations: [{
+		script: {content: "echo LOCAL-BUILD"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- broken_mod_invowkfile/cst.invowkmod/invowkmod.cue --
+module: "cst"
+version: "1.0.0"
+
+-- broken_mod_invowkfile/cst.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "doctor"
+	bogusfield: 1
+	implementations: [{
+		script: {content: "echo LOCAL-DOCTOR"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- broken_mod_meta/cst.invowkmod/invowkmod.cue --
+module: "cst"
+version: "1.0.0"
+bogusfield: 1
+
+-- broken_mod_meta/cst.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "doctor"
+	implementations: [{
+		script: {content: "echo LOCAL-DOCTOR"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- multi_broken/invowkfile.cue --
+cmds: [{
+	name: "local"
+	bogusfield: 1
+	implementations: [{
+		script: {content: "echo LOCAL"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- multi_broken/badmod.invowkmod/invowkmod.cue --
+module: "badmod"
+version: "1.0.0"
+bogusfield: 1

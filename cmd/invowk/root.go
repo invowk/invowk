@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 var (
@@ -39,6 +40,10 @@ type rootFlagValues struct {
 	noCwd bool
 	// colorMode controls CLI ANSI color output (--ivk-color=auto|always|never).
 	colorMode string //goplint:ignore -- Cobra flag binding validated via colorModeFlag.Set and parseColorMode.
+}
+
+func init() {
+	invowkmod.SetBuildVersion(Version)
 }
 
 // NewRootCommand creates the root Cobra command.
@@ -99,6 +104,7 @@ be organized hierarchically with support for dependencies.
 // builds the Cobra command tree, and uses fang for graceful signal handling.
 // The returned error is mapped to the process exit status by exitCodeForError.
 func Execute() {
+	invowkmod.SetBuildVersion(Version)
 	app, err := NewApp(Dependencies{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to initialize app: %v\n", err)
@@ -187,8 +193,8 @@ func getVersionString(version, commit, buildDate string) string {
 		return fmt.Sprintf("%s (commit: %s, built: %s)\nLicense MPL-2.0: Mozilla Public License 2.0 <https://mozilla.org/MPL/2.0/>", version, commit, buildDate)
 	}
 
-	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
-		return info.Main.Version + "\nLicense MPL-2.0: Mozilla Public License 2.0 <https://mozilla.org/MPL/2.0/>"
+	if resolved := invowkmod.ResolveBuildVersion(version, debug.ReadBuildInfo); !resolved.IsDev {
+		return resolved.Raw + "\nLicense MPL-2.0: Mozilla Public License 2.0 <https://mozilla.org/MPL/2.0/>"
 	}
 
 	return "dev (built from source)\nLicense MPL-2.0: Mozilla Public License 2.0 <https://mozilla.org/MPL/2.0/>"

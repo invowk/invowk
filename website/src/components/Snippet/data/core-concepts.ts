@@ -27,6 +27,7 @@ script: {content: """
   'core-concepts/schema-overview': {
     language: 'cue',
     code: `// Root level
+invowk_version?: string // Optional: minimum invowk version constraint (e.g., ">=0.18.0")
 default_shell?: string  // Optional: override default shell
 workdir?: string        // Optional: default working directory
 env?: #EnvConfig        // Optional: global environment config
@@ -669,11 +670,12 @@ invowk cmd database-cli --ivk-interactive`,
   'reference/invowkfile/root-structure': {
     language: 'cue',
     code: `#Invowkfile: {
-    default_shell?: string    // Optional - override default shell
-    workdir?:       string    // Optional - default working directory
-    env?:           #EnvConfig      // Optional - global environment
-    depends_on?:    #DependsOn      // Optional - global dependencies
-    cmds:           [...#Command]   // Required - at least one command
+    invowk_version?: string         // Optional - semver version constraint (e.g., ">=0.18.0")
+    default_shell?:  string         // Optional - override default shell
+    workdir?:        string         // Optional - default working directory
+    env?:            #EnvConfig     // Optional - global environment
+    depends_on?:     #DependsOn     // Optional - global dependencies
+    cmds:            [...#Command]  // Required - at least one command
 }`,
   },
 

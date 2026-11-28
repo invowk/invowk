@@ -38,7 +38,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 	registeredNoCwd := noCwdFromContext(ctx)
 	lookupCtx := contextWithDiscoveryScope(ctx, rootFlags.configPath, registeredNoCwd)
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)
-	if err != nil {
+	if err != nil || discovery.CurrentDirLoadError(result.Diagnostics) != nil {
 		// Dynamic registration is best-effort: command execution paths perform
 		// validation again and surface actionable errors when needed.
 		return
@@ -122,6 +122,9 @@ func buildDiscoveredGroupCommand(app *App, rootFlags *rootFlagValues, cmdFlags *
 			if err != nil {
 				return err
 			}
+			if cwdErr := checkCurrentDirDiscoveryError(ctx, app); cwdErr != nil {
+				return cwdErr
+			}
 
 			fullArgs := append(strings.Fields(prefix), args...)
 			fromFlag, _ := cmd.Flags().GetString("ivk-from")
@@ -190,6 +193,9 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			ctx, _, err := scopeDiscovery(cmd, app, rootFlags)
 			if err != nil {
 				return err
+			}
+			if cwdErr := checkCurrentDirDiscoveryError(ctx, app); cwdErr != nil {
+				return cwdErr
 			}
 			resolved, flagDefs, argDefs := cmdInfo, cmdRuntimeFlags, cmdArgs
 			if noCwdFromContext(ctx) != registeredNoCwd {
@@ -293,6 +299,20 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 	}
 
 	return newCmd
+}
+
+// checkCurrentDirDiscoveryError returns any parse, schema, or invowk_version
+// error from a current-directory source in the request-cached command set so
+// invowk cmd fails closed rather than falling back to lower-precedence sources.
+func checkCurrentDirDiscoveryError(ctx context.Context, app *App) error {
+	if app == nil || app.Discovery == nil {
+		return nil
+	}
+	result, err := app.Discovery.DiscoverCommandSet(ctx)
+	if err != nil {
+		return err
+	}
+	return discovery.CurrentDirLoadError(result.Diagnostics)
 }
 
 // rescopeRegisteredCommand looks cmdName up again under ctx's discovery scope
@@ -431,7 +451,7 @@ func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, 
 		}
 		lookupCtx := contextWithDiscoveryScope(cmd.Context(), rootFlags.configPath, on)
 		result, err := app.Discovery.DiscoverCommandSet(lookupCtx)
-		if err != nil {
+		if err != nil || discovery.CurrentDirLoadError(result.Diagnostics) != nil {
 			return nil, cobra.ShellCompDirectiveError
 		}
 

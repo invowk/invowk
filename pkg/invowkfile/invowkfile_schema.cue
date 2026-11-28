@@ -45,6 +45,10 @@ import "strings"
 // ContainerName is a strict Docker/Podman-compatible portable container name.
 #ContainerName: string & strings.MaxRunes(128) & =~"^[a-z0-9][a-z0-9._-]*$"
 
+// SemVerConstraint defines a semantic version constraint string.
+// Examples: ">=0.18.0", "^1.0.0", "~1.2.0", "1.2.3"
+#SemVerConstraint: string & =~"^(~|\\^|>=|<=|>|<|=)?(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?(\\.(0|[1-9][0-9]*))?(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$" & strings.MaxRunes(64)
+
 // EnvConfig defines environment configuration for a command or implementation
 #EnvConfig: close({
 	// files lists dotenv files to load (optional)
@@ -597,6 +601,11 @@ import "strings"
 // Invowkfile is the root schema for command definitions (invowkfile.cue)
 // Module metadata (module, version, description, requires) is now in invowkmod.cue
 #Invowkfile: close({
+	// invowk_version specifies the compatible invowk CLI version constraint (optional)
+	// Evaluated before strict schema decoding so older binaries fail with a clear upgrade message.
+	// Examples: ">=0.18.0", "^1.0.0", "~1.2.0"
+	invowk_version?: #SemVerConstraint
+
 	// default_shell overrides the default shell for native runtime (optional)
 	// Example: "/bin/bash", "pwsh"
 	default_shell?: string & =~"^\\s*\\S.*$" & strings.MaxRunes(1024)

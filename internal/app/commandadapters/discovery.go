@@ -536,6 +536,9 @@ func discoveryDiagnosticsFromCommand(diags []commandsvc.Diagnostic) []discovery.
 		if err != nil {
 			continue
 		}
+		if diag.FromCurrentDir() {
+			converted = converted.WithCurrentDir()
+		}
 		result = append(result, converted)
 	}
 	return result

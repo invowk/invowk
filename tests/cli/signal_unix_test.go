@@ -20,6 +20,30 @@ import (
 	"github.com/invowk/invowk/internal/testutil"
 )
 
+// signalTestEnv builds an isolated subprocess environment, giving each child its own
+// GOCOVERDIR subdirectory when coverage collection is active so parallel subtests do not
+// race renaming covmeta files on exit.
+func signalTestEnv(t *testing.T, workDir string, extra ...string) []string {
+	t.Helper()
+	baseEnv := os.Environ()
+	coverDir := os.Getenv("GOCOVERDIR")
+	env := make([]string, 0, len(baseEnv)+len(extra)+1)
+	for _, entry := range baseEnv {
+		if coverDir != "" && strings.HasPrefix(entry, "GOCOVERDIR=") {
+			continue
+		}
+		env = append(env, entry)
+	}
+	if coverDir != "" {
+		subCoverDir := filepath.Join(coverDir, "sig-"+generateTestSuffix(workDir))
+		if err := os.MkdirAll(subCoverDir, 0o755); err != nil {
+			t.Fatalf("MkdirAll(%q) error = %v", subCoverDir, err)
+		}
+		env = append(env, "GOCOVERDIR="+subCoverDir)
+	}
+	return append(env, extra...)
+}
+
 func TestSignalForwarding_NativeExitCodesAndCleanup(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
@@ -82,7 +106,7 @@ func TestSignalForwarding_NativeExitCodesAndCleanup(t *testing.T) {
 			cmd.Stdin = devNull
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
-			cmd.Env = append(os.Environ(), "NO_COLOR=1", "TMPDIR="+tmpDir)
+			cmd.Env = signalTestEnv(t, workDir, "NO_COLOR=1", "TMPDIR="+tmpDir)
 			cmd.SysProcAttr = noTerminalProcAttr()
 			cmd.WaitDelay = 5 * time.Second
 
@@ -146,7 +170,8 @@ func TestSignalForwarding_TUISpinSIGTERMStaysExitOne(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	pidPath := filepath.Join(t.TempDir(), "pid")
+	workDir := t.TempDir()
+	pidPath := filepath.Join(workDir, "pid")
 	cmd := exec.CommandContext(t.Context(), binaryPath, "tui", "spin", "--",
 		"sh", "-c", `echo started; echo $$ > "$1"; exec sleep 30`, "sh", pidPath)
 	devNull, err := os.Open(os.DevNull)
@@ -159,7 +184,7 @@ func TestSignalForwarding_TUISpinSIGTERMStaysExitOne(t *testing.T) {
 	cmd.Stdin = devNull
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+	cmd.Env = signalTestEnv(t, workDir, "NO_COLOR=1")
 	cmd.SysProcAttr = noTerminalProcAttr()
 	cmd.WaitDelay = 5 * time.Second
 	if err = cmd.Start(); err != nil {
@@ -235,7 +260,9 @@ func TestSignalForwarding_ContainerCleanup(t *testing.T) {
 	cmd.Stderr = &stderr
 	// Keep host HOME so rootless Podman uses the same storage as harness.binaryPath
 	// and does not create subuid-owned overlay files inside t.TempDir().
-	cmd.Env = append(os.Environ(),
+	cmd.Env = signalTestEnv(
+		t,
+		workDir,
 		"NO_COLOR=1",
 		"INVOWK_CONFIG="+configPath,
 		"INVOWK_PROVISION_TAG_SUFFIX="+generateTestSuffix(workDir),

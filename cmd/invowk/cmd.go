@@ -435,15 +435,19 @@ func explicitUIFlags(cmd *cobra.Command, rootFlags *rootFlagValues) (verbose, in
 // are rendered here because downstream callers will not execute.
 func validateCommandTree(ctx context.Context, app *App) error {
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(ctx)
+	if errors.Is(err, config.ErrExplicitConfig) {
+		app.Diagnostics.Render(ctx, result.Diagnostics, app.errUI())
+		return renderExplicitConfigError(app.errUI(), err)
+	}
+	if cwdErr := discovery.CurrentDirLoadError(result.Diagnostics); cwdErr != nil {
+		return cwdErr
+	}
 	if err == nil {
 		return nil // diagnostics rendered by downstream callers via the shared cache
 	}
 
 	// Error path: downstream callers won't execute, so render diagnostics here.
 	app.Diagnostics.Render(ctx, result.Diagnostics, app.errUI())
-	if errors.Is(err, config.ErrExplicitConfig) {
-		return renderExplicitConfigError(app.errUI(), err)
-	}
 
 	if conflictErr, ok := errors.AsType[*discovery.ArgsSubcommandConflictError](err); ok {
 		fmt.Fprintf(app.errUI(), "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))

@@ -37,11 +37,12 @@ type (
 
 	// Diagnostic is a command-service warning returned to driving adapters.
 	Diagnostic struct {
-		severity DiagnosticSeverity
-		code     DiagnosticCode
-		message  DiagnosticMessage
-		path     types.FilesystemPath
-		cause    error
+		severity       DiagnosticSeverity
+		code           DiagnosticCode
+		message        DiagnosticMessage
+		path           types.FilesystemPath
+		cause          error
+		fromCurrentDir bool
 	}
 )
 
@@ -90,13 +91,20 @@ func NewDiagnosticWithCause(severity DiagnosticSeverity, code DiagnosticCode, me
 
 // DiagnosticFromDiscovery converts a discovery diagnostic at the service boundary.
 func DiagnosticFromDiscovery(diag discovery.Diagnostic) (Diagnostic, error) {
-	return NewDiagnosticWithCause(
+	converted, err := NewDiagnosticWithCause(
 		DiagnosticSeverity(diag.Severity()),
 		DiagnosticCode(diag.Code()),
 		diag.Message(),
 		diag.Path(),
 		diag.Cause(),
 	)
+	if err != nil {
+		return Diagnostic{}, err
+	}
+	if diag.FromCurrentDir() {
+		converted = converted.WithCurrentDir()
+	}
+	return converted, nil
 }
 
 // Severity returns the diagnostic level.
@@ -113,6 +121,17 @@ func (d Diagnostic) Path() types.FilesystemPath { return d.path }
 
 // Cause returns the underlying error, if any.
 func (d Diagnostic) Cause() error { return d.cause }
+
+// FromCurrentDir reports whether this diagnostic originated from a
+// current-directory source (./invowkfile.cue or ./*.invowkmod).
+func (d Diagnostic) FromCurrentDir() bool { return d.fromCurrentDir }
+
+// WithCurrentDir returns a copy of d marked as originating from the current
+// working directory.
+func (d Diagnostic) WithCurrentDir() Diagnostic {
+	d.fromCurrentDir = true
+	return d
+}
 
 // Validate returns nil if the diagnostic has valid required fields.
 func (d Diagnostic) Validate() error {

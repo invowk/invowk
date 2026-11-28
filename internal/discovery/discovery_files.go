@@ -51,6 +51,9 @@ type (
 		// commands directory (~/.invowk/cmds). Global module commands are always
 		// accessible by any module's CommandScope.
 		IsGlobalModule bool
+		// FromCurrentDir is true when this file was discovered from the
+		// current working directory (./invowkfile.cue or ./*.invowkmod).
+		FromCurrentDir bool
 	}
 
 	// ModuleListResult contains discovered modules and any non-fatal diagnostics
@@ -164,11 +167,18 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 		isModuleDir, moduleFiles, moduleDiags := discoverCurrentDirModule(d.baseDir)
 		if !isModuleDir {
 			if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
+				cwdFile.FromCurrentDir = true
 				files = append(files, cwdFile)
 			}
 
 			// 2. Modules in current directory (+ their vendored dependencies)
 			moduleFiles, moduleDiags = d.discoverModulesInDirWithDiagnostics(d.baseDir)
+		}
+		for _, mf := range moduleFiles {
+			mf.FromCurrentDir = true
+		}
+		for i := range moduleDiags {
+			moduleDiags[i] = moduleDiags[i].WithCurrentDir()
 		}
 		files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags, appended)
 		if verifyErr != nil {

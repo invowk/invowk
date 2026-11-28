@@ -28,13 +28,21 @@ var (
 	// command-bearing invowkfile.cue to parse.
 	ErrModuleInvowkfileUnavailable = errors.New("module invowkfile unavailable")
 
+	// ErrUnsupportedInvowkVersion is re-exported for callers inspecting invowk_version failures.
+	ErrUnsupportedInvowkVersion = invowkmod.ErrUnsupportedInvowkVersion
+
 	// Ensure Invowkfile satisfies the typed module command contract.
 	_ invowkmod.ModuleCommands = (*Invowkfile)(nil)
 )
 
-// Module represents a loaded invowk module, ready for use.
-// This is a type alias for invowkmod.Module.
-type Module = invowkmod.Module
+type (
+	// Module represents a loaded invowk module, ready for use.
+	// This is a type alias for invowkmod.Module.
+	Module = invowkmod.Module
+
+	// UnsupportedInvowkVersionError is re-exported from pkg/invowkmod for invowkfile callers.
+	UnsupportedInvowkVersionError = invowkmod.UnsupportedInvowkVersionError
+)
 
 // SchemaCUE returns the embedded invowkfile.cue schema used for validation.
 func SchemaCUE() string {
@@ -60,6 +68,10 @@ func ParseBytes(data []byte, path string) (*Invowkfile, error) {
 
 //goplint:ignore -- internal CUE parser boundary reuses public ParseBytes raw bytes and filename.
 func parseBytes(data []byte, path string, modulePath FilesystemPath, metadata *ModuleMetadata) (*Invowkfile, error) {
+	if err := invowkmod.CheckInvowkVersionCUE(data, path); err != nil {
+		return nil, err
+	}
+
 	if errs := runtimeSchemaPreflightValidationErrors(data, path); len(errs) > 0 {
 		return nil, errs
 	}
@@ -75,7 +87,7 @@ func parseBytes(data []byte, path string, modulePath FilesystemPath, metadata *M
 		cueutil.WithFilename(path),
 	)
 	if err != nil {
-		return nil, err
+		return nil, invowkmod.AnnotateFieldNotAllowedHint(err)
 	}
 
 	inv := result.Value

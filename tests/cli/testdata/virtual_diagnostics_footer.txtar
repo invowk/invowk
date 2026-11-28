@@ -33,5 +33,5 @@ cmds: [
 	},
 ]
 
--- broken.invowkmod/invowkmod.cue --
+-- .invowk/cmds/broken.invowkmod/invowkmod.cue --
 this is not valid CUE content!!!

@@ -11,6 +11,10 @@
 
 import "strings"
 
+// SemVerConstraint defines a semantic version constraint string.
+// Examples: "^1.2.0", "~1.2.0", ">=1.0.0", "1.2.3"
+#SemVerConstraint: string & =~"^(~|\\^|>=|<=|>|<|=)?(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?(\\.(0|[1-9][0-9]*))?(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$" & strings.MaxRunes(64)
+
 // ModuleRequirement represents a dependency on another module from a Git repository
 #ModuleRequirement: close({
 	// git_url is the Git repository URL (required)
@@ -21,7 +25,7 @@ import "strings"
 
 	// version is the semver constraint for version selection (required)
 	// Examples: "^1.2.0", "~1.2.0", ">=1.0.0", "1.2.3"
-	version: string & =~"^(~|\\^|>=|<=|>|<|=)?(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?(\\.(0|[1-9][0-9]*))?(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$" & strings.MaxRunes(64)
+	version: #SemVerConstraint
 
 	// alias overrides the default namespace for imported commands (optional)
 	// If not specified, namespace is: <module>@<resolved-version>
@@ -52,6 +56,11 @@ import "strings"
 	// Format: MAJOR.MINOR.PATCH with optional pre-release label (e.g., "1.0.0", "2.1.0-alpha.1")
 	// No "v" prefix, no build metadata, no leading zeros on numeric segments
 	version: string & =~"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9a-zA-Z-]+(\\.[0-9a-zA-Z-]+)*)?$" & strings.MaxRunes(64)
+
+	// invowk_version specifies the compatible invowk CLI version constraint (optional)
+	// Evaluated before strict schema decoding so older binaries fail with a clear upgrade message.
+	// Examples: ">=0.18.0", "^1.0.0", "~1.2.0"
+	invowk_version?: #SemVerConstraint
 
 	// description provides a summary of this module's purpose (optional)
 	// Maximum 10KB to prevent abuse
