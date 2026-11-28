@@ -33,6 +33,8 @@ func TestDependencyCapabilityCheckerCheck(t *testing.T) {
 		{name: "internet", capability: invowkfile.CapabilityInternet, skipShort: true},
 		{name: "containers", capability: invowkfile.CapabilityContainers, skipShort: true},
 		{name: "tty", capability: invowkfile.CapabilityTTY},
+		{name: "elevated", capability: invowkfile.CapabilityElevated},
+		{name: "unprivileged", capability: invowkfile.CapabilityUnprivileged},
 		{name: "unknown", capability: invowkfile.CapabilityName("unknown-capability"), unknown: true},
 	}
 	for _, tt := range tests {
@@ -508,5 +510,32 @@ func TestHostCustomCheckEnvMapStripsProgramResumeToken(t *testing.T) {
 	}
 	if env["INVOWK_TEST_CUSTOM_CHECK_KEEP"] != "kept-value" {
 		t.Fatalf("hostCustomCheckEnvMap()[INVOWK_TEST_CUSTOM_CHECK_KEEP] = %q, want kept-value", env["INVOWK_TEST_CUSTOM_CHECK_KEEP"])
+	}
+}
+
+func TestDependencyCapabilityCheckerPrivilegeNegation(t *testing.T) {
+	t.Parallel()
+
+	checker := NewDependencyCapabilityChecker()
+	elevatedErr := checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityElevated)
+	unprivilegedErr := checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityUnprivileged)
+
+	if isProcessElevated() {
+		if elevatedErr != nil {
+			t.Fatalf("elevated check failed for elevated process: %v", elevatedErr)
+		}
+		capErr, ok := errors.AsType[*invowkfile.CapabilityError](unprivilegedErr)
+		if !ok || capErr.Capability != invowkfile.CapabilityUnprivileged {
+			t.Fatalf("unprivileged error = %v, want *CapabilityError for unprivileged", unprivilegedErr)
+		}
+		return
+	}
+
+	if unprivilegedErr != nil {
+		t.Fatalf("unprivileged check failed for unprivileged process: %v", unprivilegedErr)
+	}
+	capErr, ok := errors.AsType[*invowkfile.CapabilityError](elevatedErr)
+	if !ok || capErr.Capability != invowkfile.CapabilityElevated {
+		t.Fatalf("elevated error = %v, want *CapabilityError for elevated", elevatedErr)
 	}
 }

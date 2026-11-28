@@ -33,6 +33,7 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 	if plan.WorkDir != "" {
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("WorkDir:"), plan.WorkDir)
 	}
+	renderDryRunCapabilities(w, plan)
 
 	if err := plan.Script.Validate(); err != nil {
 		fmt.Fprintln(w)
@@ -135,6 +136,54 @@ func dryRunAllowedBinaries(allowed []invowkfile.AllowedBinary) string {
 		values = append(values, binary.String())
 	}
 	return strings.Join(values, ", ")
+}
+
+func renderDryRunCapabilities(w io.Writer, plan commandsvc.DryRunPlan) {
+	lines := formatCapabilityLines(plan.HostCapabilities, plan.RuntimeCapabilities)
+	if len(lines) == 0 {
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, VerboseHighlightStyle.Render("  Required Capabilities:"))
+	for _, line := range lines {
+		fmt.Fprintf(w, "    %s\n", line)
+	}
+}
+
+//goplint:ignore -- CLI rendering helper formats capability display lines.
+func formatCapabilityLines(hostCaps, runtimeCaps []invowkfile.CapabilityDependency) []string {
+	var lines []string
+	seenHost := make(map[string]bool)
+	for _, capDep := range hostCaps {
+		formatted := formatCapabilityDependency(capDep)
+		if formatted == "" || seenHost[formatted] {
+			continue
+		}
+		seenHost[formatted] = true
+		lines = append(lines, formatted)
+	}
+	seenRuntime := make(map[string]bool)
+	for _, capDep := range runtimeCaps {
+		formatted := formatCapabilityDependency(capDep)
+		if formatted == "" || seenRuntime[formatted] {
+			continue
+		}
+		seenRuntime[formatted] = true
+		lines = append(lines, "container: "+formatted)
+	}
+	return lines
+}
+
+//goplint:ignore -- CLI rendering helper formats a capability dependency alternative list.
+func formatCapabilityDependency(capDep invowkfile.CapabilityDependency) string {
+	if len(capDep.Alternatives) == 0 {
+		return ""
+	}
+	alts := make([]string, len(capDep.Alternatives))
+	for i, alt := range capDep.Alternatives {
+		alts[i] = string(alt)
+	}
+	return strings.Join(alts, " | ")
 }
 
 // isArgEnvVar checks if a key matches the ARG1, ARG2, ..., ARGC pattern

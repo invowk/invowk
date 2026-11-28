@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -26,8 +27,8 @@ func TestValidCapabilityNames(t *testing.T) {
 
 	names := ValidCapabilityNames()
 
-	if len(names) != 4 {
-		t.Errorf("ValidCapabilityNames() returned %d names, want 4", len(names))
+	if len(names) != 6 {
+		t.Errorf("ValidCapabilityNames() returned %d names, want 6", len(names))
 	}
 
 	// Check that expected capabilities are in the list
@@ -36,20 +37,17 @@ func TestValidCapabilityNames(t *testing.T) {
 		found[name] = true
 	}
 
-	if !found[CapabilityLocalAreaNetwork] {
-		t.Error("ValidCapabilityNames() should include CapabilityLocalAreaNetwork")
-	}
-
-	if !found[CapabilityInternet] {
-		t.Error("ValidCapabilityNames() should include CapabilityInternet")
-	}
-
-	if !found[CapabilityContainers] {
-		t.Error("ValidCapabilityNames() should include CapabilityContainers")
-	}
-
-	if !found[CapabilityTTY] {
-		t.Error("ValidCapabilityNames() should include CapabilityTTY")
+	for _, expected := range []CapabilityName{
+		CapabilityLocalAreaNetwork,
+		CapabilityInternet,
+		CapabilityContainers,
+		CapabilityTTY,
+		CapabilityElevated,
+		CapabilityUnprivileged,
+	} {
+		if !found[expected] {
+			t.Errorf("ValidCapabilityNames() should include %s", expected)
+		}
 	}
 }
 
@@ -65,9 +63,12 @@ func TestCapabilityName_Validate(t *testing.T) {
 		{CapabilityInternet, true, false},
 		{CapabilityContainers, true, false},
 		{CapabilityTTY, true, false},
+		{CapabilityElevated, true, false},
+		{CapabilityUnprivileged, true, false},
 		{"", false, true},
 		{"unk" + "nown", false, true},
 		{"LOCAL-AREA-NETWORK", false, true},
+		{"ELEVATED", false, true},
 	}
 
 	for _, tt := range tests {
@@ -105,6 +106,12 @@ func TestCapabilityName_Validate_ErrorType(t *testing.T) {
 	}
 	if invalidErr.Value != "bogus" {
 		t.Errorf("InvalidCapabilityNameError.Value = %q, want %q", invalidErr.Value, "bogus")
+	}
+	msg := invalidErr.Error()
+	for _, capName := range []string{"elevated", "unprivileged"} {
+		if !strings.Contains(msg, capName) {
+			t.Errorf("InvalidCapabilityNameError.Error() = %q, want %q listed", msg, capName)
+		}
 	}
 }
 

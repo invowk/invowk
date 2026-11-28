@@ -14,14 +14,14 @@ O Invowk inclui um scanner de segurança integrado que analisa invowkfiles, mód
 
 ## Como Funciona
 
-O comando `invowk audit` constrói um snapshot imutável de todos os artefatos descobertos (invowkfiles, módulos, scripts, lock files), e então executa **7 checkers de segurança integrados** concorrentemente. Após todos os checkers completarem, um **correlacionador** cruza os achados para detectar ameaças compostas.
+O comando `invowk audit` constrói um snapshot imutável de todos os artefatos descobertos (invowkfiles, módulos, scripts, lock files), e então executa **8 checkers de segurança integrados** concorrentemente. Após todos os checkers completarem, um **correlacionador** cruza os achados para detectar ameaças compostas.
 
 ```
 invowk audit [path]
   │
   ├── Descoberta ──► Snapshot imutável (ScanContext)
   │
-  ├── Checkers Concorrentes (7 integrados + LLM opcional)
+  ├── Checkers Concorrentes (8 integrados + LLM opcional)
   │   ├── Script Checker ──► achados de execução, travessia, ofuscação
   │   ├── Lua Checker ──► achados de execução, env e caminhos em virtual-lua
   │   ├── Network Checker ──► achados de execução e exfiltração
@@ -29,6 +29,7 @@ invowk audit [path]
   │   ├── Lock File Checker ──► achados de integridade
   │   ├── Symlink Checker ──► achados de travessia de caminhos
   │   ├── Module Metadata Checker ──► achados de confiança
+  │   ├── Privilege Checker ──► achados de integridade de permissões para comandos elevated
   │   └── LLM Checker (opt-in) ──► achados multi-categoria
   │
   ├── Correlacionador ──► detecção de ameaças compostas
@@ -122,6 +123,14 @@ Analisa cadeias de dependências e metadados de módulos em busca de riscos na c
 - **Módulos vendorizados ausentes de `requires`**: Dependências presentes em `invowk_modules/` sem uma declaração correspondente
 - **Falhas de parsing do invowkfile do módulo**: Arquivos de comando de módulo malformados que impedem auditoria do conteúdo de scripts
 - **Confiança em módulos globais**: Módulos de `~/.invowk/cmds/` que contornam a revisão local
+
+### Privilege Checker
+
+Inspeciona declarações `depends_on.capabilities` no nível raiz, de comando e de implementação em busca de `"elevated"` e verifica as permissões de `invowkfile.cue`, `invowkmod.cue` e dos arquivos referenciados em `script.file` e `env.files`.
+
+**Detecta:**
+- **Arquivos graváveis por todos (`0o002`)** (`Alta`): Arquivos de definição, script ou dotenv graváveis por qualquer usuário local
+- **Arquivos graváveis por grupo compartilhado (`0o020`)** (`Média`): Arquivos graváveis por grupo no Unix quando o grupo possui outros membros ou difere de um grupo privado de usuário único (UPG), evitando falsos positivos em checkouts com `umask 0002`
 
 ## Detecção de Ameaças Compostas
 

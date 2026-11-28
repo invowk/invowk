@@ -240,6 +240,9 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 	newCmd.Flags().StringArray("ivk-env-inherit-deny", nil, "denylist for host environment inheritance (repeatable)")
 	newCmd.Flags().StringP("ivk-workdir", "w", "", "override the working directory for this command")
 
+	if capDoc := buildCapabilitiesDocumentation(cmdInfo); capDoc != "" {
+		newCmd.Long += "\n\nRequired Capabilities:\n" + capDoc
+	}
 	if len(cmdArgs) > 0 {
 		newCmd.Long += "\n\nArguments:\n" + buildArgsDocumentation(cmdArgs)
 	}
@@ -360,6 +363,60 @@ func buildArgsDocumentation(args []invowkfile.Argument) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// buildCapabilitiesDocumentation builds the documentation string for declared capabilities.
+//
+//plint:render
+func buildCapabilitiesDocumentation(cmdInfo *discovery.CommandInfo) string {
+	hostCaps, runtimeCaps := collectCommandCapabilities(cmdInfo)
+	lines := formatCapabilityLines(hostCaps, runtimeCaps)
+	if len(lines) == 0 {
+		return ""
+	}
+	indented := make([]string, len(lines))
+	for i, line := range lines {
+		indented[i] = "  " + line
+	}
+	return strings.Join(indented, "\n")
+}
+
+func collectCommandCapabilities(cmdInfo *discovery.CommandInfo) (hostCaps, runtimeCaps []invowkfile.CapabilityDependency) {
+	if cmdInfo == nil {
+		return nil, nil
+	}
+	if cmdInfo.Invowkfile != nil && cmdInfo.Invowkfile.DependsOn != nil {
+		hostCaps = append(hostCaps, cmdInfo.Invowkfile.DependsOn.Capabilities...)
+	}
+	if cmdInfo.Command == nil {
+		return hostCaps, nil
+	}
+	if cmdInfo.Command.DependsOn != nil {
+		hostCaps = append(hostCaps, cmdInfo.Command.DependsOn.Capabilities...)
+	}
+
+	currentPlatform := invowkfile.CurrentPlatform()
+	var matchingImpls []invowkfile.Implementation
+	for i := range cmdInfo.Command.Implementations {
+		if cmdInfo.Command.Implementations[i].MatchesPlatform(currentPlatform) {
+			matchingImpls = append(matchingImpls, cmdInfo.Command.Implementations[i])
+		}
+	}
+	impls := matchingImpls
+	if len(impls) == 0 {
+		impls = cmdInfo.Command.Implementations
+	}
+	for i := range impls {
+		if impls[i].DependsOn != nil {
+			hostCaps = append(hostCaps, impls[i].DependsOn.Capabilities...)
+		}
+		for j := range impls[i].Runtimes {
+			if impls[i].Runtimes[j].DependsOn != nil {
+				runtimeCaps = append(runtimeCaps, impls[i].Runtimes[j].DependsOn.Capabilities...)
+			}
+		}
+	}
+	return hostCaps, runtimeCaps
 }
 
 // completeCommands provides shell completion for the `invowk cmd` command.

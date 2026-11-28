@@ -18,6 +18,8 @@ func TestClassifyReportFindingsAppliesDeterministicPolicy(t *testing.T) {
 			triageFinding(codeLockfileContentHashMismatch, SurfaceKindRootInvowkfile, "Module content hash mismatch"),
 			triageFinding(codeSymlinkEscapesRoot, SurfaceKindRootInvowkfile, "Symlink points outside module boundary"),
 			triageFinding(codeNetworkEncodedURL, SurfaceKindRootInvowkfile, "Script contains encoded URL"),
+			triageFinding(codePrivilegeWorldWritableFile, SurfaceKindRootInvowkfile, "Elevated command references world-writable file"),
+			triageFinding(codePrivilegeGroupWritableFile, SurfaceKindLocalModule, "Elevated command references shared-group-writable file"),
 		},
 		Correlated: []Finding{
 			{
@@ -74,6 +76,8 @@ func TestClassifyReportFindingsAppliesDeterministicPolicy(t *testing.T) {
 	assertConfirmedFinding(t, triage.confirmedFindings, codeLockfileContentHashMismatch)
 	assertConfirmedFinding(t, triage.confirmedFindings, codeSymlinkEscapesRoot)
 	assertConfirmedFinding(t, triage.confirmedFindings, codeNetworkEncodedURL)
+	assertConfirmedFinding(t, triage.confirmedFindings, codePrivilegeWorldWritableFile)
+	assertConfirmedFinding(t, triage.confirmedFindings, codePrivilegeGroupWritableFile)
 	assertConfirmedFinding(t, triage.confirmedCorrelated, codeCorrelatorObfuscatedExfiltration)
 }
 

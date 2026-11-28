@@ -1017,7 +1017,7 @@ containerfile: "./docker/Dockerfile.build"`,
   'reference/invowkfile/capability-dependency-structure': {
     language: 'cue',
     code: `#CapabilityDependency: {
-    alternatives: [...("local-area-network" | "internet" | "containers" | "tty")] & [_, ...]
+    alternatives: [...("local-area-network" | "internet" | "containers" | "tty" | "elevated" | "unprivileged")] & [_, ...]
 }`,
   },
 

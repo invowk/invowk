@@ -1,0 +1,44 @@
+# Test: invowk audit privilege file-permission checks
+# Verifies that elevated commands referencing world-writable files emit HIGH findings
+# while properly restricted files audit cleanly.
+
+[windows] skip 'POSIX file mode bits do not apply on Windows'
+
+cd $WORK
+
+# World-writable script referenced by elevated command triggers HIGH finding (exit 1)
+chmod 0644 io.example.priv.invowkmod/invowkmod.cue
+chmod 0644 io.example.priv.invowkmod/invowkfile.cue
+chmod 0777 io.example.priv.invowkmod/scripts/install.sh
+
+exitcode 1 invowk audit ./io.example.priv.invowkmod
+stdout 'HIGH'
+stdout 'world-writable'
+
+# Tightening permissions resolves the finding
+chmod 0755 io.example.priv.invowkmod/scripts/install.sh
+exec invowk audit ./io.example.priv.invowkmod
+stdout 'No confirmed findings'
+
+-- io.example.priv.invowkmod/invowkmod.cue --
+module:      "io.example.priv"
+version:     "1.0.0"
+description: "Test module with elevated command"
+
+-- io.example.priv.invowkmod/invowkfile.cue --
+cmds: [{
+	name: "install"
+	description: "Install system package"
+	depends_on: {
+		capabilities: [{alternatives: ["elevated"]}]
+	}
+	implementations: [{
+		script: {file: "scripts/install.sh"}
+		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}, {name: "macos"}]
+	}]
+}]
+
+-- io.example.priv.invowkmod/scripts/install.sh --
+#!/bin/sh
+echo "installing"

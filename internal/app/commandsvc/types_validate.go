@@ -242,6 +242,16 @@ func (p DryRunPlan) Validate() error {
 	if err := p.LuaMemoryLimit.Validate(); err != nil {
 		errs = append(errs, err)
 	}
+	for _, capDep := range p.HostCapabilities {
+		if err := capDep.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, capDep := range p.RuntimeCapabilities {
+		if err := capDep.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	if len(errs) > 0 {
 		return &InvalidDryRunDataError{FieldErrors: errs}
 	}

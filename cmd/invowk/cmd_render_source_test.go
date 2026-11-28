@@ -236,3 +236,52 @@ func TestBuildLeafCommandAcceptsArbitraryArgs(t *testing.T) {
 		t.Errorf("leaf command should accept arbitrary args for service validation, got: %v", err)
 	}
 }
+
+func TestBuildLeafCommandHelpDisplaysCapabilities(t *testing.T) {
+	t.Parallel()
+
+	cmdInfo := &discovery.CommandInfo{
+		Name:        "install",
+		SimpleName:  "install",
+		SourceID:    discovery.SourceIDInvowkfile,
+		FilePath:    types.FilesystemPath("invowkfile.cue"),
+		Description: "Install system component",
+		Invowkfile: &invowkfile.Invowkfile{
+			DependsOn: &invowkfile.DependsOn{
+				Capabilities: []invowkfile.CapabilityDependency{
+					{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}},
+				},
+			},
+		},
+		Command: &invowkfile.Command{
+			Name: "install",
+			DependsOn: &invowkfile.DependsOn{
+				Capabilities: []invowkfile.CapabilityDependency{
+					{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityElevated}},
+				},
+			},
+			Implementations: []invowkfile.Implementation{{
+				Script:    invowkfile.ImplementationScript{Content: "echo install"},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+				DependsOn: &invowkfile.DependsOn{
+					Capabilities: []invowkfile.CapabilityDependency{
+						{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}},
+					},
+				},
+			}},
+		},
+	}
+
+	leaf := buildLeafCommand(nil, nil, nil, cmdInfo, "install", false)
+	for _, token := range []string{
+		"Required Capabilities:",
+		"local-area-network",
+		"elevated",
+		"tty",
+	} {
+		if !strings.Contains(leaf.Long, token) {
+			t.Fatalf("leaf.Long missing %q:\n%s", token, leaf.Long)
+		}
+	}
+}

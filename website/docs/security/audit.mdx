@@ -14,14 +14,14 @@ Invowk includes a built-in security scanner that analyzes invowkfiles, modules, 
 
 ## How It Works
 
-The `invowk audit` command builds an immutable snapshot of all discovered artifacts (invowkfiles, modules, scripts, lock files), then runs **7 built-in security checkers** concurrently. After all checkers complete, a **correlator** cross-references findings to detect compound threats.
+The `invowk audit` command builds an immutable snapshot of all discovered artifacts (invowkfiles, modules, scripts, lock files), then runs **8 built-in security checkers** concurrently. After all checkers complete, a **correlator** cross-references findings to detect compound threats.
 
 ```
 invowk audit [path]
   │
   ├── Discovery ──► Immutable ScanContext snapshot
   │
-  ├── Concurrent Checkers (7 built-in + optional LLM)
+  ├── Concurrent Checkers (8 built-in + optional LLM)
   │   ├── Script Checker ──► execution, path-traversal, obfuscation findings
   │   ├── Lua Checker ──► virtual-lua execution, env, and path findings
   │   ├── Network Checker ──► execution and exfiltration findings
@@ -29,6 +29,7 @@ invowk audit [path]
   │   ├── Lock File Checker ──► integrity findings
   │   ├── Symlink Checker ──► path-traversal findings
   │   ├── Module Metadata Checker ──► trust findings
+  │   ├── Privilege Checker ──► writable-file integrity findings for elevated commands
   │   └── LLM Checker (opt-in) ──► multi-category findings
   │
   ├── Correlator ──► compound threat detection
@@ -122,6 +123,14 @@ Analyzes module dependency chains and metadata for supply-chain risks.
 - **Vendored modules missing from `requires`**: Dependencies present in `invowk_modules/` without a matching declaration
 - **Module invowkfile parse failures**: Malformed module command files that prevent script-content auditing
 - **Global module trust**: Modules from `~/.invowk/cmds/` that bypass local review
+
+### Privilege Checker
+
+Inspects root, command, and implementation `depends_on.capabilities` declarations for `"elevated"` and checks the permissions of `invowkfile.cue`, `invowkmod.cue`, and referenced `script.file` and `env.files` artifacts.
+
+**Detects:**
+- **World-writable files (`0o002`)** (`High`): Definition, script, or dotenv files writable by any local user
+- **Shared-group-writable files (`0o020`)** (`Medium`): Group-writable files on Unix when the group has multiple members or differs from a single-user private group (UPG), avoiding false positives on `umask 0002` UPG checkouts
 
 ## Compound Threat Detection
 

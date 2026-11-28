@@ -119,3 +119,31 @@ func assertCapturedCustomCheckScript(t *testing.T, containerRT *recordingContain
 		t.Fatalf("container custom check interpreter = %q, want %q", got, tt.wantInterpreter)
 	}
 }
+
+func TestCapabilityCheckScriptPrivilegeProbes(t *testing.T) {
+	t.Parallel()
+
+	if got := capabilityCheckScript(invowkfile.CapabilityElevated); got != `test "$(id -u)" -eq 0` {
+		t.Errorf("elevated script = %q, want %q", got, `test "$(id -u)" -eq 0`)
+	}
+	if got := capabilityCheckScript(invowkfile.CapabilityUnprivileged); got != `test "$(id -u)" -ne 0` {
+		t.Errorf("unprivileged script = %q, want %q", got, `test "$(id -u)" -ne 0`)
+	}
+
+	probe, containerRT := newRecordingRuntimeProbe(t)
+	if err := probe.CheckCapability(invowkfile.CapabilityElevated); err != nil {
+		t.Fatalf("CheckCapability(elevated) = %v", err)
+	}
+	if err := probe.CheckCapability(invowkfile.CapabilityUnprivileged); err != nil {
+		t.Fatalf("CheckCapability(unprivileged) = %v", err)
+	}
+	if len(containerRT.scripts) != 2 {
+		t.Fatalf("captured scripts = %d, want 2", len(containerRT.scripts))
+	}
+	if got := containerRT.scripts[0].Content; got != `test "$(id -u)" -eq 0` {
+		t.Errorf("captured elevated probe = %q", got)
+	}
+	if got := containerRT.scripts[1].Content; got != `test "$(id -u)" -ne 0` {
+		t.Errorf("captured unprivileged probe = %q", got)
+	}
+}

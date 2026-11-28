@@ -103,6 +103,10 @@ func commonCondition(cond string) (bool, error) {
 		// "in-sandbox" returns true if running inside a Flatpak or Snap sandbox
 		// Use [in-sandbox] to skip tests that require host filesystem permissions
 		return platform.IsInSandbox(), nil
+	case "elevated":
+		// "elevated" returns true when the test process runs as euid 0 (Unix)
+		// or with an elevated UAC token (Windows).
+		return isTestProcessElevated(), nil
 	default:
 		// Fail loudly on unknown conditions to catch typos and invalid syntax.
 		// Built-in conditions ([windows], [linux], [darwin], [short], [net], [exec:...])

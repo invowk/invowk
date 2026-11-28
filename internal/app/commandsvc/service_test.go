@@ -386,6 +386,74 @@ func TestNewDryRunPlanRejectsInvalidPersistentPlan(t *testing.T) {
 	}
 }
 
+func TestNewDryRunPlanCarriesMergedHostAndRuntimeCapabilities(t *testing.T) {
+	t.Parallel()
+
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue")),
+		DependsOn: &invowkfile.DependsOn{
+			Capabilities: []invowkfile.CapabilityDependency{
+				{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}},
+			},
+		},
+	}
+	cmd := &invowkfile.Command{
+		Name: "deploy",
+		DependsOn: &invowkfile.DependsOn{
+			Capabilities: []invowkfile.CapabilityDependency{
+				{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityElevated}},
+			},
+		},
+		Implementations: []invowkfile.Implementation{{
+			Script: invowkfile.ImplementationScript{Content: "echo deploy"},
+			DependsOn: &invowkfile.DependsOn{
+				Capabilities: []invowkfile.CapabilityDependency{
+					{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityInternet}},
+				},
+			},
+			Runtimes: []invowkfile.RuntimeConfig{{
+				Name:  invowkfile.RuntimeContainer,
+				Image: "debian:stable-slim",
+				DependsOn: &invowkfile.DependsOn{
+					Capabilities: []invowkfile.CapabilityDependency{
+						{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityUnprivileged}},
+					},
+				},
+			}},
+			Platforms: invowkfile.AllPlatformConfigs(),
+		}},
+	}
+	cmdInfo := &discovery.CommandInfo{
+		Name:       cmd.Name,
+		SimpleName: cmd.Name,
+		SourceID:   discovery.SourceIDInvowkfile,
+		Invowkfile: inv,
+		Command:    cmd,
+	}
+	execCtx := runtimepkg.NewExecutionContext(t.Context(), cmd, inv)
+	execCtx.SelectedRuntime = invowkfile.RuntimeContainer
+	execCtx.SelectedImpl = &cmd.Implementations[0]
+
+	plan, err := newDryRunPlan(Request{Name: "deploy"}, cmdInfo, execCtx, &cmd.Implementations[0], invowkfile.ScriptInterpreterAnalysis{}, false)
+	if err != nil {
+		t.Fatalf("newDryRunPlan() = %v", err)
+	}
+	if len(plan.HostCapabilities) != 3 {
+		t.Fatalf("HostCapabilities len = %d, want 3: %+v", len(plan.HostCapabilities), plan.HostCapabilities)
+	}
+	if plan.HostCapabilities[0].Alternatives[0] != invowkfile.CapabilityLocalAreaNetwork ||
+		plan.HostCapabilities[1].Alternatives[0] != invowkfile.CapabilityElevated ||
+		plan.HostCapabilities[2].Alternatives[0] != invowkfile.CapabilityInternet {
+		t.Fatalf("HostCapabilities = %+v, want [lan, elevated, internet]", plan.HostCapabilities)
+	}
+	if len(plan.RuntimeCapabilities) != 1 || plan.RuntimeCapabilities[0].Alternatives[0] != invowkfile.CapabilityUnprivileged {
+		t.Fatalf("RuntimeCapabilities = %+v, want [unprivileged]", plan.RuntimeCapabilities)
+	}
+	if err := plan.Validate(); err != nil {
+		t.Fatalf("plan.Validate() = %v", err)
+	}
+}
+
 func (h *recordingHostAccess) Ensure(context.Context) error {
 	h.ensureCalls++
 	h.running = true

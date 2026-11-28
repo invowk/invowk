@@ -16,6 +16,8 @@ Dependências de capacidades verificam se capacidades de sistema necessárias es
 | `internet` | Verifica conectividade com a internet |
 | `containers` | Verifica se Docker ou Podman está instalado e respondendo |
 | `tty` | Verifica se o Invowk está rodando em um TTY interativo |
+| `elevated` | Verifica privilégios elevados/root (`os.Geteuid() == 0` no Unix; token de processo elevado no Windows) |
+| `unprivileged` | Verifica se o Invowk está rodando sem privilégios elevados/root (negação de `elevated`) |
 
 ## Uso Básico
 
@@ -92,6 +94,25 @@ Isso verifica:
 ### Casos de Uso
 
 Use isso para prompts interativos, componentes TUI ou scripts que exigem entrada de teclado.
+
+## Separação de Privilégios (`elevated` / `unprivileged`)
+
+Exija ou proíba execução com privilégios de root/elevados de forma declarativa:
+
+<Snippet id="dependencies/capabilities-privilege" />
+
+- **`elevated`**: passa no Unix quando o UID efetivo é `0`, e no Windows quando o token do processo atual é elevado. Dentro de `runtime.depends_on` em containers, executa `test "$(id -u)" -eq 0`.
+- **`unprivileged`**: passa exatamente quando `elevated` falha (no Unix, UID efetivo diferente de zero; dentro de containers, `test "$(id -u)" -ne 0`).
+
+Capacidades declaradas aparecem tanto em `invowk cmd <name> --help` quanto em `invowk cmd <name> --ivk-dry-run` sob `Required Capabilities:`. Quando `invowk audit` escaneia comandos que declaram `elevated`, ele também verifica se `invowkfile.cue`, `invowkmod.cue` e os arquivos referenciados em `script.file` ou `env.files` não são graváveis por todos ou por grupos compartilhados no Unix.
+
+:::info Sem elevação automática de privilégios
+O Invowk intencionalmente não invoca `sudo` nem sintetiza uma variável `INVOWK_INVOKING_USER`. Execute o `invowk` com a ferramenta de privilégio de sua escolha (`sudo`, `doas`, `run0`, `pkexec` ou um shell elevado no Windows) quando `elevated` for necessário; scripts que inspecionam `SUDO_USER` podem lê-la diretamente pela herança padrão de ambiente.
+:::
+
+:::note Padrões de UID em containers
+Imagens de container frequentemente executam como UID `0` por padrão, a menos que configuradas com `USER` ou mapeamento rootless. `runtime.depends_on.capabilities` verifica o UID dentro do container.
+:::
 
 ## Alternativas (Semântica OU)
 
