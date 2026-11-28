@@ -163,32 +163,7 @@ func addSELinuxLabelWithCheck(volume VolumeMountSpec, selinuxCheck SELinuxCheckF
 		return volumeStr
 	}
 
-	// Parse the volume string to check if it already has SELinux labels
-	// Volume format: host_path:container_path[:options]
-	// Options can include: ro, rw, z, Z, and others
-	parts := strings.Split(volumeStr, ":")
-
-	// Need at least host:container
-	if len(parts) < 2 {
-		return volumeStr
-	}
-
-	// Check if options already contain SELinux label
-	if len(parts) >= 3 {
-		options := parts[len(parts)-1]
-		// Check for :z or :Z in options
-		for opt := range strings.SplitSeq(options, ",") {
-			if opt == "z" || opt == "Z" {
-				// Already has SELinux label
-				return volumeStr
-			}
-		}
-		// Append :z to existing options
-		return volumeStr + ",z"
-	}
-
-	// No options specified, add :z
-	return volumeStr + ":z"
+	return appendSELinuxVolumeOption(volumeStr, "z")
 }
 
 // makeUsernsKeepIDAdder creates a transformer that adds --userns=keep-id to run/create commands.
@@ -212,7 +187,8 @@ func makeUsernsKeepIDAdder() RunArgsTransformer {
 			arg := args[i]
 			// Flags that take a separate argument value
 			if arg == "-w" || arg == "-e" || arg == "-v" || arg == "-p" ||
-				arg == containerArgName || arg == containerArgAddHost || arg == containerArgLabel {
+				arg == containerArgName || arg == containerArgAddHost || arg == containerArgLabel ||
+				arg == containerArgSecurityOpt {
 				skipNext = true
 				continue
 			}

@@ -75,6 +75,11 @@ type (
 		// SourceID identifies the origin of the command (invowkfile path or module ID).
 		// Injected as INVOWK_SOURCE so scripts can identify which source they belong to.
 		SourceID discovery.SourceID
+		// SourceTrustTier carries the 3-tier containment level assigned by discovery.
+		SourceTrustTier discovery.SourceTrustTier
+		// MountCeiling carries the Layer 2 (<cwd>) or Layer 3 (IncludeEntry.workspace_root)
+		// host containment ceiling when applicable.
+		MountCeiling types.FilesystemPath //goplint:ignore -- optional nonzero path validated when non-empty.
 		// Platform is the resolved platform for this execution.
 		// Injected as INVOWK_PLATFORM so scripts can self-introspect the target platform.
 		Platform invowkfile.Platform
@@ -275,6 +280,8 @@ func BuildExecutionContext(ctx context.Context, opts BuildExecutionContextOption
 	execCtx.ForceRebuild = opts.ForceRebuild
 	execCtx.ContainerNameOverride = opts.ContainerName
 	execCtx.CommandFullName = opts.CommandFullName
+	execCtx.MountTrustTier = translateMountTrustTier(opts.SourceTrustTier)
+	execCtx.MountCeiling = opts.MountCeiling
 	execCtx.Env.RuntimeEnvFiles = opts.EnvFiles
 	execCtx.Env.RuntimeEnvVars = opts.EnvVars
 	execCtx.Env.StripProgramResumeToken = opts.StripProgramResumeToken
@@ -357,5 +364,18 @@ func projectVariadicArgEnvVars(opts BuildExecutionContextOptions, execCtx *runti
 func projectFlagEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
 	for name, value := range opts.FlagValues {
 		execCtx.Env.ExtraEnv[invowkfile.FlagNameToEnvVar(name)] = value
+	}
+}
+
+func translateMountTrustTier(tier discovery.SourceTrustTier) runtime.MountTrustTier {
+	switch tier {
+	case discovery.SourceTrustTierContained:
+		return runtime.MountTrustTierContained
+	case discovery.SourceTrustTierLocalCwd:
+		return runtime.MountTrustTierLocalCwd
+	case discovery.SourceTrustTierInclude:
+		return runtime.MountTrustTierInclude
+	default:
+		return ""
 	}
 }

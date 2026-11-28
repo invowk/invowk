@@ -117,6 +117,35 @@ import "strings"
 	memory_limit?: string & =~"^[0-9]+([KkMmGg][Bb]?)?$" & strings.MaxRunes(32)
 })
 
+// WorkspaceMountRoot selects which host directory is mounted at /workspace in container runtime.
+#WorkspaceMountRoot: "invowkfile" | "workdir"
+
+// WorkspaceMountSELinuxLabel controls SELinux relabeling on the /workspace bind-mount.
+#WorkspaceMountSELinuxLabel: "auto" | "shared" | "private" | "none"
+
+// WorkspaceMountConfig configures the automatic /workspace bind-mount for container execution.
+#WorkspaceMountConfig: close({
+	// enabled controls whether Invowk bind-mounts a host directory at /workspace.
+	// Default: true
+	enabled?: bool
+
+	// root selects which host directory is mounted at /workspace:
+	// - "invowkfile": directory containing the invowkfile or module (default)
+	// - "workdir": resolved effective workdir (subject to 3-tier containment)
+	root?: #WorkspaceMountRoot
+
+	// readonly mounts /workspace read-only (:ro) when true.
+	// Default: false
+	readonly?: bool
+
+	// selinux_label controls SELinux relabeling on /workspace:
+	// - "auto": apply :z when the container engine enforces SELinux (default)
+	// - "shared": always apply :z
+	// - "private": always apply :Z
+	// - "none": omit :z/:Z on /workspace (keeps host SELinux xattrs untouched)
+	selinux_label?: #WorkspaceMountSELinuxLabel
+})
+
 #RuntimeConfigContainer: #RuntimeConfigContainerWithImage | #RuntimeConfigContainerWithContainerfile
 
 #RuntimeConfigContainerBase: {
@@ -129,6 +158,10 @@ import "strings"
 	// INVOWK_SSH_USER, INVOWK_SSH_TOKEN, INVOWK_SSH_ENABLED
 	// Default: false
 	enable_host_ssh?: bool
+
+	// workspace_mount configures the /workspace bind-mount for container execution (optional).
+	// Default when omitted: enabled: true, root: "invowkfile", readonly: false, selinux_label: "auto".
+	workspace_mount?: #WorkspaceMountConfig
 
 	// volumes specifies volume mounts in "host:container" format (optional)
 	// Example: ["./data:/data", "/tmp:/tmp:ro"]

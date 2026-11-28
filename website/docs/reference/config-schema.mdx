@@ -54,7 +54,7 @@ If the preferred engine is not available, Invowk falls back to the other engine 
 **Required:** No
 **Default:** `[]`
 
-Additional modules to include in command discovery. Each entry specifies a path to an `*.invowkmod` directory with an optional `alias` for collision disambiguation.
+Additional modules to include in command discovery. Each entry specifies a path to an `*.invowkmod` directory with an optional `alias` for collision disambiguation and an optional absolute `workspace_root` containment ceiling for container mounts.
 
 <Snippet id="reference/config/includes" />
 
@@ -131,7 +131,7 @@ Use `llm.api` for OpenAI-compatible endpoints when you want to configure an API 
 
 **Type:** `#ContainerConfig`
 **Required:** No
-**Default:** `{auto_provision: {enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}, tui_server_bind: "restricted"}`
+**Default:** `{auto_provision: {enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}, tui_server_bind: "restricted", selinux_labeling: "enabled"}`
 
 Container runtime configuration.
 
@@ -322,6 +322,14 @@ Controls how widely the TUI server of an interactive container run (`-i`) may li
 <Snippet id="reference/config/container-tui-server-bind" />
 
 This key is user configuration only: invowk reads it from the config file it selects, the `--ivk-config` or `INVOWK_CONFIG` file when one is given (your user config file is then not read), otherwise your user config file. It never reads it from an invowkfile or module, so a repository cannot widen the bind. It has no effect in Flatpak without `--share=network`, where no bind is reachable from the engine's containers. For a remote engine (a Docker endpoint other than a local `unix://`, `npipe://` or `fd://` socket, `podman-remote`, Podman machine) it helps only if the engine's host alias leads back to this machine. See [Interactive mode](../advanced/interactive-mode.mdx#container-runtime-support) for the per-engine rules.
+
+### selinux_labeling
+
+**Type:** `"enabled" | "disabled"`
+**Required:** No
+**Default:** `"enabled"`
+
+Operator-only policy controlling SELinux confinement and automatic volume labeling for containers. When `"enabled"` (default), `:z` relabeling is applied automatically by both Podman (when `/sys/fs/selinux` enforces SELinux) and Docker (when `docker info` reports `name=selinux`), unless overridden by `workspace_mount.selinux_label`. Set to `"disabled"` to pass `--security-opt label=disable` and suppress automatic `:z` volume relabeling. Only read from operator configuration (`config.cue`), never from invowkfiles or modules.
 
 ---
 

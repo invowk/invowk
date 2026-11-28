@@ -443,8 +443,7 @@ func setupTestInvowkfile(t *testing.T) (string, *invowkfile.Invowkfile) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath:   invowkfile.FilesystemPath(invowkfilePath),
-		ModulePath: invowkfile.FilesystemPath(tmpDir),
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	return tmpDir, inv

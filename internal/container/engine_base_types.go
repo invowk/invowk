@@ -23,6 +23,15 @@ const (
 	SELinuxLabelShared SELinuxLabel = "z"
 	// SELinuxLabelPrivate restricts the volume to a single container.
 	SELinuxLabelPrivate SELinuxLabel = "Z"
+
+	// VolumeMountSELinuxAuto applies :z automatically when the engine enforces SELinux.
+	VolumeMountSELinuxAuto VolumeMountSELinuxMode = ""
+	// VolumeMountSELinuxShared always applies :z to the mount (unless disabled by operator config).
+	VolumeMountSELinuxShared VolumeMountSELinuxMode = "shared"
+	// VolumeMountSELinuxPrivate always applies :Z to the mount (unless disabled by operator config).
+	VolumeMountSELinuxPrivate VolumeMountSELinuxMode = "private"
+	// VolumeMountSELinuxNone omits automatic :z/:Z labels on the mount.
+	VolumeMountSELinuxNone VolumeMountSELinuxMode = "none"
 )
 
 var (
@@ -31,6 +40,8 @@ var (
 
 	// ErrInvalidSELinuxLabel is the sentinel error wrapped by InvalidSELinuxLabelError.
 	ErrInvalidSELinuxLabel = errors.New("invalid SELinux label")
+	// ErrInvalidVolumeMountSELinuxMode is returned when VolumeMountSELinuxMode is unrecognized.
+	ErrInvalidVolumeMountSELinuxMode = errors.New("invalid volume mount SELinux mode")
 
 	// ErrInvalidNetworkPort is the sentinel error wrapped by InvalidNetworkPortError.
 	ErrInvalidNetworkPort = errors.New("invalid network port")
@@ -66,6 +77,18 @@ type (
 	InvalidSELinuxLabelError struct {
 		Value SELinuxLabel
 	}
+
+	// VolumeMountSELinuxMode controls per-mount SELinux labeling behavior.
+	// The zero value ("") means automatic labeling when SELinux is active.
+	VolumeMountSELinuxMode string
+
+	// InvalidVolumeMountSELinuxModeError is returned when VolumeMountSELinuxMode is invalid.
+	InvalidVolumeMountSELinuxModeError struct {
+		Value VolumeMountSELinuxMode
+	}
+
+	// VolumeSELinuxModes maps individual VolumeMountSpec entries to per-mount SELinux modes.
+	VolumeSELinuxModes map[VolumeMountSpec]VolumeMountSELinuxMode
 
 	// NetworkPort represents a TCP/UDP port number for container port mappings.
 	// A valid port must be greater than zero.
@@ -178,6 +201,43 @@ func (s SELinuxLabel) Validate() error {
 
 // String returns the string representation of the SELinuxLabel.
 func (s SELinuxLabel) String() string { return string(s) }
+
+// Error implements the error interface for InvalidVolumeMountSELinuxModeError.
+func (e *InvalidVolumeMountSELinuxModeError) Error() string {
+	return fmt.Sprintf("invalid volume SELinux mode %q (valid: empty, shared, private, none)", e.Value)
+}
+
+// Unwrap returns ErrInvalidVolumeMountSELinuxMode for errors.Is() compatibility.
+func (e *InvalidVolumeMountSELinuxModeError) Unwrap() error {
+	return ErrInvalidVolumeMountSELinuxMode
+}
+
+// String returns the string representation of VolumeMountSELinuxMode.
+func (m VolumeMountSELinuxMode) String() string { return string(m) }
+
+// Validate returns nil if VolumeMountSELinuxMode is empty (auto) or a recognized mode.
+func (m VolumeMountSELinuxMode) Validate() error {
+	switch m {
+	case VolumeMountSELinuxAuto, VolumeMountSELinuxShared, VolumeMountSELinuxPrivate, VolumeMountSELinuxNone:
+		return nil
+	default:
+		return &InvalidVolumeMountSELinuxModeError{Value: m}
+	}
+}
+
+// Validate returns nil if all volume SELinux mode overrides in the map are valid.
+func (m VolumeSELinuxModes) Validate() error {
+	var errs []error
+	for spec, mode := range m {
+		if err := spec.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+		if err := mode.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
 
 // String returns the string representation of the NetworkPort.
 func (p NetworkPort) String() string { return fmt.Sprintf("%d", p) }

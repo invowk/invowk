@@ -819,6 +819,16 @@ platforms: [
     memory_limit?: string
 })
 
+#WorkspaceMountRoot: "invowkfile" | "workdir"
+#WorkspaceMountSELinuxLabel: "auto" | "shared" | "private" | "none"
+
+#WorkspaceMountConfig: close({
+    enabled?:       bool
+    root?:          #WorkspaceMountRoot
+    readonly?:      bool
+    selinux_label?: #WorkspaceMountSELinuxLabel
+})
+
 // Container runtime: exactly one source + extras
 #RuntimeConfigContainerBase: {
     #RuntimeConfigBase...
@@ -826,6 +836,7 @@ platforms: [
     enable_host_ssh?:  bool
     volumes?:          [...string]
     ports?:            [...string]
+    workspace_mount?:  #WorkspaceMountConfig
     persistent?: close({
         create_if_missing?: bool
         name?:              #ContainerName

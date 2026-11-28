@@ -365,9 +365,20 @@ Use `--ivk-container-name` para direcionar um container em execução já existe
 **Tipo:** `[...string]`  
 **Disponível para:** `container`
 
-Montagens de volume no formato `host:container[:options]`.
+Montagens de volume no formato `host:container[:options]`. Caminhos relativos do host são resolvidos a partir do diretório do invowkfile/módulo (sujeito à contenção em camadas); módulos `*.invowkmod` permitem apenas volumes nomeados ou caminhos relativos dentro de seu teto de contenção.
 
 <Snippet id="reference/invowkfile/volumes-example" />
+
+### workspace_mount
+
+**Tipo:** `{enabled?: bool, root?: "invowkfile" | "workdir", readonly?: bool, selinux_label?: "auto" | "shared" | "private" | "none"}`  
+**Disponível para:** `container`
+
+Configura a montagem `/workspace` do container:
+- `enabled`: se `/workspace` é montado (`true` por padrão; `false` omite a montagem e omite `-w` quando não há workdir explícito de container).
+- `root`: diretório do host montado em `/workspace` — `"invowkfile"` (padrão) ou `"workdir"` (workdir efetivo resolvido, sujeito à contenção em três camadas).
+- `readonly`: monta `/workspace` com `:ro` quando `true` (`false` por padrão).
+- `selinux_label`: controla a rotulagem SELinux em `/workspace` — `"auto"` (padrão), `"shared"` (`:z`), `"private"` (`:Z`) ou `"none"`.
 
 ### ports
 

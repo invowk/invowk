@@ -161,13 +161,15 @@ func (r *ContainerRuntime) reusePersistentContainer(ctx *ExecutionContext, info 
 func (r *ContainerRuntime) persistentCreateOptions(ctx *ExecutionContext, prep *containerExecPrep, target persistentContainerTarget) container.CreateOptions {
 	labels := persistentContainerLabels(ctx, prep, target)
 	return container.CreateOptions{
-		Image:      prep.image,
-		Command:    slices.Clone(persistentContainerIdleCommand),
-		Labels:     labels,
-		Volumes:    slices.Clone(prep.volumes),
-		Ports:      slices.Clone(prep.ports),
-		Name:       target.name,
-		ExtraHosts: slices.Clone(prep.extraHosts),
+		Image:                  prep.image,
+		Command:                slices.Clone(persistentContainerIdleCommand),
+		Labels:                 labels,
+		Volumes:                slices.Clone(prep.volumes),
+		VolumeSELinuxModes:     maps.Clone(prep.volumeSELinuxModes),
+		DisableSELinuxLabeling: prep.disableSELinuxLabeling,
+		Ports:                  slices.Clone(prep.ports),
+		Name:                   target.name,
+		ExtraHosts:             slices.Clone(prep.extraHosts),
 	}
 }
 
@@ -202,6 +204,14 @@ func persistentContainerSpecHash(prep *containerExecPrep) string {
 	}
 	for _, volume := range slices.Clone(prep.volumes) {
 		parts = append(parts, "volume="+string(volume))
+	}
+	for vol, mode := range prep.volumeSELinuxModes {
+		if mode != "" {
+			parts = append(parts, "selinux_mode:"+string(vol)+"="+string(mode))
+		}
+	}
+	if prep.disableSELinuxLabeling {
+		parts = append(parts, "disable_selinux_labeling=true")
 	}
 	for _, port := range slices.Clone(prep.ports) {
 		parts = append(parts, "port="+string(port))

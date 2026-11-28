@@ -28,6 +28,7 @@ import (
 var (
 	pathMatrixCoverage = map[string]pathMatrixCoverageEntry{
 		"internal/app/deps.ValidateFilepathAlternativesWithProbe":   {testFile: "internal/app/deps/filepaths_test.go", testFunc: "TestValidateFilepathAlternatives_Matrix"},
+		"internal/config.IncludeWorkspaceRootPath.Validate":         {testFile: "internal/config/container_mount_types_test.go", testFunc: "TestIncludeWorkspaceRootPath_Validate_Matrix"},
 		"internal/config.ModuleIncludePath.Validate":                {testFile: "internal/config/types_test.go", testFunc: "TestModuleIncludePath_Validate_Matrix"},
 		"internal/container.ResolveDockerfilePath":                  {testFile: "internal/container/engine_base_volume_test.go", testFunc: "TestResolveDockerfilePath_Matrix"},
 		"internal/container.VolumeMountSpec.Validate":               {testFile: "internal/container/engine_types_test.go", testFunc: "TestVolumeMountSpec_Validate_Matrix"},
@@ -114,9 +115,13 @@ var (
 			testFile: "internal/runtime/container_test.go",
 			reason:   "container workdirs use a Linux-container path dialect rather than the host-path seven-vector contract",
 		},
-		"internal/runtime.isContainerAbsolutePath": {
-			testFile: "internal/runtime/container_provision_test.go",
-			reason:   "predicate intentionally recognizes only Linux-container absolute paths",
+		"internal/runtime.isExplicitContainerOnlyRawWorkDir": {
+			testFile: "internal/runtime/container_mounts_test.go",
+			reason:   "classifies Linux container-absolute workdir paths while treating Windows drive/UNC syntax as host paths",
+		},
+		"internal/runtime.resolveContainerWorkDirTarget": {
+			testFile: "internal/runtime/container_mounts_test.go",
+			reason:   "maps already-resolved physical host paths to Linux container mount targets or fails closed",
 		},
 		"internal/runtime.LuaScriptOptions.validateScriptBasePath": {
 			testFile: "internal/runtime/lua_test.go",

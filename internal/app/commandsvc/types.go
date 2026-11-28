@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
@@ -154,6 +155,22 @@ type (
 		// PersistentContainerCreateIfMissing reports whether invowk would create
 		// a missing managed persistent container.
 		PersistentContainerCreateIfMissing bool
+		// ContainerWorkspaceMountEnabled reports whether /workspace is mounted for container execution.
+		ContainerWorkspaceMountEnabled bool
+		// ContainerWorkspaceHostRoot is the resolved host path mounted at /workspace, if enabled.
+		ContainerWorkspaceHostRoot types.FilesystemPath //goplint:ignore -- optional nonzero path validated when non-empty.
+		// ContainerWorkspaceTarget is the container workspace mount target path ("/workspace").
+		ContainerWorkspaceTarget container.MountTargetPath //goplint:ignore -- optional nonzero path validated when non-empty.
+		// ContainerWorkspaceReadonly reports whether /workspace is mounted read-only.
+		ContainerWorkspaceReadonly bool
+		// ContainerWorkspaceSELinuxLabel is the configured workspace SELinux labeling mode.
+		ContainerWorkspaceSELinuxLabel invowkfile.WorkspaceMountSELinuxLabel
+		// ContainerWorkspaceVolumeSpec is the synthesized /workspace mount spec, if enabled.
+		ContainerWorkspaceVolumeSpec container.VolumeMountSpec //goplint:ignore -- optional nonzero mount spec validated when non-empty.
+		// ContainerResolvedVolumes lists resolved volume mount specifications.
+		ContainerResolvedVolumes []container.VolumeMountSpec
+		// ContainerWorkDir is the mapped container -w directory, or empty when image WORKDIR is kept.
+		ContainerWorkDir container.MountTargetPath //goplint:ignore -- optional nonzero path validated when non-empty.
 		// Script is the selected implementation script source.
 		Script invowkfile.ImplementationScript
 		// ScriptInterpreter describes effective interpreter selection for the script.

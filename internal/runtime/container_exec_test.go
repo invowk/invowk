@@ -120,8 +120,18 @@ func TestContainerRuntimeExecuteCaptureUsesScriptInterpreter(t *testing.T) {
 	if got[0] != "python3" {
 		t.Fatalf("container command[0] = %q, want python3", got[0])
 	}
-	if !strings.HasPrefix(got[1], "/workspace/invowk-script-") || !strings.HasSuffix(got[1], ".py") {
-		t.Fatalf("container script path = %q, want /workspace/invowk-script-*.py", got[1])
+	if got[1] != "/.invowk/tmp/invowk-script.py" {
+		t.Fatalf("container script path = %q, want /.invowk/tmp/invowk-script.py", got[1])
+	}
+	var hasTmpMount bool
+	for _, v := range engine.RunCalls[0].Volumes {
+		if strings.HasSuffix(string(v), ":/.invowk/tmp:ro") {
+			hasTmpMount = true
+			break
+		}
+	}
+	if !hasTmpMount {
+		t.Fatalf("RunCalls[0].Volumes = %v, want decoupled :/.invowk/tmp:ro mount", engine.RunCalls[0].Volumes)
 	}
 }
 

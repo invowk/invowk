@@ -67,4 +67,9 @@ const (
 	codeCorrelatorMediumPlusMedium           FindingCode = "correlator-medium-plus-medium"
 	codePrivilegeWorldWritableFile           FindingCode = "privilege-integrity-elevated-command-uses-world-writable-file"
 	codePrivilegeGroupWritableFile           FindingCode = "privilege-integrity-elevated-command-uses-group-writable-file"
+	codeContainerModuleAbsoluteVolume        FindingCode = "container-mount-module-uses-absolute-host-volume"
+	codeContainerMountParentTraversal        FindingCode = "container-mount-parent-directory-traversal"
+	codeContainerWorkdirRootTraversal        FindingCode = "container-mount-workdir-root-traversal"
+	codeContainerStandaloneSensitiveMount    FindingCode = "container-mount-standalone-sensitive-host-path"
+	codeContainerSELinuxLabelNone            FindingCode = "container-selinux-workspace-labeling-disabled"
 )

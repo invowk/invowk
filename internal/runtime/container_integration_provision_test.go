@@ -83,7 +83,8 @@ func TestContainerRuntime_ProvisioningLayer_ScriptFileExecution(t *testing.T) {
 
 	tmpDir, inv := setupTestInvowkfile(t)
 
-	// Create an executable script file in the invowkfile directory
+	// Create an executable script file in the invowkfile directory (script.file requires a module context)
+	inv.ModulePath = invowkfile.FilesystemPath(tmpDir)
 	scriptFileName := "test-script.sh"
 	scriptContent := `#!/bin/sh
 echo "Script executed from /workspace"

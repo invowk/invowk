@@ -283,6 +283,9 @@ type (
 		Path ModuleIncludePath `json:"path" mapstructure:"path"`
 		// Alias optionally overrides the module identifier for collision disambiguation.
 		Alias invowkmod.ModuleAlias `json:"alias,omitempty" mapstructure:"alias"`
+		// WorkspaceRoot optionally grants an explicit absolute host ceiling for
+		// container workspace_mount and relative volumes of an included module.
+		WorkspaceRoot IncludeWorkspaceRootPath `json:"workspace_root,omitempty" mapstructure:"workspace_root"`
 	}
 
 	//goplint:validate-all
@@ -343,6 +346,8 @@ type (
 		AutoProvision AutoProvisionConfig `json:"auto_provision" mapstructure:"auto_provision"`
 		// TUIServerBind selects the TUI server bind policy for container runs.
 		TUIServerBind TUIServerBind `json:"tui_server_bind" mapstructure:"tui_server_bind"`
+		// SELinuxLabeling selects whether SELinux volume labeling and confinement are enabled.
+		SELinuxLabeling SELinuxLabeling `json:"selinux_labeling" mapstructure:"selinux_labeling"`
 	}
 
 	//goplint:validate-all
@@ -418,33 +423,6 @@ func (e IncludeEntry) IsModule() bool {
 	_, err := invowkmod.ParseModuleName(filepath.Base(string(e.Path)))
 	return err == nil
 }
-
-// Validate returns an error if the IncludeEntry has invalid fields.
-// It delegates to Path.Validate() unconditionally and to Alias.Validate()
-// only when non-empty (the zero-value alias is always valid).
-func (e IncludeEntry) Validate() error {
-	var errs []error
-	if err := e.Path.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if e.Alias != "" {
-		if err := e.Alias.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if len(errs) > 0 {
-		return &InvalidIncludeEntryError{FieldErrors: errs}
-	}
-	return nil
-}
-
-// Error implements the error interface for InvalidIncludeEntryError.
-func (e *InvalidIncludeEntryError) Error() string {
-	return types.FormatFieldErrors("include entry", e.FieldErrors)
-}
-
-// Unwrap returns ErrInvalidIncludeEntry for errors.Is() compatibility.
-func (e *InvalidIncludeEntryError) Unwrap() error { return ErrInvalidIncludeEntry }
 
 // Validate returns nil if the include collection field is recognized.
 func (f IncludeCollectionField) Validate() error {
@@ -781,35 +759,6 @@ func (e *InvalidAutoProvisionConfigError) Unwrap() error {
 		return ErrInvalidAutoProvisionConfig
 	}
 	return errors.Join(ErrInvalidAutoProvisionConfig, errors.Join(e.FieldErrors...))
-}
-
-// Validate returns an error if the ContainerConfig has invalid fields.
-// It delegates to AutoProvision.Validate().
-func (c ContainerConfig) Validate() error {
-	var errs []error
-	if err := c.AutoProvision.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := c.TUIServerBind.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if len(errs) > 0 {
-		return &InvalidContainerConfigError{FieldErrors: errs}
-	}
-	return nil
-}
-
-// Error implements the error interface for InvalidContainerConfigError.
-func (e *InvalidContainerConfigError) Error() string {
-	return types.FormatFieldErrors("container config", e.FieldErrors)
-}
-
-// Unwrap returns ErrInvalidContainerConfig and field errors for errors.Is/errors.As compatibility.
-func (e *InvalidContainerConfigError) Unwrap() error {
-	if e == nil {
-		return ErrInvalidContainerConfig
-	}
-	return errors.Join(ErrInvalidContainerConfig, errors.Join(e.FieldErrors...))
 }
 
 // Validate returns an error if the Config has invalid fields.

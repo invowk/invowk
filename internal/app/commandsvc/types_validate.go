@@ -216,6 +216,34 @@ func (p DryRunPlan) Validate() error {
 			errs = append(errs, err)
 		}
 	}
+	if p.ContainerWorkspaceHostRoot != "" {
+		if err := p.ContainerWorkspaceHostRoot.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if p.ContainerWorkspaceTarget != "" {
+		if err := p.ContainerWorkspaceTarget.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := p.ContainerWorkspaceSELinuxLabel.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if p.ContainerWorkspaceVolumeSpec != "" {
+		if err := p.ContainerWorkspaceVolumeSpec.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, vol := range p.ContainerResolvedVolumes {
+		if err := vol.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if p.ContainerWorkDir != "" {
+		if err := p.ContainerWorkDir.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	if err := p.Script.Validate(); err != nil {
 		errs = append(errs, err)
 	}

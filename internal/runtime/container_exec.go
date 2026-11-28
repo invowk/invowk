@@ -25,19 +25,21 @@ type (
 	// This struct is returned by prepareContainerExecution and used by both
 	// Execute and ExecuteCapture to avoid code duplication.
 	containerExecPrep struct {
-		image          container.ImageTag
-		shellCmd       []string
-		workDir        container.MountTargetPath
-		env            map[string]string
-		volumes        []container.VolumeMountSpec
-		ports          []container.PortMappingSpec
-		extraHosts     []container.HostMapping
-		containerCfg   invowkfileContainerConfig
-		imagePrepared  bool
-		diagnostics    []InitDiagnostic
-		sshConnInfo    *HostCallbackConnectionInfo
-		tempScriptPath types.FilesystemPath
-		cleanup        func() // Combined cleanup for provisioning and temp files
+		image                  container.ImageTag
+		shellCmd               []string
+		workDir                container.MountTargetPath
+		env                    map[string]string
+		volumes                []container.VolumeMountSpec
+		volumeSELinuxModes     container.VolumeSELinuxModes
+		disableSELinuxLabeling bool
+		ports                  []container.PortMappingSpec
+		extraHosts             []container.HostMapping
+		containerCfg           invowkfileContainerConfig
+		imagePrepared          bool
+		diagnostics            []InitDiagnostic
+		sshConnInfo            *HostCallbackConnectionInfo
+		tempScriptPath         types.FilesystemPath
+		cleanup                func() // Combined cleanup for provisioning and temp files
 	}
 
 	containerExecOptions struct {
@@ -62,13 +64,13 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	var provisionCleanup func()
 	var sshConnInfo *HostCallbackConnectionInfo
 	var tempScriptPath types.FilesystemPath
-	var tempScriptCleanupPath string
+	var tempScriptCleanupDirs []string
 	var pCleanup func()
 
 	defer func() {
 		if errResult != nil {
-			if tempScriptCleanupPath != "" {
-				_ = os.Remove(tempScriptCleanupPath)
+			for _, dir := range tempScriptCleanupDirs {
+				_ = os.RemoveAll(dir)
 			}
 			if sshConnInfo != nil {
 				r.hostCallbacks.RevokeToken(sshConnInfo.Token)
@@ -86,12 +88,25 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	}
 	containerCfg := containerConfigFromRuntime(rtConfig)
 	invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
+	if ctx.Invowkfile.ModulePath != "" {
+		invowkDir = string(ctx.Invowkfile.ModulePath)
+	}
 
 	// Validate explicit image policy before provisioning rewrites image tags.
 	if containerCfg.Image != "" {
 		if err := container.ValidateSupportedRuntimeImage(containerCfg.Image); err != nil {
 			return nil, NewErrorResult(1, err)
 		}
+	}
+
+	mountPlan, err := resolveContainerMountPlanForDir(ctx, rtConfig, invowkDir)
+	if err != nil {
+		return nil, NewErrorResult(1, err)
+	}
+
+	isPersistent, err := persistentContainerRequested(ctx, containerCfg)
+	if err != nil {
+		return nil, NewErrorResult(1, err)
 	}
 
 	skipImagePrep, existingExternalCLI, err := r.shouldSkipPersistentImagePreparation(ctx, containerCfg)
@@ -150,12 +165,20 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 		}
 	}
 
-	// Prepare volumes
-	volumes := containerCfg.Volumes
-	// Always mount the invowkfile directory. Convert host path to forward slashes
-	// so the volume-mount validator does not reject Windows backslashes; both
-	// Docker and Podman accept forward slashes in Windows host paths.
-	volumes = append(volumes, container.VolumeMountSpec(filepath.ToSlash(invowkDir)+":/workspace")) //goplint:ignore -- constructed from known-good directory + constant mount target
+	// Prepare volumes and per-mount SELinux policies
+	volumes := make([]container.VolumeMountSpec, 0, len(mountPlan.ResolvedVolumes)+2)
+	for _, rv := range mountPlan.ResolvedVolumes {
+		volumes = append(volumes, rv.ResolvedSpec)
+	}
+	var volumeSELinuxModes container.VolumeSELinuxModes
+	if mountPlan.WorkspaceEnabled {
+		volumes = append(volumes, mountPlan.WorkspaceVolumeSpec)
+		if mode := workspaceSELinuxMode(mountPlan.WorkspaceSELinuxLabel); mode != container.VolumeMountSELinuxAuto {
+			volumeSELinuxModes = container.VolumeSELinuxModes{
+				mountPlan.WorkspaceVolumeSpec: mode,
+			}
+		}
+	}
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
 	interpInfo := ctx.SelectedImpl.Script.ResolveInterpreterFromScript(script)
@@ -164,19 +187,23 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	var shellCmd []string
 
 	if interpInfo.Found {
-		// Use the resolved interpreter
-		var tempFile string
-		shellCmd, tempFile, err = r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir)
-		if err != nil {
-			return nil, NewErrorResult(1, err)
+		interpSpec, interpErr := r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir, mountPlan, isPersistent)
+		if interpErr != nil {
+			return nil, NewErrorResult(1, interpErr)
 		}
-		if tempFile != "" {
-			candidate := types.FilesystemPath(tempFile)
+		shellCmd = interpSpec.command
+		if interpSpec.extraVolume != nil {
+			volumes = append(volumes, *interpSpec.extraVolume)
+		}
+		if interpSpec.tempCleanupDir != "" {
+			tempScriptCleanupDirs = append(tempScriptCleanupDirs, interpSpec.tempCleanupDir)
+		}
+		if interpSpec.tempScriptPath != "" {
+			candidate := types.FilesystemPath(interpSpec.tempScriptPath) //goplint:ignore -- validated immediately below.
 			if err := candidate.Validate(); err != nil {
 				return nil, NewErrorResult(1, fmt.Errorf("temp script path: %w", err))
 			}
 			tempScriptPath = candidate
-			tempScriptCleanupPath = tempFile
 		}
 	} else {
 		// Use default shell execution
@@ -189,9 +216,6 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 		}
 	}
 
-	// Determine working directory using the hierarchical override model
-	workDir := r.getContainerWorkDir(ctx, invowkDir)
-
 	// Build extra hosts for SSH server access
 	var extraHosts []container.HostMapping
 	if (hostSSHEnabled && sshConnInfo != nil) || (opts.interactiveTUI && ctx.TUI.ServerURL != "") {
@@ -200,9 +224,10 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	}
 
 	// Build combined cleanup function (used on success path by the caller)
+	cleanupDirs := tempScriptCleanupDirs
 	cleanup := func() {
-		if tempScriptCleanupPath != "" {
-			_ = os.Remove(tempScriptCleanupPath) // Cleanup temp file; error non-critical
+		for _, dir := range cleanupDirs {
+			_ = os.RemoveAll(dir) // Cleanup temp dir; error non-critical
 		}
 		if sshConnInfo != nil {
 			r.hostCallbacks.RevokeToken(sshConnInfo.Token)
@@ -225,25 +250,31 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 			return nil, NewErrorResult(1, fmt.Errorf("container image tag: %w", err))
 		}
 	}
-	mountTarget := container.MountTargetPath(workDir)
-	if err := mountTarget.Validate(); err != nil {
-		return nil, NewErrorResult(1, fmt.Errorf("container work dir: %w", err))
+	var mountTarget container.MountTargetPath
+	if mountPlan.WorkDir != "" {
+		mountTarget = mountPlan.WorkDir
+		if err := mountTarget.Validate(); err != nil {
+			return nil, NewErrorResult(1, fmt.Errorf("container work dir: %w", err))
+		}
 	}
+	disableSELinuxLabeling := r.cfg != nil && r.cfg.Container.SELinuxLabeling.IsDisabled()
 
 	return &containerExecPrep{
-		image:          imageTag,
-		shellCmd:       shellCmd,
-		workDir:        mountTarget,
-		env:            env,
-		volumes:        volumes,
-		ports:          containerCfg.Ports,
-		extraHosts:     extraHosts,
-		containerCfg:   containerCfg,
-		imagePrepared:  !skipImagePrep,
-		diagnostics:    provisionDiags,
-		sshConnInfo:    sshConnInfo,
-		tempScriptPath: tempScriptPath,
-		cleanup:        cleanup,
+		image:                  imageTag,
+		shellCmd:               shellCmd,
+		workDir:                mountTarget,
+		env:                    env,
+		volumes:                volumes,
+		volumeSELinuxModes:     volumeSELinuxModes,
+		disableSELinuxLabeling: disableSELinuxLabeling,
+		ports:                  containerCfg.Ports,
+		extraHosts:             extraHosts,
+		containerCfg:           containerCfg,
+		imagePrepared:          !skipImagePrep,
+		diagnostics:            provisionDiags,
+		sshConnInfo:            sshConnInfo,
+		tempScriptPath:         tempScriptPath,
+		cleanup:                cleanup,
 	}, nil
 }
 
@@ -405,19 +436,21 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	// Run the container
 	runOpts := container.RunOptions{
-		Image:       prep.image,
-		Command:     prep.shellCmd,
-		WorkDir:     prep.workDir,
-		Env:         prep.env,
-		Volumes:     prep.volumes,
-		Ports:       prep.ports,
-		Remove:      true, // Always remove after execution
-		Name:        activeName,
-		Stdin:       ctx.IO.Stdin,
-		Stdout:      ctx.IO.Stdout,
-		Stderr:      ctx.IO.Stderr,
-		Interactive: ctx.IO.Stdin != nil,
-		ExtraHosts:  prep.extraHosts,
+		Image:                  prep.image,
+		Command:                prep.shellCmd,
+		WorkDir:                prep.workDir,
+		Env:                    prep.env,
+		Volumes:                prep.volumes,
+		VolumeSELinuxModes:     prep.volumeSELinuxModes,
+		DisableSELinuxLabeling: prep.disableSELinuxLabeling,
+		Ports:                  prep.ports,
+		Remove:                 true, // Always remove after execution
+		Name:                   activeName,
+		Stdin:                  ctx.IO.Stdin,
+		Stdout:                 ctx.IO.Stdout,
+		Stderr:                 ctx.IO.Stderr,
+		Interactive:            ctx.IO.Stdin != nil,
+		ExtraHosts:             prep.extraHosts,
 	}
 
 	result, usedName, err := r.runWithRetry(ctx.Context, runOpts)
@@ -478,19 +511,21 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	// Run the container with output capture
 	runOpts := container.RunOptions{
-		Image:       prep.image,
-		Command:     prep.shellCmd,
-		WorkDir:     prep.workDir,
-		Env:         prep.env,
-		Volumes:     prep.volumes,
-		Ports:       prep.ports,
-		Remove:      true, // Always remove after execution
-		Name:        activeName,
-		Stdin:       nil,     // No stdin for capture mode
-		Stdout:      &stdout, // Capture stdout
-		Stderr:      &stderr, // Capture stderr
-		Interactive: false,   // Non-interactive for capture mode
-		ExtraHosts:  prep.extraHosts,
+		Image:                  prep.image,
+		Command:                prep.shellCmd,
+		WorkDir:                prep.workDir,
+		Env:                    prep.env,
+		Volumes:                prep.volumes,
+		VolumeSELinuxModes:     prep.volumeSELinuxModes,
+		DisableSELinuxLabeling: prep.disableSELinuxLabeling,
+		Ports:                  prep.ports,
+		Remove:                 true, // Always remove after execution
+		Name:                   activeName,
+		Stdin:                  nil,     // No stdin for capture mode
+		Stdout:                 &stdout, // Capture stdout
+		Stderr:                 &stderr, // Capture stderr
+		Interactive:            false,   // Non-interactive for capture mode
+		ExtraHosts:             prep.extraHosts,
 	}
 
 	result, usedName, err := r.runWithRetry(ctx.Context, runOpts)

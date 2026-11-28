@@ -54,7 +54,7 @@ Se a engine preferida não estiver disponível, o Invowk faz fallback para a out
 **Obrigatório:** Não
 **Padrão:** `[]`
 
-Módulos adicionais para incluir na descoberta de comandos. Cada entrada especifica um caminho para um diretório `*.invowkmod` com um `alias` opcional para desambiguação de colisões.
+Módulos adicionais para incluir na descoberta de comandos. Cada entrada especifica um caminho para um diretório `*.invowkmod` com um `alias` opcional para desambiguação de colisões e um `workspace_root` absoluto opcional como teto de contenção para montagens de container.
 
 <Snippet id="reference/config/includes" />
 
@@ -130,7 +130,7 @@ Use `llm.api` para endpoints compatíveis com OpenAI quando quiser configurar um
 
 **Tipo:** `#ContainerConfig`
 **Obrigatório:** Não
-**Padrão:** `{auto_provision: {enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}, tui_server_bind: "restricted"}`
+**Padrão:** `{auto_provision: {enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}, tui_server_bind: "restricted", selinux_labeling: "enabled"}`
 
 Configuração para o runtime container.
 
@@ -321,6 +321,14 @@ Controla em quais endereços o servidor TUI de uma execução interativa em cont
 <Snippet id="reference/config/container-tui-server-bind" />
 
 Esta chave é apenas configuração do usuário: o invowk a lê do arquivo de configuração que seleciona, o arquivo de `--ivk-config` ou `INVOWK_CONFIG` quando informado (o seu arquivo de configuração de usuário não é lido nesse caso), senão o seu arquivo de configuração de usuário. Nunca a lê de um invowkfile ou módulo, então um repositório não consegue ampliar o bind. Ela não tem efeito no Flatpak sem `--share=network`, onde nenhum bind é alcançável pelos containers da engine. Para uma engine remota (um endpoint Docker que não seja um socket local `unix://`, `npipe://` ou `fd://`, `podman-remote`, Podman machine) ela só ajuda se o alias de host da engine levar de volta a esta máquina. Veja [Modo interativo](../advanced/interactive-mode.mdx#suporte-ao-runtime-container) para as regras por engine.
+
+### selinux_labeling
+
+**Tipo:** `"enabled" | "disabled"`
+**Obrigatório:** Não
+**Padrão:** `"enabled"`
+
+Política exclusiva do operador que controla o confinamento SELinux e a rotulagem automática de volumes para containers. Quando `"enabled"` (padrão), a rotulagem `:z` é aplicada automaticamente tanto pelo Podman (quando `/sys/fs/selinux` aplica SELinux) quanto pelo Docker (quando `docker info` reporta `name=selinux`), salvo override por `workspace_mount.selinux_label`. Defina `"disabled"` para passar `--security-opt label=disable` e omitir a rotulagem automática `:z`. Lida apenas da configuração do operador (`config.cue`), nunca de invowkfiles ou módulos.
 
 ---
 

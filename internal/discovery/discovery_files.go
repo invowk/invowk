@@ -54,6 +54,11 @@ type (
 		// FromCurrentDir is true when this file was discovered from the
 		// current working directory (./invowkfile.cue or ./*.invowkmod).
 		FromCurrentDir bool
+		// TrustTier records the 3-tier containment level assigned by discovery.
+		TrustTier SourceTrustTier
+		// MountCeiling records the Layer 2 (<cwd>) or Layer 3 (IncludeEntry.workspace_root)
+		// host containment ceiling when applicable.
+		MountCeiling types.FilesystemPath //goplint:ignore -- optional nonzero path validated when non-empty.
 	}
 
 	// ModuleListResult contains discovered modules and any non-fatal diagnostics
@@ -161,6 +166,7 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	// because the working directory was deleted). This prevents filepath.Abs("")
 	// from silently resolving to the process working directory, which may not exist.
 	if d.baseDir != "" {
+		baseCeiling := resolveMountBaseCeiling(d.baseDir)
 		// The invowkfile and subdirectories of a module directory belong strictly
 		// to that module: a current directory that is a module directory (or
 		// strictly inside one) loads nothing as a plain invowkfile or child scan.
@@ -168,6 +174,8 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 		if !isModuleDir {
 			if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
 				cwdFile.FromCurrentDir = true
+				cwdFile.TrustTier = SourceTrustTierLocalCwd
+				cwdFile.MountCeiling = baseCeiling
 				files = append(files, cwdFile)
 			}
 
@@ -176,6 +184,8 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 		}
 		for _, mf := range moduleFiles {
 			mf.FromCurrentDir = true
+			mf.TrustTier = SourceTrustTierLocalCwd
+			mf.MountCeiling = baseCeiling
 		}
 		for i := range moduleDiags {
 			moduleDiags[i] = moduleDiags[i].WithCurrentDir()
@@ -213,6 +223,7 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(d.commandsDir)
 		for i := range userModuleFiles {
 			userModuleFiles[i].IsGlobalModule = true
+			userModuleFiles[i].TrustTier = SourceTrustTierContained
 		}
 		files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags, appended)
 		if verifyErr != nil {
@@ -271,6 +282,7 @@ func applyProvisionedModuleAttributes(moduleFiles []*DiscoveredFile, isGlobal bo
 		if isGlobal {
 			moduleFiles[i].IsGlobalModule = true
 		}
+		moduleFiles[i].TrustTier = SourceTrustTierContained
 		if namespace != "" {
 			moduleFiles[i].CommandNamespace = namespace
 		}
@@ -303,7 +315,20 @@ func (d *Discovery) loadProvisionedModuleWithDiagnostics(entry ProvisionedModule
 		Module:           m,
 		CommandNamespace: entry.CommandNamespace,
 		IsGlobalModule:   isGlobal,
+		TrustTier:        SourceTrustTierContained,
 	}, nil
+}
+
+func resolveMountBaseCeiling(baseDir types.FilesystemPath) types.FilesystemPath {
+	absBaseDir, absErr := filepath.Abs(string(baseDir))
+	if absErr != nil {
+		return baseDir
+	}
+	candidate := types.FilesystemPath(absBaseDir)
+	if err := candidate.Validate(); err != nil {
+		return baseDir
+	}
+	return candidate
 }
 
 // discoverInDir looks for an invowkfile in a specific directory.
@@ -519,10 +544,27 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 			))
 			continue // Skip invalid modules
 		}
+		var mountCeiling types.FilesystemPath
+		if entry.WorkspaceRoot != "" {
+			candidate := types.FilesystemPath(entry.WorkspaceRoot) //goplint:ignore -- validated immediately below.
+			if err := candidate.Validate(); err != nil {
+				diagnostics = append(diagnostics, mustDiagnosticWithCause(
+					SeverityWarning,
+					CodeIncludeModuleLoadFailed,
+					fmt.Sprintf("invalid workspace_root for included module %s: %v", entry.Path, err),
+					includePath,
+					err,
+				))
+				continue
+			}
+			mountCeiling = candidate
+		}
 		files = append(files, &DiscoveredFile{
-			Path:   m.InvowkfilePath(),
-			Source: SourceModule,
-			Module: m,
+			Path:         m.InvowkfilePath(),
+			Source:       SourceModule,
+			Module:       m,
+			TrustTier:    SourceTrustTierInclude,
+			MountCeiling: mountCeiling,
 		})
 	}
 
@@ -678,6 +720,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			Module:           m,
 			ParentModule:     parentModule,
 			CommandNamespace: vendoredCommandNamespace(parentModule.Metadata.Requires, lock, m),
+			TrustTier:        SourceTrustTierContained,
 		})
 	}
 

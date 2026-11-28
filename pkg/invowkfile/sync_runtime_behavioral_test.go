@@ -374,3 +374,41 @@ func TestBehavioralSync_ContainerfilePath(t *testing.T) {
 		},
 	)
 }
+
+// TestBehavioralSync_WorkspaceMountRoot verifies Go WorkspaceMountRoot.Validate()
+// agrees with CUE #WorkspaceMountRoot disjunction ("invowkfile" | "workdir").
+func TestBehavioralSync_WorkspaceMountRoot(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#WorkspaceMountRoot",
+		func(s string) error { return WorkspaceMountRoot(s).Validate() },
+		[]behavioralSyncCase{
+			{"invowkfile", true, true, ""},
+			{"workdir", true, true, ""},
+			{"", true, false, "Go zero-value means default invowkfile; CUE uses optional field"},
+			{"parent", false, false, ""},
+			{"WORKDIR", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_WorkspaceMountSELinuxLabel verifies Go
+// WorkspaceMountSELinuxLabel.Validate() agrees with CUE #WorkspaceMountSELinuxLabel.
+func TestBehavioralSync_WorkspaceMountSELinuxLabel(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#WorkspaceMountSELinuxLabel",
+		func(s string) error { return WorkspaceMountSELinuxLabel(s).Validate() },
+		[]behavioralSyncCase{
+			{"auto", true, true, ""},
+			{"shared", true, true, ""},
+			{"private", true, true, ""},
+			{"none", true, true, ""},
+			{"", true, false, "Go zero-value means default auto; CUE uses optional field"},
+			{"z", false, false, ""},
+			{"NONE", false, false, ""},
+		},
+	)
+}

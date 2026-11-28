@@ -239,5 +239,6 @@ func DefaultCheckers() []Checker {
 		NewSymlinkChecker(),
 		NewModuleMetadataChecker(),
 		NewPrivilegeChecker(),
+		NewContainerMountChecker(),
 	}
 }

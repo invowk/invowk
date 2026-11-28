@@ -196,6 +196,11 @@ type (
 		// CommandFullName is the discovered fully-qualified command namespace.
 		// It is used for deterministic managed persistent container names.
 		CommandFullName invowkfile.CommandName //goplint:ignore -- optional discovery metadata validated when non-empty.
+		// MountTrustTier carries the 3-tier containment level assigned by discovery.
+		MountTrustTier MountTrustTier
+		// MountCeiling carries the Layer 2 (<cwd>) or Layer 3 (IncludeEntry.workspace_root)
+		// host containment ceiling when applicable.
+		MountCeiling types.FilesystemPath //goplint:ignore -- optional nonzero path validated when non-empty.
 		// ExecutionID is a unique identifier for this command execution.
 		ExecutionID ExecutionID
 

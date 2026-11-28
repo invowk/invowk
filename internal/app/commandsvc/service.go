@@ -268,6 +268,22 @@ func newDryRunPlan(
 	plan.PersistentContainerName = persistentPlan.Name()
 	plan.PersistentContainerNameSource = persistentPlan.NameSource().String()
 	plan.PersistentContainerCreateIfMissing = persistentPlan.CreateIfMissing()
+	if execCtx != nil && execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
+		mountPlan, mountErr := runtime.ResolveContainerMountPlan(execCtx)
+		if mountErr != nil {
+			return DryRunPlan{}, mountErr
+		}
+		plan.ContainerWorkspaceMountEnabled = mountPlan.WorkspaceEnabled
+		plan.ContainerWorkspaceHostRoot = mountPlan.WorkspaceHostRoot
+		plan.ContainerWorkspaceTarget = mountPlan.WorkspaceTarget
+		plan.ContainerWorkspaceReadonly = mountPlan.WorkspaceReadonly
+		plan.ContainerWorkspaceSELinuxLabel = mountPlan.WorkspaceSELinuxLabel
+		plan.ContainerWorkspaceVolumeSpec = mountPlan.WorkspaceVolumeSpec
+		plan.ContainerWorkDir = mountPlan.WorkDir
+		for _, rv := range mountPlan.ResolvedVolumes {
+			plan.ContainerResolvedVolumes = append(plan.ContainerResolvedVolumes, rv.ResolvedSpec)
+		}
+	}
 	return plan, nil
 }
 

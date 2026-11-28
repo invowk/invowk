@@ -1,0 +1,180 @@
+# Test: Container workspace_mount, SELinux dry-run, 3-tier containment, and script decoupling
+
+# Part 1: Dry-run validation and resolution (no container engine required)
+cd $WORK
+
+# Default standalone container command mounts /workspace rw with selinux=auto
+exec invowk cmd --ivk-dry-run default-ws
+stdout 'WorkspaceMount: .* -> /workspace \(rw, selinux=auto\)'
+stdout 'ContainerWorkDir: /workspace'
+
+# Disabled workspace_mount omits /workspace mount and leaves ContainerWorkDir as image default
+exec invowk cmd --ivk-dry-run disabled-ws
+stdout 'WorkspaceMount: disabled'
+stdout 'ContainerWorkDir: \(image default\)'
+
+# Root=workdir readonly + selinux=private + relative volume resolved against invowkfile dir
+exec invowk cmd --ivk-dry-run scoped-ws
+stdout 'WorkspaceMount: .*/sub -> /workspace \(ro, selinux=private\)'
+stdout 'ContainerWorkDir: /workspace'
+stdout '/data:ro'
+
+# Module absolute host bind mount in volumes is blocked
+! exec invowk cmd --ivk-dry-run @badvol check
+stderr 'module\s+absolute\s+host\s+volume\s+mount\s+is\s+not\s+allowed'
+
+# Module Layer 2 workdir parent traversal above cwd ceiling is blocked
+! exec invowk cmd --ivk-dry-run @badvol escape-cwd
+stderr '[Cc]ontainer\s+mount\s+policy\s+violation'
+
+# invowk audit detects risky module container mounts
+! exec invowk audit --format json
+stdout 'container-mount-module-uses-absolute-host-volume'
+stdout 'container-mount-workdir-root-traversal'
+
+# Part 2: Real container execution checks (requires functional container engine)
+[!container-available] skip 'no functional container runtime available'
+[in-sandbox] skip 'container tests may require --filesystem permissions in sandbox'
+
+# Disabled workspace_mount does not mount invowkfile dir at /workspace and executes script.file via /.invowk/scripts
+exec invowk cmd @decoupled disabled-script-file
+stdout 'HAS_WORKSPACE=no'
+stdout 'SCRIPT_OK'
+
+# Readonly workspace_mount blocks writes inside /workspace
+exec invowk cmd scoped-ws
+stdout 'READONLY_OK'
+stdout 'DATA_MSG=hello-data'
+
+# Inline interpreter script runs cleanly without leaving temp files inside /workspace
+exec invowk cmd inline-interp
+stdout 'INTERP_OK'
+stdout 'CLEAN_WORKSPACE=yes'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "default-ws"
+		implementations: [{
+			script: {content: "pwd"}
+			runtimes: [{name: "container", image: "debian:stable-slim"}]
+			platforms: [{name: "linux"}]
+		}]
+	},
+	{
+		name: "disabled-ws"
+		implementations: [{
+			script: {content: "pwd"}
+			runtimes: [{
+				name:  "container"
+				image: "debian:stable-slim"
+				workspace_mount: {enabled: false}
+			}]
+			platforms: [{name: "linux"}]
+		}]
+	},
+	{
+		name:    "scoped-ws"
+		workdir: "sub"
+		implementations: [{
+			script: {content: #"""
+				if touch /workspace/should-fail 2>/dev/null; then
+					echo "WRITE_UNEXPECTED"
+					exit 1
+				fi
+				echo "READONLY_OK"
+				echo "DATA_MSG=$(cat /data/msg.txt)"
+				"""#}
+			runtimes: [{
+				name:    "container"
+				image:   "debian:stable-slim"
+				volumes: ["./data:/data:ro"]
+				workspace_mount: {
+					root:          "workdir"
+					readonly:      true
+					selinux_label: "private"
+				}
+			}]
+			platforms: [{name: "linux"}]
+		}]
+	},
+	{
+		name: "inline-interp"
+		implementations: [{
+			script: {
+				content:     "echo INTERP_OK\nif ls /workspace/invowk-script-* >/dev/null 2>&1; then echo CLEAN_WORKSPACE=no; else echo CLEAN_WORKSPACE=yes; fi"
+				interpreter: "sh"
+			}
+			runtimes: [{name: "container", image: "debian:stable-slim"}]
+			platforms: [{name: "linux"}]
+		}]
+	},
+]
+
+-- sub/marker.txt --
+sub-marker
+
+-- data/msg.txt --
+hello-data
+
+-- decoupled.invowkmod/invowkmod.cue --
+module: "decoupled"
+version: "1.0.0"
+
+-- decoupled.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name: "disabled-script-file"
+		implementations: [{
+			script: {file: "scripts/check.sh"}
+			runtimes: [{
+				name:  "container"
+				image: "debian:stable-slim"
+				workspace_mount: {enabled: false}
+			}]
+			platforms: [{name: "linux"}]
+		}]
+	},
+]
+
+-- decoupled.invowkmod/scripts/check.sh --
+#!/bin/sh
+if [ -f /workspace/invowkfile.cue ]; then
+	echo "HAS_WORKSPACE=yes"
+else
+	echo "HAS_WORKSPACE=no"
+fi
+echo "SCRIPT_OK"
+
+-- badvol.invowkmod/invowkmod.cue --
+module: "badvol"
+version: "1.0.0"
+
+-- badvol.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name: "check"
+		implementations: [{
+			script: {content: "ls /secret"}
+			runtimes: [{
+				name:    "container"
+				image:   "debian:stable-slim"
+				volumes: ["/etc:/secret:ro"]
+			}]
+			platforms: [{name: "linux"}]
+		}]
+	},
+	{
+		name:    "escape-cwd"
+		workdir: "../.."
+		implementations: [{
+			script: {content: "pwd"}
+			runtimes: [{
+				name:  "container"
+				image: "debian:stable-slim"
+				workspace_mount: {root: "workdir"}
+			}]
+			platforms: [{name: "linux"}]
+		}]
+	},
+]

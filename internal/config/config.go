@@ -486,13 +486,22 @@ func generateCUE(cfg *Config, forceLLMAPIBlock bool) string {
 func writeConfigCUEIncludes(sb *strings.Builder, includes []IncludeEntry) {
 	sb.WriteString("\nincludes: [\n")
 	for _, entry := range includes {
-		if entry.Alias != "" {
-			fmt.Fprintf(sb, "\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
-		} else {
-			fmt.Fprintf(sb, "\t{path: %q},\n", entry.Path)
-		}
+		writeIncludeEntryCUE(sb, "\t", entry)
 	}
 	sb.WriteString("]\n")
+}
+
+//goplint:ignore -- CUE rendering helper taking indentation string.
+func writeIncludeEntryCUE(sb *strings.Builder, indent string, entry IncludeEntry) {
+	sb.WriteString(indent + "{path: ")
+	fmt.Fprintf(sb, "%q", entry.Path)
+	if entry.Alias != "" {
+		fmt.Fprintf(sb, ", alias: %q", entry.Alias)
+	}
+	if entry.WorkspaceRoot != "" {
+		fmt.Fprintf(sb, ", workspace_root: %q", entry.WorkspaceRoot)
+	}
+	sb.WriteString("},\n")
 }
 
 func writeConfigCUEVirtual(sb *strings.Builder, virtual VirtualConfig) {
@@ -553,11 +562,7 @@ func writeConfigCUEContainer(sb *strings.Builder, container ContainerConfig) {
 	fmt.Fprintf(sb, "\t\tbinary_path: %q\n", container.AutoProvision.BinaryPath)
 	sb.WriteString("\t\tincludes: [\n")
 	for _, entry := range container.AutoProvision.Includes {
-		if entry.Alias != "" {
-			fmt.Fprintf(sb, "\t\t\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
-		} else {
-			fmt.Fprintf(sb, "\t\t\t{path: %q},\n", entry.Path)
-		}
+		writeIncludeEntryCUE(sb, "\t\t\t", entry)
 	}
 	sb.WriteString("\t\t]\n")
 	fmt.Fprintf(sb, "\t\tinherit_includes: %v\n", container.AutoProvision.InheritIncludes)
@@ -565,6 +570,9 @@ func writeConfigCUEContainer(sb *strings.Builder, container ContainerConfig) {
 	sb.WriteString("\t}\n")
 	if container.TUIServerBind != "" {
 		fmt.Fprintf(sb, "\ttui_server_bind: %q\n", container.TUIServerBind)
+	}
+	if container.SELinuxLabeling != "" {
+		fmt.Fprintf(sb, "\tselinux_labeling: %q\n", container.SELinuxLabeling)
 	}
 	sb.WriteString("}\n")
 }

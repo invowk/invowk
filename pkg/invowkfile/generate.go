@@ -417,6 +417,9 @@ func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent s
 	if r.EnableHostSSH {
 		writeField("enable_host_ssh", "true")
 	}
+	if r.WorkspaceMount != nil {
+		writeWorkspaceMountCUE(sb, r.WorkspaceMount, indent, multiLine)
+	}
 	if r.Containerfile != "" {
 		writeField("containerfile", fmt.Sprintf("%q", r.Containerfile))
 	}
@@ -614,4 +617,35 @@ func formatScriptFileFields(file fmt.Stringer, interpreter InterpreterSpec) stri
 		fields += fmt.Sprintf(", interpreter: %q", interpreter)
 	}
 	return fields
+}
+
+//goplint:ignore -- CUE generation helper taking indentation string.
+func writeWorkspaceMountCUE(sb *strings.Builder, wm *WorkspaceMountConfig, indent string, multiLine bool) {
+	if wm == nil {
+		return
+	}
+	var fields []string
+	if wm.Enabled != nil {
+		fields = append(fields, fmt.Sprintf("enabled: %v", *wm.Enabled))
+	}
+	if wm.Root != "" {
+		fields = append(fields, fmt.Sprintf("root: %q", wm.Root))
+	}
+	if wm.Readonly {
+		fields = append(fields, "readonly: true")
+	}
+	if wm.SELinuxLabel != "" {
+		fields = append(fields, fmt.Sprintf("selinux_label: %q", wm.SELinuxLabel))
+	}
+	if multiLine {
+		sb.WriteString(indent + "workspace_mount: {\n")
+		for _, field := range fields {
+			sb.WriteString(indent + "\t" + field + "\n")
+		}
+		sb.WriteString(indent + "}\n")
+		return
+	}
+	sb.WriteString(", workspace_mount: {")
+	sb.WriteString(strings.Join(fields, ", "))
+	sb.WriteString("}")
 }

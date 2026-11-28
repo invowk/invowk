@@ -2285,54 +2285,6 @@
       "line": 243
     },
     {
-      "id": "ce870404a77aaa0d68c0c72a7f53b589",
-      "file": "internal/runtime/container_provision.go",
-      "mutator": "branch/if",
-      "line": 371
-    },
-    {
-      "id": "d49f5780166eafdd2ec472cf9929a455",
-      "file": "internal/runtime/container_provision.go",
-      "mutator": "statement/return",
-      "line": 371
-    },
-    {
-      "id": "ca2fbc36cf1cf6a5066ff376117c5311",
-      "file": "internal/runtime/container_provision.go",
-      "mutator": "expression/logical",
-      "line": 378
-    },
-    {
-      "id": "31e858a1e9c7c3c8f41a49657b8ddadb",
-      "file": "internal/runtime/container_provision.go",
-      "mutator": "expression/remove",
-      "line": 378
-    },
-    {
-      "id": "4965ed3b094ce2275b46d5484396f299",
-      "file": "internal/runtime/container_provision.go",
-      "mutator": "expression/string-literal",
-      "line": 378
-    },
-    {
-      "id": "b4df4e9419368076658b04ec88ca64c1",
-      "file": "internal/runtime/container_provision.go",
-      "mutator": "statement/return",
-      "line": 383
-    },
-    {
-      "id": "7d97b9f117ebbdda2569b9cf4c0a7ec8",
-      "file": "internal/runtime/container_provision.go",
-      "mutator": "branch/if",
-      "line": 386
-    },
-    {
-      "id": "160c4ff9d174ea80642ee61e1e8e2048",
-      "file": "internal/runtime/container_provision.go",
-      "mutator": "statement/return",
-      "line": 390
-    },
-    {
       "id": "4b9493baa905506edf7f413c034da3f5",
       "file": "internal/runtime/dotenv.go",
       "mutator": "expression/logical",

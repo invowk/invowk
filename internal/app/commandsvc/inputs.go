@@ -101,6 +101,8 @@ func (s *Service) buildExecContext(ctx context.Context, req Request, cmdInfo *di
 		EnvInheritAllow:         req.EnvInheritAllow,
 		EnvInheritDeny:          req.EnvInheritDeny,
 		SourceID:                cmdInfo.SourceID,
+		SourceTrustTier:         cmdInfo.TrustTier,
+		MountCeiling:            cmdInfo.MountCeiling,
 		Platform:                requestPlatform(req),
 		StripProgramResumeToken: req.StripProgramResumeToken,
 	})
