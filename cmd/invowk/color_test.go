@@ -137,6 +137,7 @@ func TestColorProfileWriter(t *testing.T) {
 			env         map[string]string
 			wantEnabled bool
 			wantProfile colorprofile.Profile
+			wantAtLeast bool
 		}{
 			{
 				name:        "non-TTY auto omits color",
@@ -170,7 +171,9 @@ func TestColorProfileWriter(t *testing.T) {
 				mode:        colorModeAuto,
 				env:         map[string]string{"CLICOLOR_FORCE": "1"},
 				wantEnabled: true,
+				// colorprofile.Detect returns ANSI on POSIX without TERM and TrueColor on Windows console.
 				wantProfile: colorprofile.ANSI,
+				wantAtLeast: true,
 			},
 			{
 				name:        "CLICOLOR_FORCE=0 does not force color",
@@ -216,7 +219,11 @@ func TestColorProfileWriter(t *testing.T) {
 				var buf bytes.Buffer
 				getenv := func(k string) string { return tt.env[k] }
 				profile := resolveColorProfile(tt.mode, &buf, getenv)
-				if profile != tt.wantProfile {
+				if tt.wantAtLeast {
+					if profile < tt.wantProfile {
+						t.Errorf("resolveColorProfile(%q) = %v, want >= %v", tt.mode, profile, tt.wantProfile)
+					}
+				} else if profile != tt.wantProfile {
 					t.Errorf("resolveColorProfile(%q) = %v, want %v", tt.mode, profile, tt.wantProfile)
 				}
 				if got := colorEnabled(profile); got != tt.wantEnabled {
