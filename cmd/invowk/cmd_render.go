@@ -139,6 +139,39 @@ func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictErro
 	return sb.String()
 }
 
+// RenderPassthroughSubcommandConflictError creates a styled error message when a command
+// enables passthrough mode but also has child subcommands.
+//
+//plint:render
+func RenderPassthroughSubcommandConflictError(err *discovery.PassthroughSubcommandConflictError) string {
+	var sb strings.Builder
+
+	pathStyle := lipgloss.NewStyle().
+		Foreground(ColorMuted).
+		Italic(true)
+
+	sb.WriteString(renderHeaderStyle.Render("✗ Invalid command structure!"))
+	sb.WriteString("\n\n")
+	fmt.Fprintf(&sb, "Command %s enables passthrough mode but also has subcommands.\n",
+		renderCommandStyle.Render("'"+string(err.CommandName)+"'"))
+	if err.FilePath != "" {
+		sb.WriteString(pathStyle.Render(fmt.Sprintf("  in %s\n", err.FilePath)))
+	}
+	sb.WriteString("\nPassthrough commands cannot define child subcommands.\n\n")
+
+	sb.WriteString(renderLabelStyle.Render("Subcommands:"))
+	sb.WriteString("\n")
+	for _, subcmd := range err.Subcommands {
+		sb.WriteString(renderValueStyle.Render(fmt.Sprintf("  • %s\n", subcmd)))
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString(renderHintStyle.Render("Disable 'passthrough' on the parent command or remove its subcommands to resolve this conflict."))
+	sb.WriteString("\n")
+
+	return sb.String()
+}
+
 // RenderDependencyError creates a styled error message for unsatisfied dependencies
 //
 //plint:render

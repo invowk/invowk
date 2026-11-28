@@ -631,3 +631,28 @@ func TestRenderArgsSubcommandConflictError(t *testing.T) {
 		t.Error("Should contain resolution hint")
 	}
 }
+
+func TestRenderPassthroughSubcommandConflictError(t *testing.T) {
+	t.Parallel()
+
+	err := &discovery.PassthroughSubcommandConflictError{
+		CommandName: "cli",
+		Subcommands: []invowkfile.CommandName{"cli sub", "cli doctor"},
+		FilePath:    "/test/invowkfile.cue",
+	}
+
+	output := RenderPassthroughSubcommandConflictError(err)
+
+	for _, want := range []string{
+		"Invalid command structure",
+		"'cli'",
+		"/test/invowkfile.cue",
+		"cli sub",
+		"cli doctor",
+		"Disable 'passthrough'",
+	} {
+		if !strings.Contains(output, want) {
+			t.Errorf("RenderPassthroughSubcommandConflictError() missing %q:\n%s", want, output)
+		}
+	}
+}

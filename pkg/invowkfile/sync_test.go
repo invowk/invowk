@@ -115,6 +115,105 @@ func TestSchemaSync(t *testing.T) {
 	}
 }
 
+func TestCommandPassthroughSchemaConstraints(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		cue     string
+		wantErr bool
+	}{
+		{
+			name: "passthrough true alone is valid",
+			cue: `
+cmds: [{
+	name: "wrap"
+	passthrough: true
+	implementations: [{script: {content: "echo $@"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+}]`,
+		},
+		{
+			name: "passthrough false with flags and args is valid",
+			cue: `
+cmds: [{
+	name: "normal"
+	passthrough: false
+	flags: [{name: "verbose", description: "Verbose"}]
+	args: [{name: "target", description: "Target"}]
+	implementations: [{script: {content: "echo ok"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+}]`,
+		},
+		{
+			name: "passthrough true with non-empty flags fails",
+			cue: `
+cmds: [{
+	name: "wrap"
+	passthrough: true
+	flags: [{name: "verbose", description: "Verbose"}]
+	implementations: [{script: {content: "echo $@"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+}]`,
+			wantErr: true,
+		},
+		{
+			name: "passthrough true with empty flags list fails",
+			cue: `
+cmds: [{
+	name: "wrap"
+	passthrough: true
+	flags: []
+	implementations: [{script: {content: "echo $@"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+}]`,
+			wantErr: true,
+		},
+		{
+			name: "passthrough true with non-empty args fails",
+			cue: `
+cmds: [{
+	name: "wrap"
+	passthrough: true
+	args: [{name: "target", description: "Target"}]
+	implementations: [{script: {content: "echo $@"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+}]`,
+			wantErr: true,
+		},
+		{
+			name: "passthrough true with empty args list fails",
+			cue: `
+cmds: [{
+	name: "wrap"
+	passthrough: true
+	args: []
+	implementations: [{script: {content: "echo $@"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+}]`,
+			wantErr: true,
+		},
+		{
+			name: "passthrough non-bool fails",
+			cue: `
+cmds: [{
+	name: "wrap"
+	passthrough: "yes"
+	implementations: [{script: {content: "echo $@"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+}]`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validateCUE(t, tt.cue)
+			if tt.wantErr && err == nil {
+				t.Fatal("validateCUE() = nil, want validation error")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("validateCUE() = %v, want nil", err)
+			}
+		})
+	}
+}
+
 // =============================================================================
 // Constraint Boundary Tests - Phase 5 (T090-T094)
 // =============================================================================

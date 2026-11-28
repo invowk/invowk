@@ -1,0 +1,246 @@
+# Test: Raw command argument passthrough (native runtime mirror)
+# Native shell mirror of virtual_passthrough.txtar
+cd $WORK
+
+# 1. Listing marks passthrough commands and leaves normal commands unmarked
+exec invowk cmd
+stdout 'wrap[^\n]*\[passthrough\]'
+! stdout 'normal[^\n]*\[passthrough\]'
+
+# 2. invowk help cmd inspects without executing
+exec invowk help cmd wrap
+stdout 'Passthrough:'
+! stdout 'ARGC='
+
+# 3. Direct leaf forwards --help, -h, -v, --foo=bar, --, and post-command --ivk-* verbatim
+exec invowk cmd wrap --help -h -v --foo=bar -- --ivk-env-var POST=1
+stdout '^ARGC=7\r?$'
+stdout '^ARG1=--help\r?$'
+stdout '^ARG=1:--help\r?$'
+stdout '^ARG=2:-h\r?$'
+stdout '^ARG=3:-v\r?$'
+stdout '^ARG=4:--foo=bar\r?$'
+stdout '^ARG=5:--\r?$'
+stdout '^ARG=6:--ivk-env-var\r?$'
+stdout '^ARG=7:POST=1\r?$'
+! stderr .
+
+# 4. Pre-command promoted --ivk-* flags apply while post-command tokens stay verbatim
+exec invowk cmd --ivk-env-var MY_ENV=hello --ivk-workdir sub wrap --help -v
+stdout '^MY_ENV=hello\r?$'
+stdout '^WORKDIR_OK=1\r?$'
+stdout '^ARGC=2\r?$'
+stdout '^ARG=1:--help\r?$'
+stdout '^ARG=2:-v\r?$'
+! stderr .
+
+# 5. Disambiguated @source and --ivk-from passthrough forward --help and unknown flags
+exec invowk cmd @cst shared --help --json
+stdout '^SOURCE=cst-shared\r?$'
+stdout '^ARG=1:--help\r?$'
+stdout '^ARG=2:--json\r?$'
+! stderr .
+
+exec invowk cmd --ivk-from cst shared --help --json
+stdout '^SOURCE=cst-shared\r?$'
+stdout '^ARG=1:--help\r?$'
+stdout '^ARG=2:--json\r?$'
+! stderr .
+
+# 6. Module-qualified <source> <cmd> passthrough forwards verbatim
+exec invowk cmd cst doctor --help -v --foo=bar
+stdout '^SOURCE=cst-doctor\r?$'
+stdout '^ARGC=3\r?$'
+stdout '^ARG=1:--help\r?$'
+stdout '^ARG=2:-v\r?$'
+stdout '^ARG=3:--foo=bar\r?$'
+! stderr .
+
+# 7. Multi-word passthrough subcommand forwards verbatim
+exec invowk cmd cli sub --help --flag=1
+stdout '^SUB=1\r?$'
+stdout '^ARG=1:--help\r?$'
+stdout '^ARG=2:--flag=1\r?$'
+! stderr .
+
+# 8. Dry-run inspects without executing and preserves ARGn/ARGC
+exec invowk cmd --ivk-dry-run wrap --help -v
+stdout 'ARG1=--help'
+stdout 'ARG2=-v'
+stdout 'ARGC=2'
+! stdout 'ARG=1:'
+
+# 9. Non-passthrough command still rejects unknown flags, and unknown pre-command flags fail
+exitcode 2 invowk cmd normal --unknown
+exitcode 2 invowk cmd --bogus=1 wrap --help
+
+-- sub/marker.txt --
+ok
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "wrap"
+		description: "Passthrough wrapper"
+		passthrough: true
+		implementations: [
+			{
+				script: {content: """
+					echo "ARGC=$ARGC"
+					echo "ARG1=${ARG1:-}"
+					echo "MY_ENV=${MY_ENV:-}"
+					if [ -f marker.txt ]; then echo "WORKDIR_OK=1"; fi
+					i=1
+					for a in "$@"; do
+						echo "ARG=$i:$a"
+						i=$((i + 1))
+					done
+					"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+					Write-Output "ARGC=$($env:ARGC)"
+					Write-Output "ARG1=$($env:ARG1)"
+					Write-Output "MY_ENV=$($env:MY_ENV)"
+					if (Test-Path marker.txt) { Write-Output "WORKDIR_OK=1" }
+					for ($i = 0; $i -lt $args.Count; $i++) {
+						Write-Output "ARG=$($i + 1):$($args[$i])"
+					}
+					"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "normal"
+		description: "Standard non-passthrough command"
+		implementations: [
+			{
+				script: {content: "echo normal"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: "Write-Output normal"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "shared"
+		description: "Non-passthrough shared command"
+		implementations: [
+			{
+				script: {content: "echo invowkfile-shared"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: "Write-Output invowkfile-shared"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "cli sub"
+		description: "Multi-word passthrough command"
+		passthrough: true
+		implementations: [
+			{
+				script: {content: """
+					echo "SUB=1"
+					i=1
+					for a in "$@"; do
+						echo "ARG=$i:$a"
+						i=$((i + 1))
+					done
+					"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+					Write-Output "SUB=1"
+					for ($i = 0; $i -lt $args.Count; $i++) {
+						Write-Output "ARG=$($i + 1):$($args[$i])"
+					}
+					"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
+
+-- cst.invowkmod/invowkmod.cue --
+module:  "cst"
+version: "1.0.0"
+
+-- cst.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "shared"
+		description: "Module passthrough shared command"
+		passthrough: true
+		implementations: [
+			{
+				script: {content: """
+					echo "SOURCE=cst-shared"
+					i=1
+					for a in "$@"; do
+						echo "ARG=$i:$a"
+						i=$((i + 1))
+					done
+					"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+					Write-Output "SOURCE=cst-shared"
+					for ($i = 0; $i -lt $args.Count; $i++) {
+						Write-Output "ARG=$($i + 1):$($args[$i])"
+					}
+					"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "doctor"
+		description: "Module passthrough doctor command"
+		passthrough: true
+		implementations: [
+			{
+				script: {content: """
+					echo "SOURCE=cst-doctor"
+					echo "ARGC=$ARGC"
+					i=1
+					for a in "$@"; do
+						echo "ARG=$i:$a"
+						i=$((i + 1))
+					done
+					"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+					Write-Output "SOURCE=cst-doctor"
+					Write-Output "ARGC=$($env:ARGC)"
+					for ($i = 0; $i -lt $args.Count; $i++) {
+						Write-Output "ARG=$($i + 1):$($args[$i])"
+					}
+					"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]

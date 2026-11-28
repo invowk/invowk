@@ -31,6 +31,12 @@ var (
 
 	// ErrInvalidCommand is the sentinel error wrapped by InvalidCommandError.
 	ErrInvalidCommand = errors.New("invalid command")
+
+	// ErrPassthroughWithFlags is returned when a command enables passthrough alongside flags.
+	ErrPassthroughWithFlags = errors.New("passthrough command cannot define flags")
+
+	// ErrPassthroughWithArgs is returned when a command enables passthrough alongside args.
+	ErrPassthroughWithArgs = errors.New("passthrough command cannot define args")
 )
 
 type (
@@ -94,6 +100,9 @@ type (
 		// Arguments are passed as environment variables: INVOWK_ARG_<NAME>
 		// For variadic arguments: INVOWK_ARG_<NAME>_COUNT and INVOWK_ARG_<NAME>_1, _2, etc.
 		Args []Argument `json:"args,omitempty"`
+		// Passthrough forwards all tokens after the command path verbatim to the script (optional).
+		// Mutually exclusive with Flags, Args, and child subcommands.
+		Passthrough bool `json:"passthrough,omitempty"`
 		// Watch defines file-watching configuration for automatic re-execution (optional).
 		// When defined, the command can be activated in watch mode via --ivk-watch.
 		Watch *WatchConfig `json:"watch,omitempty"`
@@ -170,6 +179,12 @@ func (c Command) Validate() error {
 	appendOptionalValidation(&errs, c.DependsOn, c.DependsOn != nil)
 	appendEachValidation(&errs, c.Flags)
 	appendEachValidation(&errs, c.Args)
+	if c.Passthrough && len(c.Flags) > 0 {
+		errs = append(errs, ErrPassthroughWithFlags)
+	}
+	if c.Passthrough && len(c.Args) > 0 {
+		errs = append(errs, ErrPassthroughWithArgs)
+	}
 	appendOptionalValidation(&errs, c.Watch, c.Watch != nil)
 	if len(errs) > 0 {
 		return &InvalidCommandError{FieldErrors: errs}

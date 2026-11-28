@@ -50,7 +50,7 @@ Execute commands defined in invowkfiles.
 
 <Snippet id="reference/cli/cmd-syntax" />
 
-Without a command name, `invowk cmd` lists the available commands: the root invowkfile first, then modules alphabetically, and within each source, commands alphabetically by full name (grouped by category, uncategorized first).
+Without a command name, `invowk cmd` lists the available commands: the root invowkfile first, then modules alphabetically, and within each source, commands alphabetically by full name (grouped by category, uncategorized first). Commands configured with `passthrough: true` are annotated with `[passthrough]`.
 
 **Flags:**
 
@@ -62,17 +62,16 @@ Without a command name, `invowk cmd` lists the available commands: the root invo
 | `--ivk-container-name` | | Override the persistent container target name (container runtime only) |
 | `--ivk-dry-run` | | Print resolved execution plan without executing |
 | `--ivk-watch` | `-W` | Watch mode: re-execute on file changes |
-
-Built-in per-command flags:
-
-| Flag | Short | Description |
-|------|-------|-------------|
 | `--ivk-env-file` | `-e` | Load environment variables from file (repeatable) |
 | `--ivk-env-var` | `-E` | Set environment variable (KEY=VALUE, repeatable); a value without `KEY=` is an error (exit `2`), while `KEY=` sets an empty value |
-| `--ivk-env-inherit-mode` |  | Inherit host environment variables: `none`, `allow`, `all` |
-| `--ivk-env-inherit-allow` |  | Allowlist host env vars to inherit; requires `--ivk-env-inherit-mode=allow` (repeatable) |
-| `--ivk-env-inherit-deny` |  | Denylist host env vars to inherit (repeatable) |
+| `--ivk-env-inherit-mode` | | Inherit host environment variables: `none`, `allow`, `all` |
+| `--ivk-env-inherit-allow` | | Allowlist host env vars to inherit; requires `--ivk-env-inherit-mode=allow` (repeatable) |
+| `--ivk-env-inherit-deny` | | Denylist host env vars to inherit (repeatable) |
 | `--ivk-workdir` | `-w` | Override working directory for this command |
+
+:::note Pre-command `--ivk-*` boundary for passthrough commands
+All `invowk cmd` persistent `--ivk-*` flags are accepted **before** the command path as well as after normal commands. For commands with `passthrough: true`, only `--ivk-*` flags placed **before** the command path configure Invowk; every token after the command path (including `--help`, `-h`, unknown flags, `--`, and nested `--ivk-*` flags) is forwarded verbatim to the script across direct, `@source`, `--ivk-from`, and `<source> <cmd>` invocations. Because `invowk cmd <name> --help` executes the passthrough command, use `invowk help cmd <name>` to inspect Invowk's command help without executing.
+:::
 
 :::note
 The `ivk-`, `invowk-`, and `i-` prefixes are reserved for system flags and cannot be used for user-defined flags.

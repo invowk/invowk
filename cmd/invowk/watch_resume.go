@@ -222,7 +222,7 @@ func hasWatchEnvVarOverride(cmd *cobra.Command, opts watchResumeOptions) bool {
 		if len(stringArrayFlagValue(cmd, "ivk-env-var")) > 0 {
 			return true
 		}
-		if flag := cmd.Flags().Lookup("ivk-env-var"); flag != nil && cmd.Flags().Changed("ivk-env-var") {
+		if flag := cmd.Flag("ivk-env-var"); flag != nil && flag.Changed {
 			return true
 		}
 	}

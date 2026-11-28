@@ -20,11 +20,14 @@ import (
 )
 
 const (
-	failedBuildEnvironmentFmt = "failed to build environment: %w"
-	cmdWaitDelay              = 10 * time.Second
-	cmdTermGracePeriod        = 3 * time.Second
-	powerShellNoProfileArg    = "-NoProfile"
-	powerShellCommandArg      = "-Command"
+	failedBuildEnvironmentFmt    = "failed to build environment: %w"
+	cmdWaitDelay                 = 10 * time.Second
+	cmdTermGracePeriod           = 3 * time.Second
+	powerShellNoProfileArg       = "-NoProfile"
+	powerShellCommandArg         = "-Command"
+	powerShellExecutionPolicyArg = "-ExecutionPolicy"
+	powerShellBypassArg          = "Bypass"
+	powerShellFileArg            = "-File"
 )
 
 type (
@@ -220,9 +223,13 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 		return NewErrorResult(1, err)
 	}
 
-	args := r.getShellArgs(shell)
-	args = append(args, script)
-	args = r.appendPositionalArgs(shell, args, ctx.PositionalArgs)
+	args, cleanup, err := r.buildShellInvocation(shell, script, ctx.PositionalArgs)
+	if err != nil {
+		return NewErrorResult(1, err)
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 	cmd.WaitDelay = cmdWaitDelay
@@ -404,8 +411,7 @@ func (r *NativeRuntime) getShellArgs(shell string) []string {
 		return r.shellArgs
 	}
 
-	base := filepath.Base(shell)
-	base = strings.TrimSuffix(base, ".exe")
+	base := strings.ToLower(shellBaseName(shell))
 
 	switch base {
 	case "cmd":
@@ -426,11 +432,7 @@ func (r *NativeRuntime) appendPositionalArgs(shell string, args, positionalArgs 
 		return args
 	}
 
-	base := filepath.Base(shell)
-	if _, after, ok := strings.CutLast(base, "\\"); ok {
-		base = after
-	}
-	base = strings.TrimSuffix(base, ".exe")
+	base := strings.ToLower(shellBaseName(shell))
 
 	switch base {
 	case "cmd":
@@ -443,6 +445,34 @@ func (r *NativeRuntime) appendPositionalArgs(shell string, args, positionalArgs 
 	}
 }
 
+// buildShellInvocation builds shell argv and an optional temp-file cleanup callback.
+// PowerShell's -Command concatenates trailing CLI arguments as script code instead of
+// populating $args, so positional arguments run via a temporary .ps1 script and -File.
+func (r *NativeRuntime) buildShellInvocation(shell, script string, positionalArgs []string) (args []string, cleanup func(), err error) {
+	if len(r.shellArgs) == 0 && len(positionalArgs) > 0 && isPowerShellShell(shell) {
+		var tempFile string
+		tempFile, err = r.createTempScript(script, strings.ToLower(shellBaseName(shell)))
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create temp script: %w", err)
+		}
+		args = make([]string, 0, 5+len(positionalArgs))
+		args = append(args,
+			powerShellNoProfileArg,
+			powerShellExecutionPolicyArg,
+			powerShellBypassArg,
+			powerShellFileArg,
+			tempFile,
+		)
+		args = append(args, positionalArgs...)
+		return args, func() { _ = os.Remove(tempFile) }, nil
+	}
+
+	args = r.getShellArgs(shell)
+	args = append(args, script)
+	args = r.appendPositionalArgs(shell, args, positionalArgs)
+	return args, nil, nil
+}
+
 // prepareShellCommand builds a shell command without executing it.
 func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string) (*PreparedCommand, error) {
 	shell, err := r.getShell()
@@ -450,18 +480,22 @@ func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string
 		return nil, err
 	}
 
-	args := r.getShellArgs(shell)
-	args = append(args, script)
-	args = r.appendPositionalArgs(shell, args, ctx.PositionalArgs)
+	args, cleanup, err := r.buildShellInvocation(shell, script, ctx.PositionalArgs)
+	if err != nil {
+		return nil, err
+	}
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 	cmd.WaitDelay = cmdWaitDelay
 
 	if err := r.configureCommandDirAndEnv(cmd, ctx); err != nil {
+		if cleanup != nil {
+			cleanup()
+		}
 		return nil, err
 	}
 
-	return &PreparedCommand{Cmd: cmd, Cleanup: nil}, nil
+	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
 }
 
 // prepareInterpreterCommand builds an interpreter command without executing it.
@@ -501,4 +535,20 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 	}
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
+}
+
+func shellBaseName(shell string) string {
+	base := filepath.Base(shell)
+	if _, after, ok := strings.CutLast(base, "\\"); ok {
+		base = after
+	}
+	if len(base) > len(".exe") && strings.EqualFold(base[len(base)-len(".exe"):], ".exe") {
+		return base[:len(base)-len(".exe")]
+	}
+	return base
+}
+
+func isPowerShellShell(shell string) bool {
+	base := strings.ToLower(shellBaseName(shell))
+	return base == "powershell" || base == "pwsh"
 }

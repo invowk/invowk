@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/internal/app/commandadapters"
@@ -101,6 +102,12 @@ Examples:
 		// group guard from installUsageGuards must not reject them first.
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if _, preParseErr, hasPayload := passthroughFromContext(cmd.Context()); hasPayload {
+				if preParseErr != nil {
+					return preParseErr
+				}
+			}
+
 			// Create a single cache-equipped context for the entire RunE invocation.
 			// All callees (validateCommandTree, checkAmbiguousCommand, listCommands,
 			// runDisambiguatedCommand, executeRequest) share the same discovery cache
@@ -118,6 +125,10 @@ Examples:
 			// `invowk cmd` with no args behaves as command listing.
 			if len(args) == 0 {
 				return listCommands(cmd, app, rootFlags)
+			}
+
+			if postArgs, preParseErr, hasPayload := passthroughFromContext(cmd.Context()); hasPayload && preParseErr == nil {
+				args = append(slices.Clone(args), postArgs...)
 			}
 
 			// Parse source disambiguation from `--ivk-from` or `@source` prefix.
@@ -144,6 +155,12 @@ Examples:
 	cmdCmd.PersistentFlags().StringVar(&cmdFlags.containerName, "ivk-container-name", "", "override persistent container target name (container runtime only)")
 	cmdCmd.PersistentFlags().BoolVar(&cmdFlags.dryRun, "ivk-dry-run", false, "print what would be executed without executing")
 	cmdCmd.PersistentFlags().BoolVarP(&cmdFlags.watch, "ivk-watch", "W", false, "watch files for changes and re-execute")
+	cmdCmd.PersistentFlags().StringArrayP("ivk-env-file", "e", nil, "load environment variables from file(s) (can be specified multiple times)")
+	cmdCmd.PersistentFlags().StringArrayP("ivk-env-var", "E", nil, "set environment variable (KEY=VALUE, can be specified multiple times)")
+	cmdCmd.PersistentFlags().String("ivk-env-inherit-mode", "", "inherit host environment variables: none, allow, all (overrides runtime config)")
+	cmdCmd.PersistentFlags().StringArray("ivk-env-inherit-allow", nil, "allowlist for host environment inheritance (repeatable)")
+	cmdCmd.PersistentFlags().StringArray("ivk-env-inherit-deny", nil, "denylist for host environment inheritance (repeatable)")
+	cmdCmd.PersistentFlags().StringP("ivk-workdir", "w", "", "override the working directory for this command")
 
 	// Dynamic command leaves are only needed for `invowk cmd ...` flows.
 	// Skipping registration for unrelated invocations (e.g., --version, init)
@@ -280,7 +297,7 @@ func shouldRegisterDiscoveredCommands(args []string) bool {
 	switch primary {
 	case "cmd":
 		return true
-	case "__complete", "__completeNoDesc":
+	case "help", "__complete", "__completeNoDesc":
 		next, _ := firstTopLevelToken(rest)
 		return next == "cmd"
 	default:
@@ -451,6 +468,9 @@ func validateCommandTree(ctx context.Context, app *App) error {
 
 	if conflictErr, ok := errors.AsType[*discovery.ArgsSubcommandConflictError](err); ok {
 		fmt.Fprintf(app.errUI(), "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))
+	}
+	if conflictErr, ok := errors.AsType[*discovery.PassthroughSubcommandConflictError](err); ok {
+		fmt.Fprintf(app.errUI(), "\n%s\n\n", RenderPassthroughSubcommandConflictError(conflictErr))
 	}
 
 	return err

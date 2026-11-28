@@ -1,0 +1,31 @@
+# Test: Raw command argument passthrough (virtual-lua runtime)
+cd $WORK
+
+exec invowk cmd lua-wrap --help -h -v --foo=bar --
+stdout '^ARGC=5\r?$'
+stdout '^ARG1=--help\r?$'
+stdout '^LUA=1:--help\r?$'
+stdout '^LUA=2:-h\r?$'
+stdout '^LUA=3:-v\r?$'
+stdout '^LUA=4:--foo=bar\r?$'
+stdout '^LUA=5:--\r?$'
+! stderr .
+
+-- invowkfile.cue --
+cmds: [{
+	name:        "lua-wrap"
+	description: "Lua passthrough wrapper"
+	passthrough: true
+	implementations: [{
+		script: {content: """
+			print("ARGC=" .. (os.getenv("ARGC") or ""))
+			print("ARG1=" .. (os.getenv("ARG1") or ""))
+			local args = {...}
+			for i, v in ipairs(args) do
+				print("LUA=" .. tostring(i) .. ":" .. tostring(v))
+			end
+			"""}
+		runtimes:  [{name: "virtual-lua"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]

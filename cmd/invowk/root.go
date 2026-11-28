@@ -120,7 +120,12 @@ func Execute() {
 //
 //goplint:ignore -- CLI entrypoint forwards raw process argv for pre-parse color setup.
 func executeWithFang(ctx context.Context, app *App, rootCmd *cobra.Command, args []string) error {
-	if argMode, hasArgMode := explicitColorModeFromArgs(args); hasArgMode && argMode.Validate() == nil {
+	effectiveArgs, colorScanArgs, nextCtx := preparePassthroughInvocation(ctx, app, rootCmd, args)
+	if effectiveArgs != nil {
+		rootCmd.SetArgs(effectiveArgs)
+	}
+
+	if argMode, hasArgMode := explicitColorModeFromArgs(colorScanArgs); hasArgMode && argMode.Validate() == nil {
 		app.setColorMode(argMode)
 	}
 
@@ -128,16 +133,16 @@ func executeWithFang(ctx context.Context, app *App, rootCmd *cobra.Command, args
 	// invocation is not `invowk tui style|format` (which stay opt-in unless
 	// --ivk-color=never, handled inside those commands). Leaving OutOrStdout()
 	// unwrapped under `auto` preserves fang's TTY detection.
-	if app.uiOut != nil && !colorEnabled(app.uiOut.Profile) && !isTUIStyleOrFormatInvocation(args) {
+	if app.uiOut != nil && !colorEnabled(app.uiOut.Profile) && !isTUIStyleOrFormatInvocation(effectiveArgs) {
 		rootCmd.SetOut(app.uiOut)
 	}
 
-	if app.alwaysColor && isHelpInvocation(args) {
+	if app.alwaysColor && isHelpInvocation(effectiveArgs) {
 		restore := forceFangHelpColor()
 		defer restore()
 	}
 
-	sigCtx, stopSignals, tracker := notifyTerminationSignals(ctx)
+	sigCtx, stopSignals, tracker := notifyTerminationSignals(nextCtx)
 	defer stopSignals()
 
 	err := fang.Execute(

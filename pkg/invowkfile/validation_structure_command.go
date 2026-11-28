@@ -75,6 +75,23 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 		})
 	}
 
+	if cmd.Passthrough && len(cmd.Flags) > 0 {
+		validationErrors = append(validationErrors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.Copy().Field("flags").String(),
+			Message:   "cannot define flags when passthrough is true in invowkfile at " + string(ctx.FilePath),
+			Cause:     ErrPassthroughWithFlags,
+		})
+	}
+	if cmd.Passthrough && len(cmd.Args) > 0 {
+		validationErrors = append(validationErrors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.Copy().Field("args").String(),
+			Message:   "cannot define args when passthrough is true in invowkfile at " + string(ctx.FilePath),
+			Cause:     ErrPassthroughWithArgs,
+		})
+	}
+
 	// Validate flags
 	validationErrors = append(validationErrors, v.validateFlags(ctx, cmd)...)
 

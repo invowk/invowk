@@ -50,7 +50,7 @@ Executar comandos definidos em invowkfiles.
 
 <Snippet id="reference/cli/cmd-syntax" />
 
-Sem nome de comando, `invowk cmd` lista os comandos disponíveis: primeiro o invowkfile raiz, depois os módulos em ordem alfabética e, dentro de cada fonte, os comandos em ordem alfabética pelo nome completo (agrupados por categoria, os sem categoria primeiro).
+Sem nome de comando, `invowk cmd` lista os comandos disponíveis: primeiro o invowkfile raiz, depois os módulos em ordem alfabética e, dentro de cada fonte, os comandos em ordem alfabética pelo nome completo (agrupados por categoria, os sem categoria primeiro). Comandos configurados com `passthrough: true` são anotados com `[passthrough]`.
 
 **Flags:**
 
@@ -62,17 +62,16 @@ Sem nome de comando, `invowk cmd` lista os comandos disponíveis: primeiro o inv
 | `--ivk-container-name` | | Sobrescrever o nome do container persistente de destino (somente runtime container) |
 | `--ivk-dry-run` | | Imprimir plano de execução resolvido sem executar |
 | `--ivk-watch` | `-W` | Modo watch: reexecutar ao detectar mudanças em arquivos |
-
-Flags embutidas por comando:
-
-| Flag | Curta | Descrição |
-|------|-------|-----------|
 | `--ivk-env-file` | `-e` | Carregar variáveis de ambiente de arquivo (repetível) |
 | `--ivk-env-var` | `-E` | Definir variável de ambiente (KEY=VALUE, repetível); um valor sem `KEY=` é um erro (saída `2`), enquanto `KEY=` define um valor vazio |
-| `--ivk-env-inherit-mode` |  | Herdar variáveis do host: `none`, `allow`, `all` |
-| `--ivk-env-inherit-allow` |  | Allowlist de variáveis do host; exige `--ivk-env-inherit-mode=allow` (repetível) |
-| `--ivk-env-inherit-deny` |  | Denylist de variáveis do host (repetível) |
+| `--ivk-env-inherit-mode` | | Herdar variáveis do host: `none`, `allow`, `all` |
+| `--ivk-env-inherit-allow` | | Allowlist de variáveis do host; exige `--ivk-env-inherit-mode=allow` (repetível) |
+| `--ivk-env-inherit-deny` | | Denylist de variáveis do host (repetível) |
 | `--ivk-workdir` | `-w` | Sobrescrever diretório de trabalho do comando |
+
+:::note Fronteira pré-comando `--ivk-*` para comandos passthrough
+Todas as flags persistentes `--ivk-*` de `invowk cmd` são aceitas **antes** do caminho do comando (além de após comandos normais). Para comandos com `passthrough: true`, apenas flags `--ivk-*` posicionadas **antes** do caminho do comando configuram o Invowk; todo token após o caminho do comando (incluindo `--help`, `-h`, flags desconhecidas, `--` e flags `--ivk-*` aninhadas) é repassado literalmente ao script em invocações diretas, com `@source`, `--ivk-from` e `<source> <cmd>`. Como `invowk cmd <name> --help` executa o comando passthrough, use `invowk help cmd <name>` para inspecionar a ajuda do Invowk sem executar.
+:::
 
 :::note
 Os prefixos `ivk-`, `invowk-` e `i-` são reservados para flags do sistema e não podem ser usados para flags definidas pelo usuário.

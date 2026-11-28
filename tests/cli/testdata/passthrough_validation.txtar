@@ -1,0 +1,67 @@
+# Test: Passthrough schema and command-tree mutual-exclusivity validation
+cd $WORK
+
+# 1. passthrough: true + flags fails invowk validate
+! exec invowk validate with_flags/invowkfile.cue
+stderr 'flags'
+
+# 2. passthrough: true + args fails invowk validate
+! exec invowk validate with_args/invowkfile.cue
+stderr 'args'
+
+# 3. passthrough: true command with child subcommands fails invowk validate and invowk cmd
+! exec invowk validate with_subcmds/invowkfile.cue
+stderr 'passthrough\s+enabled'
+stderr 'subcommands'
+
+cd $WORK/with_subcmds
+! exec invowk cmd cli
+! stdout .
+stderr 'Invalid\s+command\s+structure'
+stderr 'passthrough\s+mode'
+stderr 'subcommands'
+
+-- with_flags/invowkfile.cue --
+cmds: [{
+	name:        "wrap"
+	passthrough: true
+	flags: [{name: "verbose", description: "Verbose"}]
+	implementations: [{
+		script: {content: "echo $@"}
+		runtimes:  [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- with_args/invowkfile.cue --
+cmds: [{
+	name:        "wrap"
+	passthrough: true
+	args: [{name: "target", description: "Target"}]
+	implementations: [{
+		script: {content: "echo $@"}
+		runtimes:  [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- with_subcmds/invowkfile.cue --
+cmds: [
+	{
+		name:        "cli"
+		passthrough: true
+		implementations: [{
+			script: {content: "echo $@"}
+			runtimes:  [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "cli sub"
+		implementations: [{
+			script: {content: "echo sub"}
+			runtimes:  [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

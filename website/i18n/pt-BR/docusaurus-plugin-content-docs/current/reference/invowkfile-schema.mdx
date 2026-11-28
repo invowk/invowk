@@ -165,6 +165,15 @@ Além disso, qualquer flag que comece com o prefixo `ivk-`, `invowk-` ou `i-` é
 
 Argumentos posicionais para este comando. Veja [Argument](#argument).
 
+### passthrough
+
+**Tipo:** `bool`  
+**Obrigatório:** Não (padrão: `false`)
+
+Quando `true`, desativa o parsing de flags do Cobra após o caminho do comando e repassa todos os tokens pós-comando (`--help`, `-h`, flags desconhecidas, `--` e flags `--ivk-*` aninhadas) literalmente ao script (`$@`, `ARGn`/`ARGC`, `invowk.args`). Mutuamente exclusivo com `flags`, `args` e subcomandos filhos.
+
+Posicione quaisquer flags `--ivk-*` do Invowk **antes** do caminho do comando ao invocar um comando passthrough. Como `invowk cmd <name> --help` executa o comando (incluindo `depends_on` e provisionamento de container), use `invowk help cmd <name>` para inspecionar os metadados do Invowk sem executar, e prefira PowerShell/`pwsh` ou `virtual-sh` em vez de `cmd.exe` no Windows ao repassar parâmetros posicionais inline.
+
 ### watch
 
 **Tipo:** `#WatchConfig`

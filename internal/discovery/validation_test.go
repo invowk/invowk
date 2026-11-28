@@ -345,3 +345,35 @@ func TestArgsSubcommandConflictError_Error_SingleArg(t *testing.T) {
 		t.Errorf("Error message should show single arg without comma, got: %s", errStr)
 	}
 }
+
+func TestValidateCommandTree_PassthroughConflict(t *testing.T) {
+	t.Parallel()
+
+	commands := []*CommandInfo{
+		{
+			Name:     "cli",
+			Command:  &invowkfile.Command{Name: "cli", Passthrough: true},
+			FilePath: "/test/invowkfile.cue",
+		},
+		{
+			Name:     "cli sub",
+			Command:  &invowkfile.Command{Name: "cli sub"},
+			FilePath: "/test/invowkfile.cue",
+		},
+	}
+
+	err := ValidateCommandTree(commands)
+	if err == nil {
+		t.Fatal("ValidateCommandTree() error = nil, want PassthroughSubcommandConflictError")
+	}
+	conflictErr, ok := errors.AsType[*PassthroughSubcommandConflictError](err)
+	if !ok {
+		t.Fatalf("expected *PassthroughSubcommandConflictError, got %T", err)
+	}
+	if conflictErr.CommandName != "cli" {
+		t.Errorf("CommandName = %q, want cli", conflictErr.CommandName)
+	}
+	if len(conflictErr.Subcommands) != 1 || conflictErr.Subcommands[0] != "cli sub" {
+		t.Errorf("Subcommands = %v, want [cli sub]", conflictErr.Subcommands)
+	}
+}

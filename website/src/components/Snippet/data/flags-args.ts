@@ -795,4 +795,38 @@ invowk cmd deploy prod 3 --dry-run
 invowk cmd deploy --dry-run prod 3
 invowk cmd deploy prod --dry-run 3`,
   },
+
+  'flags-args/args-passthrough-example': {
+    language: 'cue',
+    code: `{
+    name:        "cst"
+    description: "Wrap downstream CLI with raw argument passthrough"
+    passthrough: true
+    implementations: [
+        {
+            script: {content: "exec cst-bin \\"$@\\""}
+            runtimes:  [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        },
+        {
+            script: {content: "& cst-bin @args"}
+            runtimes:  [{name: "native"}]
+            platforms: [{name: "windows"}]
+        },
+    ]
+}`,
+  },
+
+  'flags-args/args-passthrough-usage': {
+    language: 'bash',
+    code: `# Pre-command --ivk-* flags configure Invowk; post-command tokens go verbatim
+invowk cmd --ivk-env-var ENV=staging --ivk-workdir ./tools cst sync --help --json
+
+# Also works with @source, --ivk-from, and module-qualified <source> <cmd>
+invowk cmd @tools cst --help --verbose
+invowk cmd --ivk-from tools cst --help --verbose
+
+# Inspect Invowk metadata/help without executing the command
+invowk help cmd cst`,
+  },
 } satisfies Record<string, Snippet>;

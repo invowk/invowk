@@ -68,6 +68,10 @@ Isso é útil quando:
 
 <Snippet id="runtime-modes/native-cmd-script" />
 
+:::note Ressalva de Argumentos Posicionais no `cmd.exe` do Windows
+O `cmd.exe` não suporta repasse posicional inline (`$@`). Mesmo com `passthrough: true`, argumentos chegam ao `cmd.exe` apenas via variáveis de ambiente `ARG1`..`ARGn` e `ARGC`. Use PowerShell / `pwsh` ou `virtual-sh` no Windows ao encapsular CLIs com `$args` / `$@`.
+:::
+
 ## Usando Interpretadores
 
 O runtime native suporta interpretadores não-shell como Python, Ruby ou Node.js.
