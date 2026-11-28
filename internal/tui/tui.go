@@ -131,6 +131,7 @@ type (
 		width         TerminalDimension
 		componentView string //goplint:ignore -- raw bubbletea View() output
 		helpText      string //goplint:ignore -- display-only help label
+		programStatus *tea.ProgramStatus
 	}
 )
 
@@ -345,7 +346,9 @@ func renderComponentView(p componentViewParams) tea.View {
 		view = lipgloss.NewStyle().MaxWidth(int(p.width)).Render(view)
 	}
 
-	return tea.NewView(view)
+	res := tea.NewView(view)
+	res.ProgramStatus = p.programStatus
+	return res
 }
 
 // isDarkTheme returns whether the given theme should use dark-oriented defaults.

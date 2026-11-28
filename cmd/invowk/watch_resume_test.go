@@ -522,7 +522,7 @@ func TestRunWatchMode_ResumeLifecycleAndChildTokenStripping(t *testing.T) {
 		if err := runWatchMode(cmd, app, &rootFlagValues{}, &cmdFlagValues{}, []string{"build"}); err != nil {
 			t.Fatalf("runWatchMode() error = %v", err)
 		}
-		if termBuf.Len() != 0 {
+		if strings.Contains(termBuf.String(), "\x1b]7577;") {
 			t.Fatalf("expected --ivk-env-var to suppress OSC 7577, got %q", termBuf.String())
 		}
 	})

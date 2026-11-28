@@ -5,6 +5,8 @@ package tui
 import (
 	"strings"
 
+	"github.com/invowk/invowk/pkg/types"
+
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -46,10 +48,13 @@ type (
 	// tableModel is the bubbletea model for the table component.
 	// It implements EmbeddableComponent for embedded use.
 	tableModel struct {
-		table     table.Model
-		rows      [][]string
-		done      bool
-		cancelled bool
+		table      table.Model
+		rows       [][]string
+		done       bool
+		cancelled  bool
+		forModal   bool
+		selectable bool
+		title      types.DescriptionText
 		// width is the configured width (opts.Width or SetSize); 0 means none.
 		width  TerminalDimension
 		height TerminalDimension
@@ -127,7 +132,14 @@ func (m *tableModel) View() tea.View {
 	if maxWidth > 0 {
 		view = lipgloss.NewStyle().MaxWidth(int(maxWidth)).Render(view)
 	}
-	return tea.NewView(view)
+	v := tea.NewView(view)
+	if !m.forModal {
+		v.ProgramStatus = statusForTUIComponent(ComponentTypeTable, programStatusMeta{
+			title:      m.title,
+			selectable: m.selectable,
+		})
+	}
+	return v
 }
 
 // IsDone implements EmbeddableComponent.
@@ -463,6 +475,9 @@ func newTableModelWithStyles(opts TableOptions, forModal bool) *tableModel {
 	return &tableModel{
 		table:        t,
 		rows:         opts.Rows,
+		forModal:     forModal,
+		selectable:   opts.Selectable,
+		title:        types.DescriptionText(opts.Title), //goplint:ignore -- display label
 		width:        opts.Width,
 		height:       TerminalDimension(tableHeight),
 		naturalWidth: naturalWidth,

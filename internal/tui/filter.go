@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/types"
+
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -64,6 +66,8 @@ type (
 		width     TerminalDimension
 		done      bool
 		cancelled bool
+		forModal  bool
+		title     types.DescriptionText
 	}
 
 	// FilterBuilder provides a fluent API for building Filter prompts.
@@ -146,7 +150,11 @@ func (m *filterModel) View() tea.View {
 	if m.width > 0 {
 		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
 	}
-	return tea.NewView(view)
+	v := tea.NewView(view)
+	if !m.forModal {
+		v.ProgramStatus = statusForTUIComponent(ComponentTypeFilter, programStatusMeta{title: m.title})
+	}
+	return v
 }
 
 // IsDone implements EmbeddableComponent.
@@ -467,6 +475,7 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 	l.Title = opts.Title
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(true)
+	l.DisableQuitKeybindings()
 	applyListStyles(&l, forModal)
 
 	if forModal {
@@ -518,6 +527,8 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 		noLimit:  opts.NoLimit,
 		height:   TerminalDimension(height),
 		width:    TerminalDimension(width),
+		forModal: forModal,
+		title:    types.DescriptionText(opts.Title), //goplint:ignore -- display label
 	}
 
 	// Pre-select items

@@ -58,6 +58,7 @@ property tests that bind them to code, use `formal-verification`.
   (rule "Test Context Usage"; `go-testing` "Context Patterns Decision Tree").
 - Prefer event-based synchronization, fake clocks, or polling deadlines over
   sleeps. Preserve evidence-backed sleeps only when timing creates the event
+- Terminal protocol tests (`OSC 7577` / `OSC 7501`): keep watch tests isolated via `Dependencies.WatchTerminal` (`WatchTerminalOpener`) so `io.Discard` / buffers never probe `/dev/tty`, set `InteractiveOptions.StatusClearWriter` in headless `-i` tests, and verify captured `stdout` stays free of OSC bytes.
   distinction under test.
 - Use existing `internal/testutil` helpers. Inspect their live API instead of
   relying on copied inventories.

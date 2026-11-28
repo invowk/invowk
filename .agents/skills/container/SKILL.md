@@ -136,6 +136,7 @@ Containerfile validation is layered:
 | Shared mutable mock recorder in parallel tests | Create a recorder and engine per test/subtest |
 | Real-engine container operation without bounded context/cleanup | Follow `.agents/rules/testing.md` "Integration and Container Tests" (semaphore, `ContainerTestContext`, deferred cleanup; not for `Validate()`-only, mocked-engine or pre-engine error-path tests) |
 | Podman prepared-command lease released before `Wait` | Compose cleanup with the command lifecycle and release after process exit |
+| Forwarding host `OSC7577_TOKEN` into containers | Keep `StripProgramResumeToken(env)` unconditional in `prepareContainerExecution` regardless of `env_inherit_mode`, `env_inherit_allow`, or overrides |
 
 ## Focused Verification
 

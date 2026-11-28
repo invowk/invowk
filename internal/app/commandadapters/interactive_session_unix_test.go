@@ -395,8 +395,9 @@ func runAdapterToCompletion(t *testing.T, script string) string {
 		return msg
 	}
 	opts := tui.InteractiveOptions{
-		Title:          "probe",
-		OnProgramReady: func(p *tea.Program) { program <- p },
+		Title:             "probe",
+		StatusClearWriter: io.Discard,
+		OnProgramReady:    func(p *tea.Program) { program <- p },
 		ProgramOptions: []tea.ProgramOption{
 			tea.WithInput(nil),
 			tea.WithOutput(io.Discard),
@@ -474,8 +475,9 @@ func TestInteractiveForceQuitHangsUpNonReadingCommand(t *testing.T) {
 		return lastView
 	}
 	opts := tui.InteractiveOptions{
-		Title:          "hup probe",
-		OnProgramReady: func(p *tea.Program) { program <- p },
+		Title:             "hup probe",
+		StatusClearWriter: io.Discard,
+		OnProgramReady:    func(p *tea.Program) { program <- p },
 		ProgramOptions: []tea.ProgramOption{
 			tea.WithInput(nil),
 			tea.WithOutput(io.Discard),

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -63,6 +64,9 @@ func RunInteractiveSession(
 	}()
 
 	finalModel, err := p.Run()
+	if needsInteractiveStatusClear(finalModel, err) {
+		clearInteractiveProgramStatus(opts)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("TUI error: %w", err)
 	}
@@ -84,6 +88,29 @@ func awaitOutputEnd(readerDone <-chan struct{}, grace time.Duration) {
 	select {
 	case <-readerDone:
 	case <-timer.C:
+	}
+}
+
+func needsInteractiveStatusClear(finalModel tea.Model, runErr error) bool {
+	if runErr != nil {
+		return errors.Is(runErr, tea.ErrProgramKilled) || errors.Is(runErr, tea.ErrInterrupted)
+	}
+	im, ok := finalModel.(*interactiveModel)
+	return !ok || !im.quitting
+}
+
+func clearInteractiveProgramStatus(opts InteractiveOptions) {
+	if opts.StatusClearWriter != nil {
+		writeClearProgramStatus(opts.StatusClearWriter)
+		return
+	}
+	if tty, err := openInteractiveStatusTTY(); err == nil {
+		writeClearProgramStatus(tty)
+		_ = tty.Close()
+		return
+	}
+	if isTerminalFile(os.Stdout) {
+		writeClearProgramStatus(os.Stdout)
 	}
 }
 

@@ -183,5 +183,17 @@ func runComponentProgramWith(resolve resolveTerminalFunc, component ComponentTyp
 	}()
 
 	p := tea.NewProgram(model, terminal.programOptions()...)
-	return p.Run()
+	finalModel, err = p.Run()
+	if needsComponentStatusClear(finalModel, err) {
+		writeClearProgramStatus(terminal.out)
+	}
+	return finalModel, err
+}
+
+func needsComponentStatusClear(finalModel tea.Model, runErr error) bool {
+	if runErr != nil {
+		return true
+	}
+	ec, ok := finalModel.(EmbeddableComponent)
+	return !ok || !ec.IsDone()
 }

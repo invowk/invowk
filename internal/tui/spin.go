@@ -86,14 +86,15 @@ type (
 
 	// spinModel implements EmbeddableComponent for spinner with command execution.
 	spinModel struct {
-		title   string
-		run     tea.Cmd
-		done    bool
-		result  SpinResult
-		width   TerminalDimension
-		height  TerminalDimension
-		spinner int
-		frames  []string
+		title    string
+		run      tea.Cmd
+		done     bool
+		forModal bool
+		result   SpinResult
+		width    TerminalDimension
+		height   TerminalDimension
+		spinner  int
+		frames   []string
 	}
 
 	// spinnerTickMsg is sent to animate the spinner.
@@ -116,6 +117,7 @@ type (
 		title   types.DescriptionText
 		spinner bspinner.Model
 		doneCh  <-chan struct{}
+		done    bool
 	}
 
 	// actionSpinnerFunc draws the spinner on terminal until doneCh is closed
@@ -205,19 +207,31 @@ func SpinnerTypeNames() []string {
 }
 
 // NewSpinModel creates an embeddable spinner component.
-func NewSpinModel(_ context.Context, opts SpinCommandOptions) *spinModel {
+func NewSpinModel(ctx context.Context, opts SpinCommandOptions) *spinModel {
+	return newSpinModel(ctx, opts, false)
+}
+
+// NewSpinModelForModal creates an embeddable spinner component configured for
+// modal overlay rendering inside the interactive viewer.
+func NewSpinModelForModal(ctx context.Context, opts SpinCommandOptions) *spinModel {
+	return newSpinModel(ctx, opts, true)
+}
+
+func newSpinModel(_ context.Context, opts SpinCommandOptions, forModal bool) *spinModel {
 	if opts.Run == nil {
 		return &spinModel{
-			title:  opts.Title,
-			done:   true,
-			frames: getSpinnerType(opts.Type).Frames,
+			title:    opts.Title,
+			done:     true,
+			forModal: forModal,
+			frames:   getSpinnerType(opts.Type).Frames,
 		}
 	}
 
 	return &spinModel{
-		title:  opts.Title,
-		run:    opts.Run,
-		frames: getSpinnerType(opts.Type).Frames,
+		title:    opts.Title,
+		run:      opts.Run,
+		forModal: forModal,
+		frames:   getSpinnerType(opts.Type).Frames,
 	}
 }
 
@@ -271,7 +285,13 @@ func (m *spinModel) View() tea.View {
 	if m.width > 0 {
 		content = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(content)
 	}
-	return tea.NewView(content)
+	v := tea.NewView(content)
+	if !m.forModal {
+		v.ProgramStatus = statusForTUIComponent(ComponentTypeSpin, programStatusMeta{
+			title: types.DescriptionText(m.title), //goplint:ignore -- display label
+		})
+	}
+	return v
 }
 
 // IsDone implements EmbeddableComponent.
@@ -538,11 +558,13 @@ func (m spinActionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
 	case spinnerDoneMsg:
+		m.done = true
 		return m, tea.Quit
 	case tea.KeyPressMsg:
 		// Ctrl+C reports an interrupt, the same path as a SIGINT, so that
 		// SpinWithAction cancels the action instead of abandoning it.
 		if msg.String() == keyCtrlC {
+			m.done = true
 			return m, tea.Interrupt
 		}
 	}
@@ -551,11 +573,16 @@ func (m spinActionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View implements tea.Model for spinActionModel.
 func (m spinActionModel) View() tea.View {
+	if m.done {
+		return tea.NewView("")
+	}
 	content := m.spinner.View()
 	if m.title != "" {
 		content += " " + m.title.String()
 	}
-	return tea.NewView(content)
+	v := tea.NewView(content)
+	v.ProgramStatus = statusForTUIComponent(ComponentTypeSpin, programStatusMeta{title: m.title})
+	return v
 }
 
 // runActionSpinner displays a spinner on terminal until doneCh is closed, then
@@ -578,8 +605,19 @@ func runSpinnerProgram(terminal componentTerminal, opts SpinOptions, doneCh <-ch
 	}
 
 	program := tea.NewProgram(model, terminal.programOptions()...)
-	_, err := program.Run()
+	finalModel, err := program.Run()
+	if needsSpinnerStatusClear(finalModel, err) {
+		writeClearProgramStatus(terminal.out)
+	}
 	return err
+}
+
+func needsSpinnerStatusClear(finalModel tea.Model, runErr error) bool {
+	if runErr != nil {
+		return true
+	}
+	sm, ok := finalModel.(spinActionModel)
+	return !ok || !sm.done
 }
 
 // waitForSpinDone waits for completion and returns a done message.

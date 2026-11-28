@@ -58,7 +58,7 @@ Componentes TUI funcionam perfeitamente dentro de containers ao usar o modo inte
 
 ## Piping e Captura
 
-Os componentes desenham a interface no seu terminal (`/dev/tty` no Unix, o console no Windows) e leem as teclas dele, não de stdin e stdout. stdout leva apenas o resultado, então `NAME=$(invowk tui input)` captura exatamente a resposta, sem sequências de controle. A interface continua visível quando stderr é redirecionado, e stdin fica livre para dados via pipe, como as opções do `filter` ou as linhas do `table`. `format` e `style` são a exceção: o texto estilizado é o resultado deles, então eles o escrevem em stdout.
+Os componentes desenham a interface no seu terminal (`/dev/tty` no Unix, o console no Windows) e leem as teclas dele, não de stdin e stdout. stdout leva apenas o resultado, então `NAME=$(invowk tui input)` captura exatamente a resposta, sem sequências de controle. Em terminais compatíveis, componentes interativos standalone também emitem `OSC 7501` Program Status (`app="invowk"`: `blocked` para `question`/`auth`/`permission`, `working` para `spin`, `idle` para `pager` e `table` não selecionável) para o dispositivo de terminal (nunca `stdout`) e emitem `state=clear` ao sair ou interromper. A interface continua visível quando stderr é redirecionado, e stdin fica livre para dados via pipe, como as opções do `filter` ou as linhas do `table`. `format` e `style` são a exceção: o texto estilizado é o resultado deles, então eles o escrevem em stdout.
 
 `pager` e uma `table` sem `--selectable` apenas exibem conteúdo. Quando o stdout deles não é um terminal, eles escrevem esse conteúdo em stdout e não abrem o terminal: o `pager` o repassa sem alterações, como o `less` num pipe, e a tabela mostra as linhas como texto simples.
 

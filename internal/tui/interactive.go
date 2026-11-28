@@ -5,6 +5,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -39,6 +40,9 @@ type (
 		// terminal (tea.WithInput(nil), tea.WithOutput, tea.WithWindowSize)
 		// and to observe its messages (tea.WithFilter).
 		ProgramOptions []tea.ProgramOption
+		// StatusClearWriter overrides where explicit OSC 7501 clear sequences are
+		// written when RunInteractiveSession ends via cancellation or interrupt.
+		StatusClearWriter io.Writer
 	}
 
 	// InteractiveResult contains the result of interactive execution.
@@ -126,6 +130,7 @@ type (
 		result   *InteractiveResult
 		state    executionState
 		ready    bool
+		quitting bool
 		// rebuildPending is set while a completed-view rebuild is scheduled.
 		rebuildPending bool
 		width          TerminalDimension
@@ -135,6 +140,7 @@ type (
 		// TUI component overlay fields
 		activeComponent     EmbeddableComponent
 		activeComponentType ComponentType
+		activeComponentMeta programStatusMeta
 		componentDoneCh     chan<- ComponentResponse
 	}
 

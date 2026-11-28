@@ -95,10 +95,18 @@ func (m *inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View implements tea.Model.
 func (m *inputModel) View() tea.View {
+	var status *tea.ProgramStatus
+	if !m.done && !m.forModal {
+		status = statusForTUIComponent(ComponentTypeInput, programStatusMeta{
+			title:    m.title,
+			password: m.input.EchoMode == textinput.EchoPassword,
+		})
+	}
 	return renderComponentView(componentViewParams{
 		done: m.done, forModal: m.forModal, title: m.title,
 		description: m.description, width: m.width,
 		componentView: m.input.View(), helpText: "enter submit • esc cancel",
+		programStatus: status,
 	})
 }
 

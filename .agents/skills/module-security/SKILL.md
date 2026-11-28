@@ -426,6 +426,7 @@ When reviewing module-related changes, adapt the workflow:
 | Scan context hides invalid modules/files | Preserve structured diagnostics in `Report.Diagnostics` and CLI JSON/text output |
 | Exposing shared `ScanContext` state | Keep `Modules()`, `Invowkfiles()` and `AllScripts()` returning clones (immutability contract); checkers share the context concurrently |
 | Levenshtein runs O(n²) on module list | Acceptable for small module sets; for >100 modules consider short-circuiting or length pre-filter |
+| Leaking terminal `OSC7577_TOKEN` into non-transparent boundaries | Child commands or remote clients can forge OSC 7577 terminal resume commands | Strip `OSC7577_TOKEN` via `StripProgramResumeToken`/`FilterProgramResumeToken` in `container`, `virtual-sh`, `virtual-lua`, `-i` PTY/helpers, `sshserver`, `hostCustomCheckEnvMap`, and `--ivk-watch` children (`StripProgramResumeToken: true`); keep `checks_env.go`/`checks_lua.go` flagging `$OSC7577_TOKEN` and `invowk.env["OSC7577_TOKEN"]` |
 
 ## Related Skills
 

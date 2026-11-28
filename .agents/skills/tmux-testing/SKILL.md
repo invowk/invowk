@@ -99,7 +99,7 @@ When adding a new interactive `tui` command:
 
 ## The `-i` Viewer
 
-`tests/cli/interactive_viewer_tmux_test.go` drives `invowk -i cmd …` itself (the PTY viewer, not a `tui` component): controlling terminal, signals, screen emulation, history and query answering. The viewer only redraws on a Bubble Tea message, so wait for a pane line (`mustWaitLine`) rather than sleeping, and assert on whole pane rows (header row 0, command screen from row 2, footer last). Model-level viewer tests run without a terminal through `tui.InteractiveOptions.ProgramOptions` (`WithInput(nil)`, `WithOutput`, `WithWindowSize`, `WithFilter`); a filter sees the view only when a message arrives, so poke the program with a no-op message while waiting.
+`tests/cli/interactive_viewer_tmux_test.go` drives `invowk -i cmd …` itself (the PTY viewer, not a `tui` component): controlling terminal, signals, screen emulation, history and query answering. The viewer only redraws on a Bubble Tea message, so wait for a pane line (`mustWaitLine`) rather than sleeping, and assert on whole pane rows (header row 0, command screen from row 2, footer last). Model-level viewer tests run without a terminal through `tui.InteractiveOptions.ProgramOptions` (`WithInput(nil)`, `WithOutput`, `WithWindowSize`, `WithFilter`); a filter sees the view only when a message arrives, so poke the program with a no-op message while waiting. For OSC 7501 `ProgramStatus` ownership, `interactiveModel` emits root status while modal overlays run with `forModal: true` (omitting `View.ProgramStatus`); tests verifying explicit clear on `tea.ErrProgramKilled` can inject `InteractiveOptions.StatusClearWriter`.
 
 ## When To Use Something Else
 
