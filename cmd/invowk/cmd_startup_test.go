@@ -105,6 +105,16 @@ func TestShouldRegisterDiscoveredCommands(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "shell completion for scoped wrapper probe",
+			args: []string{"__complete", "-c", filepath.Join(tmpDir, "cst.cue"), "--ivk-no-cwd", "cmd", "cst", ""},
+			want: true,
+		},
+		{
+			name: "shell completion for scoped wrapper probe with color flag",
+			args: []string{"__complete", "-c", filepath.Join(tmpDir, "cst.cue"), "--ivk-no-cwd", "--ivk-color", "always", "cmd", "cst", ""},
+			want: true,
+		},
+		{
 			name: "non-cmd command after separate color flag",
 			args: []string{"--ivk-color", "always", "init"},
 			want: false,

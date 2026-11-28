@@ -718,15 +718,28 @@ Forneça argumentos de descrição ou `--from-file`; eles são mutuamente exclus
 
 ### invowk completion
 
-Gerar scripts de completion para o shell.
+Gerar scripts de completion para o shell. O completion para Bash usa o formato Bash V2 do Cobra (`bash-completion` v2+).
 
 <Snippet id="reference/cli/completion-syntax" />
 
 **Shells:** `bash`, `zsh`, `fish`, `powershell`
 
+**Flags:**
+
+| Flag | Padrão | Descrição |
+|------|--------|-----------|
+| `--alias` | | Nome do comando ao qual vincular os completions gerados (começa com alfanumérico; apenas `[a-zA-Z0-9._-]`) com identificadores auxiliares isolados |
+| `--prefix` | | Tokens com aspas de shell prefixados ao `invowk __complete` (não pode ser usada sem `--alias`; rejeita NUL, quebras de linha e aspas não fechadas; escapada para o shell alvo) |
+
 **Exemplos:**
 
 <Snippet id="reference/cli/completion-examples" />
+
+**Aliases de Wrapper Independente:**
+
+Use `--alias` e `--prefix` ao expor um módulo como comando wrapper independente (por exemplo, `cst` encapsulando `invowk -c <config> --ivk-no-cwd --ivk-color=auto cmd cst "$@"`). Os scripts gerados isolam os nomes das funções auxiliares das completions do próprio `invowk` e aplicam escape específico do shell a cada token de prefixo antes de `invowk __complete`:
+
+<Snippet id="reference/cli/completion-wrapper" />
 
 ---
 
@@ -761,6 +774,7 @@ O status `2` cobre:
 - argumentos ou flags declarados que falham na validação;
 - um valor inválido de uma flag reservada `--ivk-*`, como um valor inválido de `--ivk-color` (`auto`, `always`, `never`), um `--ivk-runtime` desconhecido ou um runtime não permitido pelo comando, um `--ivk-env-inherit-mode` desconhecido, um nome inválido em `--ivk-env-inherit-allow`/`--ivk-env-inherit-deny`, um `--ivk-workdir` só com espaços, um `--ivk-env-file` vazio, um `--ivk-container-name` inválido ou um valor de `--ivk-env-var` sem `KEY=`;
 - um erro de `invowk agent` detectado apenas pela linha de comando, como um nome inválido, flags mutuamente exclusivas, uma descrição ausente, um valor `--llm-*` inválido ou um formato ou operação de prompt desconhecido;
+- um valor inválido de `--alias` ou `--prefix` em `invowk completion` (incluindo `--prefix` sem `--alias`, caracteres NUL/quebras de linha ou aspas não fechadas);
 - um conflito decidido apenas por flags e variáveis de ambiente: um valor inválido de `INVOWK_NO_CWD`, `--ivk-watch` junto com `--ivk-dry-run`, `invowk config set` enquanto `--ivk-config` ou `INVOWK_CONFIG` está ativo, e `invowk agent cmd create`/`change --verify` sob `--ivk-no-cwd` ou `INVOWK_NO_CWD`.
 
 O status `1` cobre todo o resto: erros de configuração que abortam o comando, incluindo um arquivo de configuração indicado por `--ivk-config` ou `INVOWK_CONFIG` ausente ou inválido, ou um `INVOWK_CONFIG` relativo; erros de descoberta; falhas de fontes no diretório atual (a menos que `--ivk-no-cwd` ou `INVOWK_NO_CWD` esteja ativo), onde um `./invowkfile.cue` ou `./*.invowkmod` que falha na análise, schema ou validação de `invowk_version` aborta o `invowk cmd` imediatamente com seu erro real em vez de recorrer a fontes de menor precedência; invowkfiles ou árvores de comandos inválidas, incluindo um comando não encontrado quando um invowkfile ou módulo fora do diretório atual foi ignorado por falhar ao ser interpretado ou carregado (o comando pode estar definido nele; o erro cita cada fonte ignorada e o seu código de diagnóstico, e um comando ausente dentro de uma fonte `@source` ou `--ivk-from` que carregou continua saindo com `2`); verificações de `depends_on` não satisfeitas; uma plataforma de host não suportada; um engine de contêiner ou runtime indisponível; timeouts (`timeout`) e cancelamentos sem sinal; e falhas de `invowk agent` que dependem de arquivos, da configuração ou de um LLM.

@@ -3,9 +3,9 @@
 
 cd $WORK
 
-# Test 1: Bash completion produces bash completion functions
+# Test 1: Bash completion produces bash completion V2 functions
 exec invowk completion bash
-stdout 'bash completion for invowk'
+stdout 'bash completion V2 for invowk'
 
 # Test 2: Zsh completion produces compdef directive
 exec invowk completion zsh

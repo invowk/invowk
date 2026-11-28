@@ -1,0 +1,144 @@
+# Test: invowk completion --alias and --prefix for standalone wrapper commands
+
+cd $WORK
+
+# 1. Validation failures return exit status 2 (UsageError) with empty stdout
+exitcode 2 invowk completion bash --alias 'cst; rm -rf /'
+! stdout .
+stderr '[Ii]nvalid\s+--alias'
+
+exitcode 2 invowk completion bash --alias ''
+! stdout .
+stderr '[Ii]nvalid\s+--alias'
+
+exitcode 2 invowk completion bash --prefix 'cmd cst'
+! stdout .
+stderr '--prefix\s+without\s+--alias'
+
+exitcode 2 invowk completion bash --alias cst --prefix '"unclosed'
+! stdout .
+stderr '[Ii]nvalid\s+--prefix'
+
+# 2. Bash completion V2 with --alias and scoped --prefix
+exec invowk completion bash --alias cst --prefix '-c /etc/cst/config.cue --ivk-no-cwd cmd cst'
+stdout '# bash completion V2 for cst'
+stdout '__cst_debug\(\)'
+stdout '__start_cst\(\)'
+stdout 'complete -o default -F __start_cst cst'
+stdout 'invowk __complete'
+stdout '''-c'' ''/etc/cst/config\.cue'' ''--ivk-no-cwd'' ''cmd'' ''cst'''
+! stdout '__invowk_'
+! stdout '__start_invowk'
+cp stdout cst.bash
+
+# 3. Zsh completion with --alias and scoped --prefix
+exec invowk completion zsh --alias cst --prefix '-c /etc/cst/config.cue --ivk-no-cwd cmd cst'
+stdout '#compdef cst'
+stdout 'compdef _cst cst'
+stdout '_cst\(\)'
+stdout 'invowk __complete'
+stdout '''-c'' ''/etc/cst/config\.cue'' ''--ivk-no-cwd'' ''cmd'' ''cst'''
+! stdout '__invowk_'
+! stdout '_invowk\(\)'
+cp stdout cst.zsh
+
+# 4. Fish completion with --alias and scoped --prefix
+exec invowk completion fish --alias cst --prefix '-c /etc/cst/config.cue --ivk-no-cwd cmd cst'
+stdout '# fish completion for cst'
+stdout 'complete -c cst -e'
+stdout 'INVOWK_ACTIVE_HELP=0 invowk __complete'
+stdout '''-c'' ''/etc/cst/config\.cue'' ''--ivk-no-cwd'' ''cmd'' ''cst'''
+! stdout '__invowk_'
+! stdout 'complete -c invowk'
+cp stdout cst.fish
+
+# 5. PowerShell completion with --alias and scoped --prefix
+exec invowk completion powershell --alias cst --prefix '-c /etc/cst/config.cue --ivk-no-cwd cmd cst'
+stdout '# powershell completion for cst'
+stdout 'Register-ArgumentCompleter -CommandName ''cst'''
+stdout '\$\{__cstCompleterBlock\}'
+stdout 'invowk __complete'
+stdout '''-c'', ''/etc/cst/config\.cue'', ''--ivk-no-cwd'', ''cmd'', ''cst'''
+! stdout '__invowk_'
+! stdout '\$\{__invowkCompleterBlock\}'
+cp stdout cst.ps1
+
+# 6. Dynamic __complete probe with -c <cfg> --ivk-no-cwd ignores broken cwd
+cd $WORK/gen
+env INC=$WORK/scoped/cst.invowkmod
+exec invowk cmd genconfig
+cp stdout $WORK/scoped/config.cue
+
+cd $WORK/broken_cwd
+exitcode 0 invowk __complete -c $WORK/scoped/config.cue --ivk-no-cwd cmd cst ''
+stdout '^build\tBuild cst$'
+stdout '^test$'
+stdout '^:4$'
+exitcode 0 invowk __complete -c $WORK/scoped/config.cue --ivk-no-cwd --ivk-color always cmd cst test ''
+stdout '^unit\tRun cst unit tests$'
+stdout '^:4$'
+cd $WORK
+
+# 7. Live shell syntax and completion probe checks where shells are available
+[exec:bash] exec bash -n cst.bash
+[exec:bash] cd $WORK/broken_cwd
+[exec:bash] exec bash $WORK/check_bash_live.sh $WORK/scoped/config.cue
+[exec:bash] stdout 'COMPLETE_INVOWK:.*__start_invowk'
+[exec:bash] stdout 'COMPLETE_CST:.*__start_cst'
+[exec:bash] stdout 'LIVE_OUT:.*build\tBuild cst'
+[exec:bash] stdout 'LIVE_DIR:4'
+[exec:bash] cd $WORK
+
+[exec:zsh] exec zsh -n cst.zsh
+[exec:fish] exec fish --no-execute cst.fish
+[windows] [exec:pwsh] exec pwsh -NoProfile -NonInteractive -File $WORK/check_pwsh.ps1 $WORK/cst.ps1
+
+-- broken_cwd/invowkfile.cue --
+this is intentionally invalid CUE {{{
+
+-- gen/invowkfile.cue --
+cmds: [{
+	name: "genconfig"
+	implementations: [{
+		script: {content: ##"echo "includes: [{path: #\"$INC\"#}]""##}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+
+-- scoped/cst.invowkmod/invowkmod.cue --
+module: "cst"
+version: "1.0.0"
+description: "CST wrapper module"
+
+-- scoped/cst.invowkmod/invowkfile.cue --
+cmds: [
+	{name: "build", description: "Build cst", implementations: [{script: {content: "echo build"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]},
+	{name: "test unit", description: "Run cst unit tests", implementations: [{script: {content: "echo unit"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]},
+]
+
+-- check_bash_live.sh --
+set -euo pipefail
+CFG="${1//\\//}"
+eval "$(invowk completion bash)"
+eval "$(invowk completion bash --alias cst --prefix "-c $CFG --ivk-no-cwd cmd cst")"
+printf 'COMPLETE_INVOWK:%s\n' "$(complete -p invowk)"
+printf 'COMPLETE_CST:%s\n' "$(complete -p cst)"
+words=("cst" "")
+cur=""
+__cst_get_completion_results
+printf 'LIVE_OUT:%s\n' "$out"
+printf 'LIVE_DIR:%s\n' "$directive"
+
+-- check_pwsh.ps1 --
+param([string]$ScriptPath)
+$errors = $null
+$tokens = $null
+[void][System.Management.Automation.Language.Parser]::ParseFile($ScriptPath, [ref]$tokens, [ref]$errors)
+if ($errors.Count -ne 0) {
+    $errors | ForEach-Object { Write-Error $_.Message }
+    exit 1
+}
+. $ScriptPath
+if (-not (Test-Path function:__cst_debug)) { exit 1 }
+if (-not $__cstCompleterBlock) { exit 1 }

@@ -2710,7 +2710,7 @@ llm: {
 
 ## Shell Completion
 
-### Bash
+### Bash (V2; requires `bash-completion` v2+)
 
 ```bash
 # Add to ~/.bashrc:
@@ -2744,6 +2744,26 @@ invowk completion powershell | Out-String | Invoke-Expression
 # Or add to $PROFILE:
 invowk completion powershell >> $PROFILE
 ```
+
+### Standalone Wrapper Aliases (`--alias` / `--prefix`)
+
+When exposing a module as a standalone wrapper script (for example `/usr/local/bin/cst` running `exec invowk -c /etc/cst/config.cue --ivk-no-cwd --ivk-color=auto cmd cst "$@"`), bind tab-completion directly to the wrapper name without colliding with `invowk`'s own completions:
+
+```bash
+# Bash
+eval "$(invowk completion bash --alias cst --prefix "-c /etc/cst/config.cue --ivk-no-cwd cmd cst")"
+
+# Zsh
+eval "$(invowk completion zsh --alias cst --prefix "-c /etc/cst/config.cue --ivk-no-cwd cmd cst")"
+
+# Fish
+invowk completion fish --alias cst --prefix "-c /etc/cst/config.cue --ivk-no-cwd cmd cst" > ~/.config/fish/completions/cst.fish
+
+# PowerShell
+invowk completion powershell --alias cst --prefix "-c /etc/cst/config.cue --ivk-no-cwd cmd cst" | Out-String | Invoke-Expression
+```
+
+`--alias` accepts safe command identifiers (`[a-zA-Z0-9][a-zA-Z0-9._-]*`), `--prefix` cannot be used without `--alias` and rejects NUL bytes, newlines, and unclosed quotes (exit `2`), and each `--prefix` token is shell-escaped for the target shell before `invowk __complete`.
 
 ## Command Examples
 
@@ -2875,7 +2895,7 @@ Invowk uses four exit-code classes, so wrappers, CI jobs and service managers ca
 | `0` | Success. A bare command group (`invowk module`, `invowk cmd test`) prints its help and exits `0`. |
 | `N` | A user command ran and exited with its own non-zero status `N`, forwarded unchanged for every runtime. |
 | `128 + signal` | On Unix, Invowk terminated after receiving a trapped termination signal (`129` `SIGHUP`, `130` `SIGINT`, `143` `SIGTERM`), after bounded cleanup of child process groups, temp scripts, and ephemeral containers. |
-| `2` | Invowk rejected the command line before running any user command code: an unknown flag or command (including a typo under a command group, whose subcommands are listed on stderr), a bad flag value, a missing required flag or a wrong argument count, an unknown or ambiguous command name or source, a malformed source name such as a path (`@./m.invowkmod`), failed declared-argument or flag validation, an invalid reserved `--ivk-*` value (for example `--ivk-color=bogus` or `--ivk-env-var` without `KEY=`), an `invowk agent` error detected from the command line alone, or a conflict decided by flags and environment variables alone (an invalid `INVOWK_NO_CWD`, `--ivk-watch` with `--ivk-dry-run`, `config set` while an explicit config source is active, `agent … --verify` under `--ivk-no-cwd`). |
+| `2` | Invowk rejected the command line before running any user command code: an unknown flag or command (including a typo under a command group, whose subcommands are listed on stderr), a bad flag value, a missing required flag or a wrong argument count, an unknown or ambiguous command name or source, a malformed source name such as a path (`@./m.invowkmod`), failed declared-argument or flag validation, an invalid reserved `--ivk-*` value (for example `--ivk-color=bogus` or `--ivk-env-var` without `KEY=`), an invalid `invowk completion` `--alias`/`--prefix` (or `--prefix` without `--alias`), an `invowk agent` error detected from the command line alone, or a conflict decided by flags and environment variables alone (an invalid `INVOWK_NO_CWD`, `--ivk-watch` with `--ivk-dry-run`, `config set` while an explicit config source is active, `agent … --verify` under `--ivk-no-cwd`). |
 | `1` | Invowk itself failed for any other reason, including a missing or invalid config file named by `--ivk-config` or `INVOWK_CONFIG`, discovery and invowkfile errors (including a current-directory `./invowkfile.cue` or `./*.invowkmod` that fails parse, schema, or `invowk_version` validation while `--ivk-no-cwd` is off — which aborts `invowk cmd` immediately with its real error — and a command that is not found while a non-current-directory invowkfile or module was skipped; the error names the skipped sources, and a miss inside an `@source` that loaded still exits `2`), unsatisfied `depends_on` checks, an unavailable container engine, explicit command timeouts (`timeout`) and non-signal cancellations, and `invowk agent` failures that need files, the config or an LLM. |
 
 Per-command exceptions: `invowk audit` exits `0` clean, `1` for findings and `2` for scan, configuration or command-line errors ([details](#exit-codes-1)); `invowk tui confirm` exits `1` when the user declines; `invowk tui spin` exits with the wrapped command's code, and `1` when cancelled with Ctrl+C, when a signal ended the command, or when it was still running 15 seconds after it was stopped; `invowk validate` exits `1` when validation finds errors.
