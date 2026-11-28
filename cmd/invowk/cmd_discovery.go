@@ -126,6 +126,13 @@ func buildDiscoveredGroupCommand(app *App, rootFlags *rootFlagValues, cmdFlags *
 				return cwdErr
 			}
 
+			if postArgs, preParseErr, hasPayload := passthroughFromContext(ctx); hasPayload {
+				if preParseErr != nil {
+					return preParseErr
+				}
+				args = append(slices.Clone(args), postArgs...)
+			}
+
 			fullArgs := append(strings.Fields(prefix), args...)
 			fromFlag, _ := cmd.Flags().GetString("ivk-from")
 			if fromFlag != "" {
@@ -182,13 +189,26 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 	cmdSourceID := cmdInfo.SourceID
 	cmdRuntimeFlags := cmdInfo.Command.Flags
 	cmdArgs := cmdInfo.Command.Args
+	cmdPassthrough := cmdInfo.Command.Passthrough
+	regConfigPath := ""
+	if rootFlags != nil {
+		regConfigPath = rootFlags.configPath
+	}
 
 	useStr := buildCommandUsageString(cmdPart, cmdArgs)
+	if cmdPassthrough {
+		useStr = cmdPart + " [args...]"
+	}
+	longDesc := fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath)
+	if cmdPassthrough {
+		longDesc += fmt.Sprintf("\n\nPassthrough: forwards all tokens after the command path verbatim to the script.\nUse 'invowk help cmd %s' to inspect this command without executing it.", cmdSimpleName)
+	}
 
 	newCmd := &cobra.Command{
-		Use:   useStr,
-		Short: string(cmdInfo.Description),
-		Long:  fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath),
+		Use:                useStr,
+		Short:              string(cmdInfo.Description),
+		Long:               longDesc,
+		DisableFlagParsing: cmdPassthrough,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, _, err := scopeDiscovery(cmd, app, rootFlags)
 			if err != nil {
@@ -197,13 +217,20 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			if cwdErr := checkCurrentDirDiscoveryError(ctx, app); cwdErr != nil {
 				return cwdErr
 			}
+			if postArgs, preParseErr, hasPayload := passthroughFromContext(ctx); hasPayload {
+				if preParseErr != nil {
+					return preParseErr
+				}
+				args = postArgs
+			}
+
 			resolved, flagDefs, argDefs := cmdInfo, cmdRuntimeFlags, cmdArgs
-			if noCwdFromContext(ctx) != registeredNoCwd {
+			if noCwdFromContext(ctx) != registeredNoCwd || configPathFromContext(ctx) != regConfigPath {
 				resolved = rescopeRegisteredCommand(ctx, app, cmdName)
 				flagDefs, argDefs = commandFlagDefs(resolved), commandArgDefs(resolved)
 			}
 
-			fromFlag, _ := cmd.Flags().GetString("ivk-from")
+			fromFlag := stringFlagValue(cmd, "ivk-from")
 			fromSource, err := parseSourceName(fromFlag)
 			if err != nil {
 				return err
@@ -237,14 +264,6 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 		},
 		Args: cobra.ArbitraryArgs,
 	}
-
-	// Reserved runtime flags are injected for every discovered leaf.
-	newCmd.Flags().StringArrayP("ivk-env-file", "e", nil, "load environment variables from file(s) (can be specified multiple times)")
-	newCmd.Flags().StringArrayP("ivk-env-var", "E", nil, "set environment variable (KEY=VALUE, can be specified multiple times)")
-	newCmd.Flags().String("ivk-env-inherit-mode", "", "inherit host environment variables: none, allow, all (overrides runtime config)")
-	newCmd.Flags().StringArray("ivk-env-inherit-allow", nil, "allowlist for host environment inheritance (repeatable)")
-	newCmd.Flags().StringArray("ivk-env-inherit-deny", nil, "denylist for host environment inheritance (repeatable)")
-	newCmd.Flags().StringP("ivk-workdir", "w", "", "override the working directory for this command")
 
 	if capDoc := buildCapabilitiesDocumentation(cmdInfo); capDoc != "" {
 		newCmd.Long += "\n\nRequired Capabilities:\n" + capDoc
@@ -535,6 +554,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	platformsStyle := lipgloss.NewStyle().Foreground(ColorWarning)
 	legendStyle := lipgloss.NewStyle().Foreground(ColorVerbose).Italic(true)
 	ambiguousStyle := lipgloss.NewStyle().Foreground(ColorError)
+	passthroughStyle := lipgloss.NewStyle().Foreground(ColorHighlight)
 	categoryStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Italic(true)
 
 	w := app.outUI()
@@ -600,6 +620,9 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 				platformsStr := discovered.Command.GetPlatformsString()
 				if platformsStr != "" {
 					line += fmt.Sprintf(" (%s)", platformsStyle.Render(platformsStr))
+				}
+				if discovered.Command.Passthrough {
+					line += " " + passthroughStyle.Render("[passthrough]")
 				}
 				fmt.Fprintln(w, line)
 			}

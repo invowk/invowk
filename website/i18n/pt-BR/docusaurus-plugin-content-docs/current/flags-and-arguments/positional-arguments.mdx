@@ -167,6 +167,26 @@ Escolha uma abordagem:
 
 Um token que não corresponde a um subcomando de um grupo de comandos (por exemplo `invowk cmd test nonexistent` quando só existem `test unit` e `test other`) é rejeitado com status de saída `2`, e os subcomandos do grupo são listados no stderr. Um comando folha que não declara `args` continua recebendo tokens extras como parâmetros posicionais, mesmo quando também tem subcomandos: `invowk cmd w typo` executa `w` com `typo` como `$1`.
 
+## Passthrough Bruto de Argumentos (`passthrough: true`)
+
+Ao encapsular uma ferramenta CLI existente, declarar cada flag da ferramenta no `invowkfile.cue` costuma ser desnecessário. Defina `passthrough: true` em um comando folha para desativar o parsing de flags do Cobra após o caminho do comando:
+
+<Snippet id="flags-args/args-passthrough-example" />
+
+<Snippet id="flags-args/args-passthrough-usage" />
+
+### Regras de Fronteira da CLI
+
+- **Flags `--ivk-*` pré-comando pertencem ao Invowk**: posicione `--ivk-runtime`, `--ivk-from`, `--ivk-workdir`, `--ivk-env-var`, `--ivk-env-file`, `--ivk-env-inherit-*`, `--ivk-dry-run`, `--ivk-watch` e flags raiz `--ivk-*` **antes** do caminho do comando.
+- **Tokens pós-comando vão literalmente**: cada token **após** o caminho do comando—incluindo `--help`, `-h`, flags desconhecidas, `--` e flags `--ivk-*` aninhadas—é repassado literalmente via `$@` / `$1..$n` (POSIX/container/`virtual-sh`), `$args` (PowerShell), `...` / `invowk.args` (`virtual-lua`) e `ARG1..ARGn` / `ARGC`. Isso vale igualmente para invocação direta, `@source`, `--ivk-from` e `<source> <cmd>` qualificado por módulo.
+- **Exclusividade mútua**: `passthrough: true` não pode ser combinado com `flags`, `args` ou subcomandos filhos.
+
+:::warning Semântica de Execução de `--help` e Ressalva de `cmd.exe` no Windows
+- **`--help` executa o comando**: `invowk cmd <name> --help` repassa `--help` para o script e **executa o comando** (incluindo verificações `depends_on` e provisionamento de container). Use `passthrough: true` apenas em scripts/alvos que tratem `--help` / `-h` com segurança, ou passe `--ivk-dry-run` antes do nome do comando para inspecionar sem executar.
+- **Inspecionando sem executar**: execute `invowk help cmd <name>` para ver a ajuda e flags do Invowk sem rodar o script. Comandos com `passthrough: true` aparecem marcados com `[passthrough]` nas listagens de `invowk cmd`.
+- **Ressalva do `cmd.exe` no Windows**: o `cmd.exe` não aceita parâmetros posicionais inline (`$@`), portanto `passthrough: true` expõe os argumentos apenas via `ARGn`/`ARGC` no `cmd.exe`. Use `pwsh`/PowerShell (`native`) ou `virtual-sh` no Windows ao encapsular CLIs com `$args` / `$@`.
+:::
+
 ## Melhores Práticas
 
 1. **Args obrigatórios primeiro**: Siga as regras de ordenação

@@ -237,11 +237,11 @@ func flagValueFromCobra(cmd *cobra.Command, flag invowkfile.Flag) (string, bool)
 
 //goplint:ignore -- Cobra flag lookup uses string flag identifiers and returns raw flag text.
 func stringFlagValue(cmd *cobra.Command, name string) string {
-	value, err := cmd.Flags().GetString(name)
-	if err != nil {
+	flag := cmd.Flag(name)
+	if flag == nil {
 		return ""
 	}
-	return value
+	return flag.Value.String()
 }
 
 // stringArrayFlagValue returns the raw values of a repeatable string flag.
@@ -251,7 +251,7 @@ func stringFlagValue(cmd *cobra.Command, name string) string {
 //
 //goplint:ignore -- Cobra flag lookup uses string flag identifiers and returns raw flag text.
 func stringArrayFlagValue(cmd *cobra.Command, name string) []string {
-	flag := cmd.Flags().Lookup(name)
+	flag := cmd.Flag(name)
 	if flag == nil || flag.Value.Type() != "stringArray" {
 		return nil
 	}

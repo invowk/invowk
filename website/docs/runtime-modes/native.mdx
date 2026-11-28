@@ -68,6 +68,10 @@ This is useful when:
 
 <Snippet id="runtime-modes/native-cmd-script" />
 
+:::note Windows `cmd.exe` Positional Argument Caveat
+`cmd.exe` does not support inline positional argument forwarding (`$@`). Even with `passthrough: true`, arguments reach `cmd.exe` only via `ARG1`..`ARGn` and `ARGC` environment variables. Use PowerShell / `pwsh` or `virtual-sh` on Windows when wrapping CLIs with `$args` / `$@`.
+:::
+
 ## Using Interpreters
 
 The native runtime supports non-shell interpreters like Python, Ruby, or Node.js.

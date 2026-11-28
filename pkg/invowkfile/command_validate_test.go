@@ -253,3 +253,33 @@ func TestInvalidCommandError_Unwrap(t *testing.T) {
 		t.Error("Unwrap() should return ErrInvalidCommand")
 	}
 }
+
+func TestCommand_Validate_Passthrough(t *testing.T) {
+	t.Parallel()
+
+	valid := Command{
+		Name:        "wrap",
+		Passthrough: true,
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("passthrough Command.Validate() error = %v, want nil", err)
+	}
+
+	withFlags := Command{
+		Name:        "wrap",
+		Passthrough: true,
+		Flags:       []Flag{{Name: "verbose", Description: "Verbose"}},
+	}
+	if err := withFlags.Validate(); !errors.Is(err, ErrPassthroughWithFlags) {
+		t.Fatalf("withFlags.Validate() = %v, want ErrPassthroughWithFlags", err)
+	}
+
+	withArgs := Command{
+		Name:        "wrap",
+		Passthrough: true,
+		Args:        []Argument{{Name: "target", Description: "Target"}},
+	}
+	if err := withArgs.Validate(); !errors.Is(err, ErrPassthroughWithArgs) {
+		t.Fatalf("withArgs.Validate() = %v, want ErrPassthroughWithArgs", err)
+	}
+}

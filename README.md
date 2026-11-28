@@ -1339,6 +1339,27 @@ fi
 | PowerShell scripts | Either `$args[0]` or environment variables |
 | cmd.exe scripts | Environment variables only |
 
+#### Raw Argument Passthrough (`passthrough: true`)
+
+For wrapper commands that forward arbitrary flags and `--help`/`-h` to an underlying tool, set `passthrough: true` on the command (`passthrough` is mutually exclusive with `flags`, `args`, and child subcommands):
+
+```cue
+cmds: [{
+    name:        "cst"
+    description: "Wrap cst with raw argument passthrough"
+    passthrough: true
+    implementations: [{
+        script: {content: "exec cst-bin \"$@\""}
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}]
+```
+
+- **Pre-command `--ivk-*` boundary**: place Invowk flags (`--ivk-runtime`, `--ivk-from`, `--ivk-workdir`, `--ivk-env-var`, `--ivk-env-file`, `--ivk-env-inherit-*`, `--ivk-dry-run`, `--ivk-watch`, and root `--ivk-*` flags) **before** the command path (`invowk cmd --ivk-env-var FOO=1 cst --help --json`). Every token after the command path—including `--help`, `-h`, unknown flags, `--`, and nested `--ivk-*` flags—is forwarded verbatim across direct, `@source`, `--ivk-from`, and module-qualified `<source> <cmd>` invocations.
+- **`--help` execution & inspection**: `invowk cmd <name> --help` executes the passthrough command (including `depends_on` and container provisioning), so use `passthrough: true` only for targets that handle `--help`/`-h` safely. Use `invowk help cmd <name>` to inspect Invowk's command help without executing, or pass `--ivk-dry-run` before the command name. Passthrough commands are marked `[passthrough]` in `invowk cmd` listings.
+- **Windows `cmd.exe` caveat**: `cmd.exe` does not support inline positional forwarding (`$@`); use PowerShell/`pwsh` (`$args`) or `virtual-sh` (`$@`) on Windows for passthrough commands (or read `ARG1..ARGn`/`ARGC`).
+
 ### Arguments with Flags
 
 Commands can have both arguments and flags. Flags use `--name=value` syntax and can appear anywhere:

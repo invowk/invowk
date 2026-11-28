@@ -1,0 +1,36 @@
+# Test: Raw command argument passthrough (container runtime)
+[!container-available] skip 'no functional container runtime available'
+[in-sandbox] skip 'container tests may require --filesystem permissions in sandbox - run tests on host or grant permissions'
+
+cd $WORK
+
+exec invowk cmd --ivk-env-var CONTAINER_FLAG=yes wrap --help -h -v --foo=bar --
+stdout '^ARGC=5$'
+stdout '^ARG1=--help$'
+stdout '^CONTAINER_FLAG=yes$'
+stdout '^ARG=1:--help$'
+stdout '^ARG=2:-h$'
+stdout '^ARG=3:-v$'
+stdout '^ARG=4:--foo=bar$'
+stdout '^ARG=5:--$'
+
+-- invowkfile.cue --
+cmds: [{
+	name:        "wrap"
+	description: "Container passthrough wrapper"
+	passthrough: true
+	implementations: [{
+		script: {content: """
+			echo "ARGC=$ARGC"
+			echo "ARG1=${ARG1:-}"
+			echo "CONTAINER_FLAG=${CONTAINER_FLAG:-}"
+			i=1
+			for a in "$@"; do
+				echo "ARG=$i:$a"
+				i=$((i + 1))
+			done
+			"""}
+		runtimes:  [{name: "container", image: "debian:stable-slim"}]
+		platforms: [{name: "linux"}]
+	}]
+}]

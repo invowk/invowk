@@ -4,12 +4,20 @@ package discovery
 
 import "github.com/invowk/invowk/pkg/invowkfile"
 
-// ArgsSubcommandConflictError is kept as a discovery-facing alias for callers
-// that still validate discovered command sets.
-type ArgsSubcommandConflictError = invowkfile.ArgsSubcommandConflictError
+type (
+	// ArgsSubcommandConflictError is kept as a discovery-facing alias for callers
+	// that still validate discovered command sets.
+	ArgsSubcommandConflictError = invowkfile.ArgsSubcommandConflictError
 
-// ValidateCommandTree checks for args/subcommand conflicts across all commands.
-// Returns ArgsSubcommandConflictError if a command has both args and subcommands.
+	// PassthroughSubcommandConflictError is kept as a discovery-facing alias for callers
+	// that validate discovered command sets.
+	PassthroughSubcommandConflictError = invowkfile.PassthroughSubcommandConflictError
+)
+
+// ValidateCommandTree checks for args/subcommand and passthrough/subcommand conflicts
+// across all commands. Returns ArgsSubcommandConflictError if a command has both args
+// and subcommands, or PassthroughSubcommandConflictError if a command enables passthrough
+// and has subcommands.
 //
 // The validation enforces a fundamental constraint: positional arguments can only
 // be defined on leaf commands (commands without subcommands). This is because

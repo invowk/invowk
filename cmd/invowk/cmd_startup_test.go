@@ -95,6 +95,16 @@ func TestShouldRegisterDiscoveredCommands(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "help for cmd command",
+			args: []string{"help", "cmd", "wrap"},
+			want: true,
+		},
+		{
+			name: "help for non-cmd command",
+			args: []string{"help", "init"},
+			want: false,
+		},
+		{
 			name: "non-cmd command after separate color flag",
 			args: []string{"--ivk-color", "always", "init"},
 			want: false,

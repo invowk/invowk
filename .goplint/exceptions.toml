@@ -2509,6 +2509,34 @@ pattern = "runtime.NativeRuntime.createTempScript.return.*"
 reason = "exec boundary — temp script file path"
 
 [[exceptions]]
+pattern = "runtime.NativeRuntime.buildShellInvocation.shell"
+reason = "exec boundary — resolved shell binary path"
+
+[[exceptions]]
+pattern = "runtime.NativeRuntime.buildShellInvocation.script"
+reason = "exec boundary — inline shell script content"
+
+[[exceptions]]
+pattern = "runtime.NativeRuntime.buildShellInvocation.positionalArgs"
+reason = "exec boundary — raw positional args []string"
+
+[[exceptions]]
+pattern = "runtime.NativeRuntime.buildShellInvocation.return.*"
+reason = "exec boundary — shell argv for exec.CommandContext"
+
+[[exceptions]]
+pattern = "runtime.shellBaseName.shell"
+reason = "exec boundary — shell path normalized to binary name"
+
+[[exceptions]]
+pattern = "runtime.shellBaseName.return.*"
+reason = "exec boundary — normalized shell binary name"
+
+[[exceptions]]
+pattern = "runtime.isPowerShellShell.shell"
+reason = "exec boundary — shell path checked for powershell/pwsh"
+
+[[exceptions]]
 pattern = "runtime.NativeRuntime.Name.return.*"
 reason = "display text — runtime display name"
 

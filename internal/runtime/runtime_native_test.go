@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestNativeRuntime_InlineScript(t *testing.T) {
@@ -737,5 +739,132 @@ func TestExecutionContext_EffectiveWorkDir_Native(t *testing.T) {
 				t.Errorf("EffectiveWorkDir() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNativeRuntime_buildShellInvocation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("powershell with positional args uses temp ps1 file", func(t *testing.T) {
+		t.Parallel()
+
+		rt := NewNativeRuntime()
+		args, cleanup, err := rt.buildShellInvocation(
+			`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.EXE`,
+			`Write-Output "ok"`,
+			[]string{"--help", "-v", "--foo=bar"},
+		)
+		if err != nil {
+			t.Fatalf("buildShellInvocation() error = %v", err)
+		}
+		if cleanup == nil {
+			t.Fatal("buildShellInvocation() cleanup = nil, want non-nil")
+		}
+		if len(args) != 8 {
+			t.Fatalf("buildShellInvocation() args len = %d, want 8: %v", len(args), args)
+		}
+		if args[0] != "-NoProfile" || args[1] != "-ExecutionPolicy" || args[2] != "Bypass" || args[3] != "-File" {
+			t.Fatalf("unexpected PowerShell prefix args: %v", args[:4])
+		}
+		scriptFile := args[4]
+		if !strings.HasSuffix(scriptFile, ".ps1") {
+			t.Fatalf("temp script %q does not have .ps1 extension", scriptFile)
+		}
+		if _, statErr := os.Stat(scriptFile); statErr != nil {
+			t.Fatalf("temp script %q should exist before cleanup: %v", scriptFile, statErr)
+		}
+		if args[5] != "--help" || args[6] != "-v" || args[7] != "--foo=bar" {
+			t.Fatalf("unexpected positional args: %v", args[5:])
+		}
+		cleanup()
+		if _, statErr := os.Stat(scriptFile); !errors.Is(statErr, os.ErrNotExist) {
+			t.Fatalf("temp script %q should be removed after cleanup, stat err = %v", scriptFile, statErr)
+		}
+	})
+
+	t.Run("powershell without positional args keeps -Command", func(t *testing.T) {
+		t.Parallel()
+
+		rt := NewNativeRuntime()
+		args, cleanup, err := rt.buildShellInvocation("/usr/bin/pwsh", `Write-Output "ok"`, nil)
+		if err != nil {
+			t.Fatalf("buildShellInvocation() error = %v", err)
+		}
+		if cleanup != nil {
+			t.Fatal("buildShellInvocation() cleanup != nil for zero-arg PowerShell")
+		}
+		if len(args) != 3 || args[0] != "-NoProfile" || args[1] != "-Command" || args[2] != `Write-Output "ok"` {
+			t.Fatalf("unexpected args = %v", args)
+		}
+	})
+
+	t.Run("custom shellArgs are preserved", func(t *testing.T) {
+		t.Parallel()
+
+		rt := NewNativeRuntime(WithShellArgs([]string{"-Custom"}))
+		args, cleanup, err := rt.buildShellInvocation("pwsh", `Write-Output "ok"`, []string{"--help"})
+		if err != nil {
+			t.Fatalf("buildShellInvocation() error = %v", err)
+		}
+		if cleanup != nil {
+			t.Fatal("buildShellInvocation() cleanup != nil with custom shellArgs")
+		}
+		if len(args) != 3 || args[0] != "-Custom" || args[1] != `Write-Output "ok"` || args[2] != "--help" {
+			t.Fatalf("unexpected args = %v", args)
+		}
+	})
+}
+
+func TestNativeRuntime_PowerShellPositionalArgs(t *testing.T) {
+	t.Parallel()
+
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	pwshPath, err := exec.LookPath("pwsh")
+	if err != nil {
+		t.Skipf("pwsh not installed: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
+	}
+
+	script := `Write-Output "COUNT=$($args.Count)"
+for ($i = 0; $i -lt $args.Count; $i++) {
+	Write-Output "ARG=$($i + 1):$($args[$i])"
+}`
+	cmd := testCommandWithScript("ps-passthrough", script, invowkfile.RuntimeNative)
+
+	rt := NewNativeRuntime(WithShell(types.ShellPath(pwshPath)))
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+	ctx.PositionalArgs = []string{"--help", "-h", "-v", "--foo=bar", "--", "--ivk-env-var", "POST=1"}
+
+	var stdout, stderr bytes.Buffer
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &stderr
+
+	result := rt.Execute(ctx)
+	if result.ExitCode != 0 {
+		t.Fatalf("Execute() exit code = %d, err = %v, stderr = %q", result.ExitCode, result.Error, stderr.String())
+	}
+
+	out := strings.ReplaceAll(stdout.String(), "\r\n", "\n")
+	for _, want := range []string{
+		"COUNT=7\n",
+		"ARG=1:--help\n",
+		"ARG=2:-h\n",
+		"ARG=3:-v\n",
+		"ARG=4:--foo=bar\n",
+		"ARG=5:--\n",
+		"ARG=6:--ivk-env-var\n",
+		"ARG=7:POST=1\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("stdout missing %q;\ngot:\n%s", want, out)
+		}
 	}
 }

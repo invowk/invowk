@@ -107,3 +107,62 @@ func TestValidateCommandTreeDoesNotInventRootParent(t *testing.T) {
 		t.Fatalf("ValidateCommandTree() = %v, want nil", err)
 	}
 }
+
+func TestValidateCommandTreeRejectsPassthroughOnParentCommand(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateCommandTree([]CommandTreeEntry{
+		{
+			Name: "cli",
+			Command: &Command{
+				Name:        "cli",
+				Passthrough: true,
+			},
+			FilePath: "invowkfile.cue",
+		},
+		{
+			Name:    "cli sub",
+			Command: &Command{Name: "cli sub"},
+		},
+	})
+	if err == nil {
+		t.Fatal("ValidateCommandTree() error = nil, want conflict")
+	}
+	var conflict *PassthroughSubcommandConflictError
+	if !errors.As(err, &conflict) {
+		t.Fatalf("errors.As(%T) = false", &conflict)
+	}
+	if conflict.CommandName != "cli" {
+		t.Fatalf("CommandName = %q, want cli", conflict.CommandName)
+	}
+	if len(conflict.Subcommands) != 1 || conflict.Subcommands[0] != "cli sub" {
+		t.Fatalf("Subcommands = %#v, want cli sub", conflict.Subcommands)
+	}
+	if conflict.FilePath != "invowkfile.cue" {
+		t.Fatalf("FilePath = %q, want invowkfile.cue", conflict.FilePath)
+	}
+	if got := conflict.Error(); !strings.Contains(got, "has passthrough enabled and also has subcommands") {
+		t.Fatalf("Error() = %q, want passthrough subcommand conflict text", got)
+	}
+}
+
+func TestValidateCommandTreeAllowsPassthroughOnNestedLeafCommand(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateCommandTree([]CommandTreeEntry{
+		{
+			Name:    "cli",
+			Command: &Command{Name: "cli"},
+		},
+		{
+			Name: "cli sub",
+			Command: &Command{
+				Name:        "cli sub",
+				Passthrough: true,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ValidateCommandTree() = %v, want nil", err)
+	}
+}

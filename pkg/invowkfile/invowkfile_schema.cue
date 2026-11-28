@@ -591,6 +591,17 @@ import "strings"
 	//   - Commands with subcommands cannot have args (validated during command registration)
 	args?: [...#Argument]
 
+	// passthrough forwards all tokens after the command path verbatim to the script (optional)
+	// When true, Cobra flag parsing is disabled after the command path so --help, -h,
+	// unknown flags, and -- reach the script verbatim via $@, ARGn/ARGC, and invowk.args.
+	// Mutually exclusive with flags, args, and child subcommands.
+	// Default: false
+	passthrough: *false | bool
+	if passthrough {
+		flags?: _|_
+		args?:  _|_
+	}
+
 	// watch defines file-watching configuration for this command (optional)
 	// Two-tier behavior: when watch config is defined here, its patterns are required
 	// and control exactly which files are watched. When --ivk-watch is passed without

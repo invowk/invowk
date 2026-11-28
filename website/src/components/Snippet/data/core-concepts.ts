@@ -46,6 +46,7 @@ cmds: [...#Command] & [_, ...]  // at least one required`,
     implementations: [...]       // Required: how to run the command
     flags?: [...]                // Optional: command flags
     args?: [...]                 // Optional: positional arguments
+    passthrough?: bool           // Optional: forward post-command tokens verbatim
     env?: #EnvConfig             // Optional: environment config
     workdir?: string             // Optional: working directory
     depends_on?: #DependsOn      // Optional: dependencies
@@ -703,6 +704,7 @@ workdir: "/opt/app"`,
     depends_on?:     #DependsOn           // Optional
     flags?:          [...#Flag]           // Optional
     args?:           [...#Argument]       // Optional
+    passthrough?:    bool                 // Optional - forward post-command tokens verbatim (default: false)
     watch?:          #WatchConfig         // Optional - file-watching
 }`,
   },
