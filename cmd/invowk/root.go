@@ -131,20 +131,37 @@ func executeWithFang(ctx context.Context, app *App, rootCmd *cobra.Command, args
 		defer restore()
 	}
 
-	return fang.Execute(
-		ctx,
+	sigCtx, stopSignals, tracker := notifyTerminationSignals(ctx)
+	defer stopSignals()
+
+	err := fang.Execute(
+		sigCtx,
 		rootCmd,
 		fang.WithVersion(getVersionString(Version, Commit, BuildDate)),
-		fang.WithNotifySignal(os.Interrupt),
-		fang.WithErrorHandler(newFangErrorHandler(app, rootCmd)),
+		fang.WithErrorHandler(newFangErrorHandlerWithTracker(app, rootCmd, tracker)),
 	)
+	return mapSignalTerminationError(tracker, err)
 }
 
 func newFangErrorHandler(app *App, rootCmd *cobra.Command) fang.ErrorHandler {
+	return newFangErrorHandlerWithTracker(app, rootCmd, nil)
+}
+
+func newFangErrorHandlerWithTracker(app *App, rootCmd *cobra.Command, tracker *signalTracker) fang.ErrorHandler {
 	return func(w io.Writer, styles fang.Styles, err error) {
 		errWriter := w
 		if app != nil && app.uiErr != nil {
 			errWriter = app.uiWriterForErr(rootCmd)
+		}
+
+		if isSignalHandledCancellation(tracker, err) {
+			verbose, _ := rootCmd.PersistentFlags().GetBool("ivk-verbose")
+			if verbose {
+				if code, ok := signalExitCode(tracker.Signal()); ok {
+					_, _ = fmt.Fprintf(errWriter, "invowk: command exited with status %d\n", code)
+				}
+			}
+			return
 		}
 
 		if exitErr, ok := errors.AsType[*ExitError](err); ok && exitErr.Err == nil {

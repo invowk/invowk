@@ -10,6 +10,7 @@ import (
 	"os/exec"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Type definitions (grouped for decorder compliance)
@@ -89,16 +90,25 @@ func extractExitCode(err error, captured *capturedOutput) *Result {
 }
 
 // promoteContextError surfaces context deadline/cancellation errors that would
-// otherwise be silently dropped. On Windows, TerminateProcess sets exit code 1
-// (a valid code), so extractExitCode returns result.Error == nil even when the
-// context has expired. Without promotion, the timeout/cancellation is never
-// classified by the error handler and no diagnostic is shown to the user.
+// otherwise be silently dropped or masked by signal termination. On Windows,
+// TerminateProcess sets exit code 1 (a valid code), and on Unix a cancelled
+// subprocess killed by a signal yields *exec.ExitError with ExitCode() == -1
+// (ErrInvalidExitCode). Promoting ctx.Context.Err() ensures timeouts and
+// cancellations are properly classified by the error handler.
 func promoteContextError(ctx *ExecutionContext, result *Result) {
-	if result.Error != nil {
+	if ctx == nil || ctx.Context == nil {
 		return
 	}
-	if ctxErr := ctx.Context.Err(); ctxErr != nil {
+	ctxErr := ctx.Context.Err()
+	if ctxErr == nil {
+		return
+	}
+	if result.Error == nil || errors.Is(result.Error, types.ErrInvalidExitCode) {
 		result.Error = ctxErr
+		return
+	}
+	if !errors.Is(result.Error, ctxErr) {
+		result.Error = fmt.Errorf("%w: %w", ctxErr, result.Error)
 	}
 }
 

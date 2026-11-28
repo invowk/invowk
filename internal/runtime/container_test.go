@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -48,8 +49,26 @@ type (
 		StartCalls       []container.ContainerID
 		ExecCalls        []container.RunOptions
 		ExecCommands     [][]string
+		StopCalls        []mockStopCall
+		RemoveCalls      []mockRemoveCall
 		PrepareRunCalls  []container.RunOptions
 		PrepareExecCalls []container.RunOptions
+		OnStop           func(context.Context, container.ContainerID, time.Duration) error
+		OnRemove         func(context.Context, container.ContainerID, bool) error
+	}
+
+	mockStopCall struct {
+		ContainerID container.ContainerID
+		Timeout     time.Duration
+		CtxErr      error
+		HasDeadline bool
+	}
+
+	mockRemoveCall struct {
+		ContainerID container.ContainerID
+		Force       bool
+		CtxErr      error
+		HasDeadline bool
 	}
 
 	mockInspectResult struct {
@@ -227,7 +246,37 @@ func (m *MockEngine) Exec(_ context.Context, id container.ContainerID, command [
 	return &result, nil
 }
 
-func (m *MockEngine) Remove(_ context.Context, _ container.ContainerID, _ bool) error {
+func (m *MockEngine) Stop(ctx context.Context, id container.ContainerID, timeout time.Duration) error {
+	_, hasDeadline := ctx.Deadline()
+	m.mu.Lock()
+	m.StopCalls = append(m.StopCalls, mockStopCall{
+		ContainerID: id,
+		Timeout:     timeout,
+		CtxErr:      ctx.Err(),
+		HasDeadline: hasDeadline,
+	})
+	onStop := m.OnStop
+	m.mu.Unlock()
+	if onStop != nil {
+		return onStop(ctx, id, timeout)
+	}
+	return nil
+}
+
+func (m *MockEngine) Remove(ctx context.Context, id container.ContainerID, force bool) error {
+	_, hasDeadline := ctx.Deadline()
+	m.mu.Lock()
+	m.RemoveCalls = append(m.RemoveCalls, mockRemoveCall{
+		ContainerID: id,
+		Force:       force,
+		CtxErr:      ctx.Err(),
+		HasDeadline: hasDeadline,
+	})
+	onRemove := m.OnRemove
+	m.mu.Unlock()
+	if onRemove != nil {
+		return onRemove(ctx, id, force)
+	}
 	return nil
 }
 

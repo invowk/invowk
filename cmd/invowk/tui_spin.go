@@ -52,8 +52,19 @@ type (
 		Err      error
 	}
 
+	// tuiSpinExitCodeError preserves `invowk tui spin`'s documented exit-code-1
+	// contract when a trapped signal cancels the command, instead of mapping to
+	// 128 + signal.
+	tuiSpinExitCodeError struct {
+		err error
+	}
+
 	execTUISpinRunner struct{}
 )
+
+func (e *tuiSpinExitCodeError) Error() string { return e.err.Error() }
+
+func (e *tuiSpinExitCodeError) Unwrap() error { return e.err }
 
 // newTUISpinCommand creates the `invowk tui spin` command.
 func newTUISpinCommand() *cobra.Command {
@@ -94,12 +105,18 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 }
 
 func runTuiSpinWithRunner(cmd *cobra.Command, args []string, runner tuiSpinRunner, spin tuiSpinAction, stdout io.Writer) error {
-	spinTitle, _ := cmd.Flags().GetString("title")
-	spinType, _ := cmd.Flags().GetString("type")
-
 	if len(args) == 0 {
 		return errors.New("no command specified; use -- to separate spin flags from the command")
 	}
+	if err := runTuiSpinExecution(cmd, args, runner, spin, stdout); err != nil {
+		return &tuiSpinExitCodeError{err: err}
+	}
+	return nil
+}
+
+func runTuiSpinExecution(cmd *cobra.Command, args []string, runner tuiSpinRunner, spin tuiSpinAction, stdout io.Writer) error {
+	spinTitle, _ := cmd.Flags().GetString("title")
+	spinType, _ := cmd.Flags().GetString("type")
 
 	// Find the command to run (after --)
 	command := args[0]

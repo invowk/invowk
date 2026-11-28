@@ -83,6 +83,10 @@ func (m *mockEngine) Exec(_ context.Context, _ ContainerID, _ []string, _ RunOpt
 	return &RunResult{}, nil
 }
 
+func (m *mockEngine) Stop(_ context.Context, _ ContainerID, _ time.Duration) error {
+	return nil
+}
+
 func (m *mockEngine) Remove(_ context.Context, _ ContainerID, _ bool) error {
 	return nil
 }

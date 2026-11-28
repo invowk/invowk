@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/invowk/invowk/internal/testutil"
 )
@@ -52,6 +53,8 @@ func (e fakeDiscoveryEngine) Start(context.Context, ContainerID) error { return 
 func (e fakeDiscoveryEngine) Exec(context.Context, ContainerID, []string, RunOptions) (*RunResult, error) {
 	return &RunResult{}, nil
 }
+
+func (e fakeDiscoveryEngine) Stop(context.Context, ContainerID, time.Duration) error { return nil }
 
 func (e fakeDiscoveryEngine) Remove(context.Context, ContainerID, bool) error { return nil }
 

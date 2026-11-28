@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/containerargs"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -260,11 +261,13 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 // container engine (e.g., crun writing to the inherited stderr fd before the Go
 // process can decide to retry) never leak to the user's terminal. On success or
 // non-transient failure the buffer is flushed to the caller's original stderr.
-func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.RunOptions) (*container.RunResult, error) {
+func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.RunOptions) (*container.RunResult, container.ContainerName, error) {
 	// Buffer stderr per-attempt so transient error messages from the container
 	// engine (written directly to the inherited fd by crun/runc) don't leak to
 	// the user's terminal when the retry succeeds.
 	originalStderr := runOpts.Stderr
+	baseName := runOpts.Name
+	lastName := baseName
 
 	var lastErr error
 	var lastResult *container.RunResult
@@ -272,21 +275,27 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 	for attempt := range maxRunRetries {
 		if attempt > 0 {
 			if err := ctx.Err(); err != nil {
-				return nil, fmt.Errorf("context cancelled during run retry: %w", err)
+				return nil, lastName, fmt.Errorf("context cancelled during run retry: %w", err)
 			}
 			if err := r.retrySleep(ctx, baseRunBackoff*time.Duration(1<<(attempt-1))); err != nil {
-				return nil, fmt.Errorf("context cancelled during run retry: %w", err)
+				return nil, lastName, fmt.Errorf("context cancelled during run retry: %w", err)
 			}
 		}
 
-		var stderrBuf bytes.Buffer
-		runOpts.Stderr = &stderrBuf
+		attemptOpts := runOpts
+		if attempt > 0 && baseName != "" {
+			attemptOpts.Name = ephemeralRetryContainerName(baseName, attempt)
+		}
+		lastName = attemptOpts.Name
 
-		result, err := r.engine.Run(ctx, runOpts)
+		var stderrBuf bytes.Buffer
+		attemptOpts.Stderr = &stderrBuf
+
+		result, err := r.engine.Run(ctx, attemptOpts)
 		if err != nil {
 			if !container.IsTransientError(err) {
 				flushStderr(originalStderr, &stderrBuf)
-				return nil, err
+				return nil, lastName, err
 			}
 			slog.Debug("transient container error, retrying",
 				"attempt", attempt+1, "max_retries", maxRunRetries, "error", err)
@@ -300,7 +309,7 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 		// 126 = OCI runtime failure e.g., crun ping_group_range race).
 		if result.ExitCode == 0 || !container.IsTransientEngineExitCode(result.ExitCode) {
 			flushStderr(originalStderr, &stderrBuf)
-			return result, nil
+			return result, lastName, nil
 		}
 
 		slog.Debug("transient container exit code, retrying",
@@ -316,9 +325,9 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 	}
 
 	if lastErr != nil {
-		return nil, lastErr
+		return nil, lastName, lastErr
 	}
-	return lastResult, nil
+	return lastResult, lastName, nil
 }
 
 // flushStderr writes buffered stderr content to the original writer.
@@ -377,15 +386,22 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	if persistentRequested {
 		containerID, ensureErr := r.ensurePersistentContainer(ctx, prep)
 		if ensureErr != nil {
-			return resultWithDiagnostics(NewErrorResult(1, ensureErr), prep.diagnostics)
+			return resultWithDiagnostics(NewErrorResult(1, ensureContextError(ctx.Context, ensureErr)), prep.diagnostics)
 		}
 		runOpts := execOptionsForPersistent(ctx, prep, ctx.IO.Stdout, ctx.IO.Stderr)
 		result, execErr := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
 		if execErr != nil {
-			return resultWithDiagnostics(NewErrorResult(1, fmt.Errorf("failed to exec persistent container: %w", execErr)), prep.diagnostics)
+			return resultWithDiagnostics(NewErrorResult(1, ensureContextError(ctx.Context, fmt.Errorf("failed to exec persistent container: %w", execErr))), prep.diagnostics)
 		}
-		return resultWithDiagnostics(NewErrorResult(result.ExitCode, result.Error), prep.diagnostics)
+		return resultWithDiagnostics(NewErrorResult(result.ExitCode, ensureContextError(ctx.Context, result.Error)), prep.diagnostics)
 	}
+
+	activeName := r.newEphemeralContainerName(ctx)
+	// LIFO defer runs daemon container stop/remove BEFORE prep.cleanup() deletes
+	// any host-mounted temporary scripts.
+	defer func() {
+		r.cleanupCancelledEphemeralContainer(ctx.Context, activeName)
+	}()
 
 	// Run the container
 	runOpts := container.RunOptions{
@@ -396,6 +412,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		Volumes:     prep.volumes,
 		Ports:       prep.ports,
 		Remove:      true, // Always remove after execution
+		Name:        activeName,
 		Stdin:       ctx.IO.Stdin,
 		Stdout:      ctx.IO.Stdout,
 		Stderr:      ctx.IO.Stderr,
@@ -403,12 +420,13 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		ExtraHosts:  prep.extraHosts,
 	}
 
-	result, err := r.runWithRetry(ctx.Context, runOpts)
+	result, usedName, err := r.runWithRetry(ctx.Context, runOpts)
+	activeName = usedName
 	if err != nil {
-		return resultWithDiagnostics(NewErrorResult(1, fmt.Errorf("failed to run container: %w", err)), prep.diagnostics)
+		return resultWithDiagnostics(NewErrorResult(1, ensureContextError(ctx.Context, fmt.Errorf("failed to run container: %w", err))), prep.diagnostics)
 	}
 
-	return resultWithDiagnostics(NewErrorResult(result.ExitCode, result.Error), prep.diagnostics)
+	return resultWithDiagnostics(NewErrorResult(result.ExitCode, ensureContextError(ctx.Context, result.Error)), prep.diagnostics)
 }
 
 // ExecuteCapture runs a command in a container and captures its stdout/stderr.
@@ -431,25 +449,32 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	if persistentRequested {
 		containerID, ensureErr := r.ensurePersistentContainer(ctx, prep)
 		if ensureErr != nil {
-			return resultWithDiagnostics(&Result{ExitCode: 1, Error: ensureErr}, prep.diagnostics)
+			return resultWithDiagnostics(&Result{ExitCode: 1, Error: ensureContextError(ctx.Context, ensureErr)}, prep.diagnostics)
 		}
 		runOpts := captureExecOptionsForPersistent(prep, &stdout, &stderr)
 		result, execErr := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
 		if execErr != nil {
 			return resultWithDiagnostics(&Result{
 				ExitCode:  1,
-				Error:     fmt.Errorf("failed to exec persistent container: %w", execErr),
+				Error:     ensureContextError(ctx.Context, fmt.Errorf("failed to exec persistent container: %w", execErr)),
 				Output:    stdout.String(),
 				ErrOutput: stderr.String(),
 			}, prep.diagnostics)
 		}
 		return resultWithDiagnostics(&Result{
 			ExitCode:  result.ExitCode,
-			Error:     result.Error,
+			Error:     ensureContextError(ctx.Context, result.Error),
 			Output:    stdout.String(),
 			ErrOutput: stderr.String(),
 		}, prep.diagnostics)
 	}
+
+	activeName := r.newEphemeralContainerName(ctx)
+	// LIFO defer runs daemon container stop/remove BEFORE prep.cleanup() deletes
+	// any host-mounted temporary scripts.
+	defer func() {
+		r.cleanupCancelledEphemeralContainer(ctx.Context, activeName)
+	}()
 
 	// Run the container with output capture
 	runOpts := container.RunOptions{
@@ -459,7 +484,8 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 		Env:         prep.env,
 		Volumes:     prep.volumes,
 		Ports:       prep.ports,
-		Remove:      true,    // Always remove after execution
+		Remove:      true, // Always remove after execution
+		Name:        activeName,
 		Stdin:       nil,     // No stdin for capture mode
 		Stdout:      &stdout, // Capture stdout
 		Stderr:      &stderr, // Capture stderr
@@ -467,11 +493,12 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 		ExtraHosts:  prep.extraHosts,
 	}
 
-	result, err := r.runWithRetry(ctx.Context, runOpts)
+	result, usedName, err := r.runWithRetry(ctx.Context, runOpts)
+	activeName = usedName
 	if err != nil {
 		return resultWithDiagnostics(&Result{
 			ExitCode:  1,
-			Error:     fmt.Errorf("failed to run container: %w", err),
+			Error:     ensureContextError(ctx.Context, fmt.Errorf("failed to run container: %w", err)),
 			Output:    stdout.String(),
 			ErrOutput: stderr.String(),
 		}, prep.diagnostics)
@@ -479,10 +506,71 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	return resultWithDiagnostics(&Result{
 		ExitCode:  result.ExitCode,
-		Error:     result.Error,
+		Error:     ensureContextError(ctx.Context, result.Error),
 		Output:    stdout.String(),
 		ErrOutput: stderr.String(),
 	}, prep.diagnostics)
+}
+
+func (r *ContainerRuntime) newEphemeralContainerName(ctx *ExecutionContext) container.ContainerName {
+	seq := r.ephemeralIDCounter.Add(1)
+	var base string
+	if ctx != nil && ctx.ExecutionID != "" {
+		base = fmt.Sprintf("%s%s-%d", ephemeralContainerNamePrefix, ctx.ExecutionID, seq)
+	} else {
+		base = fmt.Sprintf("%s%d-%d-%d", ephemeralContainerNamePrefix, os.Getpid(), time.Now().UnixNano(), seq)
+	}
+	if len(base) > containerargs.MaxContainerNameLength {
+		base = base[:containerargs.MaxContainerNameLength]
+	}
+	return container.ContainerName(base) //goplint:ignore -- generated from valid prefix, digits, and hyphens within MaxContainerNameLength
+}
+
+//goplint:ignore -- retry counts are local control-flow limits, not domain values.
+func ephemeralRetryContainerName(baseName container.ContainerName, attempt int) container.ContainerName {
+	suffix := fmt.Sprintf("-r%d", attempt)
+	name := string(baseName)
+	if len(name)+len(suffix) > containerargs.MaxContainerNameLength {
+		name = name[:containerargs.MaxContainerNameLength-len(suffix)]
+	}
+	return container.ContainerName(name + suffix) //goplint:ignore -- generated from validated baseName plus alphanumeric retry suffix
+}
+
+func (r *ContainerRuntime) cleanupCancelledEphemeralContainer(ctx context.Context, name container.ContainerName) {
+	if ctx == nil || ctx.Err() == nil || name == "" || r.engine == nil {
+		return
+	}
+
+	baseCtx := context.WithoutCancel(ctx)
+	containerID := container.ContainerID(name) //goplint:ignore -- ContainerName is non-empty and validated as container ID
+
+	stopCtx, stopCancel := context.WithTimeout(baseCtx, ephemeralContainerStopTimeout)
+	if stopErr := r.engine.Stop(stopCtx, containerID, ephemeralContainerStopGrace); stopErr != nil {
+		slog.Debug("ephemeral container stop during cancellation cleanup",
+			"container", name, "error", stopErr)
+	}
+	stopCancel()
+
+	removeCtx, removeCancel := context.WithTimeout(baseCtx, ephemeralContainerRemoveTimeout)
+	if removeErr := r.engine.Remove(removeCtx, containerID, true); removeErr != nil {
+		slog.Debug("ephemeral container remove during cancellation cleanup",
+			"container", name, "error", removeErr)
+	}
+	removeCancel()
+}
+
+func ensureContextError(ctx context.Context, err error) error {
+	if ctx == nil || ctx.Err() == nil {
+		return err
+	}
+	ctxErr := ctx.Err()
+	if err == nil {
+		return fmt.Errorf("container execution context ended: %w", ctxErr)
+	}
+	if errors.Is(err, ctxErr) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ctxErr, err)
 }
 
 func resultWithDiagnostics(result *Result, diagnostics []InitDiagnostic) *Result {

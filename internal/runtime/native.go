@@ -22,6 +22,7 @@ import (
 const (
 	failedBuildEnvironmentFmt = "failed to build environment: %w"
 	cmdWaitDelay              = 10 * time.Second
+	cmdTermGracePeriod        = 3 * time.Second
 	powerShellNoProfileArg    = "-NoProfile"
 	powerShellCommandArg      = "-Command"
 )
@@ -36,6 +37,9 @@ type (
 		shellArgs []string
 		// envBuilder builds environment variables for execution
 		envBuilder EnvBuilder
+		// termGracePeriod bounds how long Unix process-group cancellation waits
+		// after sending a termination signal before escalating to SIGKILL.
+		termGracePeriod time.Duration
 	}
 
 	// NativeRuntimeOption configures a NativeRuntime.
@@ -77,10 +81,19 @@ func WithEnvBuilder(b EnvBuilder) NativeRuntimeOption {
 	}
 }
 
+// WithTermGracePeriod sets the grace period before Unix process-group cancellation
+// escalates from the termination signal to SIGKILL.
+func WithTermGracePeriod(gracePeriod time.Duration) NativeRuntimeOption {
+	return func(r *NativeRuntime) {
+		r.termGracePeriod = gracePeriod
+	}
+}
+
 // NewNativeRuntime creates a new native runtime with optional configuration.
 func NewNativeRuntime(opts ...NativeRuntimeOption) *NativeRuntime {
 	r := &NativeRuntime{
-		envBuilder: NewDefaultEnvBuilder(),
+		envBuilder:      NewDefaultEnvBuilder(),
+		termGracePeriod: cmdTermGracePeriod,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -192,6 +205,13 @@ func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand,
 	return r.prepareShellCommand(ctx, script)
 }
 
+func (r *NativeRuntime) effectiveTermGracePeriod() time.Duration {
+	if r != nil && r.termGracePeriod > 0 {
+		return r.termGracePeriod
+	}
+	return cmdTermGracePeriod
+}
+
 // executeShellCommon is the unified shell execution function that handles both
 // streaming and capturing modes based on the output configuration.
 func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string, output *executeOutput, captured *capturedOutput, stdin io.Reader) *Result {
@@ -215,6 +235,9 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 	cmd.Stdout = output.stdout
 	cmd.Stderr = output.stderr
 	cmd.Stdin = stdin
+
+	cleanupProcess := configureNativeCmdCancellation(ctx.Context, cmd, r.effectiveTermGracePeriod(), stdin, output.stdout, output.stderr)
+	defer cleanupProcess()
 
 	// Execute and extract result
 	err = cmd.Run()
@@ -261,6 +284,9 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	cmd.Stdout = output.stdout
 	cmd.Stderr = output.stderr
 	cmd.Stdin = stdin
+
+	cleanupProcess := configureNativeCmdCancellation(ctx.Context, cmd, r.effectiveTermGracePeriod(), stdin, output.stdout, output.stderr)
+	defer cleanupProcess()
 
 	// Execute and extract result
 	err = cmd.Run()

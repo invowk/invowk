@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/invowk/invowk/pkg/platform"
 )
@@ -333,6 +334,29 @@ func (e *SandboxAwareEngine) PrepareExecCommand(ctx context.Context, containerID
 	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
 	return cmd
+}
+
+// Stop stops a running container.
+func (e *SandboxAwareEngine) Stop(ctx context.Context, containerID ContainerID, timeout time.Duration) error {
+	if err := containerID.Validate(); err != nil {
+		return err
+	}
+	if e.sandboxType == platform.SandboxNone {
+		return e.wrapped.Stop(ctx, containerID, timeout)
+	}
+
+	baseEngine, ok := e.getBaseCLIEngine()
+	if !ok {
+		return e.wrapped.Stop(ctx, containerID, timeout)
+	}
+
+	stopArgs := baseEngine.StopArgs(containerID, timeout)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), stopArgs)
+
+	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
+	e.CustomizeCmd(cmd)
+	return cmd.Run()
 }
 
 // Remove removes a container.

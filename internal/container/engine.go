@@ -166,6 +166,8 @@ type (
 		Start(ctx context.Context, containerID ContainerID) error
 		// Exec runs a command in a running container
 		Exec(ctx context.Context, containerID ContainerID, command []string, opts RunOptions) (*RunResult, error)
+		// Stop stops a running container with an optional grace period before SIGKILL
+		Stop(ctx context.Context, containerID ContainerID, timeout time.Duration) error
 		// Remove removes a container by its ID
 		Remove(ctx context.Context, containerID ContainerID, force bool) error
 		// ImageExists checks if an image exists

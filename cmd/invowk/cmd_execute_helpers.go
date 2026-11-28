@@ -328,6 +328,9 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 }
 
 func renderServiceErrorIfPresent(ctx context.Context, app *App, rootFlags *rootFlagValues, err error) error {
+	if isSignalCancelledContext(ctx, err) {
+		return err
+	}
 	if svcErr, ok := errors.AsType[*ServiceError](err); ok {
 		renderServiceError(app.errUI(), svcErr, app.glamourStyle(ctx, rootFlags))
 	}

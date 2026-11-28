@@ -20,6 +20,11 @@ const (
 	hostDockerInternal     HostServiceAddress = "host.docker.internal"
 	hostContainersInternal HostServiceAddress = "host.containers.internal"
 	hostGatewayMapping                        = "host.docker.internal:host-gateway"
+
+	ephemeralContainerNamePrefix    = "invowk-ephem-"
+	ephemeralContainerStopGrace     = 2 * time.Second
+	ephemeralContainerStopTimeout   = 4 * time.Second
+	ephemeralContainerRemoveTimeout = 4 * time.Second
 )
 
 // ErrContainerBuildConfig is returned when a container runtime command specifies neither
@@ -49,6 +54,8 @@ type (
 		tuiProbe tuiExposureProbe
 		//plint:internal -- fallback ID counter for missing ExecutionID; see newExecutionID()
 		fallbackIDCounter atomic.Uint64
+		//plint:internal -- monotonic suffix counter for unique ephemeral container names
+		ephemeralIDCounter atomic.Uint64
 	}
 
 	// ContainerRuntimeOption configures a ContainerRuntime.
@@ -72,6 +79,8 @@ type (
 		Create(context.Context, container.CreateOptions) (*container.CreateResult, error)
 		Start(context.Context, container.ContainerID) error
 		Exec(context.Context, container.ContainerID, []string, container.RunOptions) (*container.RunResult, error)
+		Stop(context.Context, container.ContainerID, time.Duration) error
+		Remove(context.Context, container.ContainerID, bool) error
 		ImageExists(context.Context, container.ImageTag) (bool, error)
 		RemoveImage(context.Context, container.ImageTag, bool) error
 	}

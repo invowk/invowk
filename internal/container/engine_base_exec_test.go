@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestBaseCLIEngine_RunCommandStatus verifies RunCommandStatus returns only error status.
@@ -146,4 +147,49 @@ func TestPodmanEngine_Name(t *testing.T) {
 	if name := engine.Name(); name != "podman" {
 		t.Errorf("PodmanEngine.Name() = %q, want %q", name, "podman")
 	}
+}
+
+func TestBaseCLIEngine_Stop(t *testing.T) {
+	t.Parallel()
+
+	t.Run("stops with bounded timeout", func(t *testing.T) {
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
+
+		if err := engine.Stop(t.Context(), "invowk-ephem-1", 2*time.Second); err != nil {
+			t.Fatalf("Stop() error = %v", err)
+		}
+
+		recorder.AssertInvocationCount(t, 1)
+		if !slices.Equal(recorder.LastArgs(), []string{"stop", "-t", "2", "invowk-ephem-1"}) {
+			t.Fatalf("Stop args = %v, want [stop -t 2 invowk-ephem-1]", recorder.LastArgs())
+		}
+	})
+
+	t.Run("omits timeout flag when zero", func(t *testing.T) {
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := NewBaseCLIEngine("/usr/bin/podman", WithExecCommand(recorder.ContextCommandFunc(t)))
+
+		if err := engine.Stop(t.Context(), "invowk-ephem-2", 0); err != nil {
+			t.Fatalf("Stop() error = %v", err)
+		}
+
+		if !slices.Equal(recorder.LastArgs(), []string{"stop", "invowk-ephem-2"}) {
+			t.Fatalf("Stop args = %v, want [stop invowk-ephem-2]", recorder.LastArgs())
+		}
+	})
+
+	t.Run("rejects empty container ID", func(t *testing.T) {
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
+
+		err := engine.Stop(t.Context(), "", time.Second)
+		if !errors.Is(err, ErrInvalidContainerID) {
+			t.Fatalf("Stop() error = %v, want ErrInvalidContainerID", err)
+		}
+		recorder.AssertInvocationCount(t, 0)
+	})
 }

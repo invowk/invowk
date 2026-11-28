@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -410,6 +412,19 @@ func (e *BaseCLIEngine) RemoveArgs(containerID ContainerID, force bool) []string
 	return args
 }
 
+// StopArgs constructs arguments for a container stop command.
+//
+//goplint:ignore -- raw argv builder for Docker/Podman CLI boundary.
+func (e *BaseCLIEngine) StopArgs(containerID ContainerID, timeout time.Duration) []string {
+	args := []string{"stop"}
+	if timeout > 0 {
+		seconds := max(1, int(math.Ceil(timeout.Seconds())))
+		args = append(args, "-t", strconv.Itoa(seconds))
+	}
+	args = append(args, string(containerID))
+	return args
+}
+
 // RemoveImageArgs constructs arguments for an image remove command.
 func (e *BaseCLIEngine) RemoveImageArgs(image ImageTag, force bool) []string {
 	args := []string{"rmi"}
@@ -694,6 +709,14 @@ func validateExecInputs(containerID ContainerID, command []string, opts RunOptio
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// Stop stops a running container with an optional grace period before SIGKILL.
+func (e *BaseCLIEngine) Stop(ctx context.Context, containerID ContainerID, timeout time.Duration) error {
+	if err := containerID.Validate(); err != nil {
+		return err
+	}
+	return e.RunCommandStatus(ctx, e.StopArgs(containerID, timeout)...)
 }
 
 // Remove removes a container.
