@@ -290,9 +290,9 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		}
 
 		cmdInfo, resolvedReq, diags, err := app.Commands.ResolveFromSource(ctx, resolveReq)
-		app.Diagnostics.Render(ctx, diags, app.stderr)
+		app.Diagnostics.Render(ctx, diags, app.errUI())
 		if err != nil {
-			return renderServiceErrorIfPresent(app, renderAndWrapServiceError(err, resolveReq, diags))
+			return renderServiceErrorIfPresent(ctx, app, rootFlags, renderAndWrapServiceError(err, resolveReq, diags))
 		}
 
 		req, err := buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
@@ -317,9 +317,9 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		ConfigPath: types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
 	}
 	_, resolvedReq, diags, err := app.Commands.ResolveFromSource(ctx, req)
-	app.Diagnostics.Render(ctx, diags, app.stderr)
+	app.Diagnostics.Render(ctx, diags, app.errUI())
 	if err != nil {
-		return renderServiceErrorIfPresent(app, renderAndWrapServiceError(err, req, diags))
+		return renderServiceErrorIfPresent(ctx, app, rootFlags, renderAndWrapServiceError(err, req, diags))
 	}
 
 	childFlags := *cmdFlags
@@ -327,9 +327,9 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	return runWatchMode(cmd, app, rootFlags, &childFlags, append([]string{resolvedReq.Name}, resolvedReq.Args...))
 }
 
-func renderServiceErrorIfPresent(app *App, err error) error {
+func renderServiceErrorIfPresent(ctx context.Context, app *App, rootFlags *rootFlagValues, err error) error {
 	if svcErr, ok := errors.AsType[*ServiceError](err); ok {
-		renderServiceError(app.stderr, svcErr)
+		renderServiceError(app.errUI(), svcErr, app.glamourStyle(ctx, rootFlags))
 	}
 	return err
 }
@@ -362,7 +362,7 @@ func checkAmbiguousCommand(ctx context.Context, app *App, args []string) ([]disc
 		ConfigPath: types.FilesystemPath(configPathFromContext(ctx)), //goplint:ignore -- config path already normalized at CLI boundary
 	}
 	_, _, diags, err := app.Commands.ResolveCommand(ctx, req)
-	app.Diagnostics.Render(ctx, diags, app.stderr)
+	app.Diagnostics.Render(ctx, diags, app.errUI())
 	if err == nil {
 		return diags, nil
 	}

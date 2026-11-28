@@ -126,6 +126,8 @@ Sets the color scheme for Invowk's output.
 - `"dark"` - Use colors optimized for dark terminals
 - `"light"` - Use colors optimized for light terminals
 
+This setting selects the color theme orthogonally to whether color is enabled: when color output is disabled (via `--ivk-color=never`, `NO_COLOR`, `TERM=dumb`, or non-TTY output under `--ivk-color=auto`), Invowk strips ANSI sequences and renders Glamour markdown cards with `"notty"`.
+
 #### ui.verbose
 
 **Type:** `bool`

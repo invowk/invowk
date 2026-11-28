@@ -79,15 +79,15 @@ and 'config set' refuses while --ivk-config or INVOWK_CONFIG is active.`,
 		Use:   "show",
 		Short: "Show current configuration",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return showConfig(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), app, rootFlags)
+			return showConfig(cmd.Context(), app.uiWriterForOut(cmd), app.uiWriterForErr(cmd), app, rootFlags)
 		},
 	})
 
 	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "init",
 		Short: "Create default configuration file",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return initConfig()
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return initConfig(app.uiWriterForOut(cmd))
 		},
 	})
 
@@ -104,7 +104,7 @@ and 'config set' refuses while --ivk-config or INVOWK_CONFIG is active.`,
 		Short: "Set a configuration value",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return setConfigValue(cmd.Context(), cmd.OutOrStdout(), app, rootFlags, args[0], args[1])
+			return setConfigValue(cmd.Context(), app.uiWriterForOut(cmd), app, rootFlags, args[0], args[1])
 		},
 	})
 
@@ -114,7 +114,7 @@ and 'config set' refuses while --ivk-config or INVOWK_CONFIG is active.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load(cmd.Context(), explicitLoadOptions(rootFlags))
 			if err != nil {
-				return renderExplicitConfigError(cmd.ErrOrStderr(), err)
+				return renderExplicitConfigError(app.uiWriterForErr(cmd), err)
 			}
 
 			cueContent := config.GenerateDisplayCUE(cfg)
@@ -193,7 +193,7 @@ func effectiveTUIServerBind(bind config.TUIServerBind) config.TUIServerBind {
 }
 
 func renderConfigLoadFailure(w io.Writer, err error) error {
-	printIssueCatalogEntry(w, issue.ConfigLoadFailedId)
+	printIssueCatalogEntry(w, issue.ConfigLoadFailedId, "")
 	return err
 }
 
@@ -266,8 +266,7 @@ func printLLMConfig(w io.Writer, llm config.LLMConfig, valueStyle lipgloss.Style
 	}
 }
 
-func initConfig() error {
-	w := os.Stdout
+func initConfig(w io.Writer) error {
 	// Check if config exists
 	cfgDir, err := config.ConfigDir()
 	if err != nil {

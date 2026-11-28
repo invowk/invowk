@@ -130,8 +130,9 @@ import "strings"
 
 // UIConfig configures the user interface
 #UIConfig: close({
-	// color_scheme sets the color scheme
-	// Valid values: "auto", "dark", "light"
+	// color_scheme sets the color theme ("auto", "dark", "light") orthogonally
+	// to color enablement (--ivk-color, NO_COLOR, CLICOLOR_FORCE, TERM=dumb, TTY);
+	// when color is disabled, Glamour falls back to "notty".
 	color_scheme: *"auto" | #ColorSchemeType
 
 	// verbose enables verbose output

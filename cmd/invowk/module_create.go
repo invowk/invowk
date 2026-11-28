@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/app/moduleops"
@@ -15,7 +16,7 @@ import (
 )
 
 // newModuleCreateCommand creates the `invowk module create` command.
-func newModuleCreateCommand() *cobra.Command {
+func newModuleCreateCommand(app *App) *cobra.Command {
 	var (
 		createPath        string
 		createScripts     bool
@@ -40,7 +41,7 @@ Examples:
   invowk module create mytools --path /path/to/dir --module-id "com.example.tools"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleCreate(cmd.Context(), args, createPath, createScripts, createModule, createDescription)
+			return runModuleCreate(cmd.Context(), app.uiWriterForOut(cmd), args, createPath, createScripts, createModule, createDescription)
 		},
 	}
 
@@ -52,7 +53,7 @@ Examples:
 	return cmd
 }
 
-func runModuleCreate(ctx context.Context, args []string, createPath string, createScripts bool, createModule, createDescription string) error {
+func runModuleCreate(ctx context.Context, w io.Writer, args []string, createPath string, createScripts bool, createModule, createDescription string) error {
 	moduleName := args[0]
 
 	// Validate module name first
@@ -61,7 +62,7 @@ func runModuleCreate(ctx context.Context, args []string, createPath string, crea
 		return err
 	}
 
-	fmt.Println(moduleTitleStyle.Render("Create Module"))
+	fmt.Fprintln(w, moduleTitleStyle.Render("Create Module"))
 
 	// Create the module
 	opts := invowkmod.CreateOptions{
@@ -78,22 +79,22 @@ func runModuleCreate(ctx context.Context, args []string, createPath string, crea
 	}
 	modulePathStr := modulePath.String()
 
-	fmt.Printf("%s Module created successfully\n", moduleSuccessIcon)
-	fmt.Println()
-	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(modulePathStr))
-	fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(moduleName))
+	fmt.Fprintf(w, "%s Module created successfully\n", moduleSuccessIcon)
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(modulePathStr))
+	fmt.Fprintf(w, "%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(moduleName))
 
 	if createScripts {
-		fmt.Printf("%s Scripts directory created\n", moduleInfoIcon)
+		fmt.Fprintf(w, "%s Scripts directory created\n", moduleInfoIcon)
 	}
 
-	fmt.Println()
-	fmt.Printf("%s Next steps:\n", moduleInfoIcon)
-	fmt.Printf("   1. Edit %s to add your commands\n", modulePathStyle.Render(filepath.Join(modulePathStr, "invowkfile.cue")))
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s Next steps:\n", moduleInfoIcon)
+	fmt.Fprintf(w, "   1. Edit %s to add your commands\n", modulePathStyle.Render(filepath.Join(modulePathStr, "invowkfile.cue")))
 	if createScripts {
-		fmt.Printf("   2. Add script files to %s\n", modulePathStyle.Render(filepath.Join(modulePathStr, "scripts")))
+		fmt.Fprintf(w, "   2. Add script files to %s\n", modulePathStyle.Render(filepath.Join(modulePathStr, "scripts")))
 	}
-	fmt.Printf("   3. Run %s to validate\n", CmdStyle.Render("invowk validate "+modulePathStr))
+	fmt.Fprintf(w, "   3. Run %s to validate\n", CmdStyle.Render("invowk validate "+modulePathStr))
 
 	return nil
 }

@@ -117,7 +117,7 @@ Examples:
 				return runWorkspaceValidation(cmd, app, origin)
 			}
 
-			return runPathValidation(cmd, args[0])
+			return runPathValidation(cmd, app, args[0])
 		},
 	}
 }
@@ -129,8 +129,8 @@ Examples:
 // noCwdBy is the origin of --ivk-no-cwd when the switch is on (empty when off);
 // the header then names it, with or without --ivk-verbose.
 func runWorkspaceValidation(cmd *cobra.Command, app *App, noCwdBy noCwdOrigin) error {
-	stdout := cmd.OutOrStdout()
-	stderr := cmd.ErrOrStderr()
+	stdout := app.uiWriterForOut(cmd)
+	stderr := app.uiWriterForErr(cmd)
 
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(cmd.Context())
 	if errors.Is(err, config.ErrExplicitConfig) {
@@ -216,7 +216,7 @@ func runWorkspaceValidation(cmd *cobra.Command, app *App, noCwdBy noCwdOrigin) e
 }
 
 // runPathValidation validates a single path, auto-detecting its type.
-func runPathValidation(cmd *cobra.Command, targetPath string) error {
+func runPathValidation(cmd *cobra.Command, app *App, targetPath string) error {
 	absPath, err := filepath.Abs(targetPath)
 	if err != nil {
 		return fmt.Errorf(failedResolvePathFmt, err)
@@ -226,9 +226,9 @@ func runPathValidation(cmd *cobra.Command, targetPath string) error {
 
 	switch pt {
 	case pathTypeModule:
-		return runModulePathValidation(cmd, resolvedPath)
+		return runModulePathValidation(cmd, app, resolvedPath)
 	case pathTypeInvowkfile:
-		return runInvowkfilePathValidation(cmd, resolvedPath)
+		return runInvowkfilePathValidation(cmd, app, resolvedPath)
 	case pathTypeUnknown:
 		return fmt.Errorf("cannot determine file type for %s: expected invowkfile.cue, *.invowkmod directory, or directory containing invowkfile.cue", targetPath)
 	default:
@@ -275,9 +275,9 @@ func detectPathType(absPath string) (detected pathType, resolvedPath string) {
 }
 
 // runInvowkfilePathValidation validates a single invowkfile and renders styled output.
-func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) error {
-	stdout := cmd.OutOrStdout()
-	stderr := cmd.ErrOrStderr()
+func runInvowkfilePathValidation(cmd *cobra.Command, app *App, invowkfilePath string) error {
+	stdout := app.uiWriterForOut(cmd)
+	stderr := app.uiWriterForErr(cmd)
 
 	absPath, err := filepath.Abs(invowkfilePath)
 	if err != nil {
@@ -336,9 +336,9 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 // runModulePathValidation validates a module directory and renders styled output.
 // It calls invowkmod.Validate() for structural checks, then performs deep validation
 // by parsing the module's invowkfile (if present) and validating the command tree.
-func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
-	stdout := cmd.OutOrStdout()
-	stderr := cmd.ErrOrStderr()
+func runModulePathValidation(cmd *cobra.Command, app *App, modulePath string) error {
+	stdout := app.uiWriterForOut(cmd)
+	stderr := app.uiWriterForErr(cmd)
 
 	absPath, err := filepath.Abs(modulePath)
 	if err != nil {

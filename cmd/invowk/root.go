@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"runtime/debug"
 
@@ -36,11 +37,15 @@ type rootFlagValues struct {
 	// noCwd disables current-directory command sources (--ivk-no-cwd flag).
 	// Read it through resolveNoCwd, which also honours INVOWK_NO_CWD.
 	noCwd bool
+	// colorMode controls CLI ANSI color output (--ivk-color=auto|always|never).
+	colorMode string //goplint:ignore -- Cobra flag binding validated via colorModeFlag.Set and parseColorMode.
 }
 
 // NewRootCommand creates the root Cobra command.
 func NewRootCommand(app *App) *cobra.Command {
-	rootFlags := &rootFlagValues{}
+	rootFlags := &rootFlagValues{
+		colorMode: colorModeAuto.String(),
+	}
 
 	rootCmd := &cobra.Command{
 		Use:   "invowk",
@@ -71,9 +76,11 @@ be organized hierarchically with support for dependencies.
 	rootCmd.PersistentFlags().BoolVar(&rootFlags.noCwd, noCwdFlagName, false,
 		"ignore the current directory's invowkfile.cue and *.invowkmod modules (env: INVOWK_NO_CWD)")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.interactive, "ivk-interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
+	rootCmd.PersistentFlags().Var(&colorModeFlag{raw: &rootFlags.colorMode, app: app}, colorFlagName,
+		"control color output: auto, always, never")
 
 	rootCmd.AddCommand(newCmdCommand(app, rootFlags))
-	rootCmd.AddCommand(newInitCommand())
+	rootCmd.AddCommand(newInitCommand(app))
 	rootCmd.AddCommand(newConfigCommand(app, rootFlags))
 	rootCmd.AddCommand(newCompletionCommand())
 	rootCmd.AddCommand(newTUICommand())
@@ -99,14 +106,57 @@ func Execute() {
 	}
 
 	rootCmd := NewRootCommand(app)
+	err = executeWithFang(context.Background(), app, rootCmd, os.Args[1:])
+	os.Exit(int(exitCodeForError(classifyUnknownRootCommand(rootCmd, os.Args[1:], err))))
+}
 
-	err = fang.Execute(
-		context.Background(),
+// executeWithFang configures color-aware fang help and error handling for rootCmd.
+//
+//goplint:ignore -- CLI entrypoint forwards raw process argv for pre-parse color setup.
+func executeWithFang(ctx context.Context, app *App, rootCmd *cobra.Command, args []string) error {
+	if argMode, hasArgMode := explicitColorModeFromArgs(args); hasArgMode && argMode.Validate() == nil {
+		app.setColorMode(argMode)
+	}
+
+	// Only wrap rootCmd's stdout for fang help when color is disabled and the
+	// invocation is not `invowk tui style|format` (which stay opt-in unless
+	// --ivk-color=never, handled inside those commands). Leaving OutOrStdout()
+	// unwrapped under `auto` preserves fang's TTY detection.
+	if app.uiOut != nil && !colorEnabled(app.uiOut.Profile) && !isTUIStyleOrFormatInvocation(args) {
+		rootCmd.SetOut(app.uiOut)
+	}
+
+	if app.alwaysColor && isHelpInvocation(args) {
+		restore := forceFangHelpColor()
+		defer restore()
+	}
+
+	return fang.Execute(
+		ctx,
 		rootCmd,
 		fang.WithVersion(getVersionString(Version, Commit, BuildDate)),
 		fang.WithNotifySignal(os.Interrupt),
+		fang.WithErrorHandler(newFangErrorHandler(app, rootCmd)),
 	)
-	os.Exit(int(exitCodeForError(classifyUnknownRootCommand(rootCmd, os.Args[1:], err))))
+}
+
+func newFangErrorHandler(app *App, rootCmd *cobra.Command) fang.ErrorHandler {
+	return func(w io.Writer, styles fang.Styles, err error) {
+		errWriter := w
+		if app != nil && app.uiErr != nil {
+			errWriter = app.uiWriterForErr(rootCmd)
+		}
+
+		if exitErr, ok := errors.AsType[*ExitError](err); ok && exitErr.Err == nil {
+			verbose, _ := rootCmd.PersistentFlags().GetBool("ivk-verbose")
+			if verbose {
+				_, _ = fmt.Fprintf(errWriter, "invowk: command exited with status %d\n", exitErr.Code)
+			}
+			return
+		}
+
+		fang.DefaultErrorHandler(errWriter, styles, err)
+	}
 }
 
 // getVersionString returns a formatted version string for display.

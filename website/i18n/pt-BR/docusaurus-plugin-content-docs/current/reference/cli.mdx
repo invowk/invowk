@@ -15,6 +15,7 @@ Estas flags estão disponíveis para todos os comandos:
 | Flag | Curta | Descrição |
 |------|-------|-----------|
 | `--help` | `-h` | Mostrar ajuda para o comando |
+| `--ivk-color` | | Controlar a saída com cores da própria CLI do Invowk: `auto` (padrão), `always`, `never`. Precedência: `--ivk-color` > `NO_COLOR` / `CLICOLOR_FORCE` / `TERM=dumb` > detecção de TTY. Valores inválidos saem com `2` |
 | `--ivk-config` | `-c` | Caminho do arquivo de configuração. Sobrepõe `INVOWK_CONFIG` e o [arquivo de configuração do usuário](/docs/configuration/overview#localização-do-arquivo-de-configuração); um arquivo ausente ou inválido é um erro (saída 1; o `invowk audit` usa seu código de erro de varredura, 2). Veja [qual arquivo de configuração é usado](../configuration/overview#qual-arquivo-de-configuração-é-usado) |
 | `--ivk-no-cwd` | | Ignorar o `invowkfile.cue` e os módulos `*.invowkmod` do diretório atual na descoberta de comandos (sobrepõe `INVOWK_NO_CWD`) |
 | `--ivk-interactive` | `-i` | Executar comandos em buffer de tela alternativo (modo interativo) |
@@ -27,8 +28,11 @@ Estas flags estão disponíveis para todos os comandos:
 |----------|-----------|
 | `INVOWK_CONFIG` | Caminho absoluto do arquivo de configuração usado quando `--ivk-config` não é informado. Vazio significa não definido; um valor relativo, ausente ou inválido é um erro (saída 1; o `invowk audit` usa seu código de erro de varredura, 2). Nunca é resolvido em relação ao diretório atual |
 | `INVOWK_NO_CWD` | Igual a `--ivk-no-cwd` quando a flag não é informada. Aceita os valores do `strconv.ParseBool` do Go (`1`, `true`, `0`, `false`, ...); vazio significa desligado, e qualquer outro valor é um erro (saída 2) nos comandos que descobrem fontes de comandos |
+| `NO_COLOR` | Quando não vazio, omite sequências ANSI da saída da própria CLI do Invowk e renderiza cartões de erro do Glamour com `"notty"`, salvo se `--ivk-color=always` for passado |
+| `CLICOLOR_FORCE` | Quando não vazio e diferente de `"0"`, habilita estilização ANSI em pipes não-TTY para a própria CLI do Invowk, salvo se `NO_COLOR` estiver definido ou `--ivk-color=never` for passado |
+| `TERM` | `TERM=dumb` desabilita estilização ANSI para a própria CLI do Invowk, salvo se `CLICOLOR_FORCE` ou `--ivk-color=always` estiver definido |
 
-Chamadas aninhadas do `invowk` herdam essas variáveis só quando quem chama as definiu, pelas regras normais de `env_inherit_mode` do comando; as formas de flag nunca são exportadas para processos filhos.
+Chamadas aninhadas do `invowk` herdam `INVOWK_CONFIG` e `INVOWK_NO_CWD` só quando quem chama as definiu, pelas regras normais de `env_inherit_mode` do comando; as formas de flag nunca são exportadas para processos filhos. Comandos do usuário sempre recebem descritores `stdout`/`stderr` brutos sem encapsulamento, e `invowk tui style` / `invowk tui format` continuam opt-in para estilização ANSI em pipelines salvo quando `--ivk-color=never` é passado. A habilitação de cores é ortogonal a `ui.color_scheme` (`"auto"`, `"dark"`, `"light"`), que seleciona o tema quando as cores estão habilitadas.
 
 ## Comandos
 
@@ -755,7 +759,7 @@ O status `2` cobre:
 - um erro de quantidade de argumentos em um comando embutido (`invowk init a b c`);
 - um nome de comando sob `invowk cmd` não encontrado ou ambíguo entre fontes, uma fonte `@source` ou `--ivk-from` desconhecida, um nome de fonte malformado, como um caminho (`@./m.invowkmod`; use o nome do módulo, `m`), e um filtro de fonte sem nome de comando;
 - argumentos ou flags declarados que falham na validação;
-- um valor inválido de uma flag reservada `--ivk-*`, como um `--ivk-runtime` desconhecido ou um runtime não permitido pelo comando, um `--ivk-env-inherit-mode` desconhecido, um nome inválido em `--ivk-env-inherit-allow`/`--ivk-env-inherit-deny`, um `--ivk-workdir` só com espaços, um `--ivk-env-file` vazio, um `--ivk-container-name` inválido ou um valor de `--ivk-env-var` sem `KEY=`;
+- um valor inválido de uma flag reservada `--ivk-*`, como um valor inválido de `--ivk-color` (`auto`, `always`, `never`), um `--ivk-runtime` desconhecido ou um runtime não permitido pelo comando, um `--ivk-env-inherit-mode` desconhecido, um nome inválido em `--ivk-env-inherit-allow`/`--ivk-env-inherit-deny`, um `--ivk-workdir` só com espaços, um `--ivk-env-file` vazio, um `--ivk-container-name` inválido ou um valor de `--ivk-env-var` sem `KEY=`;
 - um erro de `invowk agent` detectado apenas pela linha de comando, como um nome inválido, flags mutuamente exclusivas, uma descrição ausente, um valor `--llm-*` inválido ou um formato ou operação de prompt desconhecido;
 - um conflito decidido apenas por flags e variáveis de ambiente: um valor inválido de `INVOWK_NO_CWD`, `--ivk-watch` junto com `--ivk-dry-run`, `invowk config set` enquanto `--ivk-config` ou `INVOWK_CONFIG` está ativo, e `invowk agent cmd create`/`change --verify` sob `--ivk-no-cwd` ou `INVOWK_NO_CWD`.
 
@@ -771,6 +775,8 @@ Exceções por comando:
 | `invowk validate` | `1` quando a validação encontra erros |
 
 :::note
+Ao repassar um código de saída de um comando ou subcomando embutido (`invowk cmd`, `invowk audit`, `invowk validate`, `invowk tui confirm`, `invowk tui spin`) sem mensagem de erro do próprio Invowk, o Invowk repassa o código silenciosamente tanto em TTY quanto fora de TTY, sem imprimir o quadro `Exit status N`. Passe `--ivk-verbose` para emitir uma única linha de diagnóstico no stderr.
+
 Um comando do usuário pode sair com `1` ou `2` por conta própria, e uma chamada `invowk` aninhada em um script pode propagar seu próprio erro de uso. Um wrapper que precisa distinguir esses casos lê o stderr. O contrato só é exato para comandos cujos scripts evitam os códigos `1` e `2`.
 
 Falhas do engine de contêiner ou do runtime OCI (códigos `125` e `126`) são repetidas como transitórias. Quando as tentativas se esgotam, o código é repassado como se fosse do próprio comando.

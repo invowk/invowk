@@ -81,7 +81,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		return err
 	}
 	cmdInfo, resolvedReq, plan, diags, err := app.Commands.ResolveWatchPlan(ctx, resolveReq)
-	app.Diagnostics.Render(ctx, diags, app.stderr)
+	app.Diagnostics.Render(ctx, diags, app.errUI())
 	if err != nil {
 		if planErr, ok := errors.AsType[*commandsvc.InvalidWatchPlanError](err); ok && planErr != nil {
 			return fmt.Errorf("%w: %w", errInvalidWatchDebounce, err)
@@ -149,14 +149,14 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	}
 
 	// Execute the command once immediately before starting the watcher.
-	fmt.Fprintf(app.stdout, "%s Watch mode: initial execution of '%s'\n", VerboseHighlightStyle.Render("→"), args[0])
+	fmt.Fprintf(app.outUI(), "%s Watch mode: initial execution of '%s'\n", VerboseHighlightStyle.Render("→"), args[0])
 	statusReporter.Working()
 	outcome, err := session.InitialExecution(watchCtx)
 	if err != nil {
 		return err
 	}
 	if outcome.ExitCode != 0 {
-		fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
+		fmt.Fprintf(app.errUI(), "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
 	}
 	if outcome.Err != nil || outcome.ExitCode != 0 {
 		statusReporter.Error()
@@ -167,7 +167,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		reporter.Report()
 	}
 
-	fmt.Fprintf(app.stdout, "\n%s Watching for changes (Ctrl+C to stop)...\n\n", VerboseHighlightStyle.Render("→"))
+	fmt.Fprintf(app.outUI(), "\n%s Watching for changes (Ctrl+C to stop)...\n\n", VerboseHighlightStyle.Render("→"))
 
 	cfg := watch.Config{
 		Patterns: plan.Patterns,
@@ -176,16 +176,17 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		BaseDir:  plan.BaseDir,
 		OnChange: func(cbCtx context.Context, changed []string) error {
 			if plan.ClearScreen {
+				// Keep clear_screen on raw app.stdout so terminal control bytes are preserved.
 				fmt.Fprint(app.stdout, "\033[2J\033[H")
 			}
-			fmt.Fprintf(app.stdout, "%s Detected %d change(s). Re-executing '%s'...\n",
+			fmt.Fprintf(app.outUI(), "%s Detected %d change(s). Re-executing '%s'...\n",
 				VerboseHighlightStyle.Render("→"), len(changed), args[0])
 			statusReporter.Working()
 			outcome, handleErr := session.HandleChange(cbCtx, changed)
 			if outcome.Err != nil {
-				fmt.Fprintf(app.stderr, "%s Execution failed: %v\n", WarningStyle.Render("!"), outcome.Err)
+				fmt.Fprintf(app.errUI(), "%s Execution failed: %v\n", WarningStyle.Render("!"), outcome.Err)
 			} else if outcome.ExitCode != 0 {
-				fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
+				fmt.Fprintf(app.errUI(), "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
 			}
 			if handleErr != nil {
 				return handleErr
@@ -198,11 +199,11 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 			if interactiveWatch && !preserveResume() {
 				reporter.Report()
 			}
-			fmt.Fprintf(app.stdout, "\n%s Watching for changes...\n\n", VerboseHighlightStyle.Render("→"))
+			fmt.Fprintf(app.outUI(), "\n%s Watching for changes...\n\n", VerboseHighlightStyle.Render("→"))
 			return nil
 		},
-		Stdout: app.stdout,
-		Stderr: app.stderr,
+		Stdout: app.outUI(),
+		Stderr: app.errUI(),
 	}
 
 	w, err := app.Watchers.Create(cfg)
@@ -219,10 +220,10 @@ func executeWatchRequest(ctx context.Context, cmd *cobra.Command, app *App, req 
 	cmd.SetContext(reqCtx)
 
 	result, diags, err := app.Commands.Execute(reqCtx, req)
-	app.Diagnostics.Render(reqCtx, diags, app.stderr)
+	app.Diagnostics.Render(reqCtx, diags, app.errUI())
 	if err != nil {
 		if svcErr, ok := errors.AsType[*ServiceError](err); ok {
-			renderServiceError(app.stderr, svcErr)
+			renderServiceError(app.errUI(), svcErr, app.glamourStyle(reqCtx, &rootFlagValues{configPath: string(req.ConfigPath)}))
 		}
 		return result, err
 	}

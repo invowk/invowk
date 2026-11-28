@@ -126,6 +126,8 @@ Define o esquema de cores para a saída do Invowk.
 - `"dark"` - Usar cores otimizadas para terminais escuros
 - `"light"` - Usar cores otimizadas para terminais claros
 
+Esta opção seleciona o tema de cores de forma ortogonal à habilitação de cores: quando as cores estão desabilitadas (via `--ivk-color=never`, `NO_COLOR`, `TERM=dumb` ou saída não-TTY sob `--ivk-color=auto`), o Invowk remove sequências ANSI e renderiza cartões markdown do Glamour com `"notty"`.
+
 #### ui.verbose
 
 **Tipo:** `bool`

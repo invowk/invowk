@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/app/modulesync"
@@ -14,7 +15,7 @@ import (
 )
 
 // newModuleTidyCommand creates the `invowk module tidy` command.
-func newModuleTidyCommand() *cobra.Command {
+func newModuleTidyCommand(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "tidy",
 		Short: "Add missing transitive dependencies to invowkmod.cue",
@@ -31,43 +32,43 @@ Examples:
   invowk module tidy`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runModuleTidy(cmd.Context())
+			return runModuleTidy(cmd.Context(), app.uiWriterForOut(cmd))
 		},
 	}
 }
 
-func runModuleTidy(ctx context.Context) error {
-	fmt.Println(moduleTitleStyle.Render("Tidy Module Dependencies"))
+func runModuleTidy(ctx context.Context, w io.Writer) error {
+	fmt.Fprintln(w, moduleTitleStyle.Render("Tidy Module Dependencies"))
 
 	invowkmodulePath := filepath.Join(".", invowkmodCueFileName)
 	requirements, missing, err := modulesync.TidyModule(ctx, moduleEditLocks(), types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
-		printLockIntegrityHint(err)
+		printLockIntegrityHint(w, err)
 		return err
 	}
 
 	if len(requirements) == 0 {
-		fmt.Printf("%s No requires field found in invowkmod.cue — nothing to tidy\n", moduleInfoIcon)
+		fmt.Fprintf(w, "%s No requires field found in invowkmod.cue — nothing to tidy\n", moduleInfoIcon)
 		return nil
 	}
 
-	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
-	fmt.Printf("%s Resolving dependencies to find missing transitive requirements...\n", moduleInfoIcon)
+	fmt.Fprintf(w, "%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
+	fmt.Fprintf(w, "%s Resolving dependencies to find missing transitive requirements...\n", moduleInfoIcon)
 
 	if len(missing) == 0 {
-		fmt.Printf("%s All transitive dependencies are already declared — nothing to tidy\n", moduleSuccessIcon)
+		fmt.Fprintf(w, "%s All transitive dependencies are already declared — nothing to tidy\n", moduleSuccessIcon)
 		return nil
 	}
 
 	for _, req := range missing {
-		fmt.Printf("%s Added %s (%s)\n", moduleSuccessIcon,
+		fmt.Fprintf(w, "%s Added %s (%s)\n", moduleSuccessIcon,
 			modulePathStyle.Render(string(req.GitURL)),
 			CmdStyle.Render(string(req.Version)))
 	}
 
-	fmt.Println()
-	fmt.Printf("%s Added %d missing transitive dependency(ies) to invowkmod.cue\n", moduleSuccessIcon, len(missing))
-	fmt.Printf("%s Run %s to update the lock file\n", moduleInfoIcon, CmdStyle.Render("invowk module sync"))
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s Added %d missing transitive dependency(ies) to invowkmod.cue\n", moduleSuccessIcon, len(missing))
+	fmt.Fprintf(w, "%s Run %s to update the lock file\n", moduleInfoIcon, CmdStyle.Render("invowk module sync"))
 
 	return nil
 }

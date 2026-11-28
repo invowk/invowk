@@ -18,7 +18,7 @@ const (
 )
 
 // newInitCommand creates the `invowk init` command.
-func newInitCommand() *cobra.Command {
+func newInitCommand(app *App) *cobra.Command {
 	var (
 		force    bool
 		template string
@@ -33,7 +33,7 @@ func newInitCommand() *cobra.Command {
 This command generates a starter invowkfile with sample commands to help
 you get started quickly.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInit(cmd, args, force, template)
+			return runInit(cmd, app, args, force, template)
 		},
 	}
 
@@ -43,7 +43,7 @@ you get started quickly.`,
 	return cmd
 }
 
-func runInit(cmd *cobra.Command, args []string, force bool, template string) error {
+func runInit(cmd *cobra.Command, app *App, args []string, force bool, template string) error {
 	filename := "invowkfile.cue"
 	if len(args) > 0 {
 		filename = args[0]
@@ -72,7 +72,7 @@ func runInit(cmd *cobra.Command, args []string, force bool, template string) err
 	if err != nil {
 		absPath = filename
 	}
-	w := cmd.OutOrStdout()
+	w := app.uiWriterForOut(cmd)
 	fmt.Fprintf(w, "%s Created %s\n", SuccessStyle.Render("✓"), absPath)
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, SubtitleStyle.Render("Next steps:"))

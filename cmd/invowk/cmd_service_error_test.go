@@ -62,7 +62,7 @@ func TestRenderServiceError_NilServiceError(t *testing.T) {
 	t.Parallel()
 
 	var buf bytes.Buffer
-	renderServiceError(&buf, nil)
+	renderServiceError(&buf, nil, "")
 
 	if buf.Len() != 0 {
 		t.Errorf("expected no output for nil ServiceError, got %q", buf.String())
@@ -74,7 +74,7 @@ func TestRenderServiceError_StyledMessageOnly(t *testing.T) {
 
 	var buf bytes.Buffer
 	svcErr := newServiceError(errors.New("test"), 0, "styled output\n")
-	renderServiceError(&buf, svcErr)
+	renderServiceError(&buf, svcErr, "")
 
 	if buf.String() != "styled output\n" {
 		t.Errorf("output = %q, want %q", buf.String(), "styled output\n")
@@ -86,7 +86,7 @@ func TestRenderServiceError_WithIssueID(t *testing.T) {
 
 	var buf bytes.Buffer
 	svcErr := newServiceError(errors.New("test"), issue.CommandNotFoundId, "")
-	renderServiceError(&buf, svcErr)
+	renderServiceError(&buf, svcErr, "")
 
 	// Issue catalog entry should be rendered (contains the issue template content)
 	output := buf.String()
@@ -100,7 +100,7 @@ func TestRenderServiceError_StyledMessageAndIssueID(t *testing.T) {
 
 	var buf bytes.Buffer
 	svcErr := newServiceError(errors.New("test"), issue.CommandNotFoundId, "styled: ")
-	renderServiceError(&buf, svcErr)
+	renderServiceError(&buf, svcErr, "")
 
 	output := buf.String()
 	// Should contain both the styled message prefix and the issue catalog content
@@ -114,7 +114,7 @@ func TestRenderServiceError_ZeroIssueIDSkipsCatalog(t *testing.T) {
 
 	var buf bytes.Buffer
 	svcErr := newServiceError(errors.New("test"), 0, "only this")
-	renderServiceError(&buf, svcErr)
+	renderServiceError(&buf, svcErr, "")
 
 	if buf.String() != "only this" {
 		t.Errorf("output = %q, want %q", buf.String(), "only this")
