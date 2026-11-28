@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
@@ -170,6 +171,7 @@ func showConfig(ctx context.Context, w, stderr io.Writer, app *App, rootFlags *r
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "%s:\n", keyStyle.Render("container"))
 	fmt.Fprintf(w, "  tui_server_bind: %s\n", valueStyle.Render(effectiveTUIServerBind(cfg.Container.TUIServerBind).String()))
+	fmt.Fprintf(w, "  selinux_labeling: %s\n", valueStyle.Render(cfg.Container.SELinuxLabeling.Effective().String()))
 
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "%s:\n", keyStyle.Render("ui"))
@@ -227,8 +229,15 @@ func printIncludes(w io.Writer, includes []config.IncludeEntry, valueStyle lipgl
 		return
 	}
 	for _, inc := range includes {
+		var details []string
 		if inc.Alias != "" {
-			fmt.Fprintf(w, "  - %s (alias: %s)\n", valueStyle.Render(string(inc.Path)), valueStyle.Render(string(inc.Alias)))
+			details = append(details, "alias: "+valueStyle.Render(string(inc.Alias)))
+		}
+		if inc.WorkspaceRoot != "" {
+			details = append(details, "workspace_root: "+valueStyle.Render(string(inc.WorkspaceRoot)))
+		}
+		if len(details) > 0 {
+			fmt.Fprintf(w, "  - %s (%s)\n", valueStyle.Render(string(inc.Path)), strings.Join(details, ", "))
 			continue
 		}
 		fmt.Fprintf(w, "  - %s\n", valueStyle.Render(string(inc.Path)))

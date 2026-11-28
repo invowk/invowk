@@ -20,11 +20,13 @@ import (
 )
 
 const (
-	commandFailedFmt    = "command %s %v failed: %w"
-	containerArgAddHost = "--add-host"
-	containerArgLabel   = "--label"
-	containerArgName    = "--name"
-	containerArgFormat  = "--format"
+	commandFailedFmt         = "command %s %v failed: %w"
+	containerArgAddHost      = "--add-host"
+	containerArgLabel        = "--label"
+	containerArgName         = "--name"
+	containerArgFormat       = "--format"
+	containerArgSecurityOpt  = "--security-opt"
+	containerSELinuxDisabled = "label=disable"
 
 	containerCommandCreate  = "create"
 	containerCommandRun     = "run"
@@ -305,7 +307,11 @@ func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
 	}
 
 	for _, v := range opts.Volumes {
-		args = append(args, "-v", e.volumeFormatter(v))
+		args = append(args, "-v", e.formatVolumeForMount(v, opts.VolumeSELinuxModes[v], opts.DisableSELinuxLabeling))
+	}
+
+	if opts.DisableSELinuxLabeling {
+		args = append(args, containerArgSecurityOpt, containerSELinuxDisabled)
 	}
 
 	for _, p := range opts.Ports {
@@ -381,7 +387,11 @@ func (e *BaseCLIEngine) CreateArgs(opts CreateOptions) []string {
 		args = append(args, containerArgLabel, fmt.Sprintf("%s=%s", key, value))
 	}
 	for _, v := range opts.Volumes {
-		args = append(args, "-v", e.volumeFormatter(v))
+		args = append(args, "-v", e.formatVolumeForMount(v, opts.VolumeSELinuxModes[v], opts.DisableSELinuxLabeling))
+	}
+
+	if opts.DisableSELinuxLabeling {
+		args = append(args, containerArgSecurityOpt, containerSELinuxDisabled)
 	}
 	for _, p := range opts.Ports {
 		args = append(args, "-p", string(p))
@@ -822,4 +832,54 @@ func (e *BaseCLIEngine) customizeCmd(cmd *exec.Cmd) {
 			cmd.Env = append(cmd.Env, k+"="+v)
 		}
 	}
+}
+
+//goplint:ignore -- low-level container -v option formatter over validated VolumeMountSpec.
+func (e *BaseCLIEngine) formatVolumeForMount(v VolumeMountSpec, mode VolumeMountSELinuxMode, disableSELinux bool) string {
+	if disableSELinux {
+		return string(v)
+	}
+	switch mode {
+	case VolumeMountSELinuxNone:
+		return string(v)
+	case VolumeMountSELinuxShared:
+		return appendSELinuxVolumeOption(string(v), "z")
+	case VolumeMountSELinuxPrivate:
+		return appendSELinuxVolumeOption(string(v), "Z")
+	case VolumeMountSELinuxAuto:
+		return e.volumeFormatter(v)
+	default:
+		return e.volumeFormatter(v)
+	}
+}
+
+// appendSELinuxVolumeOption adds the given SELinux label option ("z" or "Z") to
+// a "host:container[:options]" volume specification unless it already carries a
+// :z or :Z option. Handles Windows drive-letter prefixes (e.g. "C:\work:/workspace").
+//
+//goplint:ignore -- low-level Docker/Podman -v flag string builder.
+func appendSELinuxVolumeOption(volumeStr, label string) string {
+	rest := volumeStr
+	if len(rest) >= 3 &&
+		((rest[0] >= 'a' && rest[0] <= 'z') || (rest[0] >= 'A' && rest[0] <= 'Z')) &&
+		rest[1] == ':' && (rest[2] == '/' || rest[2] == '\\') {
+		rest = rest[2:]
+	}
+
+	parts := strings.Split(rest, ":")
+	if len(parts) < 2 {
+		return volumeStr
+	}
+
+	if len(parts) >= 3 {
+		options := parts[len(parts)-1]
+		for opt := range strings.SplitSeq(options, ",") {
+			if opt == "z" || opt == "Z" {
+				return volumeStr
+			}
+		}
+		return volumeStr + "," + label
+	}
+
+	return volumeStr + ":" + label
 }

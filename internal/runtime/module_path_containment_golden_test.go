@@ -23,7 +23,7 @@ const modulePathContainmentGoldenFile = "../app/moduleops/testdata/formal/module
 // GetEffectiveWorkDir). A declared workdir is an execution working directory
 // only, never a read target: the model records dContained = true and
 // dAccepts = false for it. The real mapping puts the workdir under /workspace
-// exactly when it is lexically inside the invowkfile directory (dLexContains).
+// exactly when it is physically inside the invowkfile directory (dPhysContains).
 func TestModulePathContainment_ContainerWorkDirGolden(t *testing.T) {
 	t.Parallel()
 
@@ -47,13 +47,17 @@ func TestModulePathContainment_ContainerWorkDirGolden(t *testing.T) {
 		}
 		invowkDir := b.Path[c.OwnerAtom]
 		ctx := &ExecutionContext{
-			Invowkfile:   &invowkfile.Invowkfile{FilePath: invowkfile.FilesystemPath(filepath.Join(invowkDir, "invowkfile.cue"))},
-			SelectedImpl: &invowkfile.Implementation{WorkDir: invowkfile.WorkDir(c.RelPath(b))},
+			Invowkfile: &invowkfile.Invowkfile{
+				FilePath:   invowkfile.FilesystemPath(filepath.Join(invowkDir, "invowkfile.cue")),
+				ModulePath: invowkfile.FilesystemPath(invowkDir),
+			},
+			MountTrustTier: MountTrustTierContained,
+			SelectedImpl:   &invowkfile.Implementation{WorkDir: invowkfile.WorkDir(c.RelPath(b))},
 		}
-		containerPath := rt.getContainerWorkDir(ctx, invowkDir)
-		if mapped := strings.HasPrefix(containerPath, containerWorkspaceRoot); mapped != c.LexInside {
-			report.Errorf("instance %d WorkdirCwd: container workdir %q under /workspace=%v, model dLexContains=%v",
-				i, containerPath, mapped, c.LexInside)
+		containerPath, _ := rt.getContainerWorkDir(ctx, invowkDir)
+		if mapped := strings.HasPrefix(containerPath, containerWorkspaceRoot); mapped != c.PhysInside {
+			report.Errorf("instance %d WorkdirCwd: container workdir %q under /workspace=%v, model dPhysContains=%v",
+				i, containerPath, mapped, c.PhysInside)
 		}
 	}
 	cache.LogSkips(t)

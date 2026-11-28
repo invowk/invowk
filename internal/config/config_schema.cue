@@ -17,6 +17,9 @@ import "strings"
 // TUIServerBindType defines the TUI server bind policies for container runs
 #TUIServerBindType: "restricted" | "all-interfaces"
 
+// SELinuxLabelingType defines the operator-only SELinux labeling policy for containers.
+#SELinuxLabelingType: "enabled" | "disabled"
+
 // LLMProviderType defines valid LLM provider harnesses
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 
@@ -64,6 +67,11 @@ import "strings"
 	// alias optionally overrides the module identifier for collision disambiguation.
 	// Must be unique across all includes entries.
 	alias?: string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
+
+	// workspace_root optionally grants an explicit absolute host directory ceiling
+	// for container workspace_mount and relative volumes of an included module.
+	// [GO-ONLY] OS-native absoluteness and physical containment are enforced in Go.
+	workspace_root?: string & !="" & strings.MaxRunes(4096)
 })
 
 // ContainerConfig configures container runtime behavior
@@ -79,6 +87,12 @@ import "strings"
 	// interactive runs. "all-interfaces" lets those modes (and Docker
 	// Desktop) bind 0.0.0.0, with a warning at every such run.
 	tui_server_bind: *"restricted" | #TUIServerBindType
+
+	// selinux_labeling controls SELinux volume labeling and confinement for containers.
+	// "enabled" (default) applies per-mount SELinux labels (:z/:Z) when SELinux is active.
+	// "disabled" passes --security-opt label=disable to container engines and omits automatic :z labels.
+	// This setting is operator-only and cannot be set by invowkfile.cue or *.invowkmod.
+	selinux_labeling: *"enabled" | #SELinuxLabelingType
 })
 
 // AutoProvisionConfig controls auto-provisioning of invowk resources

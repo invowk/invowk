@@ -77,7 +77,28 @@ Mount additional directories into the container:
 
 <Snippet id="runtime-modes/container-volumes-full" />
 
-The invowkfile's directory is automatically mounted to `/workspace`.
+By default, the invowkfile's directory is mounted to `/workspace`, and relative `volumes` entries resolve against the invowkfile or module directory. Standalone `<cwd>/invowkfile.cue` files may use relative paths, named container volumes, or absolute host bind mounts; `*.invowkmod` modules may use named volumes or relative paths within their containment ceiling, and cannot declare absolute host bind mounts.
+
+## Workspace Mount and SELinux Labeling
+
+Customize how `/workspace` is mounted per command with `workspace_mount`:
+
+```cue
+runtimes: [{
+    name: "container"
+    image: "debian:stable-slim"
+    workspace_mount: {
+        enabled: true              // Default: true; set false to omit /workspace mount
+        root: "invowkfile"         // "invowkfile" (default) | "workdir"
+        readonly: false            // Default: false; set true to mount /workspace:ro
+        selinux_label: "auto"      // "auto" (default) | "shared" (:z) | "private" (:Z) | "none"
+    }
+}]
+```
+
+- **Three-tier containment:** Vendored, remote, and `~/.invowk/cmds` modules are strictly confined to their module root; modules in the current working directory may resolve `root: "workdir"` and relative `volumes` up to `<cwd>`; configured `includes` modules remain confined to the module root unless `workspace_root` sets a wider operator ceiling. Explicit CLI `--ivk-workdir` overrides act as explicit user consent.
+- **Script decoupling:** Inline interpreter scripts and out-of-workspace `script.file` paths do not depend on a writable `/workspace` mount—for ephemeral containers, Invowk mounts them read-only under `/.invowk/` (retaining SELinux `:z` labels when SELinux is active) and cleans up temporary directories after container stop/removal.
+- **Host SELinux policy:** Operators can set `container: { selinux_labeling: "disabled" }` in `config.cue` to pass `--security-opt label=disable` and omit automatic `:z` volume relabeling.
 
 ## Port Mappings
 

@@ -78,7 +78,28 @@ Monte diretórios adicionais no container:
 
 <Snippet id="runtime-modes/container-volumes-full" />
 
-O diretório do invowkfile é automaticamente montado em `/workspace`.
+Por padrão, o diretório do invowkfile é montado em `/workspace`, e entradas relativas em `volumes` são resolvidas a partir do diretório do invowkfile ou do módulo. Arquivos `<cwd>/invowkfile.cue` avulsos podem usar caminhos relativos, volumes nomeados ou bind mounts absolutos do host; módulos `*.invowkmod` podem usar volumes nomeados ou caminhos relativos dentro de seu teto de contenção, e não podem declarar bind mounts absolutos do host.
+
+## Montagem de Workspace e Rotulagem SELinux
+
+Personalize como `/workspace` é montado por comando com `workspace_mount`:
+
+```cue
+runtimes: [{
+    name: "container"
+    image: "debian:stable-slim"
+    workspace_mount: {
+        enabled: true              // Padrão: true; defina false para omitir /workspace
+        root: "invowkfile"         // "invowkfile" (padrão) | "workdir"
+        readonly: false            // Padrão: false; defina true para montar /workspace:ro
+        selinux_label: "auto"      // "auto" (padrão) | "shared" (:z) | "private" (:Z) | "none"
+    }
+}]
+```
+
+- **Contenção em três camadas:** Módulos vendored, remotos e em `~/.invowk/cmds` ficam estritamente confinados à raiz do módulo; módulos no diretório atual podem resolver `root: "workdir"` e `volumes` relativos até `<cwd>`; módulos configurados em `includes` permanecem confinados à raiz do módulo, a menos que `workspace_root` defina um teto explícito do operador. `--ivk-workdir` na CLI atua como consentimento explícito do usuário.
+- **Desacoplamento de scripts:** Scripts inline com interpretador e `script.file` fora de `/workspace` não dependem de `/workspace` gravável—em containers efêmeros, o Invowk os monta em modo somente leitura sob `/.invowk/` (mantendo rótulos SELinux `:z` quando o SELinux está ativo) e limpa diretórios temporários após parar/remover o container.
+- **Política SELinux do host:** Operadores podem definir `container: { selinux_labeling: "disabled" }` em `config.cue` para passar `--security-opt label=disable` e omitir a rotulagem automática `:z`.
 
 ## Mapeamento de Portas
 

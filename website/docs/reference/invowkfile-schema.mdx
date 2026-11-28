@@ -365,9 +365,20 @@ Use `--ivk-container-name` to target a pre-existing running container from the C
 **Type:** `[...string]`  
 **Available for:** `container`
 
-Volume mounts in `host:container[:options]` format.
+Volume mounts in `host:container[:options]` format. Relative host paths resolve against the invowkfile/module directory (subject to tier containment); `*.invowkmod` modules only permit named container volumes or relative paths within their containment ceiling.
 
 <Snippet id="reference/invowkfile/volumes-example" />
+
+### workspace_mount
+
+**Type:** `{enabled?: bool, root?: "invowkfile" | "workdir", readonly?: bool, selinux_label?: "auto" | "shared" | "private" | "none"}`  
+**Available for:** `container`
+
+Configures the container `/workspace` mount:
+- `enabled`: whether `/workspace` is mounted (`true` by default; `false` omits the mount and omits `-w` when no explicit container workdir applies).
+- `root`: host directory mounted at `/workspace` — `"invowkfile"` (default) or `"workdir"` (resolved effective workdir, subject to 3-tier containment).
+- `readonly`: mounts `/workspace` as `:ro` when `true` (`false` by default).
+- `selinux_label`: controls SELinux relabeling on `/workspace` — `"auto"` (default), `"shared"` (`:z`), `"private"` (`:Z`), or `"none"`.
 
 ### ports
 

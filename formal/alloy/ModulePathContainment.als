@@ -33,7 +33,7 @@
 // | physContains | classifyModuleEnvFileError | internal/runtime/dotenv.go | TestModulePathContainment_GoldenVectors, TestClassifyModuleEnvFileError, TestLoadEnvFile_ModuleContext | env-side classification: a non-OS error or an unresolvable link (Stat fails, Lstat succeeds) is an escape, not-exist from both is absent, any other OS error a read error |
 // | readOp | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_GoldenVectors, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestLoadEnvFile_ModuleContext | module context: contained read through os.Root on the module root, verdict from ErrEnvFileOutsideModule; code stricter than model: an absolute link target is denied even inside the module (golden absolute pass, TestModulePathContainment_AbsoluteInModuleLinkDenied) |
 // | workdirCwd | GetEffectiveWorkDir | pkg/invowkfile/invowkfile.go | TestModulePathContainment_ContainerWorkDirGolden | working directory only, never a read target |
-// | workdirCwd | getContainerWorkDir | internal/runtime/container_provision.go | TestModulePathContainment_ContainerWorkDirGolden | - |
+// | workdirCwd | getContainerWorkDir | internal/runtime/container_provision.go | TestModulePathContainment_ContainerWorkDirGolden, TestGetContainerWorkDir_GuardAndError | /workspace mount mapping requires physical containment (dPhysContains) inside the mounted root via resolveContainerWorkDirTarget |
 // | isModuleRejectsLinkedRoot | IsModule | pkg/invowkmod/operations.go | TestModulePathContainment_GoldenVectors | os.Lstat rejects a symlinked root |
 // | loadScansNonLinkedRoot | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_GoldenVectors | WalkDir does not descend a symlinked root; invowk_modules skipped by name |
 // | copySkipsInnerLinks | copyDir | internal/app/modulecache/cache.go | TestModulePathContainment_GoldenVectors | inner links skipped; a symlinked source root is followed |
@@ -41,8 +41,9 @@
 // | hashSkipsLinks | computeModuleHash | pkg/invowkmod/content_hash.go | TestModulePathContainment_GoldenVectors | non-regular files skipped |
 // | unpackRejectsEscape | validateDestinationPath | internal/app/moduleops/packaging.go | - | not bound (decision 5): the model's destination check, unpackInside[destCheck] (refShape = RelInside), transcribes normalizeZIPPath followed by validateDestinationPath; alone, with the Join call shape, validateDestinationPath accepts an AbsPath name, and after normalizeZIPPath its rejection is unreachable on POSIX; follow-up: bind unpackInside to normalizeZIPPath (survivor-triage) |
 // | contained | - | formal/alloy/ModulePathContainment.als | TestModulePathContainment_Property | policy: physical resolution and allowed-location predicates only |
+// | allowedWorkspace | - | formal/alloy/ModulePathContainment.als | TestResolveContainerMountPlan_ThreeTierContainmentAndSymlinks, TestModulePathContainment_ContainerWorkDirGolden | policy: container workspace/volume mount ceiling (Layer 1 module root, Layer 2 <cwd> + module root, Layer 3 module root + IncludeEntry.workspace_root, or CLI --ivk-workdir); Layer 2/3 tiers and *.invowkmod absolute-volume rejection are bound in Go tests |
 // | allowedVendoredSelf | - | formal/alloy/ModulePathContainment.als | - | policy: a vendored child's own root, for the child's own ops |
-// | allowedWorkdirCwd | - | formal/alloy/ModulePathContainment.als | - | policy: a declared workdir is a cwd, not a read/copy/hash target |
+// | allowedWorkdirCwd | - | formal/alloy/ModulePathContainment.als | - | policy: a module-declared workdir outside the module is a cwd only, never a read/copy/hash target or Layer 1 container mount root |
 // | mutantPreFixF13LexicalScriptContainment | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_VendoredSymlinkScriptReadDenied | regression: the fixed F13 invowk_modules/ symlink hole; the replay asserts both script reads are denied |
 // | mutantPreFixF17EnvNoPhysicalContainment | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_VendoredSymlinkEnvReadDenied | regression: the fixed F17 invowk_modules/ symlink hole for env files; the replay asserts the module env read is denied |
 // | mutantPreFixF16JunctionScriptRead | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_F16Junction | regression: the fixed F16 junction hole (windows-latest CI run 44648263846, job 135996334113); the leg asserts the script and env reads through an inner junction are denied |
@@ -232,6 +233,7 @@ pred accepts[o: Op] {
 // Independent containment policy (physical resolution only)
 
 pred allowedWorkdirCwd[o: Op] { o.kind = WorkdirCwd }
+pred allowedWorkspace[o: Op] { no o }      // multi-tier container mount ceilings are checked in Go
 pred allowedVendoredSelf[o: Op] { no o }   // no vendored-child self-op is modelled
 
 pred contained[o: Op] {

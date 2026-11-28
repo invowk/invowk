@@ -6,10 +6,10 @@ Defines Docker SELinux `:z` volume mount labeling derived from cached `docker in
 ## Requirements
 
 ### Requirement: Docker volumes are labeled when the daemon enforces SELinux
-The Docker engine SHALL append the SELinux shared label `:z` to every volume mount when the Docker daemon reports `name=selinux` in its `docker info` security options, and SHALL preserve an explicit `:z` or `:Z` already present on the mount.
+Docker (`name=selinux`) and Podman (`/sys/fs/selinux`) SHALL append `:z` to volume mounts by default when SELinux is enforced, honor `workspace_mount.selinux_label` (`"shared"` -> `:z`, `"private"` -> `:Z`, `"none"` -> no relabel) and operator `container.selinux_labeling: "disabled"`, and preserve any explicit `:z` or `:Z` already present on a mount.
 
 #### Scenario: SELinux daemon
-- **WHEN** `docker info --format '{{json .SecurityOptions}}'` lists `name=selinux`
+- **WHEN** `docker info --format '{{json .SecurityOptions}}'` lists `name=selinux` and default `selinux_label: "auto"` applies
 - **THEN** a mount `/host:/container` SHALL be passed to `docker run` as `/host:/container:z`, and `/host:/container:ro` as `/host:/container:ro,z`
 
 #### Scenario: Daemon without SELinux
@@ -17,8 +17,19 @@ The Docker engine SHALL append the SELinux shared label `:z` to every volume mou
 - **THEN** volume mounts SHALL be passed unchanged
 
 #### Scenario: Explicit label
-- **WHEN** a mount already carries `:Z`
-- **THEN** it SHALL be passed unchanged
+- **WHEN** a mount already carries `:Z` or `workspace_mount.selinux_label` is `"private"`
+- **THEN** it SHALL carry `:Z` without appending `:z`
+
+#### Scenario: Workspace opt-out skips relabeling on host checkout
+- **WHEN** a command specifies `workspace_mount: { readonly: true, selinux_label: "none" }`
+- **THEN** the `/workspace` bind-mount SHALL NOT receive `:z` or `:Z`, leaving host SELinux xattrs untouched
+
+### Requirement: Operator config may disable container SELinux labeling
+`internal/config/config_schema.cue` (`#ContainerConfig`) SHALL provide an operator-only setting (such as `container.selinux_labeling: *"enabled" | "disabled"`) that passes `--security-opt label=disable` to the container engine and omits automatic `:z` volume relabeling. This capability SHALL NOT be exposed in `invowkfile.cue` or `invowkmod.cue`.
+
+#### Scenario: Operator config disables SELinux labeling for read-only inspection
+- **WHEN** `config.cue` sets `container: { selinux_labeling: "disabled" }`
+- **THEN** `docker run` / `podman run` SHALL include `--security-opt label=disable` and SHALL NOT append `:z` to bind-mounts
 
 ### Requirement: SELinux detection asks the Docker daemon once
 The Docker engine SHALL decide SELinux labeling from the daemon's reported security options, not from the local host's `/sys/fs/selinux`, SHALL query the daemon at most once per engine, and SHALL treat any query failure as "no SELinux".

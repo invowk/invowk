@@ -103,6 +103,7 @@ func TestSchemaSync(t *testing.T) {
 		{"#EnvVarDependency", reflect.TypeFor[EnvVarDependency]()},
 		{"#CustomCheck", reflect.TypeFor[CustomCheck]()},
 		{"#WatchConfig", reflect.TypeFor[WatchConfig]()},
+		{"#WorkspaceMountConfig", reflect.TypeFor[WorkspaceMountConfig]()},
 	}
 
 	for _, tc := range cases {

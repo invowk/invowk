@@ -268,6 +268,8 @@ type (
 		// EnableHostSSH enables SSH access from container back to host (container only)
 		// Only valid when Name is "container". Default: false
 		EnableHostSSH bool `json:"enable_host_ssh,omitempty"`
+		// WorkspaceMount configures the /workspace bind-mount for container execution (container only)
+		WorkspaceMount *WorkspaceMountConfig `json:"workspace_mount,omitempty"`
 		// Containerfile specifies the path to Containerfile/Dockerfile (container only)
 		// Mutually exclusive with Image
 		Containerfile ContainerfilePath `json:"containerfile,omitempty"`
@@ -621,6 +623,7 @@ func (rc RuntimeConfig) Validate() error {
 	appendOptionalValidation(&errs, rc.CPULimit, rc.CPULimit != 0)
 	appendOptionalValidation(&errs, rc.MemoryLimit, rc.MemoryLimit != "")
 	appendOptionalValidation(&errs, rc.DependsOn, rc.DependsOn != nil)
+	appendOptionalValidation(&errs, rc.WorkspaceMount, rc.WorkspaceMount != nil)
 	appendOptionalValidation(&errs, rc.Containerfile, rc.Containerfile != "")
 	appendOptionalValidation(&errs, rc.Image, rc.Image != "")
 	appendEachValidation(&errs, rc.Volumes)
@@ -681,6 +684,9 @@ func appendNonContainerRuntimeFieldErrors(errs *[]error, rc RuntimeConfig) {
 	}
 	if rc.EnableHostSSH {
 		*errs = append(*errs, errors.New("enable_host_ssh is only valid for container runtime"))
+	}
+	if rc.WorkspaceMount != nil {
+		*errs = append(*errs, errors.New("workspace_mount is only valid for container runtime"))
 	}
 	if rc.Containerfile != "" {
 		*errs = append(*errs, errors.New("containerfile is only valid for container runtime"))

@@ -64,6 +64,11 @@ type (
 		// in the user commands directory (~/.invowk/cmds). Global module commands
 		// are always accessible by any module's CommandScope.
 		IsGlobalModule bool
+		// TrustTier records the 3-tier containment level assigned by discovery.
+		TrustTier SourceTrustTier
+		// MountCeiling records the Layer 2 (<cwd>) or Layer 3 (IncludeEntry.workspace_root)
+		// host containment ceiling when applicable.
+		MountCeiling types.FilesystemPath //goplint:ignore -- optional nonzero path validated when non-empty.
 	}
 
 	//goplint:mutable
@@ -292,6 +297,8 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 				SourceID:       sourceID,
 				ModuleID:       moduleID,
 				IsGlobalModule: file.IsGlobalModule,
+				TrustTier:      file.TrustTier,
+				MountCeiling:   file.MountCeiling,
 			})
 		}
 	}

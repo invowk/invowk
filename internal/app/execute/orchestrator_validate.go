@@ -96,6 +96,16 @@ func (o BuildExecutionContextOptions) appendMetadataValidationErrors(errs *[]err
 			*errs = append(*errs, err)
 		}
 	}
+	if o.SourceTrustTier != "" {
+		if err := o.SourceTrustTier.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if o.MountCeiling != "" {
+		if err := o.MountCeiling.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 	if o.Platform != "" {
 		if err := o.Platform.Validate(); err != nil {
 			*errs = append(*errs, err)

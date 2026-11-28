@@ -773,7 +773,10 @@ func TestGetContainerWorkDir(t *testing.T) {
 				ctx.WorkDir = tt.ctxWorkDirOverride
 			}
 
-			got := rt.getContainerWorkDir(ctx, invowkDir)
+			got, gotErr := rt.getContainerWorkDir(ctx, invowkDir)
+			if gotErr != nil {
+				t.Fatalf("getContainerWorkDir() unexpected error: %v", gotErr)
+			}
 			if got != tt.want {
 				t.Errorf("getContainerWorkDir() = %q, want %q", got, tt.want)
 			}

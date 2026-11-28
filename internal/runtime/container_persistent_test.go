@@ -457,10 +457,14 @@ func TestContainerRuntimeExecuteReinspectsAfterNameConflict(t *testing.T) {
 	rt := newPersistentTestRuntime(t, engine)
 	ctx := newPersistentExecutionContext(t, &invowkfile.RuntimePersistentConfig{CreateIfMissing: true, Name: "race-dev"})
 	invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
+	resolvedInvowkDir, err := filepath.EvalSymlinks(invowkDir)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%q): %v", invowkDir, err)
+	}
 	prep := &containerExecPrep{
 		image: "debian:stable-slim",
 		volumes: []container.VolumeMountSpec{
-			container.VolumeMountSpec(filepath.ToSlash(invowkDir) + ":/workspace"),
+			container.VolumeMountSpec(filepath.ToSlash(resolvedInvowkDir) + ":/workspace"),
 		},
 	}
 	target := persistentContainerTarget{

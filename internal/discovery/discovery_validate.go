@@ -120,6 +120,16 @@ func (c CommandInfo) appendSourceValidationErrors(errs *[]error) {
 			*errs = append(*errs, err)
 		}
 	}
+	if c.TrustTier != "" {
+		if err := c.TrustTier.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if c.MountCeiling != "" {
+		if err := c.MountCeiling.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }
 
 // Validate returns nil if the DiscoveredFile has valid fields, or a validation error if not.
@@ -144,6 +154,16 @@ func (d DiscoveredFile) appendValidationErrors(errs *[]error) {
 	}
 	if d.CommandNamespace != "" {
 		if err := d.CommandNamespace.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if d.TrustTier != "" {
+		if err := d.TrustTier.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if d.MountCeiling != "" {
+		if err := d.MountCeiling.Validate(); err != nil {
 			*errs = append(*errs, err)
 		}
 	}

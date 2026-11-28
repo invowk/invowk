@@ -5,7 +5,9 @@ package commandsvc
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
@@ -451,6 +453,79 @@ func TestNewDryRunPlanCarriesMergedHostAndRuntimeCapabilities(t *testing.T) {
 	}
 	if err := plan.Validate(); err != nil {
 		t.Fatalf("plan.Validate() = %v", err)
+	}
+}
+
+func TestNewDryRunPlanIncludesContainerMountsAndRejectsModuleAbsVolume(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	dataDir := filepath.Join(tmpDir, "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(): %v", err)
+	}
+
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+	cmd := &invowkfile.Command{
+		Name: "pack",
+		Implementations: []invowkfile.Implementation{{
+			Script: invowkfile.ImplementationScript{Content: "ls"},
+			Runtimes: []invowkfile.RuntimeConfig{{
+				Name:    invowkfile.RuntimeContainer,
+				Image:   "debian:stable-slim",
+				Volumes: []invowkfile.VolumeMountSpec{"./data:/data:ro"},
+				WorkspaceMount: &invowkfile.WorkspaceMountConfig{
+					Readonly:     true,
+					SELinuxLabel: invowkfile.WorkspaceMountSELinuxShared,
+				},
+			}},
+			Platforms: invowkfile.AllPlatformConfigs(),
+		}},
+	}
+	execCtx := runtimepkg.NewExecutionContext(t.Context(), cmd, inv)
+	execCtx.SelectedRuntime = invowkfile.RuntimeContainer
+	execCtx.SelectedImpl = &cmd.Implementations[0]
+
+	plan, err := newDryRunPlan(Request{Name: "pack"}, &discovery.CommandInfo{SourceID: discovery.SourceIDInvowkfile}, execCtx, &cmd.Implementations[0], invowkfile.ScriptInterpreterAnalysis{}, false)
+	if err != nil {
+		t.Fatalf("newDryRunPlan() = %v", err)
+	}
+	if !plan.ContainerWorkspaceMountEnabled || !plan.ContainerWorkspaceReadonly || plan.ContainerWorkspaceSELinuxLabel != invowkfile.WorkspaceMountSELinuxShared {
+		t.Fatalf("unexpected container mount fields in dry-run plan: %+v", plan)
+	}
+	if plan.ContainerWorkDir != "/workspace" {
+		t.Fatalf("ContainerWorkDir = %q, want /workspace", plan.ContainerWorkDir)
+	}
+	if len(plan.ContainerResolvedVolumes) != 1 || !strings.Contains(string(plan.ContainerResolvedVolumes[0]), ":/data:ro") {
+		t.Fatalf("ContainerResolvedVolumes = %v", plan.ContainerResolvedVolumes)
+	}
+	if err := plan.Validate(); err != nil {
+		t.Fatalf("plan.Validate() = %v", err)
+	}
+
+	modInv := &invowkfile.Invowkfile{
+		FilePath:   invowkfile.FilesystemPath(filepath.Join(tmpDir, "mod.invowkmod", "invowkfile.cue")),
+		ModulePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "mod.invowkmod")),
+	}
+	modCmd := &invowkfile.Command{
+		Name: "badmod",
+		Implementations: []invowkfile.Implementation{{
+			Script: invowkfile.ImplementationScript{Content: "ls"},
+			Runtimes: []invowkfile.RuntimeConfig{{
+				Name:    invowkfile.RuntimeContainer,
+				Image:   "debian:stable-slim",
+				Volumes: []invowkfile.VolumeMountSpec{"/etc:/etc:ro"},
+			}},
+			Platforms: invowkfile.AllPlatformConfigs(),
+		}},
+	}
+	modExecCtx := runtimepkg.NewExecutionContext(t.Context(), modCmd, modInv)
+	modExecCtx.SelectedRuntime = invowkfile.RuntimeContainer
+	modExecCtx.SelectedImpl = &modCmd.Implementations[0]
+	if _, err := newDryRunPlan(Request{Name: "badmod"}, &discovery.CommandInfo{SourceID: "mod"}, modExecCtx, &modCmd.Implementations[0], invowkfile.ScriptInterpreterAnalysis{}, false); !errors.Is(err, runtimepkg.ErrContainerModuleAbsoluteVolume) {
+		t.Fatalf("newDryRunPlan(module abs volume) = %v, want ErrContainerModuleAbsoluteVolume", err)
 	}
 }
 

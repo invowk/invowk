@@ -39,11 +39,21 @@ func (m *cancelBlockingMockEngine) Run(ctx context.Context, opts container.RunOp
 	return nil, fmt.Errorf("mock container run cancelled: %w", ctx.Err())
 }
 
-func findHostTempScript(t *testing.T, invowkDir string, command []string) string {
+func findHostTempScript(t *testing.T, opts container.RunOptions) string {
 	t.Helper()
-	for _, arg := range command {
-		if strings.HasPrefix(arg, "/workspace/invowk-script-") {
-			return filepath.Join(invowkDir, strings.TrimPrefix(arg, "/workspace/"))
+	var hostTmpDir string
+	for _, v := range opts.Volumes {
+		if before, _, ok := strings.Cut(string(v), ":/.invowk/tmp"); ok {
+			hostTmpDir = before
+			break
+		}
+	}
+	if hostTmpDir == "" {
+		return ""
+	}
+	for _, arg := range opts.Command {
+		if rel, ok := strings.CutPrefix(arg, "/.invowk/tmp/"); ok {
+			return filepath.Join(filepath.FromSlash(hostTmpDir), rel)
 		}
 	}
 	return ""
@@ -80,7 +90,7 @@ func TestContainerRuntime_CancelCleanup(t *testing.T) {
 		baseMock := NewMockEngine()
 		baseMock.OnStop = func(_ context.Context, _ container.ContainerID, _ time.Duration) error {
 			if len(baseMock.RunCalls) > 0 {
-				tempScriptAtStop = findHostTempScript(t, tmpDir, baseMock.RunCalls[0].Command)
+				tempScriptAtStop = findHostTempScript(t, baseMock.RunCalls[0])
 				if tempScriptAtStop != "" {
 					_, statErr := os.Stat(tempScriptAtStop)
 					tempScriptExistedAtStop = statErr == nil
@@ -276,7 +286,7 @@ func TestContainerRuntime_CancelCleanup(t *testing.T) {
 		if !strings.HasPrefix(string(prepOpts.Name), ephemeralContainerNamePrefix) {
 			t.Fatalf("PrepareRunCalls[0].Name = %q, want prefix %q", prepOpts.Name, ephemeralContainerNamePrefix)
 		}
-		tempScriptPath = findHostTempScript(t, tmpDir, prepOpts.Command)
+		tempScriptPath = findHostTempScript(t, prepOpts)
 
 		cancel()
 		prepared.Cleanup()

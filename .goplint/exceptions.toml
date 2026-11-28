@@ -2569,10 +2569,6 @@ pattern = "runtime.ContainerRuntime.GetHostAddressForContainer.return.*"
 reason = "exec boundary — host address string for container networking"
 
 [[exceptions]]
-pattern = "runtime.ContainerRuntime.buildInterpreterCommand.return.*"
-reason = "exec boundary — interpreter command []string and temp file path"
-
-[[exceptions]]
 pattern = "runtime.ContainerRuntime.generateImageTag.invowkfilePath"
 reason = "exec boundary — invowkfile path for image tag computation"
 

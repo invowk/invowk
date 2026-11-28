@@ -51,6 +51,7 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("ContainerNameSource:"), plan.PersistentContainerNameSource)
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("CreateIfMissing:"), strconv.FormatBool(plan.PersistentContainerCreateIfMissing))
 	}
+	renderDryRunContainerMounts(w, plan)
 	renderDryRunVirtualSafety(w, plan)
 
 	// Script content.
@@ -94,6 +95,39 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 		fmt.Fprintln(w, SubtitleStyle.Render("  Note: dependency validation (tools, cmds, filepaths, capabilities, custom checks, env vars) is not performed in dry-run mode."))
 	}
 	fmt.Fprintln(w)
+}
+
+func renderDryRunContainerMounts(w io.Writer, plan commandsvc.DryRunPlan) {
+	if plan.Runtime != invowkfile.RuntimeContainer {
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, VerboseHighlightStyle.Render("  Container Mounts:"))
+	if plan.ContainerWorkspaceMountEnabled {
+		mode := "rw"
+		if plan.ContainerWorkspaceReadonly {
+			mode = "ro"
+		}
+		target := string(plan.ContainerWorkspaceTarget)
+		if target == "" {
+			target = "/workspace"
+		}
+		selinux := plan.ContainerWorkspaceSELinuxLabel.Effective()
+		fmt.Fprintf(w, "    WorkspaceMount: %s -> %s (%s, selinux=%s)\n", plan.ContainerWorkspaceHostRoot, target, mode, selinux)
+	} else {
+		fmt.Fprintln(w, "    WorkspaceMount: disabled")
+	}
+	if plan.ContainerWorkDir != "" {
+		fmt.Fprintf(w, "    ContainerWorkDir: %s\n", plan.ContainerWorkDir)
+	} else {
+		fmt.Fprintln(w, "    ContainerWorkDir: (image default)")
+	}
+	if len(plan.ContainerResolvedVolumes) > 0 {
+		fmt.Fprintln(w, "    Volumes:")
+		for _, v := range plan.ContainerResolvedVolumes {
+			fmt.Fprintf(w, "      - %s\n", v)
+		}
+	}
 }
 
 func renderDryRunVirtualSafety(w io.Writer, plan commandsvc.DryRunPlan) {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/commandsvc"
+	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -362,4 +363,66 @@ func TestRenderDryRun_Capabilities(t *testing.T) {
 	if count := strings.Count(out, "    elevated\n"); count != 1 {
 		t.Fatalf("expected deduplicated elevated line count 1, got %d:\n%s", count, out)
 	}
+}
+
+func TestRenderDryRun_ContainerMounts(t *testing.T) {
+	t.Parallel()
+
+	t.Run("enabled workspace mount with volumes", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		plan := commandsvc.DryRunPlan{
+			CommandName:                    "build",
+			SourceID:                       "invowkfile",
+			Runtime:                        invowkfile.RuntimeContainer,
+			Platform:                       invowkfile.PlatformLinux,
+			Script:                         invowkfile.ImplementationScript{Content: "make build"},
+			ContainerWorkspaceMountEnabled: true,
+			ContainerWorkspaceHostRoot:     "/tmp/project",
+			ContainerWorkspaceTarget:       "/workspace",
+			ContainerWorkspaceReadonly:     true,
+			ContainerWorkspaceSELinuxLabel: invowkfile.WorkspaceMountSELinuxPrivate,
+			ContainerWorkDir:               "/workspace/sub",
+			ContainerResolvedVolumes:       []container.VolumeMountSpec{"/tmp/project/data:/data:ro"},
+		}
+		renderDryRun(&buf, plan)
+		out := buf.String()
+		for _, token := range []string{
+			"Container Mounts:",
+			"WorkspaceMount: /tmp/project -> /workspace (ro, selinux=private)",
+			"ContainerWorkDir: /workspace/sub",
+			"- /tmp/project/data:/data:ro",
+		} {
+			if !strings.Contains(out, token) {
+				t.Fatalf("renderDryRun output missing %q:\n%s", token, out)
+			}
+		}
+	})
+
+	t.Run("disabled workspace mount omits /workspace and reports image default", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		plan := commandsvc.DryRunPlan{
+			CommandName:                    "isolated",
+			SourceID:                       "invowkfile",
+			Runtime:                        invowkfile.RuntimeContainer,
+			Platform:                       invowkfile.PlatformLinux,
+			Script:                         invowkfile.ImplementationScript{Content: "pwd"},
+			ContainerWorkspaceMountEnabled: false,
+			ContainerWorkDir:               "",
+		}
+		renderDryRun(&buf, plan)
+		out := buf.String()
+		for _, token := range []string{
+			"Container Mounts:",
+			"WorkspaceMount: disabled",
+			"ContainerWorkDir: (image default)",
+		} {
+			if !strings.Contains(out, token) {
+				t.Fatalf("renderDryRun output missing %q:\n%s", token, out)
+			}
+		}
+	})
 }

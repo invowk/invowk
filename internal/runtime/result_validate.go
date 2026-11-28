@@ -149,4 +149,14 @@ func (ctx ExecutionContext) appendCommandIdentityValidationErrors(errs *[]error)
 			*errs = append(*errs, err)
 		}
 	}
+	if ctx.MountTrustTier != "" {
+		if err := ctx.MountTrustTier.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if ctx.MountCeiling != "" {
+		if err := ctx.MountCeiling.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }

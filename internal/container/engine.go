@@ -236,6 +236,12 @@ type (
 		Env map[string]string
 		// Volumes are volume mounts in "host:container[:options]" format.
 		Volumes []VolumeMountSpec
+		// VolumeSELinuxModes optionally overrides per-volume SELinux relabeling modes.
+		// Keys match entries in Volumes.
+		VolumeSELinuxModes VolumeSELinuxModes
+		// DisableSELinuxLabeling disables container SELinux confinement (--security-opt label=disable)
+		// and suppresses automatic :z volume relabeling.
+		DisableSELinuxLabeling bool
 		// Ports are port mappings in Docker/Podman "-p" format.
 		Ports []PortMappingSpec
 		// Remove automatically removes the container after exit
@@ -275,6 +281,12 @@ type (
 		Labels map[string]string //goplint:ignore -- container labels are stringly typed by Docker/Podman APIs.
 		// Volumes are volume mounts in "host:container[:options]" format.
 		Volumes []VolumeMountSpec
+		// VolumeSELinuxModes optionally overrides per-volume SELinux relabeling modes.
+		// Keys match entries in Volumes.
+		VolumeSELinuxModes VolumeSELinuxModes
+		// DisableSELinuxLabeling disables container SELinux confinement (--security-opt label=disable)
+		// and suppresses automatic :z volume relabeling.
+		DisableSELinuxLabeling bool
 		// Ports are port mappings in Docker/Podman "-p" format.
 		Ports []PortMappingSpec
 		// Name is the container name.
@@ -536,6 +548,11 @@ func (o RunOptions) appendRunLocationValidationErrors(errs *[]error) {
 			*errs = append(*errs, err)
 		}
 	}
+	if len(o.VolumeSELinuxModes) > 0 {
+		if err := o.VolumeSELinuxModes.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }
 
 func (o RunOptions) appendNetworkValidationErrors(errs *[]error) {
@@ -593,6 +610,11 @@ func (o CreateOptions) appendCreateLocationValidationErrors(errs *[]error) {
 	}
 	for _, v := range o.Volumes {
 		if err := v.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if len(o.VolumeSELinuxModes) > 0 {
+		if err := o.VolumeSELinuxModes.Validate(); err != nil {
 			*errs = append(*errs, err)
 		}
 	}

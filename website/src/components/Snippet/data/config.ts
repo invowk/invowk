@@ -154,6 +154,7 @@ container: {
         cache_dir: ""
     }
     tui_server_bind: "restricted"
+    selinux_labeling: "enabled"
 }`,
   },
 
@@ -165,6 +166,7 @@ container: {
 #ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
 #TUIServerBindType: "restricted" | "all-interfaces"
+#SELinuxLabelingType: "enabled" | "disabled"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 #LLMTimeoutDurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
@@ -179,8 +181,9 @@ container: {
 })
 
 #IncludeEntry: close({
-    path:   string & !="" & strings.MaxRunes(4096) & =~"\\\\.invowkmod$"
-    alias?: string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
+    path:           string & !="" & strings.MaxRunes(4096) & =~"\\\\.invowkmod$"
+    alias?:         string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
+    workspace_root?: string & !="" & strings.MaxRunes(4096)
 })
 
 #VirtualConfig: close({
@@ -226,8 +229,9 @@ container: {
 })
 
 #ContainerConfig: close({
-    auto_provision:  *#AutoProvisionConfig | #AutoProvisionConfig
-    tui_server_bind: *"restricted" | #TUIServerBindType
+    auto_provision:   *#AutoProvisionConfig | #AutoProvisionConfig
+    tui_server_bind:  *"restricted" | #TUIServerBindType
+    selinux_labeling: *"enabled" | #SELinuxLabelingType
 })
 
 #AutoProvisionConfig: close({
@@ -438,6 +442,7 @@ container: {
         cache_dir: ""
     }
     tui_server_bind: "restricted"
+    selinux_labeling: "enabled"
 }`,
   },
 
@@ -597,6 +602,7 @@ container: {
         cache_dir: ""
     }
     tui_server_bind: "restricted"
+    selinux_labeling: "enabled"
 }`,
   },
 
@@ -626,6 +632,7 @@ import "strings"
 #ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
 #TUIServerBindType: "restricted" | "all-interfaces"
+#SELinuxLabelingType: "enabled" | "disabled"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 #LLMTimeoutDurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
@@ -641,8 +648,9 @@ import "strings"
 
 // Include entry for modules
 #IncludeEntry: close({
-    path:   string & !="" & strings.MaxRunes(4096) & =~"\\\\.invowkmod$"
-    alias?: string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
+    path:           string & !="" & strings.MaxRunes(4096) & =~"\\\\.invowkmod$"
+    alias?:         string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
+    workspace_root?: string & !="" & strings.MaxRunes(4096)
 })
 
 // Virtual runtime family configuration
@@ -693,8 +701,9 @@ import "strings"
 
 // Container configuration
 #ContainerConfig: close({
-    auto_provision:  *#AutoProvisionConfig | #AutoProvisionConfig
-    tui_server_bind: *"restricted" | #TUIServerBindType
+    auto_provision:   *#AutoProvisionConfig | #AutoProvisionConfig
+    tui_server_bind:  *"restricted" | #TUIServerBindType
+    selinux_labeling: *"enabled" | #SELinuxLabelingType
 })
 
 // Auto-provisioning configuration
@@ -716,6 +725,7 @@ import "strings"
 #ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
 #TUIServerBindType: "restricted" | "all-interfaces"
+#SELinuxLabelingType: "enabled" | "disabled"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 #LLMTimeoutDurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
@@ -730,8 +740,9 @@ import "strings"
 })
 
 #IncludeEntry: close({
-    path:   string & !="" & strings.MaxRunes(4096) & =~"\\\\.invowkmod$"
-    alias?: string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
+    path:           string & !="" & strings.MaxRunes(4096) & =~"\\\\.invowkmod$"
+    alias?:         string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
+    workspace_root?: string & !="" & strings.MaxRunes(4096)
 })
 
 #VirtualConfig: close({
@@ -777,8 +788,9 @@ import "strings"
 })
 
 #ContainerConfig: close({
-    auto_provision:  *#AutoProvisionConfig | #AutoProvisionConfig
-    tui_server_bind: *"restricted" | #TUIServerBindType
+    auto_provision:   *#AutoProvisionConfig | #AutoProvisionConfig
+    tui_server_bind:  *"restricted" | #TUIServerBindType
+    selinux_labeling: *"enabled" | #SELinuxLabelingType
 })
 
 #AutoProvisionConfig: close({
@@ -853,6 +865,7 @@ import "strings"
         cache_dir: ""
     }
     tui_server_bind: "restricted"
+    selinux_labeling: "enabled"
 }`,
   },
 
@@ -928,8 +941,9 @@ import "strings"
   'reference/config/container-config-structure': {
     language: 'cue',
     code: `#ContainerConfig: close({
-    auto_provision:  *#AutoProvisionConfig | #AutoProvisionConfig
-    tui_server_bind: *"restricted" | #TUIServerBindType
+    auto_provision:   *#AutoProvisionConfig | #AutoProvisionConfig
+    tui_server_bind:  *"restricted" | #TUIServerBindType
+    selinux_labeling: *"enabled" | #SELinuxLabelingType
 })`,
   },
 
@@ -1099,6 +1113,7 @@ container: {
         cache_dir: ""
     }
     tui_server_bind: "restricted"
+    selinux_labeling: "enabled"
 }`,
   },
 

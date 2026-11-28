@@ -63,11 +63,12 @@ type (
 
 	// invowkfileContainerConfig is a local type for container config extracted from RuntimeConfig
 	invowkfileContainerConfig struct {
-		Containerfile container.HostFilesystemPath
-		Image         container.ImageTag
-		Volumes       []container.VolumeMountSpec
-		Ports         []container.PortMappingSpec
-		Persistent    *invowkfile.RuntimePersistentConfig
+		Containerfile  container.HostFilesystemPath
+		Image          container.ImageTag
+		Volumes        []container.VolumeMountSpec
+		Ports          []container.PortMappingSpec
+		Persistent     *invowkfile.RuntimePersistentConfig
+		WorkspaceMount *invowkfile.WorkspaceMountConfig
 	}
 
 	containerEngine interface {
@@ -103,6 +104,13 @@ func WithContainerProvisioner(p provision.Provisioner, cfg *provision.Config) Co
 	return func(r *ContainerRuntime) {
 		r.provisioner = p
 		r.provisionConfig = cfg
+	}
+}
+
+// WithContainerConfig sets the operator configuration for tests.
+func WithContainerConfig(cfg *config.Config) ContainerRuntimeOption {
+	return func(r *ContainerRuntime) {
+		r.cfg = cfg
 	}
 }
 

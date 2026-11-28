@@ -68,17 +68,19 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 
 	ephemName := r.newEphemeralContainerName(ctx)
 	runOpts := container.RunOptions{
-		Image:       prep.image,
-		Command:     prep.shellCmd,
-		WorkDir:     prep.workDir,
-		Env:         prep.env,
-		Volumes:     prep.volumes,
-		Ports:       prep.ports,
-		Remove:      true, // Always remove after execution
-		Name:        ephemName,
-		Interactive: true, // Enable -i for PTY
-		TTY:         true, // Enable -t for PTY
-		ExtraHosts:  prep.extraHosts,
+		Image:                  prep.image,
+		Command:                prep.shellCmd,
+		WorkDir:                prep.workDir,
+		Env:                    prep.env,
+		Volumes:                prep.volumes,
+		VolumeSELinuxModes:     prep.volumeSELinuxModes,
+		DisableSELinuxLabeling: prep.disableSELinuxLabeling,
+		Ports:                  prep.ports,
+		Remove:                 true, // Always remove after execution
+		Name:                   ephemName,
+		Interactive:            true, // Enable -i for PTY
+		TTY:                    true, // Enable -t for PTY
+		ExtraHosts:             prep.extraHosts,
 		// A TUI exposure plan may need a network mode for a new container
 		// (pasta:-T,<port>); exec into a persistent container never gets one.
 		NetworkMode: ctx.TUI.NetworkMode,

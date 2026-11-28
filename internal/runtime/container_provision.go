@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -48,6 +49,22 @@ const (
 // errStrictModeProvisioning is returned when container provisioning fails
 // and strict mode is enabled, preventing fallback to the base image.
 var errStrictModeProvisioning = errors.New("container provisioning failed (strict mode enabled)")
+
+//goplint:ignore -- internal container execution prep DTO carrying CLI argv and temp script dir.
+type containerInterpreterSpec struct {
+	command        []string
+	tempScriptPath string
+	tempCleanupDir string
+	extraVolume    *container.VolumeMountSpec
+}
+
+// Validate returns nil if the populated extraVolume is valid.
+func (s containerInterpreterSpec) Validate() error {
+	if s.extraVolume != nil {
+		return s.extraVolume.Validate()
+	}
+	return nil
+}
 
 // ensureProvisionedImage ensures the container image exists and is provisioned
 // with invowk resources (binary, modules, etc.). This enables nested invowk commands
@@ -286,11 +303,12 @@ func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContaine
 		return invowkfileContainerConfig{}
 	}
 	return invowkfileContainerConfig{
-		Containerfile: container.HostFilesystemPath(rt.Containerfile),
-		Image:         container.ImageTag(rt.Image),
-		Volumes:       containerVolumeSpecs(rt.Volumes),
-		Ports:         containerPortSpecs(rt.Ports),
-		Persistent:    rt.Persistent,
+		Containerfile:  container.HostFilesystemPath(rt.Containerfile),
+		Image:          container.ImageTag(rt.Image),
+		Volumes:        containerVolumeSpecs(rt.Volumes),
+		Ports:          containerPortSpecs(rt.Ports),
+		Persistent:     rt.Persistent,
+		WorkspaceMount: rt.WorkspaceMount,
 	}
 }
 
@@ -311,96 +329,202 @@ func containerPortSpecs(specs []invowkfile.PortMappingSpec) []container.PortMapp
 }
 
 // buildInterpreterCommand builds the command array for interpreter-based execution.
-// For inline scripts, it creates a temp file in the workspace directory (mounted in container).
-// Returns: (command []string, tempFilePath string, error)
-// The caller is responsible for cleaning up tempFilePath if non-empty.
-func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script string, interp invowkfile.ShebangInfo, invowkDir string) (command []string, tempFile string, err error) {
-	var cmd []string
-	cmd = append(cmd, interp.Interpreter)
-	cmd = append(cmd, interp.Args...)
-
-	var tempFilePath string
-
+// For inline scripts in ephemeral containers, it creates a temp file in an isolated
+// host temp directory mounted read-only at /.invowk/tmp rather than inside invowkDir.
+// Persistent containers use in-container temp script delivery so reused container specs stay stable.
+func (r *ContainerRuntime) buildInterpreterCommand(
+	ctx *ExecutionContext,
+	script string,
+	interp invowkfile.ShebangInfo,
+	invowkDir string,
+	mountPlan ContainerMountPlan,
+	isPersistent bool,
+) (containerInterpreterSpec, error) {
 	if ctx.SelectedImpl.Script.IsFile() {
-		// File script: use the relative path within /workspace
-		scriptPath := ctx.SelectedScriptFilePath()
-		// Convert host path to container path (relative to /workspace)
-		relPath, err := filepath.Rel(invowkDir, string(scriptPath))
-		if err != nil {
-			// Fall back to just the filename
-			relPath = filepath.Base(string(scriptPath))
-		}
-		// Use forward slashes for container path
-		containerPath := containerWorkspacePrefix + filepath.ToSlash(relPath)
-		cmd = append(cmd, containerPath)
-	} else {
-		// Inline script: create temp file in workspace directory
-		// This ensures the script is accessible from within the container
-		ext := invowkfile.GetExtensionForInterpreter(interp.Interpreter)
-		tempF, createErr := os.CreateTemp(invowkDir, "invowk-script-*"+ext)
-		if createErr != nil {
-			return nil, "", fmt.Errorf("failed to create temp script in workspace: %w", createErr)
-		}
-
-		if _, writeErr := tempF.WriteString(script); writeErr != nil {
-			_ = tempF.Close()           // Best-effort close on error path
-			_ = os.Remove(tempF.Name()) // Best-effort cleanup on error path
-			return nil, "", fmt.Errorf("failed to write temp script: %w", writeErr)
-		}
-
-		if closeErr := tempF.Close(); closeErr != nil {
-			_ = os.Remove(tempF.Name()) // Best-effort cleanup on error path
-			return nil, "", fmt.Errorf("failed to close temp script: %w", closeErr)
-		}
-
-		// Make executable
-		_ = os.Chmod(tempF.Name(), 0o755) // Best-effort; execution may still work
-
-		tempFilePath = tempF.Name()
-
-		// Get the filename for container path
-		containerPath := containerWorkspacePrefix + filepath.Base(tempF.Name())
-		cmd = append(cmd, containerPath)
+		return buildFileInterpreterCommand(ctx, script, interp, invowkDir, mountPlan, isPersistent)
+	}
+	if isPersistent {
+		return containerInterpreterSpec{
+			command: buildInContainerTempScriptCommand(script, interp, ctx.PositionalArgs),
+		}, nil
 	}
 
-	// Add positional arguments
+	ext := invowkfile.GetExtensionForInterpreter(interp.Interpreter)
+	tempDir, err := os.MkdirTemp("", "invowk-container-script-*")
+	if err != nil {
+		return containerInterpreterSpec{}, fmt.Errorf("failed to create temp script dir: %w", err)
+	}
+	// Resolve symlinks on tempDir (e.g., /var -> /private/var on macOS) so mount paths stay canonical.
+	if resolvedDir, resolveErr := filepath.EvalSymlinks(tempDir); resolveErr == nil {
+		tempDir = resolvedDir
+	}
+
+	scriptFilePath := filepath.Join(tempDir, "invowk-script"+ext)
+	if err := os.WriteFile(scriptFilePath, []byte(script), 0o755); err != nil { //goplint:ignore -- host temp script requires executable bit for interpreter mounts
+		_ = os.RemoveAll(tempDir)
+		return containerInterpreterSpec{}, fmt.Errorf("failed to write temp script: %w", err)
+	}
+
+	containerScriptPath := path.Join(containerInvowkTmpDir, filepath.Base(scriptFilePath))
+	vol, volErr := buildValidatedVolumeMountSpec(filepath.ToSlash(tempDir), containerInvowkTmpDir, "ro")
+	if volErr != nil {
+		_ = os.RemoveAll(tempDir)
+		return containerInterpreterSpec{}, fmt.Errorf("temp script volume mount: %w", volErr)
+	}
+	cmd := make([]string, 0, 1+len(interp.Args)+1+len(ctx.PositionalArgs))
+	cmd = append(cmd, interp.Interpreter)
+	cmd = append(cmd, interp.Args...)
+	cmd = append(cmd, containerScriptPath)
 	cmd = append(cmd, ctx.PositionalArgs...)
 
-	return cmd, tempFilePath, nil
+	return containerInterpreterSpec{
+		command:        cmd,
+		tempScriptPath: scriptFilePath,
+		tempCleanupDir: tempDir,
+		extraVolume:    &vol,
+	}, nil
+}
+
+//goplint:ignore -- internal container interpreter command builder.
+func buildFileInterpreterCommand(
+	ctx *ExecutionContext,
+	script string,
+	interp invowkfile.ShebangInfo,
+	invowkDir string,
+	mountPlan ContainerMountPlan,
+	isPersistent bool,
+) (containerInterpreterSpec, error) {
+	scriptPath := string(ctx.SelectedScriptFilePath())
+	physScriptPath, err := normalizeExistingOrParent(scriptPath, invowkDir)
+	if err != nil {
+		physScriptPath = filepath.Clean(scriptPath)
+	}
+
+	containerScriptPath, extraVol, targetErr := resolveScriptFileContainerTarget(physScriptPath, invowkDir, mountPlan, isPersistent)
+	if targetErr != nil {
+		return containerInterpreterSpec{}, targetErr
+	}
+	if containerScriptPath == "" && isPersistent {
+		return containerInterpreterSpec{
+			command: buildInContainerTempScriptCommand(script, interp, ctx.PositionalArgs),
+		}, nil
+	}
+
+	cmd := make([]string, 0, 1+len(interp.Args)+1+len(ctx.PositionalArgs))
+	cmd = append(cmd, interp.Interpreter)
+	cmd = append(cmd, interp.Args...)
+	cmd = append(cmd, containerScriptPath)
+	cmd = append(cmd, ctx.PositionalArgs...)
+
+	return containerInterpreterSpec{
+		command:     cmd,
+		extraVolume: extraVol,
+	}, nil
+}
+
+//goplint:ignore -- internal script-file mount mapper returning container target path.
+func resolveScriptFileContainerTarget(
+	physScriptPath string,
+	invowkDir string,
+	mountPlan ContainerMountPlan,
+	isPersistent bool,
+) (string, *container.VolumeMountSpec, error) {
+	if mountPlan.WorkspaceEnabled && mountPlan.WorkspaceHostRoot != "" {
+		if physRoot, err := normalizeExistingOrParent(string(mountPlan.WorkspaceHostRoot), invowkDir); err == nil {
+			if pathWithin(physRoot, physScriptPath) {
+				if rel, relErr := filepath.Rel(physRoot, physScriptPath); relErr == nil {
+					if rel == "." || rel == "" {
+						return containerWorkspaceRoot, nil, nil
+					}
+					return path.Join(containerWorkspaceRoot, filepath.ToSlash(rel)), nil, nil
+				}
+			}
+		}
+	}
+
+	for _, vol := range mountPlan.ResolvedVolumes {
+		if vol.HostPath == "" {
+			continue
+		}
+		physVol, err := normalizeExistingOrParent(string(vol.HostPath), invowkDir)
+		if err != nil || !pathWithin(physVol, physScriptPath) {
+			continue
+		}
+		if rel, relErr := filepath.Rel(physVol, physScriptPath); relErr == nil {
+			if rel == "." || rel == "" {
+				return string(vol.ContainerTarget), nil, nil
+			}
+			return path.Join(string(vol.ContainerTarget), filepath.ToSlash(rel)), nil, nil
+		}
+	}
+
+	if isPersistent {
+		return "", nil, nil
+	}
+
+	target := path.Join(containerInvowkScriptsDir, filepath.Base(physScriptPath))
+	vol, volErr := buildValidatedVolumeMountSpec(filepath.ToSlash(physScriptPath), target, "ro")
+	if volErr != nil {
+		return "", nil, fmt.Errorf("decoupled script volume mount: %w", volErr)
+	}
+	return target, &vol, nil
+}
+
+//goplint:ignore -- internal POSIX shell command builder for persistent in-container script delivery.
+func buildInContainerTempScriptCommand(script string, interp invowkfile.ShebangInfo, positionalArgs []string) []string {
+	var interpCmd strings.Builder
+	interpCmd.WriteString(shellSingleQuote(interp.Interpreter))
+	for _, arg := range interp.Args {
+		interpCmd.WriteByte(' ')
+		interpCmd.WriteString(shellSingleQuote(arg))
+	}
+
+	// Standard POSIX mktemp supports suffix only with GNU coreutils; keep a plain template.
+	shellBody := fmt.Sprintf(
+		`f=$(mktemp /tmp/invowk-script-XXXXXX 2>/dev/null || echo "/tmp/invowk-script-$$") && trap 'rm -f "$f"' EXIT && printf '%%s' "$1" > "$f" && chmod 0755 "$f" && shift && %s "$f" "$@"`,
+		interpCmd.String(),
+	)
+
+	cmd := make([]string, 0, 5+len(positionalArgs))
+	cmd = append(cmd, defaultContainerShellPath, "-c", shellBody, "invowk", script)
+	cmd = append(cmd, positionalArgs...)
+	return cmd
+}
+
+//goplint:ignore -- internal POSIX shell argument quoting helper.
+func shellSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+func workspaceSELinuxMode(label invowkfile.WorkspaceMountSELinuxLabel) container.VolumeMountSELinuxMode {
+	switch label {
+	case invowkfile.WorkspaceMountSELinuxShared:
+		return container.VolumeMountSELinuxShared
+	case invowkfile.WorkspaceMountSELinuxPrivate:
+		return container.VolumeMountSELinuxPrivate
+	case invowkfile.WorkspaceMountSELinuxNone:
+		return container.VolumeMountSELinuxNone
+	case invowkfile.WorkspaceMountSELinuxAuto:
+		return container.VolumeMountSELinuxAuto
+	default:
+		return container.VolumeMountSELinuxAuto
+	}
 }
 
 // getContainerWorkDir determines the working directory for container execution.
-// Uses the hierarchical override model (CLI > Implementation > Command > Root > Default).
-// The invowkfile directory is mounted at /workspace, so relative paths are mapped there.
-func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir string) string {
-	// Get the effective workdir using the standard resolution logic
-	// Note: ctx.WorkDir is the CLI override passed through ExecutionContext
-	effectiveWorkDir := ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
-
-	// If no workdir was specified at any level, default to /workspace
-	if string(effectiveWorkDir) == invowkDir {
-		return containerWorkspaceRoot
+// Uses the hierarchical override model (CLI > Implementation > Command > Root > Default)
+// mapped strictly onto mounted container paths.
+func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir string) (string, error) {
+	if ctx == nil || ctx.Invowkfile == nil {
+		return "", errors.New("execution context and invowkfile are required")
 	}
-
-	// If it's an absolute path, use it directly in the container
-	if filepath.IsAbs(string(effectiveWorkDir)) {
-		// Check if the path is inside the invowkfile directory (mounted at /workspace)
-		relPath, err := filepath.Rel(invowkDir, string(effectiveWorkDir))
-		if err == nil && relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
-			// Path is within invowkfile dir - map to /workspace
-			return containerWorkspacePrefix + filepath.ToSlash(relPath)
-		}
-		// Path is outside invowkfile dir - use as-is (must exist in container or be a mounted path)
-		return string(effectiveWorkDir)
+	rtConfig := selectedRuntimeConfig(ctx)
+	if rtConfig == nil {
+		rtConfig = &invowkfile.RuntimeConfig{}
 	}
-	if isContainerAbsolutePath(effectiveWorkDir) {
-		return string(effectiveWorkDir)
+	plan, err := resolveContainerMountPlanForDir(ctx, rtConfig, invowkDir)
+	if err != nil {
+		return "", err
 	}
-
-	// Relative path - join with /workspace
-	return containerWorkspacePrefix + filepath.ToSlash(string(effectiveWorkDir))
-}
-
-func isContainerAbsolutePath(path types.FilesystemPath) bool {
-	return strings.HasPrefix(path.String(), "/")
+	return string(plan.WorkDir), nil
 }
