@@ -477,7 +477,11 @@ func TestContainerRuntime_ScriptDecouplingAndSELinuxOptions(t *testing.T) {
 		if !slices.Contains(runOpts.Command, "/.invowk/scripts/run.py") {
 			t.Errorf("Command = %v, want /.invowk/scripts/run.py", runOpts.Command)
 		}
-		expectedScriptVol := container.VolumeMountSpec(filepath.ToSlash(scriptFile) + ":/.invowk/scripts/run.py:ro")
+		resolvedScriptFile, err := filepath.EvalSymlinks(scriptFile)
+		if err != nil {
+			t.Fatalf("EvalSymlinks(%q): %v", scriptFile, err)
+		}
+		expectedScriptVol := container.VolumeMountSpec(filepath.ToSlash(resolvedScriptFile) + ":/.invowk/scripts/run.py:ro")
 		if !slices.Contains(runOpts.Volumes, expectedScriptVol) {
 			t.Errorf("Volumes = %v, want %q", runOpts.Volumes, expectedScriptVol)
 		}
