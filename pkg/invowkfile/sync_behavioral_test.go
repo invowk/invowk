@@ -24,9 +24,12 @@ func TestBehavioralSync_CapabilityName(t *testing.T) {
 			{"internet", true, true, ""},
 			{"containers", true, true, ""},
 			{"tty", true, true, ""},
+			{"elevated", true, true, ""},
+			{"unprivileged", true, true, ""},
 			{"gpu", false, false, ""},
 			{"", false, false, ""},
 			{"TTY", false, false, ""},
+			{"ELEVATED", false, false, ""},
 		},
 	)
 }

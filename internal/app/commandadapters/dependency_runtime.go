@@ -159,6 +159,10 @@ func capabilityCheckScript(capName invowkfile.CapabilityName) containerValidatio
 		return "ip route 2>/dev/null | grep -q default || route -n 2>/dev/null | grep -q '^0.0.0.0'"
 	case invowkfile.CapabilityTTY:
 		return "test -t 0"
+	case invowkfile.CapabilityElevated:
+		return `test "$(id -u)" -eq 0`
+	case invowkfile.CapabilityUnprivileged:
+		return `test "$(id -u)" -ne 0`
 	default:
 		return ""
 	}

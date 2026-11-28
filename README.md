@@ -780,6 +780,8 @@ depends_on: {
 | `internet` | Checks for internet connectivity |
 | `containers` | Checks that Docker or Podman is installed and responding |
 | `tty` | Checks that invowk is running in an interactive TTY |
+| `elevated` | Checks for elevated/root privileges (`euid == 0` on Unix; elevated token on Windows) |
+| `unprivileged` | Checks for non-elevated/non-root privileges (negation of `elevated`) |
 
 ### Custom Check Dependencies
 
@@ -3149,7 +3151,7 @@ These codes are `audit`'s exception to the general [exit-code contract](#exit-co
 
 ### What Gets Scanned
 
-The audit scanner runs 7 built-in security checkers concurrently:
+The audit scanner runs 8 built-in security checkers concurrently:
 
 | Checker | Category | What It Detects |
 |---------|----------|-----------------|
@@ -3160,6 +3162,7 @@ The audit scanner runs 7 built-in security checkers concurrently:
 | **Lock File** | integrity | Hash mismatches, orphaned/missing entries, ambiguous entries, lock-file version format issues, tamper detection |
 | **Symlink** | path-traversal | Any symlink in a module directory, symlinks pointing outside module boundaries, symlink chains, dangling or unreadable symlinks, incomplete directory walks |
 | **Module Metadata** | trust | Typosquatting detection (Levenshtein distance), excessive fan-out, missing version pins, undeclared transitive dependencies, vendored modules missing from `requires`, module invowkfile parse failures, global module trust |
+| **Privilege** | integrity | World-writable (`0o002`, High) and shared-group-writable (`0o020` UPG-aware, Medium) definitions, script files, and dotenv files referenced by `elevated` commands |
 
 ### Compound Threat Detection
 
@@ -3364,7 +3367,7 @@ invowk/
 │   ├── core/serverbase/        # Shared server state machine base
 │   ├── discovery/              # Invowkfile and module discovery
 │   ├── acpclient/              # Dormant internal ACP client foundation (not wired into CLI/docs)
-│   ├── audit/                  # Security scanning (7 checkers + LLM + correlator)
+│   ├── audit/                  # Security scanning (8 checkers + LLM + correlator)
 │   ├── auditllm/               # Shared LLM provider/API adapters for audit and agent authoring
 │   ├── agentcmd/               # LLM-assisted command and local-module authoring pipeline
 │   ├── basedir/                # Per-user base directory resolution (HOME, XDG, AppData)

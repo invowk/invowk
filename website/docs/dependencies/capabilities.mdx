@@ -16,6 +16,8 @@ Capability dependencies verify that required system capabilities are available b
 | `internet` | Checks for internet connectivity |
 | `containers` | Checks that Docker or Podman is installed and responding |
 | `tty` | Checks that Invowk is running in an interactive TTY |
+| `elevated` | Checks for elevated/root privileges (`os.Geteuid() == 0` on Unix; elevated process token on Windows) |
+| `unprivileged` | Checks that Invowk is running without elevated/root privileges (negation of `elevated`) |
 
 ## Basic Usage
 
@@ -92,6 +94,25 @@ This checks:
 ### Use Cases
 
 Use this for interactive prompts, TUI components, or scripts that require keyboard input.
+
+## Privilege Separation (`elevated` / `unprivileged`)
+
+Require or forbid root/elevated execution declaratively:
+
+<Snippet id="dependencies/capabilities-privilege" />
+
+- **`elevated`**: passes on Unix when effective UID is `0`, and on Windows when the current process token is elevated. Inside container `runtime.depends_on`, probes `test "$(id -u)" -eq 0`.
+- **`unprivileged`**: passes iff `elevated` fails (on Unix, effective UID is non-zero; inside containers, `test "$(id -u)" -ne 0`).
+
+Declared capabilities are shown in both `invowk cmd <name> --help` and `invowk cmd <name> --ivk-dry-run` under `Required Capabilities:`. When `invowk audit` scans commands declaring `elevated`, it also checks that `invowkfile.cue`, `invowkmod.cue`, and referenced `script.file` or `env.files` are not world-writable or shared-group-writable on Unix.
+
+:::info No built-in privilege elevation
+Invowk intentionally does not invoke `sudo` or synthesize an `INVOWK_INVOKING_USER` variable. Run `invowk` under your chosen privilege tool (`sudo`, `doas`, `run0`, `pkexec`, or an elevated Windows shell) when `elevated` is required; scripts that inspect `SUDO_USER` can read it directly via standard environment inheritance.
+:::
+
+:::note Container UID defaults
+Container images often run as UID `0` by default unless configured with `USER` or rootless UID mapping. `runtime.depends_on.capabilities` checks the UID inside the container.
+:::
 
 ## Alternatives (OR Semantics)
 

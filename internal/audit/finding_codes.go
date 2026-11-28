@@ -65,4 +65,6 @@ const (
 	codeCorrelatorMultipleCategories         FindingCode = "correlator-multiple-categories"
 	codeCorrelatorHighPlusOther              FindingCode = "correlator-high-plus-other"
 	codeCorrelatorMediumPlusMedium           FindingCode = "correlator-medium-plus-medium"
+	codePrivilegeWorldWritableFile           FindingCode = "privilege-integrity-elevated-command-uses-world-writable-file"
+	codePrivilegeGroupWritableFile           FindingCode = "privilege-integrity-elevated-command-uses-group-writable-file"
 )

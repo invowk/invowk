@@ -225,6 +225,10 @@ func (dependencyCapabilityChecker) Check(ctx context.Context, ioCtx deps.IOConte
 		return checkContainers(ctx)
 	case invowkfile.CapabilityTTY:
 		return checkTTY(ioCtx)
+	case invowkfile.CapabilityElevated:
+		return checkElevated()
+	case invowkfile.CapabilityUnprivileged:
+		return checkUnprivileged()
 	default:
 		return &invowkfile.CapabilityError{
 			Capability: capability,
@@ -382,6 +386,28 @@ func checkTTY(ioCtx deps.IOContext) error {
 	return &invowkfile.CapabilityError{
 		Capability: invowkfile.CapabilityTTY,
 		Message:    "not running in an interactive TTY (stdin/stdout)",
+	}
+}
+
+// checkElevated checks whether the current process has elevated/root privileges.
+func checkElevated() error {
+	if isProcessElevated() {
+		return nil
+	}
+	return &invowkfile.CapabilityError{
+		Capability: invowkfile.CapabilityElevated,
+		Message:    "command requires elevated/root privileges",
+	}
+}
+
+// checkUnprivileged checks whether the current process runs without elevated/root privileges.
+func checkUnprivileged() error {
+	if !isProcessElevated() {
+		return nil
+	}
+	return &invowkfile.CapabilityError{
+		Capability: invowkfile.CapabilityUnprivileged,
+		Message:    "command must not run with elevated/root privileges",
 	}
 }
 

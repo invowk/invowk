@@ -17,6 +17,10 @@ const (
 	CapabilityContainers CapabilityName = "containers"
 	// CapabilityTTY checks if invowk is running in an interactive TTY
 	CapabilityTTY CapabilityName = "tty"
+	// CapabilityElevated checks for elevated/root privileges (euid 0 on Unix; elevated token on Windows)
+	CapabilityElevated CapabilityName = "elevated"
+	// CapabilityUnprivileged checks for non-elevated/non-root privileges (negation of elevated)
+	CapabilityUnprivileged CapabilityName = "unprivileged"
 
 	// DefaultCapabilityTimeout is the default timeout for capability checks
 	DefaultCapabilityTimeout = 5 * time.Second
@@ -47,7 +51,7 @@ type (
 
 // Error implements the error interface for InvalidCapabilityNameError.
 func (e *InvalidCapabilityNameError) Error() string {
-	return fmt.Sprintf("invalid capability name %q (valid: local-area-network, internet, containers, tty)", e.Value)
+	return fmt.Sprintf("invalid capability name %q (valid: local-area-network, internet, containers, tty, elevated, unprivileged)", e.Value)
 }
 
 // Unwrap returns the sentinel error for errors.Is() compatibility.
@@ -67,7 +71,8 @@ func (c CapabilityName) String() string { return string(c) }
 // or a validation error if it is not.
 func (c CapabilityName) Validate() error {
 	switch c {
-	case CapabilityLocalAreaNetwork, CapabilityInternet, CapabilityContainers, CapabilityTTY:
+	case CapabilityLocalAreaNetwork, CapabilityInternet, CapabilityContainers, CapabilityTTY,
+		CapabilityElevated, CapabilityUnprivileged:
 		return nil
 	default:
 		return &InvalidCapabilityNameError{Value: c}
@@ -81,5 +86,7 @@ func ValidCapabilityNames() []CapabilityName {
 		CapabilityInternet,
 		CapabilityContainers,
 		CapabilityTTY,
+		CapabilityElevated,
+		CapabilityUnprivileged,
 	}
 }

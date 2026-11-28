@@ -181,6 +181,7 @@ The Go scanner already handles all of these deterministically
 | LuaChecker | virtual-lua disabled API references, bridge env reads, host-binary opt-outs, network-capable host binaries, and full virtual filesystem access | `checks_lua.go` |
 | SymlinkChecker | Symlinks, boundary escapes, dangling, chains | `checks_symlink.go` |
 | ModuleMetadataChecker | Dependency fan-out (>5 direct requires), typosquatting, global trust, version pinning, undeclared transitive or vendored modules, invowkfile parse failure | `checks_module.go` |
+| PrivilegeChecker | World-writable (`0o002`, High) and UPG-aware shared-group-writable (`0o020`, Medium) `invowkfile.cue`, `invowkmod.cue`, `script.file`, and `env.files` for `elevated` commands | `checks_privilege.go` |
 | Correlator | Compound threat escalation from the current rule set | `correlator.go`, `correlator_constants.go` |
 
 `LLMChecker` (`checks_llm.go`) is opt-in: `--llm` or `--llm-provider` adds it

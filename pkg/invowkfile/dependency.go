@@ -222,7 +222,7 @@ type (
 	CapabilityDependency struct {
 		// Alternatives is a list of capability identifiers where any match satisfies the dependency
 		// If any of the provided capabilities is available, the validation succeeds (early return).
-		// Available capabilities: "local-area-network", "internet", "containers", "tty"
+		// Available capabilities: "local-area-network", "internet", "containers", "tty", "elevated", "unprivileged"
 		Alternatives []CapabilityName `json:"alternatives"`
 	}
 

@@ -367,7 +367,7 @@ import "strings"
 })
 
 // CapabilityName defines the supported system capability types
-#CapabilityName: "local-area-network" | "internet" | "containers" | "tty"
+#CapabilityName: "local-area-network" | "internet" | "containers" | "tty" | "elevated" | "unprivileged"
 
 // CapabilityDependency represents a system capability that must be available
 #CapabilityDependency: close({
@@ -378,6 +378,8 @@ import "strings"
 	//   - "internet": checks for working Internet connectivity
 	//   - "containers": checks for Docker or Podman availability
 	//   - "tty": checks for interactive TTY availability
+	//   - "elevated": checks for elevated/root privileges (effective UID 0 on Unix; elevated token on Windows)
+	//   - "unprivileged": checks for non-elevated/non-root privileges (negation of elevated)
 	alternatives: [...#CapabilityName] & [_, ...]
 })
 

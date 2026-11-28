@@ -172,6 +172,10 @@ type (
 		LuaMemoryLimit invowkfile.MemoryLimit
 		// Env contains projected execution environment variables.
 		Env map[string]string //goplint:ignore -- environment maps are stringly typed by os/exec and container APIs.
+		// HostCapabilities lists declared host depends_on.capabilities (merged root + command + implementation).
+		HostCapabilities []invowkfile.CapabilityDependency
+		// RuntimeCapabilities lists declared container runtime depends_on.capabilities for the selected runtime.
+		RuntimeCapabilities []invowkfile.CapabilityDependency
 		// DependencyValidationSkipped is true because dry-run mode does not
 		// execute dependency checks.
 		DependencyValidationSkipped bool

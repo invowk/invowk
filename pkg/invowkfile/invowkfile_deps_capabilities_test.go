@@ -769,3 +769,57 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 		t.Errorf("re-parsed invowkfile failed validation: %v", errs)
 	}
 }
+
+func TestParseDependsOn_WithPrivilegeCapabilities(t *testing.T) {
+	t.Parallel()
+
+	cueContent := `
+cmds: [
+	{
+		name: "install"
+		implementations: [{
+			script: {content: "echo install"}
+			runtimes: [{name: "native"}]
+			platforms: [{name: "linux"}]
+		}]
+		depends_on: {
+			capabilities: [{alternatives: ["elevated"]}]
+		}
+	},
+	{
+		name: "check"
+		implementations: [{
+			script: {content: "echo check"}
+			runtimes: [{name: "native"}]
+			platforms: [{name: "linux"}]
+		}]
+		depends_on: {
+			capabilities: [{alternatives: ["unprivileged"]}]
+		}
+	},
+]
+`
+
+	invowkfilePath := filepath.Join(t.TempDir(), "invowkfile.cue")
+	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+		t.Fatalf("Failed to write invowkfile: %v", writeErr)
+	}
+
+	inv, err := Parse(FilesystemPath(invowkfilePath))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if len(inv.Commands) != 2 {
+		t.Fatalf("Expected 2 commands, got %d", len(inv.Commands))
+	}
+	if got := inv.Commands[0].DependsOn.Capabilities[0].Alternatives[0]; got != CapabilityElevated {
+		t.Errorf("command[0] capability = %q, want %q", got, CapabilityElevated)
+	}
+	if got := inv.Commands[1].DependsOn.Capabilities[0].Alternatives[0]; got != CapabilityUnprivileged {
+		t.Errorf("command[1] capability = %q, want %q", got, CapabilityUnprivileged)
+	}
+	if errs := inv.Validate(); errs.HasErrors() {
+		t.Errorf("parsed invowkfile failed validation: %v", errs)
+	}
+}

@@ -113,6 +113,34 @@ export const dependenciesSnippets = {
 }`,
   },
 
+  'dependencies/capabilities-privilege': {
+    language: 'cue',
+    code: `cmds: [
+    {
+        name: "check"
+        depends_on: {
+            capabilities: [{alternatives: ["unprivileged"]}]
+        }
+        implementations: [{
+            script: {content: "echo 'Running diagnostics as non-root user'"}
+            runtimes:  [{name: "virtual-sh"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }]
+    },
+    {
+        name: "install"
+        depends_on: {
+            capabilities: [{alternatives: ["elevated"]}]
+        }
+        implementations: [{
+            script: {content: "echo 'Applying privileged system configuration'"}
+            runtimes:  [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    },
+]`,
+  },
+
   'dependencies/env-vars-basic': {
     language: 'cue',
     code: `depends_on: {

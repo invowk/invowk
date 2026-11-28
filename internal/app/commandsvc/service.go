@@ -251,8 +251,12 @@ func newDryRunPlan(
 			plan.BinaryLookupMode = rtConfig.BinaryLookupMode
 			plan.LuaCPULimit = rtConfig.CPULimit
 			plan.LuaMemoryLimit = rtConfig.MemoryLimit
+			if rtConfig.DependsOn != nil {
+				plan.RuntimeCapabilities = slices.Clone(rtConfig.DependsOn.Capabilities)
+			}
 		}
 	}
+	plan.HostCapabilities = collectMergedHostCapabilities(cmdInfo, impl)
 	if hasScriptAnalysis {
 		plan.ScriptInterpreter = scriptAnalysis
 	}
@@ -265,6 +269,26 @@ func newDryRunPlan(
 	plan.PersistentContainerNameSource = persistentPlan.NameSource().String()
 	plan.PersistentContainerCreateIfMissing = persistentPlan.CreateIfMissing()
 	return plan, nil
+}
+
+func collectMergedHostCapabilities(cmdInfo *discovery.CommandInfo, impl *invowkfile.Implementation) []invowkfile.CapabilityDependency {
+	var rootDeps, cmdDeps, implDeps *invowkfile.DependsOn
+	if cmdInfo != nil {
+		if cmdInfo.Invowkfile != nil {
+			rootDeps = cmdInfo.Invowkfile.DependsOn
+		}
+		if cmdInfo.Command != nil {
+			cmdDeps = cmdInfo.Command.DependsOn
+		}
+	}
+	if impl != nil {
+		implDeps = impl.DependsOn
+	}
+	mergedDeps := invowkfile.MergeDependsOnAll(rootDeps, cmdDeps, implDeps)
+	if mergedDeps == nil || len(mergedDeps.Capabilities) == 0 {
+		return nil
+	}
+	return slices.Clone(mergedDeps.Capabilities)
 }
 
 func newPersistentContainerPlan(execCtx *runtime.ExecutionContext, impl *invowkfile.Implementation) (containerplan.PersistentPlan, error) {

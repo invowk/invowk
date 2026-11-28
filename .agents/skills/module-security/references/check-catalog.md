@@ -26,6 +26,7 @@ obfuscation table and titles held in constants (`reverseShellFindingTitle`,
 - [Virtual Lua Risks](#virtual-lua-risks) — `checks_lua.go`
 - [Symlink Detection](#symlink-detection) — `checks_symlink.go`
 - [Module Metadata Analysis](#module-metadata-analysis) — `checks_module.go`
+- [Privilege File Permissions](#privilege-file-permissions) — `checks_privilege.go`
 - [Finding Correlation Rules](#finding-correlation-rules) — compiled correlator, runs in Phase 1 (`correlator.go`)
 
 ---
@@ -204,6 +205,19 @@ reported by the checker.
 | Undeclared transitive deps | Vendored modules' requires missing from the root `requires` | `checkUndeclaredTransitive` via `invowkmod.CheckMissingVendoredTransitiveDeps` (the same `MissingTransitiveDepDiagnostic` that `invowk module sync` reports through `MissingTransitiveDepError`) | Medium | "Transitive dependency not declared in root invowkmod.cue" |
 | Undeclared vendored module | A module in `invowk_modules/` with no matching `requires` entry | Lock identity when a lock exists, source ID otherwise | Medium | "Vendored module not declared in requires" |
 | Version pinning | Constraints that accept any version (`""`, `*`, `>=0.0.0`, `>0`, …) | `unpinnedVersions` set | Low | "Module dependency has no version constraint" |
+
+---
+
+## Privilege File Permissions
+
+**Checker:** `PrivilegeChecker`
+
+Inspects root, command, and implementation `depends_on.capabilities` for `"elevated"` and checks `invowkfile.cue`, `invowkmod.cue`, `script.file`, and `env.files` permissions on Unix (`checks_privilege_unix.go`; no-op on Windows in `checks_privilege_windows.go`).
+
+| Check | What | How | Severity | Finding |
+|-------|------|-----|----------|---------|
+| World-writable file | `mode & 0o002 != 0` on definition, script, or env file used by an `elevated` command | `os.Stat` + mode mask | High | "Elevated command references world-writable file" |
+| Shared-group-writable file | `mode & 0o020 != 0` when group is not a single-user private group (UPG: `uid == gid` with no other members in `/etc/passwd` or `/etc/group`) | `syscall.Stat_t` + UPG check | Medium | "Elevated command references shared-group-writable file" |
 
 ---
 

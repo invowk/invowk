@@ -325,3 +325,41 @@ func TestRenderDryRun_EphemeralContainer(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderDryRun_Capabilities(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	plan := commandsvc.DryRunPlan{
+		CommandName: "install",
+		SourceID:    "invowkfile",
+		Runtime:     invowkfile.RuntimeContainer,
+		Platform:    invowkfile.PlatformLinux,
+		Script:      invowkfile.ImplementationScript{Content: "echo install"},
+		HostCapabilities: []invowkfile.CapabilityDependency{
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityElevated}},
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityInternet, invowkfile.CapabilityLocalAreaNetwork}},
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityElevated}},
+		},
+		RuntimeCapabilities: []invowkfile.CapabilityDependency{
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityUnprivileged}},
+		},
+	}
+
+	renderDryRun(&buf, plan)
+	out := buf.String()
+
+	for _, token := range []string{
+		"Required Capabilities:",
+		"elevated",
+		"internet | local-area-network",
+		"container: unprivileged",
+	} {
+		if !strings.Contains(out, token) {
+			t.Fatalf("renderDryRun output missing %q:\n%s", token, out)
+		}
+	}
+	if count := strings.Count(out, "    elevated\n"); count != 1 {
+		t.Fatalf("expected deduplicated elevated line count 1, got %d:\n%s", count, out)
+	}
+}

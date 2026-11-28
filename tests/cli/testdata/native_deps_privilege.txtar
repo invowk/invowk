@@ -1,0 +1,87 @@
+# Test: Privilege capabilities (elevated / unprivileged) in native runtime
+# Mirrors virtual_deps_privilege.txtar with platform-split native implementations.
+
+cd $WORK
+
+# Test 1: --help displays Required Capabilities uniformly
+exec invowk cmd install-elevated --help
+stdout 'Required Capabilities:'
+stdout 'elevated'
+
+exec invowk cmd check-unprivileged --help
+stdout 'Required Capabilities:'
+stdout 'unprivileged'
+
+# Test 2: --ivk-dry-run displays Required Capabilities without running dep checks
+exec invowk cmd install-elevated --ivk-dry-run
+stdout 'Dry Run'
+stdout 'Required Capabilities:'
+stdout 'elevated'
+
+exec invowk cmd check-unprivileged --ivk-dry-run
+stdout 'Dry Run'
+stdout 'Required Capabilities:'
+stdout 'unprivileged'
+
+# Test 3: Runtime capability enforcement matches current process privilege
+[!elevated] exec invowk cmd check-unprivileged
+[!elevated] stdout 'unprivileged ok'
+[!elevated] ! stderr .
+
+[!elevated] ! exec invowk cmd install-elevated
+[!elevated] ! stdout .
+[!elevated] stderr '(?i)dependencies not satisfied'
+[!elevated] stderr 'Missing Capabilities'
+[!elevated] stderr 'elevated'
+
+[elevated] exec invowk cmd install-elevated
+[elevated] stdout 'elevated ok'
+[elevated] ! stderr .
+
+[elevated] ! exec invowk cmd check-unprivileged
+[elevated] ! stdout .
+[elevated] stderr '(?i)dependencies not satisfied'
+[elevated] stderr 'Missing Capabilities'
+[elevated] stderr 'unprivileged'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "install-elevated"
+		description: "Requires elevated privileges"
+		depends_on: {
+			capabilities: [{alternatives: ["elevated"]}]
+		}
+		implementations: [
+			{
+				script: {content: "echo 'elevated ok'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: "Write-Output 'elevated ok'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "check-unprivileged"
+		description: "Requires unprivileged execution"
+		depends_on: {
+			capabilities: [{alternatives: ["unprivileged"]}]
+		}
+		implementations: [
+			{
+				script: {content: "echo 'unprivileged ok'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: "Write-Output 'unprivileged ok'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
