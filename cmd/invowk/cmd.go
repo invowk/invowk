@@ -370,6 +370,9 @@ func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 	result, diags, err := app.Commands.Execute(reqCtx, req)
 	app.Diagnostics.Render(reqCtx, diags, app.errUI())
 	if err != nil {
+		if isSignalCancelledContext(reqCtx, err) {
+			return err
+		}
 		if svcErr, ok := errors.AsType[*ServiceError](err); ok {
 			renderServiceError(app.errUI(), svcErr, app.glamourStyle(reqCtx, &rootFlagValues{configPath: string(req.ConfigPath)}))
 		}

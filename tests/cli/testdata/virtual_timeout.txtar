@@ -4,8 +4,8 @@
 
 cd $WORK
 
-# Test 1: command with 1s timeout and a 60s sleep is killed
-! exec invowk cmd slow
+# Test 1: command with 1s timeout and a 60s sleep is killed with exit status 1
+exitcode 1 invowk cmd slow
 ! stdout .
 stderr '(?i)timed out'
 

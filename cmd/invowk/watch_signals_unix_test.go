@@ -73,4 +73,51 @@ func TestWatchShutdownSignalChannel(t *testing.T) {
 			t.Fatal("preserveResume() = true on parent cancel, want false")
 		}
 	})
+
+	t.Run("tracked parent SIGTERM preserves resume without race", func(t *testing.T) {
+		t.Parallel()
+
+		for range 20 {
+			sigCh := make(chan os.Signal, 1)
+			parentCtx, stopParent, _ := notifyTerminationSignalChannel(t.Context(), sigCh, nil)
+			watchCtx, stopWatch, preserve := watchShutdownSignals(parentCtx)
+
+			sigCh <- syscall.SIGTERM
+
+			select {
+			case <-watchCtx.Done():
+			case <-time.After(2 * time.Second):
+				stopWatch()
+				stopParent()
+				t.Fatal("timed out waiting for watch context cancellation on tracked SIGTERM")
+			}
+			stopWatch()
+			stopParent()
+			if !preserve() {
+				t.Fatal("preserveResume() = false after tracked SIGTERM, want true")
+			}
+		}
+	})
+
+	t.Run("tracked parent SIGINT clears resume record", func(t *testing.T) {
+		t.Parallel()
+
+		sigCh := make(chan os.Signal, 1)
+		parentCtx, stopParent, _ := notifyTerminationSignalChannel(t.Context(), sigCh, nil)
+		defer stopParent()
+		watchCtx, stopWatch, preserve := watchShutdownSignals(parentCtx)
+		defer stopWatch()
+
+		sigCh <- os.Interrupt
+
+		select {
+		case <-watchCtx.Done():
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for watch context cancellation on tracked SIGINT")
+		}
+		stopWatch()
+		if preserve() {
+			t.Fatal("preserveResume() = true after tracked SIGINT, want false")
+		}
+	})
 }

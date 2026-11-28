@@ -743,12 +743,13 @@ Show help for any command.
 
 ## Exit Codes
 
-Invowk uses four exit-code classes:
+Invowk uses these exit-code classes:
 
 | Code | Meaning |
 |------|---------|
 | `0` | The invocation succeeded. A bare command group (for example `invowk module` or `invowk cmd test`) prints its help and exits `0`. |
 | `N` | A user-defined command ran and exited with its own non-zero status `N`, forwarded unchanged for every runtime. |
+| `128 + signal` | On Unix, Invowk terminated because it received a trapped termination signal (`129` `SIGHUP`, `130` `SIGINT`, `143` `SIGTERM`) after bounded resource cleanup, except where a built-in defines another code (such as `invowk tui spin`). |
 | `2` | Invowk rejected the command line before running any user command code. |
 | `1` | Invowk itself failed for any other reason. |
 
@@ -763,7 +764,9 @@ Exit status `2` covers:
 - an `invowk agent` error detected from the command line alone, such as an invalid name, mutually exclusive flags, a missing description, an invalid `--llm-*` value, or an unknown prompt format or operation;
 - a conflict decided by flags and environment variables alone: an invalid `INVOWK_NO_CWD` value, `--ivk-watch` together with `--ivk-dry-run`, `invowk config set` while `--ivk-config` or `INVOWK_CONFIG` is active, and `invowk agent cmd create`/`change --verify` under `--ivk-no-cwd` or `INVOWK_NO_CWD`.
 
-Exit status `1` covers everything else: config errors that abort the command, including a config file named by `--ivk-config` or `INVOWK_CONFIG` that is missing or invalid, or a relative `INVOWK_CONFIG`; discovery errors; invalid invowkfiles or command trees, including a command that is not found while an invowkfile or module was skipped because it failed to parse or load (the command may be defined there; the error names each skipped source and its diagnostic code, and a miss inside an `@source` or `--ivk-from` source that loaded still exits `2`); unsatisfied `depends_on` checks; an unsupported host platform; an unavailable container engine or runtime; timeouts and cancellations; and `invowk agent` failures that need files, the config or an LLM.
+Exit status `1` covers everything else: config errors that abort the command, including a config file named by `--ivk-config` or `INVOWK_CONFIG` that is missing or invalid, or a relative `INVOWK_CONFIG`; discovery errors; invalid invowkfiles or command trees, including a command that is not found while an invowkfile or module was skipped because it failed to parse or load (the command may be defined there; the error names each skipped source and its diagnostic code, and a miss inside an `@source` or `--ivk-from` source that loaded still exits `2`); unsatisfied `depends_on` checks; an unsupported host platform; an unavailable container engine or runtime; command timeouts (`timeout`) and non-signal cancellations; and `invowk agent` failures that need files, the config or an LLM.
+
+On Unix, trapped termination signals (`SIGHUP` = 1, `SIGINT` = 2, `SIGTERM` = 15) cancel the active execution context, clean up temporary scripts, terminate non-TTY native child process groups, and stop/remove ephemeral containers within a bounded cleanup window before exiting with `128 + signal` (`129`, `130`, `143`). Direct controlling-TTY native runs stay in the terminal's foreground process group so interactive prompts do not block on `SIGTTIN`/`SIGTTOU`. On Windows, `Ctrl+C` (`os.Interrupt`) cancels the execution context, cleans up resources, and exits with status `1`.
 
 Per-command exceptions:
 

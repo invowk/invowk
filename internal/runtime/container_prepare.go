@@ -66,6 +66,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		return &PreparedCommand{Cmd: cmd, Cleanup: prep.cleanup}, nil
 	}
 
+	ephemName := r.newEphemeralContainerName(ctx)
 	runOpts := container.RunOptions{
 		Image:       prep.image,
 		Command:     prep.shellCmd,
@@ -74,6 +75,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		Volumes:     prep.volumes,
 		Ports:       prep.ports,
 		Remove:      true, // Always remove after execution
+		Name:        ephemName,
 		Interactive: true, // Enable -i for PTY
 		TTY:         true, // Enable -t for PTY
 		ExtraHosts:  prep.extraHosts,
@@ -82,11 +84,13 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		NetworkMode: ctx.TUI.NetworkMode,
 	}
 	if validateErr := runOpts.Validate(); validateErr != nil {
+		prep.cleanup()
 		return nil, fmt.Errorf("container run options: %w", validateErr)
 	}
 
 	preparer, ok := r.engine.(container.CommandPreparer)
 	if !ok {
+		prep.cleanup()
 		return nil, errors.New("container engine does not support interactive command preparation")
 	}
 	cmd, runCleanup, err := preparer.PrepareRunCommand(ctx.Context, runOpts)
@@ -94,7 +98,10 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		prep.cleanup()
 		return nil, err
 	}
-	return &PreparedCommand{Cmd: cmd, Cleanup: combinePreparedCleanups(runCleanup, prep.cleanup)}, nil
+	ephemCancelCleanup := func() {
+		r.cleanupCancelledEphemeralContainer(ctx.Context, ephemName)
+	}
+	return &PreparedCommand{Cmd: cmd, Cleanup: combinePreparedCleanups(runCleanup, ephemCancelCleanup, prep.cleanup)}, nil
 }
 
 func combinePreparedCleanups(cleanups ...func()) func() {

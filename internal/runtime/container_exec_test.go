@@ -207,7 +207,7 @@ func TestRunWithRetry_StderrFlushedOnExhaustion(t *testing.T) {
 		Stderr:  &originalStderr,
 	}
 
-	result, err := rt.runWithRetry(t.Context(), opts)
+	result, _, err := rt.runWithRetry(t.Context(), opts)
 	// runWithRetry should return the last result (not an error) when retries
 	// exhaust due to transient exit codes (not transient errors).
 	if err != nil {
@@ -262,7 +262,7 @@ func TestRunWithRetry_StderrFlushedOnSuccess(t *testing.T) {
 		Stderr:  &originalStderr,
 	}
 
-	result, err := rt.runWithRetry(t.Context(), opts)
+	result, _, err := rt.runWithRetry(t.Context(), opts)
 	if err != nil {
 		t.Fatalf("runWithRetry() returned unexpected error: %v", err)
 	}
@@ -314,7 +314,7 @@ func TestRunWithRetry_StderrNotLeakedOnTransientRetry(t *testing.T) {
 		Stderr:  &originalStderr,
 	}
 
-	result, err := rt.runWithRetry(t.Context(), opts)
+	result, _, err := rt.runWithRetry(t.Context(), opts)
 	if err != nil {
 		t.Fatalf("runWithRetry() returned unexpected error: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestRunWithRetry_ContextCancelled(t *testing.T) {
 		Stderr:  &originalStderr,
 	}
 
-	_, err := rt.runWithRetry(ctx, opts)
+	_, _, err := rt.runWithRetry(ctx, opts)
 	if err == nil {
 		t.Fatal("runWithRetry() should return error when context is cancelled")
 	}

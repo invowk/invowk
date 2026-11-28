@@ -278,7 +278,7 @@ An `--ivk-env-var` value SHALL have the form `KEY=VALUE` with a non-empty `KEY`.
 - **THEN** the command SHALL run with `FOO` set to the empty string
 
 ### Requirement: Non-usage failures exit with status 1
-Invowk SHALL exit with status 1 for failures that do not come from the shape of the command line, for example config parse errors that abort the command, discovery errors, invalid invowkfiles or command trees, unsatisfied `depends_on` checks, an unsupported host platform, an unavailable container engine or runtime, command timeout or cancellation, and any error without a more specific mapping.
+Invowk SHALL exit with status 1 for non-usage failures (for example config/discovery/invowkfile errors, unsatisfied `depends_on`, unsupported platforms, unavailable runtimes, timeout, or non-signal cancellation). When a Unix `invowk` process terminates from a trapped signal (`SIGINT`, `SIGTERM`, `SIGHUP`), it SHALL exit with `128 + signal` (`130`, `143`, `129`), except where a built-in explicitly defines another code (such as `invowk tui spin`).
 
 #### Scenario: Unsatisfied dependency
 - **WHEN** a command depends on a tool that is not installed and the user runs it
@@ -286,6 +286,10 @@ Invowk SHALL exit with status 1 for failures that do not come from the shape of 
 
 #### Scenario: Invalid command tree
 - **WHEN** an invowkfile declares `args` on a command that also has subcommands, and the user runs `invowk cmd`
+- **THEN** invowk SHALL exit with status 1
+
+#### Scenario: Command timeout exits with status 1
+- **WHEN** a command exceeds its configured `timeout` deadline without an external OS signal
 - **THEN** invowk SHALL exit with status 1
 
 ### Requirement: An unusable explicit config file exits with status 1
@@ -356,7 +360,7 @@ These built-in codes SHALL keep their meanings and SHALL be listed in the exit-c
 
 #### Scenario: tui spin cancelled or ended by a signal exits 1
 - **WHEN** `invowk tui spin` is cancelled with Ctrl+C, or its wrapped command is ended by a signal
-- **THEN** invowk SHALL exit with status 1, as a native `invowk cmd` does
+- **THEN** invowk SHALL exit with status 1
 
 #### Scenario: tui spin whose command outlives the cancellation exits 1
 - **WHEN** the command wrapped by `invowk tui spin` is still running when the bounded wait that follows a cancellation ends
@@ -444,3 +448,10 @@ Usage-error classification and the registration-order fix SHALL NOT change the c
 - **WHEN** the invowkfile defines `w2`, module `m` defines `w2 sub`, and the shell runs `invowk __complete cmd ""`
 - **THEN** the `w2` candidate SHALL carry the leaf's own description
 - **AND** `invowk __complete cmd w2 ""` SHALL list `sub`
+
+### Requirement: Unix termination signals exit with 128 plus signal number
+On Unix platforms, when `invowk` is terminated by a trapped signal (`SIGHUP` = 1, `SIGINT` = 2, `SIGTERM` = 15), the process SHALL exit with status `128 + signal` (`129`, `130`, `143`) after bounded cleanup completes, except for built-ins whose per-command contract specifies status `1` (such as `invowk tui spin`).
+
+#### Scenario: SIGTERM produces exit code 143
+- **WHEN** `invowk cmd long-running` receives `SIGTERM` on Unix
+- **THEN** after cleanup finishes, `invowk` SHALL exit with status `143`
